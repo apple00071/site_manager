@@ -78,10 +78,7 @@ export async function middleware(request: NextRequest) {
 
   // If the user is signed in and tries to access auth pages, redirect to dashboard
   if (session && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup')) {
-    // Don't redirect if there's already a redirectedFrom parameter to prevent loops
-    if (!request.nextUrl.searchParams.has('redirectedFrom')) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   // For admin routes, check if the user is an admin using auth metadata
@@ -91,7 +88,7 @@ export async function middleware(request: NextRequest) {
   );
 
   if (session && isAdminRoute) {
-    const userRole = session.user?.user_metadata?.role || 'employee';
+    const userRole = session.user?.app_metadata?.role || 'employee';
 
     if (userRole !== 'admin') {
       return NextResponse.redirect(new URL('/dashboard', request.url));

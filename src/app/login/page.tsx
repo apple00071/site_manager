@@ -2,163 +2,109 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { supabase } from '@/lib/supabase';
 
-const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
+const LoginSchema = z.object({
+  email: z.string().email('Enter a valid email'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
-type LoginFormValues = z.infer<typeof loginSchema>;
+type LoginFormValues = z.infer<typeof LoginSchema>;
 
 export default function LoginPage() {
-  const { signIn } = useAuth();
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
+  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormValues>({
+    resolver: zodResolver(LoginSchema),
+    mode: 'onBlur',
   });
 
-  const onSubmit = async (data: LoginFormValues) => {
-    setIsLoading(true);
-    setError(null);
-
+  const onSubmit = async (values: LoginFormValues) => {
+    setLoading(true);
+    setServerError(null);
     try {
-      const { data: signInData, error } = await signIn(data.email, data.password);
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values),
+      });
 
-      if (error) {
-
-        // Handle different error types and provide meaningful messages
-        let errorMessage = 'Login failed. Please try again.';
-
-        if (error.message) {
-          errorMessage = error.message;
-        } else if (error.code === 'invalid_credentials') {
-          errorMessage = 'Invalid email or password. Please check your credentials.';
-        } else if (error.code === 'email_not_confirmed') {
-          errorMessage = 'Please confirm your email address before logging in.';
-        } else if (error.code === 'too_many_requests') {
-          errorMessage = 'Too many login attempts. Please try again later.';
-        } else if (error.status === 400) {
-          errorMessage = 'Invalid login credentials. Please check your email and password.';
-        } else if (error.status === 429) {
-          errorMessage = 'Too many login attempts. Please wait before trying again.';
-        }
-
-        setError(errorMessage);
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        setServerError(payload?.error || 'Invalid credentials.');
         return;
       }
 
-      // Check if we have a session after successful sign in
-      if (signInData?.session) {
-        // Get the redirect URL from query params or default to dashboard
-        const searchParams = new URLSearchParams(window.location.search);
-        const redirectTo = searchParams.get('redirectedFrom') || '/dashboard';
-
-        // Add a small delay to ensure authentication state is properly updated
-        setTimeout(() => {
-          window.location.href = redirectTo;
-        }, 100);
-      } else {
-        // If no session, show an error
-        setError('Login successful but no session was established. Please try again.');
-      }
-    } catch (err: any) {
-      setError('Authentication failed. Please try again.');
+      router.replace('/dashboard');
+    } catch (err) {
+      setServerError('Unexpected error. Please try again.');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md space-y-8 p-10 bg-white rounded-xl shadow-md">
-        <div className="text-center">
-          {/* Logo with fallback */}
-          <div className="mb-4 flex justify-center">
-            <div className="relative">
-              <img
-                src="/New-logo.png"
-                alt="Apple Interior Manager"
-                className="h-24 block"
-                onError={(e) => {
-                  // Hide the broken image and show fallback
-                  e.currentTarget.style.display = 'none';
-                  const fallback = e.currentTarget.parentNode?.querySelector('.fallback-logo');
-                  if (fallback) fallback.style.display = 'block';
-                }}
-              />
-              {/* Fallback text logo - hidden by default, shown on error */}
-              <div
-                className="fallback-logo text-2xl font-bold text-indigo-600 text-center"
-                style={{ display: 'none' }}
-              >
-                Apple Interior Manager
-              </div>
-            </div>
-          </div>
-          <h2 className="mt-2 text-2xl font-bold text-gray-900">Sign in to your account</h2>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+      <div className="w-full max-w-md bg-white shadow-sm rounded-xl p-8">
+        <div className="text-center mb-6">
+          <img src="/New-logo.png" alt="Apple Interior Manager" className="h-16 mx-auto" />
+          <h1 className="mt-3 text-2xl font-semibold text-gray-900">Sign in</h1>
+          <p className="text-sm text-gray-500">Access your dashboard</p>
         </div>
 
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-            <p className="text-red-700">{error}</p>
+        {serverError && (
+          <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200">
+            {serverError}
           </div>
         )}
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
-          <div className="space-y-4 rounded-md shadow-sm">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
-              </label>
-              <input
-                id="email"
-                type="email"
-                {...register('email')}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Email address"
-              />
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                {...register('password')}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Password"
-              />
-              {errors.password && (
-                <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
-              )}
-            </div>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
+            <input
+              id="email"
+              type="email"
+              {...register('email')}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="you@example.com"
+              aria-invalid={!!errors.email || undefined}
+              aria-describedby={errors.email ? 'email-error' : undefined}
+            />
+            {errors.email && (
+              <p id="email-error" className="mt-1 text-xs text-red-600">{errors.email.message}</p>
+            )}
           </div>
 
           <div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400"
-            >
-              {isLoading ? 'Signing in...' : 'Sign in'}
-            </button>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+            <input
+              id="password"
+              type="password"
+              {...register('password')}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="••••••••"
+              aria-invalid={!!errors.password || undefined}
+              aria-describedby={errors.password ? 'password-error' : undefined}
+            />
+            {errors.password && (
+              <p id="password-error" className="mt-1 text-xs text-red-600">{errors.password.message}</p>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-md bg-indigo-600 px-4 py-2 text-white text-sm font-medium hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+          >
+            {loading ? 'Signing in…' : 'Sign in'}
+          </button>
+
+          <div className="text-center text-xs text-gray-500 mt-2">
+            By signing in, you agree to our Terms and Privacy Policy.
           </div>
         </form>
       </div>

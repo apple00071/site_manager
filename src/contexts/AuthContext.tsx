@@ -7,6 +7,16 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Session, User } from '@supabase/supabase-js';
 
+// Set to false to disable all debug logs
+const DEBUG_ENABLED = false;
+
+// Debug logger that only logs when enabled
+const debugLog = (...args: any[]) => {
+  if (DEBUG_ENABLED) {
+    console.log(...args);
+  }
+};
+
 type UserWithRole = User & {
   role?: 'admin' | 'employee';
   full_name?: string;
@@ -36,29 +46,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchUserRole = async (userId: string) => {
     // First, let's verify the user ID is valid
     if (!userId) {
-      console.error('No user ID provided to fetchUserRole');
+      if (DEBUG_ENABLED) console.error('No user ID provided to fetchUserRole');
       return null;
     }
 
-    console.log('===== fetchUserRole started =====');
-    console.log('User ID:', userId);
+    debugLog('===== fetchUserRole started =====');
+    debugLog('User ID:', userId);
 
     try {
       // Skip database query for now and go directly to auth metadata
       // This prevents hanging on missing database tables
-      console.log('⚡ Skipping database query, using auth metadata directly...');
+      debugLog('⚡ Skipping database query, using auth metadata directly...');
 
       // Get user from auth metadata
       const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-      console.log('Auth user check:', {
+      debugLog('Auth user check:', {
         hasUser: !!user,
         hasError: !!userError,
         userEmail: user?.email
       });
 
       if (userError) {
-        console.error('❌ Error getting user from auth:', userError);
+        if (DEBUG_ENABLED) console.error('❌ Error getting user from auth:', userError);
         // Return default role even if there's an error
         return {
           role: 'employee',
@@ -68,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (user) {
         const userRole = user.user_metadata?.role || 'employee';
-        console.log('✅ User role from auth metadata:', {
+        debugLog('✅ User role from auth metadata:', {
           id: user.id,
           email: user.email,
           role: userRole,
@@ -82,7 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Return default role if user not found
-      console.warn(`⚠️ User with ID ${userId} not found`);
+      if (DEBUG_ENABLED) console.warn(`⚠️ User with ID ${userId} not found`);
       return {
         role: 'employee',
         full_name: 'User'
@@ -99,7 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         message: String(error)
       };
 
-      console.error('💥 Unexpected error in fetchUserRole:', errorInfo);
+      if (DEBUG_ENABLED) console.error('💥 Unexpected error in fetchUserRole:', errorInfo);
 
       // Return default values in case of error
       return {
@@ -107,22 +117,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         full_name: 'User'
       };
     } finally {
-      console.log('===== fetchUserRole completed =====\n');
+      debugLog('===== fetchUserRole completed =====\n');
     }
   };
 
   useEffect(() => {
     const initializeAuth = async () => {
-      console.log('🚀 Initializing authentication...');
+      debugLog('🚀 Initializing authentication...');
 
       try {
         setIsLoading(true);
 
-        console.log('📡 Getting current session...');
+        debugLog('📡 Getting current session...');
         // First, try to get the current session
         const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
 
-        console.log('📋 Initial session check:', {
+        debugLog('📋 Initial session check:', {
           hasSession: !!currentSession,
           hasError: !!sessionError,
           sessionUser: currentSession?.user?.email,
@@ -130,28 +140,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
         if (sessionError) {
-          console.error('❌ Error getting session:', sessionError);
+          if (DEBUG_ENABLED) console.error('❌ Error getting session:', sessionError);
           setSession(null);
           setUser(null);
           setIsAdmin(false);
           return;
         }
 
-        console.log('✅ Session retrieved:', currentSession ? 'Active' : 'None');
+        debugLog('✅ Session retrieved:', currentSession ? 'Active' : 'None');
         setSession(currentSession);
 
         if (!currentSession?.user) {
-          console.log('ℹ️ No user session found');
+          debugLog('ℹ️ No user session found');
           setUser(null);
           setIsAdmin(false);
           return;
         }
 
-        console.log('👤 User found, fetching role...');
+        debugLog('👤 User found, fetching role...');
         // Fetch user role
         const userData = await fetchUserRole(currentSession.user.id);
 
-        console.log('📋 User role fetch result:', {
+        debugLog('📋 User role fetch result:', {
           hasData: !!userData,
           role: userData?.role,
           fullName: userData?.full_name
@@ -166,14 +176,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           setUser(userWithRole);
           setIsAdmin(userWithRole.role === 'admin');
-          console.log('✅ User initialized:', {
+          debugLog('✅ User initialized:', {
             email: userWithRole.email,
             role: userWithRole.role,
             isAdmin: userWithRole.role === 'admin'
           });
         } else {
           // If we can't fetch the role, set default values
-          console.warn('⚠️ Could not fetch user role, using default values');
+          if (DEBUG_ENABLED) console.warn('⚠️ Could not fetch user role, using default values');
           setUser({
             ...currentSession.user,
             role: 'employee',
@@ -182,12 +192,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setIsAdmin(false);
         }
       } catch (error) {
-        console.error('💥 Error initializing auth:', error);
+        if (DEBUG_ENABLED) console.error('💥 Error initializing auth:', error);
         setSession(null);
         setUser(null);
         setIsAdmin(false);
       } finally {
-        console.log('🏁 Authentication initialization completed');
+        debugLog('🏁 Authentication initialization completed');
         setIsLoading(false);
       }
     };
@@ -196,14 +206,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
-        console.log('🔄 Auth state changed:', event);
-        console.log('📋 New session:', {
+        debugLog('🔄 Auth state changed:', event);
+        debugLog('📋 New session:', {
           hasSession: !!newSession,
           sessionUser: newSession?.user?.email
         });
 
         if (newSession?.user) {
-          console.log('👤 User signed in, fetching role...');
+          debugLog('👤 User signed in, fetching role...');
           try {
             const userData = await fetchUserRole(newSession.user.id);
 
@@ -216,7 +226,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
               setUser(userWithRole);
               setIsAdmin(userWithRole.role === 'admin');
-              console.log('✅ User updated on auth change:', {
+              debugLog('✅ User updated on auth change:', {
                 email: userWithRole.email,
                 role: userWithRole.role
               });
@@ -230,7 +240,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setIsAdmin(false);
             }
           } catch (error) {
-            console.error('💥 Error handling auth state change:', error);
+            if (DEBUG_ENABLED) console.error('💥 Error handling auth state change:', error);
             setUser({
               ...newSession.user,
               role: 'employee',
@@ -239,7 +249,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setIsAdmin(false);
           }
         } else {
-          console.log('🚪 User signed out');
+          debugLog('🚪 User signed out');
           setUser(null);
           setIsAdmin(false);
         }
@@ -254,8 +264,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    console.log('🔐 AuthContext signIn called');
-    console.log('Email:', email);
+    debugLog('🔐 AuthContext signIn called');
+    debugLog('Email:', email);
 
     try {
       // Add rate limiting check
@@ -264,10 +274,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const lastAttempt = sessionStorage?.getItem('lastLoginAttempt');
       const attemptCount = parseInt(sessionStorage?.getItem('loginAttemptCount') || '0');
 
-      console.log('Rate limiting check:', { attemptCount, lastAttempt, now });
+      debugLog('Rate limiting check:', { attemptCount, lastAttempt, now });
 
       if (lastAttempt && attemptCount >= 5 && now - parseInt(lastAttempt) < 300000) {
-        console.log('🚫 Rate limit exceeded');
+        debugLog('🚫 Rate limit exceeded');
         return {
           data: null,
           error: { message: 'Too many login attempts. Please try again later.' }
@@ -278,14 +288,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       sessionStorage?.setItem('lastLoginAttempt', now.toString());
       sessionStorage?.setItem('loginAttemptCount', (attemptCount + 1).toString());
 
-      console.log('📡 Calling Supabase signInWithPassword...');
+      debugLog('📡 Calling Supabase signInWithPassword...');
       // Sign in with email and password
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      console.log('📋 Supabase response:', {
+      debugLog('📋 Supabase response:', {
         hasData: !!data,
         hasUser: !!data?.user,
         hasSession: !!data?.session,
@@ -294,8 +304,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
-        console.error('❌ Supabase login failed:', error);
-        console.log('Error details:', {
+        if (DEBUG_ENABLED) console.error('❌ Supabase login failed:', error);
+        debugLog('Error details:', {
           message: error.message,
           code: error.code,
           status: error.status
@@ -314,42 +324,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
       }
 
-      console.log('✅ Supabase login successful, getting session...');
+      debugLog('✅ Supabase login successful, getting session...');
       // Get the session after successful sign in
       const { data: { session } } = await supabase.auth.getSession();
 
-      console.log('📋 Post-login session check:', {
+      debugLog('📋 Post-login session check:', {
         hasSession: !!session,
         sessionUser: session?.user?.email
       });
 
       if (!session) {
-        console.error('❌ No session after successful login');
+        if (DEBUG_ENABLED) console.error('❌ No session after successful login');
         return {
           data: null,
           error: { message: 'Authentication failed. No session established.' }
         };
       }
 
-      console.log('✅ Session established, resetting rate limit');
+      debugLog('✅ Session established, resetting rate limit');
       // Reset attempt count on successful login
       sessionStorage?.setItem('loginAttemptCount', '0');
 
       // Force a page reload to ensure all auth state is properly set
       // This helps with Next.js static optimization and ensures middleware runs
       if (typeof window !== 'undefined') {
-        console.log('🔄 Triggering visibility change event');
+        debugLog('🔄 Triggering visibility change event');
         window.dispatchEvent(new Event('visibilitychange'));
       }
 
-      console.log('✅ SignIn completed successfully');
+      debugLog('✅ SignIn completed successfully');
       return {
         data: { ...data, session },
         error: null
       };
     } catch (error: any) {
-      console.error('💥 AuthContext signIn error:', error);
-      console.log('Error details:', {
+      if (DEBUG_ENABLED) console.error('💥 AuthContext signIn error:', error);
+      debugLog('Error details:', {
         message: error?.message,
         code: error?.code,
         status: error?.status,
@@ -390,7 +400,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signOut();
 
       if (error) {
-        console.error('Error signing out:', error);
+        if (DEBUG_ENABLED) console.error('Error signing out:', error);
         throw error;
       }
 
@@ -403,7 +413,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.location.href = '/login';
 
     } catch (error) {
-      console.error('Error during sign out:', error);
+      if (DEBUG_ENABLED) console.error('Error during sign out:', error);
       // Even if there's an error, still try to redirect to login
       window.location.href = '/login';
     }
