@@ -39,10 +39,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('No user ID provided to fetchUserRole');
       return null;
     }
-    
+
     console.log('===== fetchUserRole started =====');
     console.log('User ID:', userId);
-    
+
     try {
       // First, try to get the user from the public.users table (our custom table)
       console.log('Fetching user from public.users table...');
@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .select('*')
         .eq('id', userId)
         .maybeSingle();
-      
+
       if (publicUser) {
         console.log('Found user in public.users:', {
           id: publicUser.id,
@@ -59,29 +59,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: publicUser.role,
           full_name: publicUser.full_name
         });
-        
+
         // Update auth metadata to keep it in sync
         try {
           const { error: updateError } = await supabase.auth.updateUser({
-            data: { 
+            data: {
               role: publicUser.role,
               full_name: publicUser.full_name
             }
           });
-          
+
           if (updateError) {
             console.error('Error updating auth metadata:', updateError);
           }
         } catch (updateError) {
           console.error('Error updating user metadata:', updateError);
         }
-        
+
         return {
           role: publicUser.role || 'employee',
           full_name: publicUser.full_name || publicUser.email?.split('@')[0] || 'User'
         };
       }
-      
+
       if (publicError) {
         console.error('Error fetching from public.users:', {
           code: publicError.code,
@@ -89,16 +89,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           details: publicError.details
         });
       }
-      
+
       // Fallback to auth metadata if user not found in public.users
       console.log('User not found in public.users, trying auth metadata...');
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
+
       if (userError) {
         console.error('Error getting user from auth:', userError);
         throw userError;
       }
-      
+
       if (user) {
         const userRole = user.user_metadata?.role || 'employee';
         console.log('User role from auth metadata:', {
@@ -107,22 +107,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: userRole,
           metadata: user.user_metadata
         });
-        
+
         return {
           role: userRole,
           full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
         };
       }
-      
+
       // If we get here, the user wasn't found in either table
       console.warn(`User with ID ${userId} not found in any user table`);
-      
+
       // Return default role (employee) if user not found
       return {
         role: 'employee',
         full_name: 'User'
       };
-      
+
     } catch (error) {
       // Handle any unexpected errors
       const errorInfo = error instanceof Error ? {
@@ -133,9 +133,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         name: 'UnknownError',
         message: String(error)
       };
-      
+
       console.error('Unexpected error in fetchUserRole:', errorInfo);
-      
+
       // Return default values in case of error
       return {
         role: 'employee',
@@ -150,10 +150,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initializeAuth = async () => {
       try {
         setIsLoading(true);
-        
+
         // First, try to get the current session
         const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
-        
+
         if (sessionError) {
           console.error('Error getting session:', sessionError);
           setSession(null);
@@ -161,33 +161,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setIsAdmin(false);
           return;
         }
-        
+
         console.log('Initial session:', currentSession);
         setSession(currentSession);
-        
+
         if (!currentSession?.user) {
           console.log('No user session found');
           setUser(null);
           setIsAdmin(false);
           return;
         }
-        
+
         // Fetch user role
         const userData = await fetchUserRole(currentSession.user.id);
-        
+
         if (userData) {
           const userWithRole = {
             ...currentSession.user,
             role: userData.role as 'admin' | 'employee',
             full_name: userData.full_name
           };
-          
+
           setUser(userWithRole);
           setIsAdmin(userWithRole.role === 'admin');
-          console.log('User initialized:', { 
-            email: userWithRole.email, 
+          console.log('User initialized:', {
+            email: userWithRole.email,
             role: userWithRole.role,
-            isAdmin: userWithRole.role === 'admin' 
+            isAdmin: userWithRole.role === 'admin'
           });
         } else {
           // If we can't fetch the role, set default values
@@ -208,13 +208,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
       }
     };
-    
+
     initializeAuth();
-    
+
     // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         console.log('Auth state changed:', event);
+
         
         if (newSession?.user) {
           try {

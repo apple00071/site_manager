@@ -1,52 +1,32 @@
 import { createClient } from '@supabase/supabase-js';
 
-// This is a more resilient way to initialize the Supabase client
-const getSupabaseClient = () => {
-  // For Vercel deployment, we need to use the exact values from the environment
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+// Get environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // Only validate in browser or non-production builds
-  const isBrowser = typeof window !== 'undefined';
-  const isProduction = process.env.NODE_ENV === 'production';
+// Validate required environment variables
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase environment variables');
+  throw new Error('Missing required Supabase configuration');
+}
 
-  if (isBrowser || !isProduction) {
-    // Debug log environment variables (will only show in browser or non-production)
-    console.log('Supabase URL:', supabaseUrl ? 'Set' : 'Not set');
+// Validate URL format
+if (!supabaseUrl.startsWith('http')) {
+  console.error('Invalid Supabase URL format:', supabaseUrl);
+  throw new Error('Invalid Supabase URL format');
+}
 
-    // Validate URL format in browser or non-production
-    if (!supabaseUrl || !supabaseUrl.startsWith('http')) {
-      console.error('Invalid Supabase URL:', supabaseUrl);
-      if (isBrowser) {
-        console.error('Please check your environment variables.');
-      } else {
-        // In production build, we'll use a placeholder URL to allow the build to complete
-        if (isProduction) {
-          console.warn('Using placeholder Supabase URL for build process');
-          return createClient('https://placeholder.supabase.co', 'placeholder-key', {
-            auth: { persistSession: false },
-            global: { headers: { 'x-application-name': 'apple-interior-manager' } },
-          });
-        }
-        throw new Error('Invalid Supabase URL. Must start with http:// or https://');
-      }
-    }
-  }
-
-  // Create the Supabase client with the actual URL and key
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: false,
-      storageKey: 'sb:apple-interior-manager:auth-token',
+// Create and export the Supabase client
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+    storageKey: 'sb:apple-interior-manager:auth-token',
+  },
+  global: {
+    headers: {
+      'x-application-name': 'apple-interior-manager',
     },
-    global: {
-      headers: {
-        'x-application-name': 'apple-interior-manager',
-      },
-    },
-  });
-};
-
-export const supabase = getSupabaseClient();
+  },
+});

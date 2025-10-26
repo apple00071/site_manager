@@ -62,7 +62,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
             if (!error && data) {
               setIsAdmin(data.role === 'admin');
-              
+
               // If on login page and user is admin, redirect to dashboard
               if (pathname === '/admin/login') {
                 router.push('/admin/dashboard');
@@ -96,7 +96,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
         if (session) {
           setSession(session);
           setUser(session.user);
-          
+
           // Check if user is admin
           const { data, error } = await supabase
             .from('users')
@@ -106,7 +106,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
           if (!error && data) {
             setIsAdmin(data.role === 'admin');
-            
+
             // If on login page and user is admin, redirect to dashboard
             if (pathname === '/admin/login') {
               router.push('/admin/dashboard');

@@ -66,8 +66,21 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50">
       <div className="w-full max-w-md space-y-8 p-10 bg-white rounded-xl shadow-md">
         <div className="text-center">
-          <img src="/New-logo.png" alt="Apple Interior Manager" className="h-24 mx-auto mb-4" />
+          <img
+            src="/New-logo.png"
+            alt="Apple Interior Manager"
+            className="h-24 mx-auto mb-4"
+            onError={(e) => {
+              // Fallback to a text logo if image fails to load
+              e.currentTarget.style.display = 'none';
+              const fallback = document.createElement('div');
+              fallback.className = 'text-3xl font-bold text-indigo-600 mb-4';
+              fallback.textContent = 'Apple Interior Manager';
+              e.currentTarget.parentNode?.appendChild(fallback);
+            }}
+          />
           <h2 className="mt-2 text-2xl font-bold text-gray-900">Sign in to your account</h2>
+          {/* Development credentials: admin@appleinteriors.in / Apple@63sizrjj! */}
         </div>
 
         {error && (
