@@ -1,7 +1,10 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+// Force dynamic rendering to avoid build-time context issues
+export const dynamic = 'force-dynamic';
+
+import { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 
@@ -16,14 +19,31 @@ type AdminAuthContextType = {
 
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
 
+// Helper function to check if window is defined
+const isBrowser = typeof window !== 'undefined';
+
 export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
+
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    user,
+    session,
+    isLoading,
+    isAdmin,
+    signIn,
+    signOut,
+  }), [user, session, isLoading, isAdmin]);
 
   useEffect(() => {
+    // Only run on client-side
+    if (!isBrowser) return;
+
     // Set up session listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -32,24 +52,34 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(true);
 
         if (session?.user) {
-          // Check if user is admin
-          const { data, error } = await supabase
-            .from('users')
-            .select('role')
-            .eq('id', session.user.id)
-            .maybeSingle();
+          try {
+            // Check if user is admin
+            const { data, error } = await supabase
+              .from('users')
+              .select('role')
+              .eq('id', session.user.id)
+              .maybeSingle();
 
-          if (!error && data) {
-            setIsAdmin(data.role === 'admin');
-          } else {
-            // If missing profile or error and in admin area, sign out
-            if (window.location.pathname.startsWith('/admin')) {
+            if (!error && data) {
+              setIsAdmin(data.role === 'admin');
+              
+              // If on login page and user is admin, redirect to dashboard
+              if (pathname === '/admin/login') {
+                router.push('/admin/dashboard');
+              }
+            } else if (pathname.startsWith('/admin')) {
+              // If missing profile or error and in admin area, sign out
+              await supabase.auth.signOut();
+              router.push('/admin/login');
+            }
+          } catch (error) {
+            console.error('Error checking admin status:', error);
+            if (pathname.startsWith('/admin')) {
               await supabase.auth.signOut();
               router.push('/admin/login');
             }
           }
-        } else if (window.location.pathname.startsWith('/admin') && 
-                  window.location.pathname !== '/admin/login') {
+        } else if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
           // Redirect to login if not authenticated and trying to access admin pages
           router.push('/admin/login');
         }
@@ -60,43 +90,52 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
     // Initial session check
     const initializeAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session) {
-        setSession(session);
-        setUser(session.user);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
         
-        // Check if user is admin
-        const { data, error } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', session.user.id)
-          .maybeSingle();
+        if (session) {
+          setSession(session);
+          setUser(session.user);
+          
+          // Check if user is admin
+          const { data, error } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', session.user.id)
+            .maybeSingle();
 
-        if (!error && data) {
-          setIsAdmin(data.role === 'admin');
-        } else {
-          // If missing profile or error and in admin area, sign out from admin area
-          if (window.location.pathname.startsWith('/admin')) {
+          if (!error && data) {
+            setIsAdmin(data.role === 'admin');
+            
+            // If on login page and user is admin, redirect to dashboard
+            if (pathname === '/admin/login') {
+              router.push('/admin/dashboard');
+            }
+          } else if (pathname.startsWith('/admin')) {
+            // If missing profile or error and in admin area, sign out
             await supabase.auth.signOut();
             router.push('/admin/login');
           }
+        } else if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
+          // Redirect to login if not authenticated and trying to access admin pages
+          router.push('/admin/login');
         }
-      } else if (window.location.pathname.startsWith('/admin') && 
-                window.location.pathname !== '/admin/login') {
-        // Redirect to login if not authenticated and trying to access admin pages
-        router.push('/admin/login');
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
+          router.push('/admin/login');
+        }
+      } finally {
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
     };
 
     initializeAuth();
 
     return () => {
-      subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
-  }, [router]);
+  }, [router, pathname]);
 
   const signIn = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -115,19 +154,19 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
         .select('role')
         .eq('id', data.user.id)
         .maybeSingle();
-      
+
       if (userError) {
         throw userError;
       }
-      
+
       if (!userData) {
         throw new Error('User profile not found. Please contact an admin.');
       }
-      
+
       if (userData.role !== 'admin') {
         throw new Error('Access denied. Admin privileges required.');
       }
-      
+
       // Set user and session
       setUser(data.user);
       setSession(data.session);
@@ -144,16 +183,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AdminAuthContext.Provider
-      value={{
-        user,
-        session,
-        isLoading,
-        isAdmin,
-        signIn,
-        signOut,
-      }}
-    >
+    <AdminAuthContext.Provider value={contextValue}>
       {children}
     </AdminAuthContext.Provider>
   );

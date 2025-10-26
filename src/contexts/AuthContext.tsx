@@ -1,5 +1,8 @@
 'use client';
 
+// Force dynamic rendering to avoid build-time context issues
+export const dynamic = 'force-dynamic';
+
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Session, User } from '@supabase/supabase-js';

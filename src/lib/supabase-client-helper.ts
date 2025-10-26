@@ -2,41 +2,43 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 let supabaseClient: SupabaseClient | null = null;
 
+// Helper to get environment variables with better error handling
+const getEnvVar = (key: string, isRequired = true): string => {
+  // First try process.env (for server-side)
+  const value = process.env[key] || '';
+  
+  // If not found and we're in the browser, try window._env_ (for client-side)
+  if (!value && typeof window !== 'undefined' && (window as any)._env_) {
+    return (window as any)._env_[key] || '';
+  }
+  
+  if (!value && isRequired && typeof window === 'undefined') {
+    console.error(`Missing required environment variable: ${key}`);
+  }
+  
+  return value;
+};
+
 const getSupabaseClient = (): SupabaseClient => {
   if (supabaseClient) {
     return supabaseClient;
   }
 
-  // For Vercel deployment, we need to use the exact values from the environment
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-  // Only validate in browser or non-production builds
+  // Get environment variables
+  const supabaseUrl = getEnvVar('NEXT_PUBLIC_SUPABASE_URL');
+  const supabaseAnonKey = getEnvVar('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  
+  // If we're in a browser environment, we can proceed with the values we have
   const isBrowser = typeof window !== 'undefined';
-  const isProduction = process.env.NODE_ENV === 'production';
-
-  if (isBrowser || !isProduction) {
-    // Debug log environment variables (will only show in browser or non-production)
-    console.log('Supabase URL:', supabaseUrl ? 'Set' : 'Not set');
-    
-    // Validate URL format in browser or non-production
-    if (!supabaseUrl || !supabaseUrl.startsWith('http')) {
-      console.error('Invalid Supabase URL:', supabaseUrl);
-      if (isBrowser) {
-        console.error('Please check your environment variables.');
-      } else {
-        // In production build, we'll use a placeholder URL to allow the build to complete
-        if (isProduction) {
-          console.warn('Using placeholder Supabase URL for build process');
-          supabaseClient = createClient('https://placeholder.supabase.co', 'placeholder-key', {
-            auth: { persistSession: false },
-            global: { headers: { 'x-application-name': 'apple-interior-manager' } },
-          });
-          return supabaseClient;
-        }
-        throw new Error('Invalid Supabase URL. Must start with http:// or https://');
-      }
-    }
+  
+  // If we don't have required variables in a non-browser environment, throw an error
+  if ((!supabaseUrl || !supabaseAnonKey) && !isBrowser) {
+    console.error('Missing Supabase configuration. Please check your environment variables.');
+    // Return a dummy client to prevent build errors
+    return createClient('https://dummy.supabase.co', 'dummy-key', {
+      auth: { persistSession: false },
+      global: { headers: { 'x-application-name': 'apple-interior-manager' } },
+    });
   }
 
   // Create the Supabase client with the actual URL and key
