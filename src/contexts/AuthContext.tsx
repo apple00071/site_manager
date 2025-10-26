@@ -44,64 +44,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('User ID:', userId);
 
     try {
-      // First, try to get the user from the public.users table (our custom table)
-      console.log('Fetching user from public.users table...');
-      const { data: publicUser, error: publicError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+      // Skip database query for now and go directly to auth metadata
+      // This prevents hanging on missing database tables
+      console.log('⚡ Skipping database query, using auth metadata directly...');
 
-      if (publicUser) {
-        console.log('Found user in public.users:', {
-          id: publicUser.id,
-          email: publicUser.email,
-          role: publicUser.role,
-          full_name: publicUser.full_name
-        });
-
-        // Update auth metadata to keep it in sync
-        try {
-          const { error: updateError } = await supabase.auth.updateUser({
-            data: {
-              role: publicUser.role,
-              full_name: publicUser.full_name
-            }
-          });
-
-          if (updateError) {
-            console.error('Error updating auth metadata:', updateError);
-          }
-        } catch (updateError) {
-          console.error('Error updating user metadata:', updateError);
-        }
-
-        return {
-          role: publicUser.role || 'employee',
-          full_name: publicUser.full_name || publicUser.email?.split('@')[0] || 'User'
-        };
-      }
-
-      if (publicError) {
-        console.error('Error fetching from public.users:', {
-          code: publicError.code,
-          message: publicError.message,
-          details: publicError.details
-        });
-      }
-
-      // Fallback to auth metadata if user not found in public.users
-      console.log('User not found in public.users, trying auth metadata...');
+      // Get user from auth metadata
       const { data: { user }, error: userError } = await supabase.auth.getUser();
 
+      console.log('Auth user check:', {
+        hasUser: !!user,
+        hasError: !!userError,
+        userEmail: user?.email
+      });
+
       if (userError) {
-        console.error('Error getting user from auth:', userError);
-        throw userError;
+        console.error('❌ Error getting user from auth:', userError);
+        // Return default role even if there's an error
+        return {
+          role: 'employee',
+          full_name: 'User'
+        };
       }
 
       if (user) {
         const userRole = user.user_metadata?.role || 'employee';
-        console.log('User role from auth metadata:', {
+        console.log('✅ User role from auth metadata:', {
           id: user.id,
           email: user.email,
           role: userRole,
@@ -114,10 +81,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
       }
 
-      // If we get here, the user wasn't found in either table
-      console.warn(`User with ID ${userId} not found in any user table`);
-
-      // Return default role (employee) if user not found
+      // Return default role if user not found
+      console.warn(`⚠️ User with ID ${userId} not found`);
       return {
         role: 'employee',
         full_name: 'User'
@@ -134,7 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         message: String(error)
       };
 
-      console.error('Unexpected error in fetchUserRole:', errorInfo);
+      console.error('💥 Unexpected error in fetchUserRole:', errorInfo);
 
       // Return default values in case of error
       return {
@@ -148,32 +113,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const initializeAuth = async () => {
+      console.log('🚀 Initializing authentication...');
+
       try {
         setIsLoading(true);
 
+        console.log('📡 Getting current session...');
         // First, try to get the current session
         const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
 
+        console.log('📋 Initial session check:', {
+          hasSession: !!currentSession,
+          hasError: !!sessionError,
+          sessionUser: currentSession?.user?.email,
+          errorMessage: sessionError?.message
+        });
+
         if (sessionError) {
-          console.error('Error getting session:', sessionError);
+          console.error('❌ Error getting session:', sessionError);
           setSession(null);
           setUser(null);
           setIsAdmin(false);
           return;
         }
 
-        console.log('Initial session:', currentSession);
+        console.log('✅ Session retrieved:', currentSession ? 'Active' : 'None');
         setSession(currentSession);
 
         if (!currentSession?.user) {
-          console.log('No user session found');
+          console.log('ℹ️ No user session found');
           setUser(null);
           setIsAdmin(false);
           return;
         }
 
+        console.log('👤 User found, fetching role...');
         // Fetch user role
         const userData = await fetchUserRole(currentSession.user.id);
+
+        console.log('📋 User role fetch result:', {
+          hasData: !!userData,
+          role: userData?.role,
+          fullName: userData?.full_name
+        });
 
         if (userData) {
           const userWithRole = {
@@ -184,14 +166,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           setUser(userWithRole);
           setIsAdmin(userWithRole.role === 'admin');
-          console.log('User initialized:', {
+          console.log('✅ User initialized:', {
             email: userWithRole.email,
             role: userWithRole.role,
             isAdmin: userWithRole.role === 'admin'
           });
         } else {
           // If we can't fetch the role, set default values
-          console.warn('Could not fetch user role, using default values');
+          console.warn('⚠️ Could not fetch user role, using default values');
           setUser({
             ...currentSession.user,
             role: 'employee',
@@ -200,39 +182,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setIsAdmin(false);
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        console.error('💥 Error initializing auth:', error);
         setSession(null);
         setUser(null);
         setIsAdmin(false);
       } finally {
+        console.log('🏁 Authentication initialization completed');
         setIsLoading(false);
       }
     };
-
     initializeAuth();
 
     // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
-        console.log('Auth state changed:', event);
+        console.log('🔄 Auth state changed:', event);
+        console.log('📋 New session:', {
+          hasSession: !!newSession,
+          sessionUser: newSession?.user?.email
+        });
 
-        
         if (newSession?.user) {
+          console.log('👤 User signed in, fetching role...');
           try {
             const userData = await fetchUserRole(newSession.user.id);
-            
+
             if (userData) {
               const userWithRole = {
                 ...newSession.user,
                 role: userData.role as 'admin' | 'employee',
                 full_name: userData.full_name
               };
-              
+
               setUser(userWithRole);
               setIsAdmin(userWithRole.role === 'admin');
-              console.log('User updated on auth change:', { 
-                email: userWithRole.email, 
-                role: userWithRole.role 
+              console.log('✅ User updated on auth change:', {
+                email: userWithRole.email,
+                role: userWithRole.role
               });
             } else {
               // If we can't fetch the role, set default values
@@ -244,7 +230,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setIsAdmin(false);
             }
           } catch (error) {
-            console.error('Error handling auth state change:', error);
+            console.error('💥 Error handling auth state change:', error);
             setUser({
               ...newSession.user,
               role: 'employee',
@@ -253,80 +239,143 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setIsAdmin(false);
           }
         } else {
-          console.log('User signed out');
+          console.log('🚪 User signed out');
           setUser(null);
           setIsAdmin(false);
         }
-        
+
         setSession(newSession);
       }
     );
-    
+
     return () => {
       subscription?.unsubscribe();
     };
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    console.log('🔐 AuthContext signIn called');
+    console.log('Email:', email);
+
     try {
       // Add rate limiting check
       const sessionStorage = globalThis?.sessionStorage;
       const now = Date.now();
       const lastAttempt = sessionStorage?.getItem('lastLoginAttempt');
       const attemptCount = parseInt(sessionStorage?.getItem('loginAttemptCount') || '0');
-      
+
+      console.log('Rate limiting check:', { attemptCount, lastAttempt, now });
+
       if (lastAttempt && attemptCount >= 5 && now - parseInt(lastAttempt) < 300000) {
-        return { 
-          data: null, 
-          error: { message: 'Too many login attempts. Please try again later.' } 
+        console.log('🚫 Rate limit exceeded');
+        return {
+          data: null,
+          error: { message: 'Too many login attempts. Please try again later.' }
         };
       }
-      
+
       // Update attempt tracking
       sessionStorage?.setItem('lastLoginAttempt', now.toString());
       sessionStorage?.setItem('loginAttemptCount', (attemptCount + 1).toString());
-      
+
+      console.log('📡 Calling Supabase signInWithPassword...');
       // Sign in with email and password
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-      
+
+      console.log('📋 Supabase response:', {
+        hasData: !!data,
+        hasUser: !!data?.user,
+        hasSession: !!data?.session,
+        hasError: !!error,
+        errorMessage: error?.message
+      });
+
       if (error) {
-        return { data: null, error };
-      }
-      
-      // Get the session after successful sign in
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        console.error('No session after sign in');
-        return { 
-          data: null, 
-          error: { message: 'Authentication failed. No session established.' } 
+        console.error('❌ Supabase login failed:', error);
+        console.log('Error details:', {
+          message: error.message,
+          code: error.code,
+          status: error.status
+        });
+
+        // Ensure we return a proper error object with a message
+        const errorMessage = error.message || 'Login failed. Please check your credentials and try again.';
+
+        return {
+          data: null,
+          error: {
+            message: errorMessage,
+            code: error.code,
+            status: error.status
+          }
         };
       }
-      
+
+      console.log('✅ Supabase login successful, getting session...');
+      // Get the session after successful sign in
+      const { data: { session } } = await supabase.auth.getSession();
+
+      console.log('📋 Post-login session check:', {
+        hasSession: !!session,
+        sessionUser: session?.user?.email
+      });
+
+      if (!session) {
+        console.error('❌ No session after successful login');
+        return {
+          data: null,
+          error: { message: 'Authentication failed. No session established.' }
+        };
+      }
+
+      console.log('✅ Session established, resetting rate limit');
       // Reset attempt count on successful login
       sessionStorage?.setItem('loginAttemptCount', '0');
-      
+
       // Force a page reload to ensure all auth state is properly set
       // This helps with Next.js static optimization and ensures middleware runs
       if (typeof window !== 'undefined') {
+        console.log('🔄 Triggering visibility change event');
         window.dispatchEvent(new Event('visibilitychange'));
       }
-      
-      return { 
+
+      console.log('✅ SignIn completed successfully');
+      return {
         data: { ...data, session },
-        error: null 
+        error: null
       };
     } catch (error: any) {
-      console.error('Error signing in:', error);
-      return { 
-        data: null, 
-        error: { 
-          message: error.message || 'Authentication failed. Please try again.' 
-        } 
+      console.error('💥 AuthContext signIn error:', error);
+      console.log('Error details:', {
+        message: error?.message,
+        code: error?.code,
+        status: error?.status,
+        stack: error?.stack
+      });
+
+      // Provide a meaningful error message
+      let errorMessage = 'Authentication failed. Please try again.';
+
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.code === 'invalid_credentials') {
+        errorMessage = 'Invalid email or password. Please check your credentials.';
+      } else if (error?.status === 400) {
+        errorMessage = 'Invalid login credentials. Please check your email and password.';
+      } else if (error?.status === 429) {
+        errorMessage = 'Too many login attempts. Please wait before trying again.';
+      }
+
+      return {
+        data: null,
+        error: {
+          message: errorMessage,
+          code: error?.code,
+          status: error?.status
+        }
       };
     }
   };
@@ -336,23 +385,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Clear any local storage/session data if needed
       localStorage.clear();
       sessionStorage.clear();
-      
+
       // Sign out from Supabase
       const { error } = await supabase.auth.signOut();
-      
+
       if (error) {
         console.error('Error signing out:', error);
         throw error;
       }
-      
+
       // Reset all auth state
       setUser(null);
       setSession(null);
       setIsAdmin(false);
-      
+
       // Force a hard redirect to the login page
       window.location.href = '/login';
-      
+
     } catch (error) {
       console.error('Error during sign out:', error);
       // Even if there's an error, still try to redirect to login

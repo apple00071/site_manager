@@ -53,27 +53,25 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
         if (session?.user) {
           try {
-            // Check if user is admin
-            const { data, error } = await supabase
-              .from('users')
-              .select('role')
-              .eq('id', session.user.id)
-              .maybeSingle();
+            // Skip database query and check admin status from auth metadata
+            console.log('🔍 Checking admin status from auth metadata...');
+            const userRole = session.user.user_metadata?.role || 'employee';
+            const isAdminUser = userRole === 'admin';
 
-            if (!error && data) {
-              setIsAdmin(data.role === 'admin');
+            console.log('📋 Admin check result:', {
+              role: userRole,
+              isAdmin: isAdminUser
+            });
 
-              // If on login page and user is admin, redirect to dashboard
-              if (pathname === '/admin/login') {
-                router.push('/admin/dashboard');
-              }
-            } else if (pathname.startsWith('/admin')) {
-              // If missing profile or error and in admin area, sign out
-              await supabase.auth.signOut();
-              router.push('/admin/login');
+            setIsAdmin(isAdminUser);
+
+            // If on login page and user is admin, redirect to dashboard
+            if (pathname === '/admin/login') {
+              console.log('🔄 Redirecting admin to dashboard');
+              router.push('/admin/dashboard');
             }
           } catch (error) {
-            console.error('Error checking admin status:', error);
+            console.error('💥 Error checking admin status:', error);
             if (pathname.startsWith('/admin')) {
               await supabase.auth.signOut();
               router.push('/admin/login');
@@ -97,24 +95,22 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
           setSession(session);
           setUser(session.user);
 
-          // Check if user is admin
-          const { data, error } = await supabase
-            .from('users')
-            .select('role')
-            .eq('id', session.user.id)
-            .maybeSingle();
+          // Check if user is admin using auth metadata
+          console.log('🔍 Checking admin status from auth metadata...');
+          const userRole = session.user.user_metadata?.role || 'employee';
+          const isAdminUser = userRole === 'admin';
 
-          if (!error && data) {
-            setIsAdmin(data.role === 'admin');
+          console.log('📋 Admin check result:', {
+            role: userRole,
+            isAdmin: isAdminUser
+          });
 
-            // If on login page and user is admin, redirect to dashboard
-            if (pathname === '/admin/login') {
-              router.push('/admin/dashboard');
-            }
-          } else if (pathname.startsWith('/admin')) {
-            // If missing profile or error and in admin area, sign out
-            await supabase.auth.signOut();
-            router.push('/admin/login');
+          setIsAdmin(isAdminUser);
+
+          // If on login page and user is admin, redirect to dashboard
+          if (pathname === '/admin/login') {
+            console.log('🔄 Redirecting admin to dashboard');
+            router.push('/admin/dashboard');
           }
         } else if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
           // Redirect to login if not authenticated and trying to access admin pages
@@ -138,35 +134,42 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   }, [router, pathname]);
 
   const signIn = async (email: string, password: string) => {
+    console.log('🔐 AdminAuthContext signIn called');
+    console.log('Email:', email);
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
+    console.log('📋 Admin signIn response:', {
+      hasData: !!data,
+      hasUser: !!data?.user,
+      hasError: !!error,
+      errorMessage: error?.message
+    });
+
     if (error) {
+      console.error('❌ Admin login failed:', error);
       throw error;
     }
 
     if (data.user) {
-      // Check if user is admin
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', data.user.id)
-        .maybeSingle();
+      console.log('👤 Admin login successful, checking role from metadata...');
+      // Check if user is admin using auth metadata
+      const userRole = data.user.user_metadata?.role || 'employee';
 
-      if (userError) {
-        throw userError;
-      }
+      console.log('📋 Admin role check from metadata:', {
+        role: userRole,
+        isAdmin: userRole === 'admin'
+      });
 
-      if (!userData) {
-        throw new Error('User profile not found. Please contact an admin.');
-      }
-
-      if (userData.role !== 'admin') {
+      if (userRole !== 'admin') {
+        console.error('❌ Access denied - not admin:', userRole);
         throw new Error('Access denied. Admin privileges required.');
       }
 
+      console.log('✅ Admin authentication successful');
       // Set user and session
       setUser(data.user);
       setSession(data.session);

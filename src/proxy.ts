@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-// This function can be marked `async` if using `await` inside
-export async function middleware(request: NextRequest) {
+// Next.js 16 Proxy Convention - Updated from deprecated middleware
+export async function proxy(request: NextRequest) {
   // Create a response object
   let response = NextResponse.next({
     request: {
@@ -61,7 +61,11 @@ export async function middleware(request: NextRequest) {
   );
 
   // Get the current session
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+  if (sessionError) {
+    console.error('Middleware session error:', sessionError);
+  }
 
   // Define public routes that don't require authentication
   const publicRoutes = ['/', '/login', '/signup', '/forgot-password'];
@@ -82,20 +86,26 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
-  // For admin routes, check if the user is an admin
+  // For admin routes, check if the user is an admin using auth metadata (consistent with AuthContext)
   const adminRoutes = ['/admin', '/dashboard/admin'];
-  const isAdminRoute = adminRoutes.some(route => 
+  const isAdminRoute = adminRoutes.some(route =>
     request.nextUrl.pathname.startsWith(route)
   );
 
   if (session && isAdminRoute) {
-    const { data: userData } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', session.user.id)
-      .single();
+    // Use auth metadata for role checking (consistent with AuthContext)
+    // This avoids database query issues and matches the role fetching strategy
+    const userRole = session.user?.user_metadata?.role || 'employee';
 
-    if (userData?.role !== 'admin') {
+    console.log('Middleware admin check:', {
+      userId: session.user?.id,
+      userEmail: session.user?.email,
+      userRole: userRole,
+      isAdminRoute: isAdminRoute,
+      pathname: request.nextUrl.pathname
+    });
+
+    if (userRole !== 'admin') {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
@@ -103,7 +113,7 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
-// See "Matching Paths" below to learn more
+// Next.js 16 Proxy Convention - Configuration
 export const config = {
   matcher: [
     /*
@@ -116,3 +126,6 @@ export const config = {
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
+
+// Default export for Next.js 16 compatibility
+export default proxy;

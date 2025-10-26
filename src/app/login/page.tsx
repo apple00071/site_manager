@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { supabase } from '@/lib/supabase';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -34,29 +35,46 @@ export default function LoginPage() {
 
     try {
       const { data: signInData, error } = await signIn(data.email, data.password);
-      
+
       if (error) {
-        setError(error.message);
-        console.warn(`Login failed for email: ${data.email}`, error);
+
+        // Handle different error types and provide meaningful messages
+        let errorMessage = 'Login failed. Please try again.';
+
+        if (error.message) {
+          errorMessage = error.message;
+        } else if (error.code === 'invalid_credentials') {
+          errorMessage = 'Invalid email or password. Please check your credentials.';
+        } else if (error.code === 'email_not_confirmed') {
+          errorMessage = 'Please confirm your email address before logging in.';
+        } else if (error.code === 'too_many_requests') {
+          errorMessage = 'Too many login attempts. Please try again later.';
+        } else if (error.status === 400) {
+          errorMessage = 'Invalid login credentials. Please check your email and password.';
+        } else if (error.status === 429) {
+          errorMessage = 'Too many login attempts. Please wait before trying again.';
+        }
+
+        setError(errorMessage);
         return;
       }
-      
+
       // Check if we have a session after successful sign in
       if (signInData?.session) {
         // Get the redirect URL from query params or default to dashboard
         const searchParams = new URLSearchParams(window.location.search);
         const redirectTo = searchParams.get('redirectedFrom') || '/dashboard';
-        
-        // Use replace instead of push to prevent going back to login page
-        window.location.href = redirectTo;
+
+        // Add a small delay to ensure authentication state is properly updated
+        setTimeout(() => {
+          window.location.href = redirectTo;
+        }, 100);
       } else {
         // If no session, show an error
         setError('Login successful but no session was established. Please try again.');
-        console.error('No session after successful login');
       }
     } catch (err: any) {
       setError('Authentication failed. Please try again.');
-      console.error('Login error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -66,21 +84,30 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50">
       <div className="w-full max-w-md space-y-8 p-10 bg-white rounded-xl shadow-md">
         <div className="text-center">
-          <img
-            src="/New-logo.png"
-            alt="Apple Interior Manager"
-            className="h-24 mx-auto mb-4"
-            onError={(e) => {
-              // Fallback to a text logo if image fails to load
-              e.currentTarget.style.display = 'none';
-              const fallback = document.createElement('div');
-              fallback.className = 'text-3xl font-bold text-indigo-600 mb-4';
-              fallback.textContent = 'Apple Interior Manager';
-              e.currentTarget.parentNode?.appendChild(fallback);
-            }}
-          />
+          {/* Logo with fallback */}
+          <div className="mb-4 flex justify-center">
+            <div className="relative">
+              <img
+                src="/New-logo.png"
+                alt="Apple Interior Manager"
+                className="h-24 block"
+                onError={(e) => {
+                  // Hide the broken image and show fallback
+                  e.currentTarget.style.display = 'none';
+                  const fallback = e.currentTarget.parentNode?.querySelector('.fallback-logo');
+                  if (fallback) fallback.style.display = 'block';
+                }}
+              />
+              {/* Fallback text logo - hidden by default, shown on error */}
+              <div
+                className="fallback-logo text-2xl font-bold text-indigo-600 text-center"
+                style={{ display: 'none' }}
+              >
+                Apple Interior Manager
+              </div>
+            </div>
+          </div>
           <h2 className="mt-2 text-2xl font-bold text-gray-900">Sign in to your account</h2>
-          {/* Development credentials: admin@appleinteriors.in / Apple@63sizrjj! */}
         </div>
 
         {error && (

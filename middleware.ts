@@ -78,23 +78,22 @@ export async function middleware(request: NextRequest) {
 
   // If the user is signed in and tries to access auth pages, redirect to dashboard
   if (session && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup')) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    // Don't redirect if there's already a redirectedFrom parameter to prevent loops
+    if (!request.nextUrl.searchParams.has('redirectedFrom')) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
   }
 
-  // For admin routes, check if the user is an admin
+  // For admin routes, check if the user is an admin using auth metadata
   const adminRoutes = ['/admin', '/dashboard/admin'];
-  const isAdminRoute = adminRoutes.some(route => 
+  const isAdminRoute = adminRoutes.some(route =>
     request.nextUrl.pathname.startsWith(route)
   );
 
   if (session && isAdminRoute) {
-    const { data: userData } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', session.user.id)
-      .single();
+    const userRole = session.user?.user_metadata?.role || 'employee';
 
-    if (userData?.role !== 'admin') {
+    if (userRole !== 'admin') {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
