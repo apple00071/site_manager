@@ -69,13 +69,13 @@ export default function LoginPage() {
           <img src="/New-logo.png" alt="Apple Interior Manager" className="h-24 mx-auto mb-4" />
           <h2 className="mt-2 text-2xl font-bold text-gray-900">Sign in to your account</h2>
         </div>
-        
+
         {error && (
           <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
             <p className="text-red-700">{error}</p>
           </div>
         )}
-        
+
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-4 rounded-md shadow-sm">
             <div>
@@ -93,7 +93,7 @@ export default function LoginPage() {
                 <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
               )}
             </div>
-            
+
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
