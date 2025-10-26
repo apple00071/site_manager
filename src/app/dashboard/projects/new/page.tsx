@@ -14,6 +14,12 @@ const projectSchema = z.object({
   client_id: z.string().uuid('Please select a client'),
   deadline: z.string().optional(),
   status: z.enum(['pending', 'in_progress', 'completed']),
+  customer_name: z.string().min(2, 'Customer name is required'),
+  phone_number: z.string().min(10, 'Phone number is required'),
+  alt_phone_number: z.string().optional(),
+  address: z.string().min(5, 'Address is required'),
+  start_date: z.string().min(1, 'Start date is required'),
+  assigned_employee_id: z.string().uuid('Please select an employee'),
 });
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
@@ -24,6 +30,7 @@ export default function NewProjectPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [clients, setClients] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -51,28 +58,42 @@ export default function NewProjectPage() {
       return;
     }
 
-    // Only fetch clients if we're an admin
-    const fetchClients = async () => {
+    const fetchData = async () => {
       try {
+        setIsLoading(true);
+        
+        // Fetch clients
         console.log('Fetching clients...');
-        const { data, error } = await supabase
+        const { data: clientsData, error: clientsError } = await supabase
           .from('clients')
           .select('*')
           .order('name', { ascending: true });
 
-        if (error) throw error;
-        console.log('Clients loaded:', data?.length);
-        setClients(data || []);
+        if (clientsError) throw clientsError;
+        console.log('Clients loaded:', clientsData?.length);
+        setClients(clientsData || []);
+
+        // Fetch employees
+        console.log('Fetching employees...');
+        const { data: employeesData, error: employeesError } = await supabase
+          .from('employees')
+          .select('*')
+          .order('name', { ascending: true });
+
+        if (employeesError) throw employeesError;
+        console.log('Employees loaded:', employeesData?.length);
+        setEmployees(employeesData || []);
+        
       } catch (err) {
-        console.error('Error fetching clients:', err);
-        setError('Failed to load clients');
+        console.error('Error fetching data:', err);
+        setError('Failed to load required data');
       } finally {
         setIsLoading(false);
         setIsInitialized(true);
       }
     };
 
-    fetchClients();
+    fetchData();
   }, [isAdmin, router, authLoading, isInitialized, user]);
 
   // Show loading state while checking auth or loading data
@@ -90,10 +111,27 @@ export default function NewProjectPage() {
 
     try {
       console.log('Submitting project:', data);
+      
+      // Prepare the project data with all fields
+      const projectData = {
+        title: data.title,
+        description: data.description,
+        client_id: data.client_id,
+        deadline: data.deadline || null,
+        status: data.status,
+        customer_name: data.customer_name,
+        phone_number: data.phone_number,
+        alt_phone_number: data.alt_phone_number || null,
+        address: data.address,
+        start_date: data.start_date,
+        assigned_employee_id: data.assigned_employee_id,
+        created_by: user?.id,
+      };
+
       const res = await fetch('/api/admin/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(projectData),
       });
 
       const json = await res.json();
@@ -105,7 +143,9 @@ export default function NewProjectPage() {
         throw new Error(errorMessage);
       }
 
+      // Redirect to projects list on success
       router.push('/dashboard/projects');
+      
     } catch (err: any) {
       console.error('Error in onSubmit:', err);
       const errorMessage = err.message || 'An error occurred while creating the project';
@@ -117,10 +157,10 @@ export default function NewProjectPage() {
       } else if (errorMessage.includes('duplicate key')) {
         setError('A project with this name already exists.');
       } else if (errorMessage.includes('foreign key')) {
-        setError('Invalid client selected. Please select a valid client.');
+        setError('Invalid client or employee selected. Please check your selections.');
       }
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -172,25 +212,128 @@ export default function NewProjectPage() {
               )}
             </div>
 
-            <div>
-              <label htmlFor="client_id" className="block text-sm font-medium text-gray-700">
-                Client
-              </label>
-              <select
-                id="client_id"
-                {...register('client_id')}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">Select a client</option>
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.name}
-                  </option>
-                ))}
-              </select>
-              {errors.client_id && (
-                <p className="mt-1 text-sm text-red-600">{errors.client_id.message}</p>
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="client_id" className="block text-sm font-medium text-gray-700">
+                  Client
+                </label>
+                <select
+                  id="client_id"
+                  {...register('client_id')}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                >
+                  <option value="">Select a client</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.client_id && (
+                  <p className="mt-1 text-sm text-red-600">{errors.client_id.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="assigned_employee_id" className="block text-sm font-medium text-gray-700">
+                  Assign to Employee
+                </label>
+                <select
+                  id="assigned_employee_id"
+                  {...register('assigned_employee_id')}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                >
+                  <option value="">Select an employee</option>
+                  {employees.map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.assigned_employee_id && (
+                  <p className="mt-1 text-sm text-red-600">{errors.assigned_employee_id.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Customer Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="customer_name" className="block text-sm font-medium text-gray-700">
+                    Customer Name
+                  </label>
+                  <input
+                    id="customer_name"
+                    type="text"
+                    {...register('customer_name')}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  {errors.customer_name && (
+                    <p className="mt-1 text-sm text-red-600">{errors.customer_name.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="phone_number" className="block text-sm font-medium text-gray-700">
+                    Phone Number
+                  </label>
+                  <input
+                    id="phone_number"
+                    type="tel"
+                    {...register('phone_number')}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  {errors.phone_number && (
+                    <p className="mt-1 text-sm text-red-600">{errors.phone_number.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="alt_phone_number" className="block text-sm font-medium text-gray-700">
+                    Alternative Phone (Optional)
+                  </label>
+                  <input
+                    id="alt_phone_number"
+                    type="tel"
+                    {...register('alt_phone_number')}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  {errors.alt_phone_number && (
+                    <p className="mt-1 text-sm text-red-600">{errors.alt_phone_number.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="start_date" className="block text-sm font-medium text-gray-700">
+                    Start Date
+                  </label>
+                  <input
+                    id="start_date"
+                    type="date"
+                    {...register('start_date')}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  {errors.start_date && (
+                    <p className="mt-1 text-sm text-red-600">{errors.start_date.message}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <label htmlFor="address" className="block text-sm font-medium text-gray-700">
+                  Address
+                </label>
+                <textarea
+                  id="address"
+                  rows={3}
+                  {...register('address')}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                {errors.address && (
+                  <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
+                )}
+              </div>
             </div>
 
             <div>

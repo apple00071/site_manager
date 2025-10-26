@@ -33,19 +33,28 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const { error } = await signIn(data.email, data.password);
+      const { data: signInData, error } = await signIn(data.email, data.password);
       
       if (error) {
         setError(error.message);
-        // Log failed login attempt (without password)
-        console.warn(`Login failed for email: ${data.email}`);
+        console.warn(`Login failed for email: ${data.email}`, error);
         return;
       }
       
-      // Successful login
-      router.push('/dashboard');
+      // Check if we have a session after successful sign in
+      if (signInData?.session) {
+        // Get the redirect URL from query params or default to dashboard
+        const searchParams = new URLSearchParams(window.location.search);
+        const redirectTo = searchParams.get('redirectedFrom') || '/dashboard';
+        
+        // Use replace instead of push to prevent going back to login page
+        window.location.href = redirectTo;
+      } else {
+        // If no session, show an error
+        setError('Login successful but no session was established. Please try again.');
+        console.error('No session after successful login');
+      }
     } catch (err: any) {
-      // Use sanitized error message
       setError('Authentication failed. Please try again.');
       console.error('Login error:', err);
     } finally {

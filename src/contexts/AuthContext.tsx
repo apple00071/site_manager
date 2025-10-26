@@ -282,20 +282,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       sessionStorage?.setItem('lastLoginAttempt', now.toString());
       sessionStorage?.setItem('loginAttemptCount', (attemptCount + 1).toString());
       
+      // Sign in with email and password
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       
-      if (!error) {
-        // Reset attempt count on successful login
-        sessionStorage?.setItem('loginAttemptCount', '0');
+      if (error) {
+        return { data: null, error };
       }
       
-      return { data, error };
+      // Get the session after successful sign in
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        console.error('No session after sign in');
+        return { 
+          data: null, 
+          error: { message: 'Authentication failed. No session established.' } 
+        };
+      }
+      
+      // Reset attempt count on successful login
+      sessionStorage?.setItem('loginAttemptCount', '0');
+      
+      // Force a page reload to ensure all auth state is properly set
+      // This helps with Next.js static optimization and ensures middleware runs
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('visibilitychange'));
+      }
+      
+      return { 
+        data: { ...data, session },
+        error: null 
+      };
     } catch (error: any) {
       console.error('Error signing in:', error);
-      return { data: null, error: { message: 'Authentication failed. Please try again.' } };
+      return { 
+        data: null, 
+        error: { 
+          message: error.message || 'Authentication failed. Please try again.' 
+        } 
+      };
     }
   };
 

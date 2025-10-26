@@ -10,6 +10,13 @@ const projectSchema = z.object({
   client_id: z.string().uuid('Invalid client ID format'),
   deadline: z.string().optional(),
   status: z.enum(['pending', 'in_progress', 'completed']).default('pending'),
+  customer_name: z.string().min(2, 'Customer name is required'),
+  phone_number: z.string().min(10, 'Phone number is required'),
+  alt_phone_number: z.string().optional(),
+  address: z.string().min(5, 'Address is required'),
+  start_date: z.string().min(1, 'Start date is required'),
+  assigned_employee_id: z.string().uuid('Invalid employee ID format'),
+  created_by: z.string().uuid('Invalid user ID format').optional(),
 });
 
 // Helper function to create a server-side Supabase client
@@ -198,87 +205,99 @@ export async function POST(req: Request) {
     console.log('Request body:', body);
     
     const parsed = projectSchema.safeParse(body);
+    
     if (!parsed.success) {
-      console.error('Validation error:', parsed.error.format());
+      console.error('Validation error:', parsed.error);
       return NextResponse.json(
-        { 
-          error: {
-            message: 'Invalid request data',
-            details: parsed.error.format(),
-            code: 'VALIDATION_ERROR'
-          }
-        },
+        { error: { message: 'Invalid input', details: parsed.error.format() } },
         { status: 400 }
       );
     }
-
-    const { title, description, client_id, deadline, status } = parsed.data;
-    console.log('Creating project with data:', { title, client_id, status });
-
-    // Verify the client exists
-    const { data: client, error: clientError } = await supabase
-      .from('clients')
-      .select('id')
-      .eq('id', client_id)
-      .single();
-
-    if (clientError || !client) {
-      console.error('Client not found:', clientError);
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
       return NextResponse.json(
-        { 
-          error: {
-            message: 'Client not found',
-            details: `No client found with ID: ${client_id}`,
-            code: 'CLIENT_NOT_FOUND'
-          }
-        },
+        { error: { message: 'User not found' } },
         { status: 404 }
       );
     }
-
-    // Insert the project
+    
+    // Prepare project data with all fields
+    const projectData = {
+      title: parsed.data.title,
+      description: parsed.data.description,
+      client_id: parsed.data.client_id,
+      deadline: parsed.data.deadline || null,
+      status: parsed.data.status,
+      customer_name: parsed.data.customer_name,
+      phone_number: parsed.data.phone_number,
+      alt_phone_number: parsed.data.alt_phone_number || null,
+      address: parsed.data.address,
+      start_date: parsed.data.start_date,
+      assigned_employee_id: parsed.data.assigned_employee_id,
+      created_by: user.id,
+      updated_by: user.id,
+    };
+    
+    // Insert the new project
     const { data: project, error: insertError } = await supabase
       .from('projects')
-      .insert([
-        {
-          title,
-          description,
-          client_id,
-          deadline: deadline || null,
-          status: status || 'pending',
-          created_by: session.user.id
-        }
-      ])
-      .select(`
-        id, 
-        title, 
-        description,
-        status, 
-        deadline,
-        client_id,
-        created_at,
-        clients ( id, name, email )
-      `);
-
+      .insert([projectData])
+      .select()
+      .single();
+      
     if (insertError) {
-      console.error('Database error:', insertError);
+      console.error('Error creating project:', insertError);
       return NextResponse.json(
-        { 
-          error: {
-            message: 'Database operation failed',
-            details: insertError.message,
-            code: insertError.code || 'DATABASE_ERROR'
-          }
-        },
+        { error: { message: 'Failed to create project', details: insertError } },
         { status: 500 }
       );
+    }
+    
+    // Add the current user as a project member with admin role
+    const { error: memberError } = await supabase
+      .from('project_members')
+      .insert([
+        {
+          project_id: project.id,
+          user_id: user.id,
+          role: 'admin',
+          created_by: user.id,
+        },
+      ]);
+      
+    if (memberError) {
+      console.error('Error adding project member:', memberError);
+      // Don't fail the request if we can't add the member
+      // Just log it and continue
+    }
+
+    // Add the assigned employee as a project member if they're not the current user
+    if (parsed.data.assigned_employee_id !== user.id) {
+      const { error: assigneeError } = await supabase
+        .from('project_members')
+        .insert([
+          {
+            project_id: project.id,
+            user_id: parsed.data.assigned_employee_id,
+            role: 'member',
+            created_by: user.id,
+          },
+        ]);
+        
+      if (assigneeError) {
+        console.error('Error adding assigned employee to project:', assigneeError);
+        // Don't fail the request if we can't add the assignee
+        // Just log it and continue
+      }
     }
 
     console.log('Project created successfully:', project);
     return NextResponse.json(
       { 
         success: true, 
-        project: project?.[0] 
+        project: project
       }, 
       { status: 201 }
     );
