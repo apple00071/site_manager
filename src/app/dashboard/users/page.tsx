@@ -22,21 +22,31 @@ export default function UsersPage() {
     const fetchUsers = async () => {
       setLoading(true);
       try {
+        console.log('Fetching users...');
         const { data, error } = await supabase
           .from('users')
           .select('*')
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase error:', error);
+          throw error;
+        }
+        console.log('Users fetched:', data?.length || 0);
         setUsers(data || []);
       } catch (error) {
         console.error('Error fetching users:', error);
+        setUsers([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchUsers();
+    
+    // Refresh users every 5 seconds (optional, for testing)
+    // const interval = setInterval(fetchUsers, 5000);
+    // return () => clearInterval(interval);
   }, [isAdmin, router]);
 
   const handleDeleteUser = async (userId: string) => {
@@ -88,6 +98,9 @@ export default function UsersPage() {
                 Email
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Designation
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Role
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -106,6 +119,9 @@ export default function UsersPage() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-500">{user.email}</div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-900">{user.designation || 'N/A'}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -135,7 +151,7 @@ export default function UsersPage() {
             ))}
             {users.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
+                <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
                   No users found
                 </td>
               </tr>

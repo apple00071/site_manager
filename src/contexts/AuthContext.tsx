@@ -128,9 +128,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         setIsLoading(true);
 
-        debugLog('📡 Getting current session...');
-        // First, try to get the current session
-        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+        debugLog('📡 Getting current session from server...');
+        // Try to get session from server-side API which has access to httpOnly cookies
+        let currentSession = null;
+        let sessionError = null;
+        
+        try {
+          const response = await fetch('/api/auth/session');
+          if (response.ok) {
+            const data = await response.json();
+            debugLog('📋 Server session check:', data);
+            
+            if (data.authenticated && data.user) {
+              // We have an authenticated user from server-side
+              // Now get the full session from client-side
+              const { data: { session }, error: clientError } = await supabase.auth.getSession();
+              currentSession = session;
+              sessionError = clientError;
+            }
+          }
+        } catch (error) {
+          debugLog('⚠️ Error checking server session:', error);
+        }
+        
+        // Fallback to direct client-side check
+        if (!currentSession) {
+          const { data: { session }, error } = await supabase.auth.getSession();
+          currentSession = session;
+          sessionError = error;
+        }
 
         debugLog('📋 Initial session check:', {
           hasSession: !!currentSession,
@@ -140,27 +166,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
         if (sessionError) {
-          debugLog('❌ Session error detected, clearing auth state');
-          // If there's a session error, clear local storage and reset
-          if (typeof window !== 'undefined') {
-            try {
-              localStorage.removeItem('sb:apple-interior-manager:auth-token');
-              sessionStorage.clear();
-              debugLog('🧹 Cleared corrupted auth data from storage');
-            } catch (clearError) {
-              debugLog('⚠️ Error clearing storage:', clearError);
-            }
-          }
-          setSession(null);
-          setUser(null);
-          setIsAdmin(false);
-          return;
+          debugLog('❌ Session error detected, but continuing...');
+          // Don't immediately fail - middleware handles authentication
         }
 
         debugLog('✅ Session retrieved:', currentSession ? 'Active' : 'None');
         setSession(currentSession);
 
+        // If no session but middleware let us through, try to get user metadata from server
         if (!currentSession?.user) {
+          debugLog('ℹ️ No client-side session found, but middleware authenticated us');
+          
+          // Try to get user from server-side session API
+          try {
+            const response = await fetch('/api/auth/session');
+            if (response.ok) {
+              const data = await response.json();
+              if (data.authenticated && data.user) {
+                // Create a basic user object from server data
+                setUser({
+                  id: data.user.id,
+                  email: data.user.email,
+                  role: data.user.user_metadata?.role || 'employee',
+                  full_name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'User'
+                } as UserWithRole);
+                setIsAdmin((data.user.user_metadata?.role || 'employee') === 'admin');
+                setIsLoading(false);
+                return;
+              }
+            }
+          } catch (error) {
+            debugLog('⚠️ Could not get server session data:', error);
+          }
+          
           debugLog('ℹ️ No user session found');
           setUser(null);
           setIsAdmin(false);

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { supabase } from '@/lib/supabase';
 
 const LoginSchema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -39,7 +40,8 @@ export default function LoginPage() {
         return;
       }
 
-      router.replace('/dashboard');
+      // Hard redirect to ensure cookies are included in request
+      window.location.href = '/dashboard';
     } catch (err) {
       setServerError('Unexpected error. Please try again.');
     } finally {

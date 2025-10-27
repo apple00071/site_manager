@@ -11,15 +11,26 @@ import { supabase } from '@/lib/supabase';
 const projectSchema = z.object({
   title: z.string().min(2, 'Title is required'),
   description: z.string().optional(),
-  client_id: z.string().uuid('Please select a client'),
-  deadline: z.string().optional(),
   status: z.enum(['pending', 'in_progress', 'completed']),
   customer_name: z.string().min(2, 'Customer name is required'),
   phone_number: z.string().min(10, 'Phone number is required'),
   alt_phone_number: z.string().optional(),
   address: z.string().min(5, 'Address is required'),
   start_date: z.string().min(1, 'Start date is required'),
+  estimated_completion_date: z.string().min(1, 'Estimated completion date is required'),
   assigned_employee_id: z.string().uuid('Please select an employee'),
+  designer_name: z.string().min(2, 'Designer name is required'),
+  designer_phone: z.string().min(10, 'Designer phone is required'),
+  carpenter_name: z.string().optional(),
+  carpenter_phone: z.string().optional(),
+  electrician_name: z.string().optional(),
+  electrician_phone: z.string().optional(),
+  plumber_name: z.string().optional(),
+  plumber_phone: z.string().optional(),
+  painter_name: z.string().optional(),
+  painter_phone: z.string().optional(),
+  project_budget: z.string().optional(),
+  project_notes: z.string().optional(),
 });
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
@@ -29,7 +40,6 @@ export default function NewProjectPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [clients, setClients] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -62,27 +72,22 @@ export default function NewProjectPage() {
       try {
         setIsLoading(true);
         
-        // Fetch clients
-        console.log('Fetching clients...');
-        const { data: clientsData, error: clientsError } = await supabase
-          .from('clients')
-          .select('*')
-          .order('name', { ascending: true });
-
-        if (clientsError) throw clientsError;
-        console.log('Clients loaded:', clientsData?.length);
-        setClients(clientsData || []);
-
-        // Fetch employees
+        // Fetch employees from users table
         console.log('Fetching employees...');
         const { data: employeesData, error: employeesError } = await supabase
-          .from('employees')
-          .select('*')
-          .order('name', { ascending: true });
+          .from('users')
+          .select('id, full_name, email')
+          .eq('role', 'employee')
+          .order('full_name', { ascending: true });
 
         if (employeesError) throw employeesError;
         console.log('Employees loaded:', employeesData?.length);
-        setEmployees(employeesData || []);
+        // Map to the expected format with 'name' field
+        setEmployees((employeesData || []).map(u => ({
+          id: u.id,
+          name: u.full_name,
+          email: u.email
+        })));
         
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -214,27 +219,6 @@ export default function NewProjectPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label htmlFor="client_id" className="block text-sm font-medium text-gray-700">
-                  Client
-                </label>
-                <select
-                  id="client_id"
-                  {...register('client_id')}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="">Select a client</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name}
-                    </option>
-                  ))}
-                </select>
-                {errors.client_id && (
-                  <p className="mt-1 text-sm text-red-600">{errors.client_id.message}</p>
-                )}
-              </div>
-
-              <div>
                 <label htmlFor="assigned_employee_id" className="block text-sm font-medium text-gray-700">
                   Assign to Employee
                 </label>
@@ -246,7 +230,7 @@ export default function NewProjectPage() {
                   <option value="">Select an employee</option>
                   {employees.map((employee) => (
                     <option key={employee.id} value={employee.id}>
-                      {employee.name}
+                      {employee.name} - {employee.designation || 'Employee'}
                     </option>
                   ))}
                 </select>
@@ -256,18 +240,20 @@ export default function NewProjectPage() {
               </div>
             </div>
 
-            <div className="border-t border-gray-200 pt-6">
+            <div className="border-t border-gray-200 pt-6 mt-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Customer Details</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="customer_name" className="block text-sm font-medium text-gray-700">
-                    Customer Name
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="md:col-span-2">
+                  <label htmlFor="customer_name" className="block text-sm font-medium text-gray-700 mb-1">
+                    Customer Name *
                   </label>
                   <input
                     id="customer_name"
                     type="text"
                     {...register('customer_name')}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="Enter customer full name"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   />
                   {errors.customer_name && (
                     <p className="mt-1 text-sm text-red-600">{errors.customer_name.message}</p>
@@ -275,14 +261,15 @@ export default function NewProjectPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="phone_number" className="block text-sm font-medium text-gray-700">
-                    Phone Number
+                  <label htmlFor="phone_number" className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone Number *
                   </label>
                   <input
                     id="phone_number"
                     type="tel"
                     {...register('phone_number')}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="1234567890"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   />
                   {errors.phone_number && (
                     <p className="mt-1 text-sm text-red-600">{errors.phone_number.message}</p>
@@ -290,65 +277,298 @@ export default function NewProjectPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="alt_phone_number" className="block text-sm font-medium text-gray-700">
-                    Alternative Phone (Optional)
+                  <label htmlFor="alt_phone_number" className="block text-sm font-medium text-gray-700 mb-1">
+                    Alternative Phone
                   </label>
                   <input
                     id="alt_phone_number"
                     type="tel"
                     {...register('alt_phone_number')}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="Optional"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   />
                   {errors.alt_phone_number && (
                     <p className="mt-1 text-sm text-red-600">{errors.alt_phone_number.message}</p>
                   )}
                 </div>
 
+                <div className="md:col-span-2">
+                  <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
+                    Address *
+                  </label>
+                  <textarea
+                    id="address"
+                    rows={3}
+                    {...register('address')}
+                    placeholder="Enter full address"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  {errors.address && (
+                    <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 pt-6 mt-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Project Details</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
-                  <label htmlFor="start_date" className="block text-sm font-medium text-gray-700">
-                    Start Date
+                  <label htmlFor="start_date" className="block text-sm font-medium text-gray-700 mb-1">
+                    Start Date *
                   </label>
                   <input
                     id="start_date"
                     type="date"
                     {...register('start_date')}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   />
                   {errors.start_date && (
                     <p className="mt-1 text-sm text-red-600">{errors.start_date.message}</p>
                   )}
                 </div>
-              </div>
 
-              <div className="mt-6">
-                <label htmlFor="address" className="block text-sm font-medium text-gray-700">
-                  Address
-                </label>
-                <textarea
-                  id="address"
-                  rows={3}
-                  {...register('address')}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                />
-                {errors.address && (
-                  <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
-                )}
+                <div>
+                  <label htmlFor="estimated_completion_date" className="block text-sm font-medium text-gray-700 mb-1">
+                    Estimated Completion Date *
+                  </label>
+                  <input
+                    id="estimated_completion_date"
+                    type="date"
+                    {...register('estimated_completion_date')}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  {errors.estimated_completion_date && (
+                    <p className="mt-1 text-sm text-red-600">{errors.estimated_completion_date.message}</p>
+                  )}
+                </div>
+
+                <div className="md:col-span-2">
+                  <label htmlFor="project_budget" className="block text-sm font-medium text-gray-700 mb-1">
+                    Project Budget
+                  </label>
+                  <input
+                    id="project_budget"
+                    type="number"
+                    step="0.01"
+                    {...register('project_budget')}
+                    placeholder="Enter project budget in ₹"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  {errors.project_budget && (
+                    <p className="mt-1 text-sm text-red-600">{errors.project_budget.message}</p>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div>
-              <label htmlFor="deadline" className="block text-sm font-medium text-gray-700">
-                Deadline
-              </label>
-              <input
-                id="deadline"
-                type="date"
-                {...register('deadline')}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              {errors.deadline && (
-                <p className="mt-1 text-sm text-red-600">{errors.deadline.message}</p>
-              )}
+            <div className="border-t border-gray-200 pt-6 mt-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Team Details</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="md:col-span-2">
+                  <h4 className="text-md font-medium text-gray-800 mb-3">Designer</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="designer_name" className="block text-sm font-medium text-gray-700 mb-1">
+                        Designer Name *
+                      </label>
+                      <input
+                        id="designer_name"
+                        type="text"
+                        {...register('designer_name')}
+                        placeholder="Enter designer name"
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                      {errors.designer_name && (
+                        <p className="mt-1 text-sm text-red-600">{errors.designer_name.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label htmlFor="designer_phone" className="block text-sm font-medium text-gray-700 mb-1">
+                        Designer Phone *
+                      </label>
+                      <input
+                        id="designer_phone"
+                        type="tel"
+                        {...register('designer_phone')}
+                        placeholder="1234567890"
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                      {errors.designer_phone && (
+                        <p className="mt-1 text-sm text-red-600">{errors.designer_phone.message}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="md:col-span-2">
+                  <h4 className="text-md font-medium text-gray-800 mb-3">Carpenter</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="carpenter_name" className="block text-sm font-medium text-gray-700 mb-1">
+                        Carpenter Name
+                      </label>
+                      <input
+                        id="carpenter_name"
+                        type="text"
+                        {...register('carpenter_name')}
+                        placeholder="Enter carpenter name"
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                      {errors.carpenter_name && (
+                        <p className="mt-1 text-sm text-red-600">{errors.carpenter_name.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label htmlFor="carpenter_phone" className="block text-sm font-medium text-gray-700 mb-1">
+                        Carpenter Phone
+                      </label>
+                      <input
+                        id="carpenter_phone"
+                        type="tel"
+                        {...register('carpenter_phone')}
+                        placeholder="1234567890"
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                      {errors.carpenter_phone && (
+                        <p className="mt-1 text-sm text-red-600">{errors.carpenter_phone.message}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="md:col-span-2">
+                  <h4 className="text-md font-medium text-gray-800 mb-3">Electrician</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="electrician_name" className="block text-sm font-medium text-gray-700 mb-1">
+                        Electrician Name
+                      </label>
+                      <input
+                        id="electrician_name"
+                        type="text"
+                        {...register('electrician_name')}
+                        placeholder="Enter electrician name"
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                      {errors.electrician_name && (
+                        <p className="mt-1 text-sm text-red-600">{errors.electrician_name.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label htmlFor="electrician_phone" className="block text-sm font-medium text-gray-700 mb-1">
+                        Electrician Phone
+                      </label>
+                      <input
+                        id="electrician_phone"
+                        type="tel"
+                        {...register('electrician_phone')}
+                        placeholder="1234567890"
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                      {errors.electrician_phone && (
+                        <p className="mt-1 text-sm text-red-600">{errors.electrician_phone.message}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="md:col-span-2">
+                  <h4 className="text-md font-medium text-gray-800 mb-3">Plumber</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="plumber_name" className="block text-sm font-medium text-gray-700 mb-1">
+                        Plumber Name
+                      </label>
+                      <input
+                        id="plumber_name"
+                        type="text"
+                        {...register('plumber_name')}
+                        placeholder="Enter plumber name"
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                      {errors.plumber_name && (
+                        <p className="mt-1 text-sm text-red-600">{errors.plumber_name.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label htmlFor="plumber_phone" className="block text-sm font-medium text-gray-700 mb-1">
+                        Plumber Phone
+                      </label>
+                      <input
+                        id="plumber_phone"
+                        type="tel"
+                        {...register('plumber_phone')}
+                        placeholder="1234567890"
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                      {errors.plumber_phone && (
+                        <p className="mt-1 text-sm text-red-600">{errors.plumber_phone.message}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="md:col-span-2">
+                  <h4 className="text-md font-medium text-gray-800 mb-3">Painter</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="painter_name" className="block text-sm font-medium text-gray-700 mb-1">
+                        Painter Name
+                      </label>
+                      <input
+                        id="painter_name"
+                        type="text"
+                        {...register('painter_name')}
+                        placeholder="Enter painter name"
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                      {errors.painter_name && (
+                        <p className="mt-1 text-sm text-red-600">{errors.painter_name.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label htmlFor="painter_phone" className="block text-sm font-medium text-gray-700 mb-1">
+                        Painter Phone
+                      </label>
+                      <input
+                        id="painter_phone"
+                        type="tel"
+                        {...register('painter_phone')}
+                        placeholder="1234567890"
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                      {errors.painter_phone && (
+                        <p className="mt-1 text-sm text-red-600">{errors.painter_phone.message}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 pt-6 mt-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Additional Information</h3>
+              
+              <div className="grid grid-cols-1 gap-6">
+                <div>
+                  <label htmlFor="project_notes" className="block text-sm font-medium text-gray-700 mb-1">
+                    Project Notes
+                  </label>
+                  <textarea
+                    id="project_notes"
+                    rows={4}
+                    {...register('project_notes')}
+                    placeholder="Enter any additional notes or special requirements for this project"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  {errors.project_notes && (
+                    <p className="mt-1 text-sm text-red-600">{errors.project_notes.message}</p>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div>

@@ -20,10 +20,27 @@ export async function POST(request: Request) {
             return cookieStore.get(name)?.value;
           },
           set(name: string, value: string, options: any) {
-            cookieStore.set({ name, value, ...options });
+            cookieStore.set({ 
+              name, 
+              value, 
+              ...options,
+              httpOnly: true,
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'lax',
+              path: '/',
+            });
           },
           remove(name: string, options: any) {
-            cookieStore.delete(name);
+            cookieStore.set({ 
+              name, 
+              value: '', 
+              ...options,
+              httpOnly: true,
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'lax',
+              path: '/',
+              maxAge: 0,
+            });
           },
         },
       }
@@ -33,6 +50,13 @@ export async function POST(request: Request) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+
+    // Get the session to ensure cookies are properly set
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      return NextResponse.json({ error: 'Failed to establish session' }, { status: 500 });
     }
 
     return NextResponse.json({ user: data.user }, { status: 200 });

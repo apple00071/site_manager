@@ -57,9 +57,7 @@ export default function ProjectDetailsPage() {
         const { data: projectData, error: projectError } = await supabase
           .from('projects')
           .select(`
-            *,
-            clients (id, name, email),
-            assigned_employee:employees (id, name, email)
+            *
           `)
           .eq('id', id)
           .single();

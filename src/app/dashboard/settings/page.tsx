@@ -73,7 +73,56 @@ export default function SettingsPage() {
           .eq('id', user.id)
           .single();
 
-        if (error) throw error;
+        if (error) {
+          // If user record doesn't exist yet, try to create it via API
+          if (error.code === 'PGRST116' || error.code === '42501') {
+            console.log('User record not found in users table, creating via API...');
+            try {
+              const response = await fetch('/api/admin/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  email: user.email || '',
+                  full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+                  role: user.user_metadata?.role || 'employee',
+                  password: 'temp123456' // Temporary password, should be reset
+                })
+              });
+              
+              if (response.ok) {
+                // Fetch the created user
+                const { data: newUser, error: fetchError } = await supabase
+                  .from('users')
+                  .select('*')
+                  .eq('id', user.id)
+                  .single();
+                
+                if (!fetchError && newUser) {
+                  setUserProfile(newUser);
+                  reset({
+                    full_name: newUser.full_name || '',
+                    email: user.email || '',
+                  });
+                  return;
+                }
+              }
+            } catch (apiError) {
+              console.error('Error creating user via API:', apiError);
+            }
+          }
+          // If still can't create, use auth user data
+          setUserProfile({
+            id: user.id,
+            email: user.email || '',
+            full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+            role: user.user_metadata?.role || 'employee'
+          } as any);
+          reset({
+            full_name: user.user_metadata?.full_name || '',
+            email: user.email || '',
+          });
+          return;
+        }
         
         setUserProfile(data);
         reset({

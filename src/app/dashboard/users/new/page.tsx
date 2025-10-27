@@ -12,6 +12,7 @@ const userSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   full_name: z.string().min(2, 'Full name is required'),
+  designation: z.string().min(2, 'Designation is required'),
   role: z.enum(['admin', 'employee']),
 });
 
@@ -45,36 +46,25 @@ export default function NewUserPage() {
     setError(null);
 
     try {
-      // Create user with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: data.email,
-        password: data.password,
-        email_confirm: true,
-        user_metadata: {
-          full_name: data.full_name,
-          role: data.role,
+      // Call server-side API route to create user
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          email: data.email,
+          full_name: data.full_name,
+          designation: data.designation,
+          role: data.role,
+          password: data.password,
+        }),
       });
 
-      if (authError) {
-        throw authError;
-      }
+      const result = await response.json();
 
-      // The user profile should be created automatically via the database trigger
-      // But we'll update it just to be sure
-      if (authData.user) {
-        const { error: profileError } = await supabase
-          .from('users')
-          .upsert({
-            id: authData.user.id,
-            email: data.email,
-            full_name: data.full_name,
-            role: data.role,
-          });
-
-        if (profileError) {
-          throw profileError;
-        }
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create user');
       }
 
       router.push('/dashboard/users');
@@ -112,6 +102,22 @@ export default function NewUserPage() {
               />
               {errors.full_name && (
                 <p className="mt-1 text-sm text-red-600">{errors.full_name.message}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="designation" className="block text-sm font-medium text-gray-700">
+                Designation
+              </label>
+              <input
+                id="designation"
+                type="text"
+                {...register('designation')}
+                placeholder="e.g., Interior Designer, Project Manager, Carpenter"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              />
+              {errors.designation && (
+                <p className="mt-1 text-sm text-red-600">{errors.designation.message}</p>
               )}
             </div>
 

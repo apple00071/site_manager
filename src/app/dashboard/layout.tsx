@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings } from 'react-icons/fi';
+import { supabase } from '@/lib/supabase';
 
 export default function DashboardLayout({
   children,
@@ -14,27 +15,22 @@ export default function DashboardLayout({
   const { user, isLoading, signOut, isAdmin } = useAuth();
   const router = useRouter();
 
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isLoading, router]);
+  // Removed automatic redirect check - middleware already handles authentication
+  // The middleware ensures only authenticated users can reach this page
 
   const handleSignOut = async () => {
     await signOut();
     router.push('/login');
   };
 
-  if (isLoading) {
+  // Show loading state while AuthContext initializes
+  // Middleware already authenticated the user, so we just wait for AuthContext to sync
+  if (isLoading || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
       </div>
     );
-  }
-
-  if (!user) {
-    return null;
   }
 
   return (
