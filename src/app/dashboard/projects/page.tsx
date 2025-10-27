@@ -118,13 +118,13 @@ export default function ProjectsPage() {
                 Project
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Client
+                Customer
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Deadline
+                Estimated Completion
               </th>
               <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
@@ -139,7 +139,7 @@ export default function ProjectsPage() {
                   <div className="text-sm text-gray-500">{project.description?.substring(0, 50)}{project.description?.length > 50 ? '...' : ''}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{project.client_name || 'N/A'}</div>
+                  <div className="text-sm text-gray-900">{project.customer_name || 'N/A'}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -153,7 +153,7 @@ export default function ProjectsPage() {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {project.deadline ? new Date(project.deadline).toLocaleDateString() : 'No deadline'}
+                  {project.estimated_completion_date ? new Date(project.estimated_completion_date).toLocaleDateString() : 'No date set'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <Link

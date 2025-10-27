@@ -14,17 +14,24 @@ type Project = {
   title: string;
   description: string | null;
   status: string;
-  deadline: string | null;
   customer_name: string;
   phone_number: string;
   alt_phone_number: string | null;
   address: string;
   start_date: string;
-  client: {
-    id: string;
-    name: string;
-    email: string;
-  } | null;
+  estimated_completion_date: string;
+  designer_name: string;
+  designer_phone: string;
+  carpenter_name: string | null;
+  carpenter_phone: string | null;
+  electrician_name: string | null;
+  electrician_phone: string | null;
+  plumber_name: string | null;
+  plumber_phone: string | null;
+  painter_name: string | null;
+  painter_phone: string | null;
+  project_budget: number | null;
+  project_notes: string | null;
   assigned_employee: {
     id: string;
     name: string;
@@ -168,16 +175,7 @@ export default function ProjectDetailsPage() {
               </dd>
             </div>
             <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt className="text-sm font-medium text-gray-500">Client</dt>
-              <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
-                {project.client?.name || 'N/A'}
-                {project.client?.email && (
-                  <span className="block text-gray-500 text-sm">{project.client.email}</span>
-                )}
-              </dd>
-            </div>
-            <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt className="text-sm font-medium text-gray-500">Customer Name</dt>
+              <dt className="text-sm font-medium text-gray-500">Customer</dt>
               <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
                 {project.customer_name}
               </dd>
@@ -203,11 +201,17 @@ export default function ProjectDetailsPage() {
                 {new Date(project.start_date).toLocaleDateString()}
               </dd>
             </div>
-            {project.deadline && (
-              <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                <dt className="text-sm font-medium text-gray-500">Deadline</dt>
+            <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+              <dt className="text-sm font-medium text-gray-500">Estimated Completion Date</dt>
+              <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
+                {new Date(project.estimated_completion_date).toLocaleDateString()}
+              </dd>
+            </div>
+            {project.project_budget && (
+              <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt className="text-sm font-medium text-gray-500">Project Budget</dt>
                 <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
-                  {new Date(project.deadline).toLocaleDateString()}
+                  ₹{project.project_budget.toLocaleString()}
                 </dd>
               </div>
             )}
@@ -217,6 +221,77 @@ export default function ProjectDetailsPage() {
                 <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
                   {project.assigned_employee.name}
                   <span className="block text-gray-500 text-sm">{project.assigned_employee.email}</span>
+                </dd>
+              </div>
+            )}
+            {project.project_notes && (
+              <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt className="text-sm font-medium text-gray-500">Project Notes</dt>
+                <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0 whitespace-pre-line">
+                  {project.project_notes}
+                </dd>
+              </div>
+            )}
+          </dl>
+        </div>
+      </div>
+
+      {/* Team Details Section */}
+      <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
+        <div className="px-4 py-5 sm:px-6">
+          <h3 className="text-lg font-medium leading-6 text-gray-900">Team Details</h3>
+          <p className="mt-1 max-w-2xl text-sm text-gray-500">Team members assigned to this project.</p>
+        </div>
+        <div className="border-t border-gray-200">
+          <dl>
+            <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+              <dt className="text-sm font-medium text-gray-500">Designer</dt>
+              <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
+                {project.designer_name}
+                <span className="block text-gray-500 text-sm">{project.designer_phone}</span>
+              </dd>
+            </div>
+            {project.carpenter_name && (
+              <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt className="text-sm font-medium text-gray-500">Carpenter</dt>
+                <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
+                  {project.carpenter_name}
+                  {project.carpenter_phone && (
+                    <span className="block text-gray-500 text-sm">{project.carpenter_phone}</span>
+                  )}
+                </dd>
+              </div>
+            )}
+            {project.electrician_name && (
+              <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt className="text-sm font-medium text-gray-500">Electrician</dt>
+                <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
+                  {project.electrician_name}
+                  {project.electrician_phone && (
+                    <span className="block text-gray-500 text-sm">{project.electrician_phone}</span>
+                  )}
+                </dd>
+              </div>
+            )}
+            {project.plumber_name && (
+              <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt className="text-sm font-medium text-gray-500">Plumber</dt>
+                <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
+                  {project.plumber_name}
+                  {project.plumber_phone && (
+                    <span className="block text-gray-500 text-sm">{project.plumber_phone}</span>
+                  )}
+                </dd>
+              </div>
+            )}
+            {project.painter_name && (
+              <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt className="text-sm font-medium text-gray-500">Painter</dt>
+                <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
+                  {project.painter_name}
+                  {project.painter_phone && (
+                    <span className="block text-gray-500 text-sm">{project.painter_phone}</span>
+                  )}
                 </dd>
               </div>
             )}
