@@ -86,15 +86,6 @@ export async function middleware(request: NextRequest) {
       return clearResponse;
     }
 
-    // Debug logging for authentication state
-    console.log('Middleware auth check:', {
-      pathname: request.nextUrl.pathname,
-      hasSession: !!session,
-      userEmail: session?.user?.email,
-      userMetadata: session?.user?.user_metadata,
-      userRole: session?.user?.user_metadata?.role
-    });
-
     // Define public routes that don't require authentication
     const publicRoutes = ['/', '/login', '/signup', '/forgot-password'];
     const isPublicRoute = publicRoutes.some(route =>
