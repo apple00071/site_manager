@@ -148,8 +148,8 @@ CREATE OR REPLACE FUNCTION create_user_profile()
 RETURNS TRIGGER AS $$
 BEGIN
   INSERT INTO users (id, email, full_name, role)
-  VALUES (NEW.id, NEW.email, NEW.raw_user_meta_data->>'full_name', 
-          COALESCE(NEW.raw_user_meta_data->>'role', 'employee')::user_role);
+  VALUES (NEW.id, NEW.email, NEW.user_metadata->>'full_name',
+          COALESCE(NEW.user_metadata->>'role', 'employee')::user_role);
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

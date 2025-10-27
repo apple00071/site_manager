@@ -140,7 +140,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
         if (sessionError) {
-          if (DEBUG_ENABLED) console.error('❌ Error getting session:', sessionError);
+          debugLog('❌ Session error detected, clearing auth state');
+          // If there's a session error, clear local storage and reset
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.removeItem('sb:apple-interior-manager:auth-token');
+              sessionStorage.clear();
+              debugLog('🧹 Cleared corrupted auth data from storage');
+            } catch (clearError) {
+              debugLog('⚠️ Error clearing storage:', clearError);
+            }
+          }
           setSession(null);
           setUser(null);
           setIsAdmin(false);
@@ -192,10 +202,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setIsAdmin(false);
         }
       } catch (error) {
-        if (DEBUG_ENABLED) console.error('💥 Error initializing auth:', error);
+        debugLog('💥 Error initializing auth:', error);
+        // Clear any corrupted state on error
         setSession(null);
         setUser(null);
         setIsAdmin(false);
+
+        // Clear storage on error
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.removeItem('sb:apple-interior-manager:auth-token');
+            sessionStorage.clear();
+          } catch (clearError) {
+            debugLog('⚠️ Error clearing storage after auth error:', clearError);
+          }
+        }
       } finally {
         debugLog('🏁 Authentication initialization completed');
         setIsLoading(false);
@@ -212,26 +233,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           sessionUser: newSession?.user?.email
         });
 
-        if (newSession?.user) {
-          debugLog('👤 User signed in, fetching role...');
-          try {
-            const userData = await fetchUserRole(newSession.user.id);
+        try {
+          if (newSession?.user) {
+            debugLog('👤 User signed in, fetching role...');
+            try {
+              const userData = await fetchUserRole(newSession.user.id);
 
-            if (userData) {
-              const userWithRole = {
-                ...newSession.user,
-                role: userData.role as 'admin' | 'employee',
-                full_name: userData.full_name
-              };
+              if (userData) {
+                const userWithRole = {
+                  ...newSession.user,
+                  role: userData.role as 'admin' | 'employee',
+                  full_name: userData.full_name
+                };
 
-              setUser(userWithRole);
-              setIsAdmin(userWithRole.role === 'admin');
-              debugLog('✅ User updated on auth change:', {
-                email: userWithRole.email,
-                role: userWithRole.role
-              });
-            } else {
-              // If we can't fetch the role, set default values
+                setUser(userWithRole);
+                setIsAdmin(userWithRole.role === 'admin');
+                debugLog('✅ User updated on auth change:', {
+                  email: userWithRole.email,
+                  role: userWithRole.role
+                });
+              } else {
+                // If we can't fetch the role, set default values
+                setUser({
+                  ...newSession.user,
+                  role: 'employee',
+                  full_name: newSession.user.email?.split('@')[0] || 'User'
+                });
+                setIsAdmin(false);
+              }
+            } catch (error) {
+              debugLog('💥 Error handling auth state change:', error);
               setUser({
                 ...newSession.user,
                 role: 'employee',
@@ -239,22 +270,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               });
               setIsAdmin(false);
             }
-          } catch (error) {
-            if (DEBUG_ENABLED) console.error('💥 Error handling auth state change:', error);
-            setUser({
-              ...newSession.user,
-              role: 'employee',
-              full_name: newSession.user.email?.split('@')[0] || 'User'
-            });
+          } else {
+            debugLog('🚪 User signed out');
+            setUser(null);
             setIsAdmin(false);
           }
-        } else {
-          debugLog('🚪 User signed out');
+
+          setSession(newSession);
+        } catch (error) {
+          debugLog('💥 Error in auth state change handler:', error);
+          // Clear state on any error
+          setSession(null);
           setUser(null);
           setIsAdmin(false);
-        }
 
-        setSession(newSession);
+          // Clear storage on error
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.removeItem('sb:apple-interior-manager:auth-token');
+              sessionStorage.clear();
+            } catch (clearError) {
+              debugLog('⚠️ Error clearing storage after auth state error:', clearError);
+            }
+          }
+        }
       }
     );
 
@@ -393,8 +432,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       // Clear any local storage/session data if needed
-      localStorage.clear();
-      sessionStorage.clear();
+      if (typeof window !== 'undefined') {
+        localStorage.clear();
+        sessionStorage.clear();
+      }
 
       // Sign out from Supabase
       const { error } = await supabase.auth.signOut();
@@ -410,12 +451,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsAdmin(false);
 
       // Force a hard redirect to the login page
-      window.location.href = '/login';
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
 
     } catch (error) {
       if (DEBUG_ENABLED) console.error('Error during sign out:', error);
       // Even if there's an error, still try to redirect to login
-      window.location.href = '/login';
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
     }
   };
 

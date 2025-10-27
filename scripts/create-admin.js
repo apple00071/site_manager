@@ -56,11 +56,15 @@ function generateSecurePassword(length = 16) {
 // Create admin user
 async function createAdminUser(email, password, firstName, lastName) {
   try {
-    // 1. Create user in Auth
+    // 1. Create user in Auth with admin role in metadata
     const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
       email_confirm: true, // Auto-confirm email
+      user_metadata: {
+        role: 'admin',
+        full_name: `${firstName} ${lastName}`
+      }
     });
 
     if (authError) throw authError;

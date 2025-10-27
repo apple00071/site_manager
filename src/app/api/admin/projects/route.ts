@@ -21,21 +21,19 @@ const projectSchema = z.object({
 
 // Helper function to create a server-side Supabase client
 const createServerSupabaseClient = async () => {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        async get(name: string) {
-          const cookie = await cookieStore;
-          return cookie.get(name)?.value;
+        get(name: string) {
+          return cookieStore.get(name)?.value;
         },
-        async set(name: string, value: string, options: any) {
+        set(name: string, value: string, options: any) {
           try {
-            const cookie = await cookieStore;
-            cookie.set({ 
+            cookieStore.set({ 
               name, 
               value, 
               ...options,
@@ -48,10 +46,9 @@ const createServerSupabaseClient = async () => {
             console.error('Error setting cookie:', error);
           }
         },
-        async remove(name: string, options: any) {
+        remove(name: string, options: any) {
           try {
-            const cookie = await cookieStore;
-            cookie.set({ 
+            cookieStore.set({ 
               name, 
               value: '',
               ...options,
@@ -74,36 +71,20 @@ export async function GET() {
     
     const supabase = await createServerSupabaseClient();
     
-    // Get the current user's session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const { data: { user }, error: userAuthError } = await supabase.auth.getUser();
     
-    if (sessionError || !session) {
-      console.error('No session found:', sessionError?.message);
+    if (userAuthError || !user) {
+      console.error('No authenticated user:', userAuthError?.message);
       return NextResponse.json(
         { error: { message: 'Not authenticated', code: 'UNAUTHORIZED' } },
         { status: 401 }
       );
     }
     
-    // Get user role and ID
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('id, role')
-      .eq('id', session.user.id)
-      .single();
+    const isAdmin = (user.app_metadata?.role || user.user_metadata?.role) === 'admin';
+    const userId = user.id;
     
-    if (userError || !userData) {
-      console.error('Error fetching user data:', userError?.message);
-      return NextResponse.json(
-        { error: { message: 'Error fetching user data', code: 'USER_FETCH_ERROR' } },
-        { status: 500 }
-      );
-    }
-    
-    const isAdmin = userData.role === 'admin';
-    const userId = userData.id;
-    
-    console.log(`Fetching projects for ${isAdmin ? 'admin' : 'user'}:`, session.user.email);
+    console.log(`Fetching projects for ${isAdmin ? 'admin' : 'user'}:`, user.email);
     
     let projectsQuery = supabase
       .from('projects')
