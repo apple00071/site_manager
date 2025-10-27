@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX } from 'react-icons/fi';
 import { supabase } from '@/lib/supabase';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
+import BackButton from '@/components/BackButton';
 
 export default function DashboardLayout({
   children,
@@ -131,12 +132,15 @@ export default function DashboardLayout({
         {/* Mobile header */}
         <header className="bg-white shadow lg:hidden">
           <div className="px-4 py-3 flex items-center justify-between">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-            >
-              <FiMenu className="h-6 w-6" />
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              >
+                <FiMenu className="h-6 w-6" />
+              </button>
+              <BackButton />
+            </div>
             <h2 className="text-lg font-semibold text-gray-800">Dashboard</h2>
             <div className="w-10"></div> {/* Spacer for centering */}
           </div>
