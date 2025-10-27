@@ -41,7 +41,7 @@ export default function LoginPage() {
       }
 
       // Hard redirect to ensure cookies are included in request
-      window.location.href = '/dashboard';
+      window.location.replace('/dashboard');
     } catch (err) {
       setServerError('Unexpected error. Please try again.');
     } finally {
@@ -53,9 +53,17 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
       <div className="w-full max-w-md bg-white shadow-sm rounded-xl p-8">
         <div className="text-center mb-6">
-          <img src="/New-logo.png" alt="Apple Interior Manager" className="h-16 mx-auto" />
-          <h1 className="mt-3 text-2xl font-semibold text-gray-900">Sign in</h1>
-          <p className="text-sm text-gray-500">Access your dashboard</p>
+          <img 
+            src="/New-logo.png" 
+            alt="Apple Interior Manager" 
+            className="h-16 mx-auto"
+            onError={(e) => {
+              // Fallback if logo fails to load
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+          <h1 className="mt-3 text-2xl font-semibold text-gray-900">Apple Interior Manager</h1>
+          <p className="text-sm text-gray-500">Sign in to access your dashboard</p>
         </div>
 
         {serverError && (

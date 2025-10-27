@@ -490,14 +490,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Force a hard redirect to the login page
       if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+        // Use replace to avoid back button issues
+        window.location.replace('/login');
       }
 
     } catch (error) {
       if (DEBUG_ENABLED) console.error('Error during sign out:', error);
       // Even if there's an error, still try to redirect to login
       if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+        window.location.replace('/login');
       }
     }
   };
