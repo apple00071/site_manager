@@ -56,13 +56,13 @@ export default function LoginPage() {
           <img 
             src="/New-logo.png" 
             alt="Apple Interior Manager" 
-            className="h-16 mx-auto"
+            className="h-20 mx-auto mb-4"
             onError={(e) => {
               // Fallback if logo fails to load
               e.currentTarget.style.display = 'none';
             }}
           />
-          <h1 className="mt-3 text-2xl font-semibold text-gray-900">Apple Interior Manager</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">Apple Interior Manager</h1>
           <p className="text-sm text-gray-500">Sign in to access your dashboard</p>
         </div>
 
@@ -112,10 +112,6 @@ export default function LoginPage() {
           >
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
-
-          <div className="text-center text-xs text-gray-500 mt-2">
-            By signing in, you agree to our Terms and Privacy Policy.
-          </div>
         </form>
       </div>
     </div>

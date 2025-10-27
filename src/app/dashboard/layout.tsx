@@ -47,110 +47,115 @@ export default function DashboardLayout({
 
       {/* Sidebar */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-black text-gray-100 shadow-md transform transition-transform duration-300 ease-in-out
+        fixed inset-y-0 left-0 z-50 w-16 lg:w-20 bg-black text-gray-100 shadow-md transform transition-transform duration-300 ease-in-out
         lg:translate-x-0 lg:static lg:inset-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <div className="p-4 lg:p-6">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl lg:text-2xl font-bold text-yellow-400">Apple Interiors</h1>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-2 rounded-md text-gray-400 hover:text-white hover:bg-yellow-500/20"
-            >
-              <FiX className="h-6 w-6" />
-            </button>
+        {/* Logo at top */}
+        <div className="p-3 lg:p-4 border-b border-gray-800">
+          <div className="flex items-center justify-center">
+            <img 
+              src="/New-logo.png" 
+              alt="Apple Interiors" 
+              className="h-8 w-8 lg:h-10 lg:w-10"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
           </div>
         </div>
         
-        <nav className="mt-6">
-          <div className="px-4 py-2">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-              Main
-            </p>
-            <div className="mt-3 space-y-1">
+        {/* Navigation */}
+        <nav className="flex-1 py-4">
+          <div className="space-y-2">
+            <Link 
+              href="/dashboard" 
+              className="flex flex-col items-center px-2 py-3 text-gray-200 hover:bg-yellow-500/10 transition-colors group"
+              onClick={() => setSidebarOpen(false)}
+              title="Dashboard"
+            >
+              <FiHome className="h-5 w-5 text-yellow-400 mb-1" />
+              <span className="text-xs text-center hidden lg:block">Dashboard</span>
+            </Link>
+            <Link 
+              href="/dashboard/projects" 
+              className="flex flex-col items-center px-2 py-3 text-gray-200 hover:bg-yellow-500/10 transition-colors group"
+              onClick={() => setSidebarOpen(false)}
+              title="Projects"
+            >
+              <FiBriefcase className="h-5 w-5 text-yellow-400 mb-1" />
+              <span className="text-xs text-center hidden lg:block">Projects</span>
+            </Link>
+            {isAdmin && (
               <Link 
-                href="/dashboard" 
-                className="flex items-center px-4 py-3 text-gray-200 hover:bg-yellow-500/10 rounded-md transition-colors"
+                href="/dashboard/users" 
+                className="flex flex-col items-center px-2 py-3 text-gray-200 hover:bg-yellow-500/10 transition-colors group"
                 onClick={() => setSidebarOpen(false)}
+                title="Users"
               >
-                <FiHome className="mr-3 h-5 w-5 text-yellow-400" />
-                Dashboard
+                <FiUsers className="h-5 w-5 text-yellow-400 mb-1" />
+                <span className="text-xs text-center hidden lg:block">Users</span>
               </Link>
+            )}
+            {isAdmin && (
               <Link 
-                href="/dashboard/projects" 
-                className="flex items-center px-4 py-3 text-gray-200 hover:bg-yellow-500/10 rounded-md transition-colors"
+                href="/dashboard/settings" 
+                className="flex flex-col items-center px-2 py-3 text-gray-200 hover:bg-yellow-500/10 transition-colors group"
                 onClick={() => setSidebarOpen(false)}
+                title="Settings"
               >
-                <FiBriefcase className="mr-3 h-5 w-5 text-yellow-400" />
-                Projects
+                <FiSettings className="h-5 w-5 text-yellow-400 mb-1" />
+                <span className="text-xs text-center hidden lg:block">Settings</span>
               </Link>
-              {isAdmin && (
-                <Link 
-                  href="/dashboard/users" 
-                  className="flex items-center px-4 py-3 text-gray-200 hover:bg-yellow-500/10 rounded-md transition-colors"
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <FiUsers className="mr-3 h-5 w-5 text-yellow-400" />
-                  Users
-                </Link>
-              )}
-              {isAdmin && (
-                <Link 
-                  href="/dashboard/settings" 
-                  className="flex items-center px-4 py-3 text-gray-200 hover:bg-yellow-500/10 rounded-md transition-colors"
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <FiSettings className="mr-3 h-5 w-5 text-yellow-400" />
-                  Settings
-                </Link>
-              )}
-            </div>
+            )}
           </div>
         </nav>
         
-        <div className="absolute bottom-0 w-64 p-4 border-t border-gray-800">
-          <div className="flex items-center mb-4">
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-200 truncate">{user.full_name || user.email}</p>
-              <p className="text-xs text-gray-400 capitalize">{user.role || 'User'}</p>
+        {/* User section at bottom */}
+        <div className="border-t border-gray-800 p-3">
+          <div className="flex flex-col items-center space-y-2">
+            <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center">
+              <span className="text-black text-xs font-bold">
+                {(user.full_name || user.email || 'U').charAt(0).toUpperCase()}
+              </span>
             </div>
+            <button
+              onClick={handleSignOut}
+              className="flex flex-col items-center px-2 py-2 text-gray-200 hover:bg-yellow-500/10 rounded-md transition-colors group"
+              title="Sign out"
+            >
+              <FiLogOut className="h-4 w-4 text-yellow-400 mb-1" />
+              <span className="text-xs text-center hidden lg:block">Sign out</span>
+            </button>
           </div>
-          <button
-            onClick={handleSignOut}
-            className="flex items-center w-full px-4 py-3 text-gray-200 hover:bg-yellow-500/10 rounded-md transition-colors"
-          >
-            <FiLogOut className="mr-3 h-5 w-5 text-yellow-400" />
-            Sign out
-          </button>
         </div>
       </div>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile header */}
-        <header className="bg-black shadow lg:hidden">
+        <header className="bg-white shadow lg:hidden">
           <div className="px-4 py-3 flex items-center justify-between">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-2 rounded-md text-gray-400 hover:text-white hover:bg-yellow-500/20"
+              className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
             >
               <FiMenu className="h-6 w-6" />
             </button>
-            <h2 className="text-lg font-semibold text-gray-100">Dashboard</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Dashboard</h2>
             <div className="w-10"></div> {/* Spacer for centering */}
           </div>
         </header>
 
         {/* Desktop header */}
-        <header className="bg-black shadow hidden lg:block">
+        <header className="bg-white shadow hidden lg:block">
           <div className="px-6 py-4">
-            <h2 className="text-xl font-semibold text-gray-100">Dashboard</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Dashboard</h2>
           </div>
         </header>
 
         {/* Main content area */}
-        <main className="flex-1 overflow-auto p-4 lg:p-6 bg-gray-50 rounded-tl-2xl">
+        <main className="flex-1 overflow-auto p-4 lg:p-6 bg-gray-50">
           {children}
         </main>
       </div>
