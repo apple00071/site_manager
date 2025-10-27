@@ -36,7 +36,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-black">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
@@ -47,16 +47,16 @@ export default function DashboardLayout({
 
       {/* Sidebar */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-md transform transition-transform duration-300 ease-in-out
+        fixed inset-y-0 left-0 z-50 w-64 bg-black text-gray-100 shadow-md transform transition-transform duration-300 ease-in-out
         lg:translate-x-0 lg:static lg:inset-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="p-4 lg:p-6">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Apple Interior</h1>
+            <h1 className="text-xl lg:text-2xl font-bold text-yellow-400">Apple Interiors</h1>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              className="lg:hidden p-2 rounded-md text-gray-400 hover:text-white hover:bg-yellow-500/20"
             >
               <FiX className="h-6 w-6" />
             </button>
@@ -71,37 +71,37 @@ export default function DashboardLayout({
             <div className="mt-3 space-y-1">
               <Link 
                 href="/dashboard" 
-                className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                className="flex items-center px-4 py-3 text-gray-200 hover:bg-yellow-500/10 rounded-md transition-colors"
                 onClick={() => setSidebarOpen(false)}
               >
-                <FiHome className="mr-3 h-5 w-5" />
+                <FiHome className="mr-3 h-5 w-5 text-yellow-400" />
                 Dashboard
               </Link>
               <Link 
                 href="/dashboard/projects" 
-                className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                className="flex items-center px-4 py-3 text-gray-200 hover:bg-yellow-500/10 rounded-md transition-colors"
                 onClick={() => setSidebarOpen(false)}
               >
-                <FiBriefcase className="mr-3 h-5 w-5" />
+                <FiBriefcase className="mr-3 h-5 w-5 text-yellow-400" />
                 Projects
               </Link>
               {isAdmin && (
                 <Link 
                   href="/dashboard/users" 
-                  className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                  className="flex items-center px-4 py-3 text-gray-200 hover:bg-yellow-500/10 rounded-md transition-colors"
                   onClick={() => setSidebarOpen(false)}
                 >
-                  <FiUsers className="mr-3 h-5 w-5" />
+                  <FiUsers className="mr-3 h-5 w-5 text-yellow-400" />
                   Users
                 </Link>
               )}
               {isAdmin && (
                 <Link 
                   href="/dashboard/settings" 
-                  className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                  className="flex items-center px-4 py-3 text-gray-200 hover:bg-yellow-500/10 rounded-md transition-colors"
                   onClick={() => setSidebarOpen(false)}
                 >
-                  <FiSettings className="mr-3 h-5 w-5" />
+                  <FiSettings className="mr-3 h-5 w-5 text-yellow-400" />
                   Settings
                 </Link>
               )}
@@ -109,18 +109,18 @@ export default function DashboardLayout({
           </div>
         </nav>
         
-        <div className="absolute bottom-0 w-64 p-4 border-t">
+        <div className="absolute bottom-0 w-64 p-4 border-t border-gray-800">
           <div className="flex items-center mb-4">
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-700 truncate">{user.full_name || user.email}</p>
-              <p className="text-xs text-gray-500 capitalize">{user.role || 'User'}</p>
+              <p className="text-sm font-medium text-gray-200 truncate">{user.full_name || user.email}</p>
+              <p className="text-xs text-gray-400 capitalize">{user.role || 'User'}</p>
             </div>
           </div>
           <button
             onClick={handleSignOut}
-            className="flex items-center w-full px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+            className="flex items-center w-full px-4 py-3 text-gray-200 hover:bg-yellow-500/10 rounded-md transition-colors"
           >
-            <FiLogOut className="mr-3 h-5 w-5" />
+            <FiLogOut className="mr-3 h-5 w-5 text-yellow-400" />
             Sign out
           </button>
         </div>
@@ -129,28 +129,28 @@ export default function DashboardLayout({
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile header */}
-        <header className="bg-white shadow lg:hidden">
+        <header className="bg-black shadow lg:hidden">
           <div className="px-4 py-3 flex items-center justify-between">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              className="p-2 rounded-md text-gray-400 hover:text-white hover:bg-yellow-500/20"
             >
               <FiMenu className="h-6 w-6" />
             </button>
-            <h2 className="text-lg font-semibold text-gray-800">Dashboard</h2>
+            <h2 className="text-lg font-semibold text-gray-100">Dashboard</h2>
             <div className="w-10"></div> {/* Spacer for centering */}
           </div>
         </header>
 
         {/* Desktop header */}
-        <header className="bg-white shadow hidden lg:block">
+        <header className="bg-black shadow hidden lg:block">
           <div className="px-6 py-4">
-            <h2 className="text-xl font-semibold text-gray-800">Dashboard</h2>
+            <h2 className="text-xl font-semibold text-gray-100">Dashboard</h2>
           </div>
         </header>
 
         {/* Main content area */}
-        <main className="flex-1 overflow-auto p-4 lg:p-6">
+        <main className="flex-1 overflow-auto p-4 lg:p-6 bg-gray-50 rounded-tl-2xl">
           {children}
         </main>
       </div>

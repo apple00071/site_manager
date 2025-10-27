@@ -475,7 +475,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         sessionStorage.clear();
       }
 
-      // Sign out from Supabase
+      // Sign out on server (clears httpOnly cookies) first
+      try {
+        await fetch('/api/auth/logout', { method: 'POST' });
+      } catch (_) {
+        // ignore
+      }
+
+      // Sign out from Supabase as a fallback
       const { error } = await supabase.auth.signOut();
 
       if (error) {
@@ -488,17 +495,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(null);
       setIsAdmin(false);
 
-      // Force a hard redirect to the login page
+      // Best-effort: unregister service workers and clear caches to avoid SW intercept issues
+      if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister()));
+          if (window.caches) {
+            const names = await caches.keys();
+            await Promise.all(names.map(name => caches.delete(name)));
+          }
+        } catch (_) {}
+      }
+
+      // Force a hard redirect to the login page (absolute URL in production)
       if (typeof window !== 'undefined') {
-        // Use replace to avoid back button issues
-        window.location.replace('/login');
+        const base = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
+        window.location.replace(`${base}/login`);
       }
 
     } catch (error) {
       if (DEBUG_ENABLED) console.error('Error during sign out:', error);
       // Even if there's an error, still try to redirect to login
       if (typeof window !== 'undefined') {
-        window.location.replace('/login');
+        const base = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
+        window.location.replace(`${base}/login`);
       }
     }
   };

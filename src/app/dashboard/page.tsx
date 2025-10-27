@@ -123,12 +123,12 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Welcome, {user?.full_name || 'User'}</h1>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Welcome, {user?.full_name || 'User'}</h1>
         {isAdmin && (
           <Link 
             href="/dashboard/projects/new" 
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md flex items-center hover:bg-indigo-700"
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md flex items-center justify-center hover:bg-indigo-700"
           >
             <FiPlus className="mr-2" /> New Project
           </Link>

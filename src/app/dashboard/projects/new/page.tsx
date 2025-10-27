@@ -76,7 +76,7 @@ export default function NewProjectPage() {
         console.log('Fetching employees...');
         const { data: employeesData, error: employeesError } = await supabase
           .from('users')
-          .select('id, full_name, email')
+          .select('id, full_name, email, designation')
           .eq('role', 'employee')
           .order('full_name', { ascending: true });
 
@@ -86,7 +86,8 @@ export default function NewProjectPage() {
         setEmployees((employeesData || []).map(u => ({
           id: u.id,
           name: u.full_name,
-          email: u.email
+          email: u.email,
+          designation: u.designation
         })));
         
       } catch (err) {
@@ -241,7 +242,7 @@ export default function NewProjectPage() {
                   <option value="">Select an employee</option>
                   {employees.map((employee) => (
                     <option key={employee.id} value={employee.id}>
-                      {employee.name} - {employee.designation || 'Employee'}
+                      {employee.name} - {employee.designation || 'Designation'}
                     </option>
                   ))}
                 </select>
