@@ -25,29 +25,11 @@ export default function DashboardPage() {
         let projectsQuery = supabase.from('projects').select('*');
         
         if (!isAdmin && user) {
-          // First get the project IDs where the user is a member
-          const { data: memberProjects } = await supabase
-            .from('project_members')
-            .select('project_id')
-            .eq('user_id', user.id);
-            
-          const projectIds = memberProjects?.map(p => p.project_id) || [];
-          
-          // Then filter the projects query
-          if (projectIds.length > 0) {
-            projectsQuery = supabase.from('projects').select('*').in('id', projectIds);
-          } else {
-            // If no projects, set projects to empty array and skip the query
-            setRecentProjects([]);
-            setStats({
-              totalProjects: 0,
-              activeProjects: 0,
-              completedProjects: 0,
-              upcomingDeadlines: 0,
-            });
-            setLoading(false);
-            return;
-          }
+          // For employees, get projects where they are assigned via assigned_employee_id
+          projectsQuery = supabase
+            .from('projects')
+            .select('*')
+            .eq('assigned_employee_id', user.id);
         }
         
         const { data: projects } = await projectsQuery;
@@ -56,7 +38,7 @@ export default function DashboardPage() {
           const active = projects.filter(p => p.status !== 'completed').length;
           const completed = projects.filter(p => p.status === 'completed').length;
           const upcoming = projects.filter(p => {
-            const deadline = new Date(p.deadline);
+            const deadline = new Date(p.estimated_completion_date);
             const now = new Date();
             const diff = deadline.getTime() - now.getTime();
             const days = diff / (1000 * 3600 * 24);
@@ -78,23 +60,15 @@ export default function DashboardPage() {
             id, 
             title, 
             status, 
-            deadline,
-            clients(name)
+            estimated_completion_date,
+            customer_name
           `)
           .order('created_at', { ascending: false })
           .limit(5);
           
         if (!isAdmin && user) {
-          // First get the project IDs where the user is a member
-          const { data: memberProjects } = await supabase
-            .from('project_members')
-            .select('project_id')
-            .eq('user_id', user.id);
-            
-          const projectIds = memberProjects?.map(p => p.project_id) || [];
-          
-          // Then filter the recent projects query
-          recentQuery = recentQuery.in('id', projectIds);
+          // For employees, get projects where they are assigned via assigned_employee_id
+          recentQuery = recentQuery.eq('assigned_employee_id', user.id);
         }
         
         const { data: recentData } = await recentQuery;
@@ -203,7 +177,7 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-sm font-medium text-gray-900">{project.title}</h3>
-                      <p className="text-sm text-gray-500">Client: {project.clients?.name || 'N/A'}</p>
+                      <p className="text-sm text-gray-500">Customer: {project.customer_name || 'N/A'}</p>
                     </div>
                     <div className="flex items-center">
                       <span 
@@ -217,9 +191,9 @@ export default function DashboardPage() {
                       >
                         {project.status}
                       </span>
-                      {project.deadline && (
+                      {project.estimated_completion_date && (
                         <span className="ml-2 text-xs text-gray-500">
-                          {new Date(project.deadline).toLocaleDateString()}
+                          {new Date(project.estimated_completion_date).toLocaleDateString()}
                         </span>
                       )}
                     </div>

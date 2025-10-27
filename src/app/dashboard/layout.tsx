@@ -47,12 +47,12 @@ export default function DashboardLayout({
 
       {/* Sidebar */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-16 lg:w-20 bg-black text-gray-100 shadow-md transform transition-transform duration-300 ease-in-out
+        fixed inset-y-0 left-0 z-50 w-16 lg:w-20 bg-white text-gray-900 shadow-md transform transition-transform duration-300 ease-in-out
         lg:translate-x-0 lg:static lg:inset-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Logo at top */}
-        <div className="p-3 lg:p-4 border-b border-gray-800">
+        <div className="p-3 lg:p-4 border-b border-gray-200">
           <div className="flex items-center justify-center">
             <img 
               src="/New-logo.png" 
@@ -70,62 +70,62 @@ export default function DashboardLayout({
           <div className="space-y-2">
             <Link 
               href="/dashboard" 
-              className="flex flex-col items-center px-2 py-3 text-gray-200 hover:bg-yellow-500/10 transition-colors group"
+              className="flex flex-col items-center px-2 py-3 text-gray-700 hover:bg-yellow-100 transition-colors group"
               onClick={() => setSidebarOpen(false)}
               title="Dashboard"
             >
-              <FiHome className="h-5 w-5 text-yellow-400 mb-1" />
-              <span className="text-xs text-center hidden lg:block">Dashboard</span>
+              <FiHome className="h-5 w-5 text-yellow-600 mb-1" />
+              <span className="text-xs text-center hidden lg:block text-gray-700">Dashboard</span>
             </Link>
             <Link 
               href="/dashboard/projects" 
-              className="flex flex-col items-center px-2 py-3 text-gray-200 hover:bg-yellow-500/10 transition-colors group"
+              className="flex flex-col items-center px-2 py-3 text-gray-700 hover:bg-yellow-100 transition-colors group"
               onClick={() => setSidebarOpen(false)}
               title="Projects"
             >
-              <FiBriefcase className="h-5 w-5 text-yellow-400 mb-1" />
-              <span className="text-xs text-center hidden lg:block">Projects</span>
+              <FiBriefcase className="h-5 w-5 text-yellow-600 mb-1" />
+              <span className="text-xs text-center hidden lg:block text-gray-700">Projects</span>
             </Link>
             {isAdmin && (
               <Link 
                 href="/dashboard/users" 
-                className="flex flex-col items-center px-2 py-3 text-gray-200 hover:bg-yellow-500/10 transition-colors group"
+                className="flex flex-col items-center px-2 py-3 text-gray-700 hover:bg-yellow-100 transition-colors group"
                 onClick={() => setSidebarOpen(false)}
                 title="Users"
               >
-                <FiUsers className="h-5 w-5 text-yellow-400 mb-1" />
-                <span className="text-xs text-center hidden lg:block">Users</span>
+                <FiUsers className="h-5 w-5 text-yellow-600 mb-1" />
+                <span className="text-xs text-center hidden lg:block text-gray-700">Users</span>
               </Link>
             )}
             {isAdmin && (
               <Link 
                 href="/dashboard/settings" 
-                className="flex flex-col items-center px-2 py-3 text-gray-200 hover:bg-yellow-500/10 transition-colors group"
+                className="flex flex-col items-center px-2 py-3 text-gray-700 hover:bg-yellow-100 transition-colors group"
                 onClick={() => setSidebarOpen(false)}
                 title="Settings"
               >
-                <FiSettings className="h-5 w-5 text-yellow-400 mb-1" />
-                <span className="text-xs text-center hidden lg:block">Settings</span>
+                <FiSettings className="h-5 w-5 text-yellow-600 mb-1" />
+                <span className="text-xs text-center hidden lg:block text-gray-700">Settings</span>
               </Link>
             )}
           </div>
         </nav>
         
         {/* User section at bottom */}
-        <div className="border-t border-gray-800 p-3">
+        <div className="border-t border-gray-200 p-3">
           <div className="flex flex-col items-center space-y-2">
-            <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center">
+            <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
               <span className="text-black text-xs font-bold">
                 {(user.full_name || user.email || 'U').charAt(0).toUpperCase()}
               </span>
             </div>
             <button
               onClick={handleSignOut}
-              className="flex flex-col items-center px-2 py-2 text-gray-200 hover:bg-yellow-500/10 rounded-md transition-colors group"
+              className="flex flex-col items-center px-2 py-2 text-gray-700 hover:bg-yellow-100 rounded-md transition-colors group"
               title="Sign out"
             >
-              <FiLogOut className="h-4 w-4 text-yellow-400 mb-1" />
-              <span className="text-xs text-center hidden lg:block">Sign out</span>
+              <FiLogOut className="h-4 w-4 text-yellow-600 mb-1" />
+              <span className="text-xs text-center hidden lg:block text-gray-700">Sign out</span>
             </button>
           </div>
         </div>
