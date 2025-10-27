@@ -2,10 +2,11 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings } from 'react-icons/fi';
+import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX } from 'react-icons/fi';
 import { supabase } from '@/lib/supabase';
+import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 
 export default function DashboardLayout({
   children,
@@ -14,6 +15,7 @@ export default function DashboardLayout({
 }) {
   const { user, isLoading, signOut, isAdmin } = useAuth();
   const router = useRouter();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Removed automatic redirect check - middleware already handles authentication
   // The middleware ensures only authenticated users can reach this page
@@ -35,66 +37,126 @@ export default function DashboardLayout({
 
   return (
     <div className="flex h-screen bg-gray-50">
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-gray-600 bg-opacity-75 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <div className="w-64 bg-white shadow-md">
-        <div className="p-6">
-          <h1 className="text-2xl font-bold text-gray-900">Apple Interior</h1>
+      <div className={`
+        fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-md transform transition-transform duration-300 ease-in-out
+        lg:translate-x-0 lg:static lg:inset-0
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <div className="p-4 lg:p-6">
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Apple Interior</h1>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+            >
+              <FiX className="h-6 w-6" />
+            </button>
+          </div>
         </div>
+        
         <nav className="mt-6">
           <div className="px-4 py-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
               Main
             </p>
             <div className="mt-3 space-y-1">
-              <Link href="/dashboard" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md">
-                <FiHome className="mr-3" />
+              <Link 
+                href="/dashboard" 
+                className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                onClick={() => setSidebarOpen(false)}
+              >
+                <FiHome className="mr-3 h-5 w-5" />
                 Dashboard
               </Link>
-              <Link href="/dashboard/projects" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md">
-                <FiBriefcase className="mr-3" />
+              <Link 
+                href="/dashboard/projects" 
+                className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                onClick={() => setSidebarOpen(false)}
+              >
+                <FiBriefcase className="mr-3 h-5 w-5" />
                 Projects
               </Link>
               {isAdmin && (
-                <Link href="/dashboard/users" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md">
-                  <FiUsers className="mr-3" />
+                <Link 
+                  href="/dashboard/users" 
+                  className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  <FiUsers className="mr-3 h-5 w-5" />
                   Users
                 </Link>
               )}
               {isAdmin && (
-                <Link href="/dashboard/settings" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md">
-                  <FiSettings className="mr-3" />
+                <Link 
+                  href="/dashboard/settings" 
+                  className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  <FiSettings className="mr-3 h-5 w-5" />
                   Settings
                 </Link>
               )}
             </div>
           </div>
         </nav>
+        
         <div className="absolute bottom-0 w-64 p-4 border-t">
-          <div className="flex items-center">
+          <div className="flex items-center mb-4">
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-700">{user.full_name || user.email}</p>
+              <p className="text-sm font-medium text-gray-700 truncate">{user.full_name || user.email}</p>
               <p className="text-xs text-gray-500 capitalize">{user.role || 'User'}</p>
             </div>
           </div>
           <button
             onClick={handleSignOut}
-            className="mt-4 flex items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+            className="flex items-center w-full px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
           >
-            <FiLogOut className="mr-3" />
+            <FiLogOut className="mr-3 h-5 w-5" />
             Sign out
           </button>
         </div>
       </div>
 
       {/* Main content */}
-      <div className="flex-1 overflow-auto">
-        <header className="bg-white shadow">
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Mobile header */}
+        <header className="bg-white shadow lg:hidden">
+          <div className="px-4 py-3 flex items-center justify-between">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+            >
+              <FiMenu className="h-6 w-6" />
+            </button>
+            <h2 className="text-lg font-semibold text-gray-800">Dashboard</h2>
+            <div className="w-10"></div> {/* Spacer for centering */}
+          </div>
+        </header>
+
+        {/* Desktop header */}
+        <header className="bg-white shadow hidden lg:block">
           <div className="px-6 py-4">
             <h2 className="text-xl font-semibold text-gray-800">Dashboard</h2>
           </div>
         </header>
-        <main className="p-6">{children}</main>
+
+        {/* Main content area */}
+        <main className="flex-1 overflow-auto p-4 lg:p-6">
+          {children}
+        </main>
       </div>
+      
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt />
     </div>
   );
 }

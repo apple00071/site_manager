@@ -99,19 +99,79 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Projects</h1>
+    <div className="space-y-4 lg:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Projects</h1>
         <Link
           href="/dashboard/projects/new"
-          className="px-4 py-2 bg-indigo-600 text-white rounded-md flex items-center hover:bg-indigo-700"
+          className="px-4 py-2 bg-indigo-600 text-white rounded-md flex items-center justify-center hover:bg-indigo-700 transition-colors"
         >
-          <FiPlus className="mr-2" /> New Project
+          <FiPlus className="mr-2 h-4 w-4" /> New Project
         </Link>
       </div>
 
       <div className="bg-white shadow overflow-hidden rounded-lg">
-        <table className="min-w-full divide-y divide-gray-200">
+        {/* Mobile view - cards */}
+        <div className="lg:hidden">
+          {projects.map((project) => (
+            <div key={project.id} className="border-b border-gray-200 p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-medium text-gray-900 truncate">{project.title}</h3>
+                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">{project.description}</p>
+                  <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
+                    <span>{project.customer_name || 'N/A'}</span>
+                    <span>{project.estimated_completion_date ? new Date(project.estimated_completion_date).toLocaleDateString() : 'No date set'}</span>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2 ml-4">
+                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                    project.status === 'completed' 
+                      ? 'bg-green-100 text-green-800' 
+                      : project.status === 'in_progress' 
+                      ? 'bg-blue-100 text-blue-800' 
+                      : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {project.status}
+                  </span>
+                  <div className="flex space-x-1">
+                    <Link
+                      href={`/dashboard/projects/${project.id}`}
+                      className="p-2 text-indigo-600 hover:text-indigo-900"
+                    >
+                      <FiEye className="h-4 w-4" />
+                    </Link>
+                    {isAdmin && (
+                      <>
+                        <Link
+                          href={`/dashboard/projects/${project.id}/edit`}
+                          className="p-2 text-indigo-600 hover:text-indigo-900"
+                        >
+                          <FiEdit2 className="h-4 w-4" />
+                        </Link>
+                        <button
+                          onClick={() => handleDeleteProject(project.id)}
+                          className="p-2 text-red-600 hover:text-red-900"
+                        >
+                          <FiTrash2 className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+          {projects.length === 0 && (
+            <div className="p-8 text-center text-sm text-gray-500">
+              No projects found
+            </div>
+          )}
+        </div>
+
+        {/* Desktop view - table */}
+        <div className="hidden lg:block">
+          <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -190,6 +250,7 @@ export default function ProjectsPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

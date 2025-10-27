@@ -181,13 +181,13 @@ export default function NewProjectPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 lg:space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Create New Project</h1>
+        <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Create New Project</h1>
       </div>
 
-      <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
+      <div className="bg-white shadow overflow-hidden rounded-lg">
+        <div className="px-4 py-4 sm:px-6 sm:py-5">
           {error && (
             <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
               <p className="text-red-700">{error}</p>
