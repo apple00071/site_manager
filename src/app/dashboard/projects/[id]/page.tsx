@@ -2,12 +2,11 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
-// This ensures the page is always rendered on the server
-// and never statically generated
-export const dynamic = 'force-dynamic';
+// Page runs as a client component to use interactive tabs/boards
 
 type Project = {
   id: string;
@@ -46,6 +45,10 @@ export default function ProjectDetailsPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'details' | 'board' | 'gantt'>('details');
+
+  const KanbanBoard = dynamic(() => import('@/components/projects/KanbanBoard').then(m => m.KanbanBoard), { ssr: false });
+  const GanttView = dynamic(() => import('@/components/projects/GanttView').then(m => m.GanttView), { ssr: false });
 
   useEffect(() => {
     if (authLoading) return;
@@ -61,6 +64,23 @@ export default function ProjectDetailsPage() {
         setIsLoading(true);
         setError(null);
 
+        // For non-admins, verify membership BEFORE fetching the project (avoids RLS denial on initial query)
+        if (!isAdmin) {
+          const { data: isMember, error: memberError } = await supabase
+            .from('project_members')
+            .select('project_id')
+            .eq('project_id', id)
+            .eq('user_id', user.id)
+            .single();
+
+          if (memberError && memberError.code !== 'PGRST116') {
+            throw memberError;
+          }
+          if (!isMember) {
+            throw new Error('You do not have permission to view this project');
+          }
+        }
+
         const { data: projectData, error: projectError } = await supabase
           .from('projects')
           .select(`
@@ -70,24 +90,6 @@ export default function ProjectDetailsPage() {
           .single();
 
         if (projectError) throw projectError;
-        
-        // If user is not admin and not assigned to this project, check if they have access
-        if (!isAdmin) {
-          const { data: isMember, error: memberError } = await supabase
-            .from('project_members')
-            .select('project_id')
-            .eq('project_id', id)
-            .eq('user_id', user.id)
-            .single();
-
-          if (memberError && memberError.code !== 'PGRST116') { // PGRST116 = no rows returned
-            throw memberError;
-          }
-
-          if (!isMember) {
-            throw new Error('You do not have permission to view this project');
-          }
-        }
 
         setProject(projectData as Project);
       } catch (err: any) {
@@ -161,6 +163,32 @@ export default function ProjectDetailsPage() {
         </span>
       </div>
 
+      {/* Tabs */}
+      <div className="border-b mb-4">
+        <nav className="-mb-px flex space-x-6" aria-label="Tabs">
+          <button
+            className={`whitespace-nowrap py-2 px-1 border-b-2 text-sm font-medium ${activeTab === 'details' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            onClick={() => setActiveTab('details')}
+          >
+            Details
+          </button>
+          <button
+            className={`whitespace-nowrap py-2 px-1 border-b-2 text-sm font-medium ${activeTab === 'board' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            onClick={() => setActiveTab('board')}
+          >
+            Stages Board
+          </button>
+          <button
+            className={`whitespace-nowrap py-2 px-1 border-b-2 text-sm font-medium ${activeTab === 'gantt' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            onClick={() => setActiveTab('gantt')}
+          >
+            Gantt Chart
+          </button>
+        </nav>
+      </div>
+
+      {activeTab === 'details' && (
+      <>
       <div className="bg-white shadow overflow-hidden sm:rounded-lg">
         <div className="px-4 py-5 sm:px-6">
           <h3 className="text-lg font-medium leading-6 text-gray-900">Project Information</h3>
@@ -236,7 +264,6 @@ export default function ProjectDetailsPage() {
         </div>
       </div>
 
-      {/* Team Details Section */}
       <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
         <div className="px-4 py-5 sm:px-6">
           <h3 className="text-lg font-medium leading-6 text-gray-900">Team Details</h3>
@@ -298,6 +325,16 @@ export default function ProjectDetailsPage() {
           </dl>
         </div>
       </div>
+      </>
+      )}
+
+      {activeTab === 'board' && (
+        <KanbanBoard projectId={project.id} />
+      )}
+
+      {activeTab === 'gantt' && (
+        <GanttView projectId={project.id} />
+      )}
     </div>
   );
 }
