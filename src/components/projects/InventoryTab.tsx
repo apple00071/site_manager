@@ -19,7 +19,7 @@ type InventoryItem = {
   created_at: string;
   created_by_user: {
     id: string;
-    name: string;
+    full_name: string;
     email: string;
   };
 };

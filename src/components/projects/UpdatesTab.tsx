@@ -14,7 +14,7 @@ type ProjectUpdate = {
   created_at: string;
   user: {
     id: string;
-    name: string;
+    full_name: string;
     email: string;
   };
 };

@@ -20,12 +20,12 @@ type DesignFile = {
   created_at: string;
   uploaded_by_user: {
     id: string;
-    name: string;
+    full_name: string;
     email: string;
   };
   approved_by_user: {
     id: string;
-    name: string;
+    full_name: string;
     email: string;
   } | null;
   comments: Array<{
@@ -34,7 +34,7 @@ type DesignFile = {
     created_at: string;
     user: {
       id: string;
-      name: string;
+      full_name: string;
       email: string;
     };
   }>;

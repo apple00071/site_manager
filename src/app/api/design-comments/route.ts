@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       })
       .select(`
         *,
-        user:users(id, name, email)
+        user:users(id, full_name, email)
       `)
       .single();
 
