@@ -139,15 +139,15 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
 
   return (
     <div className="mt-6">
-      {/* Remove the top Add Step bar; move Add Step to each column */}
+      {/* Add Task button in each column */}
 
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {STAGES.map(stage => (
           <div key={stage.key} className="bg-white rounded-lg border shadow-sm">
             <div className="flex items-center justify-between px-4 py-3 border-b font-semibold text-sm text-gray-800">
               <span>{stage.label}</span>
-              <button className="p-1 rounded hover:bg-indigo-100 text-indigo-600 hover:text-indigo-900 text-xs font-medium flex items-center gap-1" onClick={() => { setAddStepStage(stage.key); setAddStepTitle(''); }}>
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeWidth="2" d="M12 6v12m6-6H6"/></svg> Add Step
+              <button className="p-1 rounded hover:bg-yellow-100 text-yellow-600 hover:text-yellow-700 text-xs font-medium flex items-center gap-1" onClick={() => { setAddStepStage(stage.key); setAddStepTitle(''); }}>
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeWidth="2" d="M12 6v12m6-6H6"/></svg> Add Task
               </button>
             </div>
             <div className="p-4 space-y-3 min-h-24">
@@ -194,11 +194,11 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => !addStepLoading && setAddStepStage(null)}></div>
           <div className="relative bg-white rounded-lg shadow-lg w-full max-w-md p-5">
-            <div className="text-sm font-semibold text-gray-900 mb-3">Add Step – {STAGES.find(s=>s.key===addStepStage)?.label}</div>
-            <input value={addStepTitle} onChange={e => setAddStepTitle(e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm mb-4" placeholder="Step name" disabled={addStepLoading} autoFocus />
+            <div className="text-sm font-semibold text-gray-900 mb-3">Add Task – {STAGES.find(s=>s.key===addStepStage)?.label}</div>
+            <input value={addStepTitle} onChange={e => setAddStepTitle(e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm mb-4" placeholder="Task name" disabled={addStepLoading} autoFocus />
             <div className="flex justify-end gap-2">
               <button className="px-3 py-2 text-sm rounded-md border" disabled={addStepLoading} onClick={()=>setAddStepStage(null)}>Cancel</button>
-              <button className="px-4 py-2 text-sm rounded-md bg-indigo-600 text-white disabled:opacity-60" disabled={addStepLoading||!addStepTitle.trim()} onClick={()=>addStep(addStepStage)}>Add</button>
+              <button className="px-4 py-2 text-sm rounded-md bg-yellow-500 text-gray-900 font-bold disabled:opacity-60" disabled={addStepLoading||!addStepTitle.trim()} onClick={()=>addStep(addStepStage)}>Add</button>
             </div>
           </div>
         </div>
@@ -258,9 +258,9 @@ function TaskList({ stepId }: { stepId: string }) {
   return (
     <div className="mt-2">
       <div className="flex items-center justify-between">
-        <div className="text-xs font-medium text-gray-600">Tasks ({tasks.length})</div>
-        <button className="text-xs bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-600 px-2 py-1 rounded shadow-sm font-medium ml-2" onClick={() => setOpen(true)}>
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" className="inline-block align-middle mr-1"><path stroke="currentColor" strokeWidth="2" d="M12 6v12m6-6H6"/></svg> Add Task
+        <div className="text-xs font-medium text-gray-600">Subtasks ({tasks.length})</div>
+        <button className="text-xs bg-yellow-50 hover:bg-yellow-100 border border-yellow-200 text-yellow-700 px-2 py-1 rounded shadow-sm font-medium ml-2" onClick={() => setOpen(true)}>
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" className="inline-block align-middle mr-1"><path stroke="currentColor" strokeWidth="2" d="M12 6v12m6-6H6"/></svg> Add Subtask
         </button>
       </div>
       {tasks.length > 0 && (
@@ -306,7 +306,7 @@ function TaskList({ stepId }: { stepId: string }) {
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <button className="px-3 py-2 text-sm rounded-md border" disabled={saving} onClick={() => setOpen(false)}>Cancel</button>
-              <button className="px-4 py-2 text-sm rounded-md bg-indigo-600 text-white disabled:opacity-60" disabled={saving} onClick={createTask}>{saving ? 'Saving...' : 'Save'}</button>
+              <button className="px-4 py-2 text-sm rounded-md bg-yellow-500 text-gray-900 font-bold disabled:opacity-60" disabled={saving} onClick={createTask}>{saving ? 'Saving...' : 'Save'}</button>
             </div>
           </div>
         </div>

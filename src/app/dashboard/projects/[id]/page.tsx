@@ -64,23 +64,11 @@ export default function ProjectDetailsPage() {
         setIsLoading(true);
         setError(null);
 
-        // For non-admins, verify membership BEFORE fetching the project (avoids RLS denial on initial query)
-        if (!isAdmin) {
-          const { data: isMember, error: memberError } = await supabase
-            .from('project_members')
-            .select('project_id')
-            .eq('project_id', id)
-            .eq('user_id', user.id)
-            .single();
-
-          if (memberError && memberError.code !== 'PGRST116') {
-            throw memberError;
-          }
-          if (!isMember) {
-            throw new Error('You do not have permission to view this project');
-          }
-        }
-
+        // Fetch the project - RLS policies will handle permission checks automatically
+        // Admins can view all projects
+        // Employees can view projects where they are:
+        //   1. Listed in project_members table with view permissions, OR
+        //   2. Assigned via assigned_employee_id field
         const { data: projectData, error: projectError } = await supabase
           .from('projects')
           .select(`
@@ -89,7 +77,13 @@ export default function ProjectDetailsPage() {
           .eq('id', id)
           .single();
 
-        if (projectError) throw projectError;
+        if (projectError) {
+          // If RLS denies access, we'll get a specific error
+          if (projectError.code === 'PGRST116') {
+            throw new Error('You do not have permission to view this project');
+          }
+          throw projectError;
+        }
 
         setProject(projectData as Project);
       } catch (err: any) {

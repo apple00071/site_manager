@@ -66,29 +66,29 @@ export default function AdminDashboard() {
 
   if (isLoading || dashboardLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-white shadow-sm">
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
-                <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
               </div>
             </div>
-            <div className="flex items-center">
-              <span className="text-gray-700 mr-4">
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-700 font-medium">
                 {user?.email}
               </span>
               <button
                 onClick={() => signOut()}
-                className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-semibold rounded-lg text-white bg-red-600 hover:bg-red-700 transition-colors shadow-sm"
               >
                 Sign Out
               </button>
@@ -97,41 +97,41 @@ export default function AdminDashboard() {
         </div>
       </nav>
 
-      <div className="py-6">
+      <div className="py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl font-semibold text-gray-900">Dashboard</h2>
+          <h2 className="text-3xl font-bold text-gray-900">Dashboard</h2>
 
           {/* Quick Actions */}
-          <div className="mt-4 flex flex-wrap gap-3">
+          <div className="mt-6 flex flex-wrap gap-3">
             <a
               href="/admin/users/new"
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+              className="px-5 py-2.5 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 transition-colors shadow-sm font-bold"
             >
               Create New User
             </a>
             <a
               href="/dashboard/projects/new"
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+              className="px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm font-medium"
             >
               Create New Project
             </a>
           </div>
-          
+
           {/* Stats Cards */}
-          <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
               <div className="px-4 py-5 sm:p-6">
                 <div className="flex items-center">
-                  <div className="flex-shrink-0 bg-blue-500 rounded-md p-3">
-                    <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="flex-shrink-0 bg-yellow-500 rounded-lg p-3">
+                    <svg className="h-6 w-6 text-gray-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                   </div>
                   <div className="ml-5 w-0 flex-1">
                     <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Total Users</dt>
+                      <dt className="text-sm font-medium text-gray-600 truncate">Total Users</dt>
                       <dd className="flex items-baseline">
-                        <div className="text-2xl font-semibold text-gray-900">{stats.totalUsers}</div>
+                        <div className="text-2xl font-bold text-gray-900">{stats.totalUsers}</div>
                       </dd>
                     </dl>
                   </div>
@@ -139,26 +139,26 @@ export default function AdminDashboard() {
               </div>
               <div className="bg-gray-50 px-4 py-4 sm:px-6">
                 <div className="text-sm">
-                  <a href="/admin/users" className="font-medium text-blue-600 hover:text-blue-500">
-                    View all users
+                  <a href="/admin/users" className="font-semibold text-yellow-600 hover:text-yellow-700 transition-colors">
+                    View all users →
                   </a>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
               <div className="px-4 py-5 sm:p-6">
                 <div className="flex items-center">
-                  <div className="flex-shrink-0 bg-green-500 rounded-md p-3">
+                  <div className="flex-shrink-0 bg-green-600 rounded-lg p-3">
                     <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                     </svg>
                   </div>
                   <div className="ml-5 w-0 flex-1">
                     <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Total Projects</dt>
+                      <dt className="text-sm font-medium text-gray-600 truncate">Total Projects</dt>
                       <dd className="flex items-baseline">
-                        <div className="text-2xl font-semibold text-gray-900">{stats.totalProjects}</div>
+                        <div className="text-2xl font-bold text-gray-900">{stats.totalProjects}</div>
                       </dd>
                     </dl>
                   </div>
@@ -166,26 +166,26 @@ export default function AdminDashboard() {
               </div>
               <div className="bg-gray-50 px-4 py-4 sm:px-6">
                 <div className="text-sm">
-                  <a href="/dashboard/projects" className="font-medium text-blue-600 hover:text-blue-500">
-                    View all projects
+                  <a href="/dashboard/projects" className="font-semibold text-yellow-600 hover:text-yellow-700 transition-colors">
+                    View all projects →
                   </a>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
               <div className="px-4 py-5 sm:p-6">
                 <div className="flex items-center">
-                  <div className="flex-shrink-0 bg-purple-500 rounded-md p-3">
-                    <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="flex-shrink-0 bg-gray-900 rounded-lg p-3">
+                    <svg className="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                   </div>
                   <div className="ml-5 w-0 flex-1">
                     <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Total Clients</dt>
+                      <dt className="text-sm font-medium text-gray-600 truncate">Total Clients</dt>
                       <dd className="flex items-baseline">
-                        <div className="text-2xl font-semibold text-gray-900">{stats.totalClients}</div>
+                        <div className="text-2xl font-bold text-gray-900">{stats.totalClients}</div>
                       </dd>
                     </dl>
                   </div>
@@ -193,8 +193,8 @@ export default function AdminDashboard() {
               </div>
               <div className="bg-gray-50 px-4 py-4 sm:px-6">
                 <div className="text-sm">
-                  <a href="/admin/clients" className="font-medium text-blue-600 hover:text-blue-500">
-                    View all clients
+                  <a href="/admin/clients" className="font-semibold text-yellow-600 hover:text-yellow-700 transition-colors">
+                    View all clients →
                   </a>
                 </div>
               </div>

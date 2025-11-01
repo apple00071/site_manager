@@ -111,12 +111,12 @@ export async function GET() {
     
     // If user is not admin, only fetch projects they are assigned to
     if (!isAdmin) {
-      // First, get project IDs the user is a member of
+      // Get project IDs the user is a member of via project_members table
       const { data: memberProjects, error: memberError } = await supabase
         .from('project_members')
         .select('project_id')
         .eq('user_id', userId);
-      
+
       if (memberError) {
         console.error('Error fetching member projects:', memberError.message);
         return NextResponse.json(
@@ -124,16 +124,35 @@ export async function GET() {
           { status: 500 }
         );
       }
-      
-      const projectIds = memberProjects?.map(p => p.project_id) || [];
-      
-      if (projectIds.length === 0) {
+
+      const memberProjectIds = memberProjects?.map(p => p.project_id) || [];
+
+      // Get projects directly assigned via assigned_employee_id field
+      const { data: assignedProjects, error: assignedError } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('assigned_employee_id', userId);
+
+      if (assignedError) {
+        console.error('Error fetching assigned projects:', assignedError.message);
+        return NextResponse.json(
+          { error: { message: 'Error fetching assigned projects', code: 'PROJECT_FETCH_ERROR' } },
+          { status: 500 }
+        );
+      }
+
+      const assignedProjectIds = assignedProjects?.map(p => p.id) || [];
+
+      // Combine both lists (remove duplicates)
+      const allProjectIds = [...new Set([...memberProjectIds, ...assignedProjectIds])];
+
+      if (allProjectIds.length === 0) {
         // User is not assigned to any projects
         return NextResponse.json([], { status: 200 });
       }
-      
-      // Filter projects by the ones the user is a member of
-      projectsQuery = projectsQuery.in('id', projectIds);
+
+      // Filter projects by the ones the user has access to
+      projectsQuery = projectsQuery.in('id', allProjectIds);
     }
     
     // Add ordering and execute the query

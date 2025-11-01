@@ -36,18 +36,34 @@ CREATE POLICY "step_tasks_select" ON project_step_tasks
 DROP POLICY IF EXISTS "step_tasks_modify" ON project_step_tasks;
 CREATE POLICY "step_tasks_modify" ON project_step_tasks
   FOR ALL TO authenticated USING (
+    -- Allow admins to modify all tasks
+    EXISTS (
+      SELECT 1 FROM users u
+      WHERE u.id = auth.uid() AND u.role = 'admin'
+    )
+    OR
+    -- Allow project members to modify tasks
     EXISTS (
       SELECT 1
       FROM project_steps ps
       JOIN project_members pm ON pm.project_id = ps.project_id
       WHERE ps.id = project_step_tasks.step_id
+      AND pm.user_id = auth.uid()
     )
   ) WITH CHECK (
+    -- Allow admins to modify all tasks
+    EXISTS (
+      SELECT 1 FROM users u
+      WHERE u.id = auth.uid() AND u.role = 'admin'
+    )
+    OR
+    -- Allow project members to modify tasks
     EXISTS (
       SELECT 1
       FROM project_steps ps
       JOIN project_members pm ON pm.project_id = ps.project_id
       WHERE ps.id = project_step_tasks.step_id
+      AND pm.user_id = auth.uid()
     )
   );
 

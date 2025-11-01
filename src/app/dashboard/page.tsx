@@ -90,7 +90,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500"></div>
       </div>
     );
   }
@@ -98,101 +98,101 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Welcome, {user?.full_name || 'User'}</h1>
+        <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Welcome, {user?.full_name || 'User'}</h1>
         {isAdmin && (
-          <Link 
-            href="/dashboard/projects/new" 
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md flex items-center justify-center hover:bg-indigo-700"
+          <Link
+            href="/dashboard/projects/new"
+            className="px-5 py-2.5 bg-yellow-500 text-gray-900 rounded-lg flex items-center justify-center hover:bg-yellow-600 transition-colors shadow-sm font-bold"
           >
-            <FiPlus className="mr-2" /> New Project
+            <FiPlus className="mr-2 h-5 w-5" /> New Project
           </Link>
         )}
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-6 rounded-lg shadow">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-indigo-100 text-indigo-600">
+            <div className="p-3 rounded-lg bg-yellow-100 text-yellow-700">
               <FiBriefcase className="h-6 w-6" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Total Projects</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats.totalProjects}</p>
+              <p className="text-sm font-medium text-gray-600">Total Projects</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalProjects}</p>
             </div>
           </div>
         </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow">
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-blue-100 text-blue-600">
+            <div className="p-3 rounded-lg bg-blue-100 text-blue-600">
               <FiAlertCircle className="h-6 w-6" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Active Projects</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats.activeProjects}</p>
+              <p className="text-sm font-medium text-gray-600">Active Projects</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.activeProjects}</p>
             </div>
           </div>
         </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow">
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-green-100 text-green-600">
+            <div className="p-3 rounded-lg bg-green-100 text-green-600">
               <FiCheckCircle className="h-6 w-6" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Completed</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats.completedProjects}</p>
+              <p className="text-sm font-medium text-gray-600">Completed</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.completedProjects}</p>
             </div>
           </div>
         </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow">
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-yellow-100 text-yellow-600">
+            <div className="p-3 rounded-lg bg-amber-100 text-amber-600">
               <FiClock className="h-6 w-6" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Upcoming Deadlines</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats.upcomingDeadlines}</p>
+              <p className="text-sm font-medium text-gray-600">Upcoming Deadlines</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.upcomingDeadlines}</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Recent Projects */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b">
-          <h2 className="text-lg font-medium text-gray-900">Recent Projects</h2>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-6 py-5 border-b border-gray-200">
+          <h2 className="text-xl font-bold text-gray-900">Recent Projects</h2>
         </div>
-        <div className="divide-y divide-gray-200">
+        <div className="divide-y divide-gray-100">
           {recentProjects.length > 0 ? (
             recentProjects.map((project) => (
-              <Link 
-                key={project.id} 
+              <Link
+                key={project.id}
                 href={`/dashboard/projects/${project.id}`}
-                className="block hover:bg-gray-50"
+                className="block hover:bg-gray-50 transition-colors"
               >
                 <div className="px-6 py-4">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-900">{project.title}</h3>
-                      <p className="text-sm text-gray-500">Customer: {project.customer_name || 'N/A'}</p>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base font-semibold text-gray-900 truncate">{project.title}</h3>
+                      <p className="text-sm text-gray-600 mt-1">Customer: {project.customer_name || 'N/A'}</p>
                     </div>
-                    <div className="flex items-center">
-                      <span 
-                        className={`px-2 py-1 text-xs rounded-full ${
-                          project.status === 'completed' 
-                            ? 'bg-green-100 text-green-800' 
-                            : project.status === 'in_progress' 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-yellow-100 text-yellow-800'
+                    <div className="flex items-center gap-3 ml-4">
+                      <span
+                        className={`px-3 py-1 text-xs font-medium rounded-full ${
+                          project.status === 'completed'
+                            ? 'bg-green-100 text-green-700'
+                            : project.status === 'in_progress'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-amber-100 text-amber-700'
                         }`}
                       >
-                        {project.status}
+                        {project.status.replace('_', ' ')}
                       </span>
                       {project.estimated_completion_date && (
-                        <span className="ml-2 text-xs text-gray-500">
+                        <span className="text-sm text-gray-500 hidden sm:inline">
                           {new Date(project.estimated_completion_date).toLocaleDateString()}
                         </span>
                       )}
@@ -202,8 +202,8 @@ export default function DashboardPage() {
               </Link>
             ))
           ) : (
-            <div className="px-6 py-4 text-center text-gray-500">
-              No projects found
+            <div className="px-6 py-8 text-center text-gray-500">
+              <p className="text-base">No projects found</p>
             </div>
           )}
         </div>
