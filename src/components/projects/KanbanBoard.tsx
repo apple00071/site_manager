@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 
 type StageKey = 'false_ceiling' | 'electrical_work' | 'carpenter_works' | 'painting_work' | 'deep_cleaning';
 
@@ -28,9 +27,6 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
   const [steps, setSteps] = useState<Step[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [newStep, setNewStep] = useState<{ title: string; stage: StageKey }>(
-    { title: '', stage: 'false_ceiling' }
-  );
 
   // Step add modal state
   const [addStepStage, setAddStepStage] = useState<StageKey|null>(null);
@@ -54,18 +50,19 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     const fetchSteps = async () => {
       setLoading(true);
       setError(null);
-      const { data, error } = await supabase
-        .from('project_steps')
-        .select('*')
-        .eq('project_id', projectId)
-        .order('stage')
-        .order('sort_order');
-      if (error) {
+      try {
+        const response = await fetch(`/api/project-steps?project_id=${projectId}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch steps');
+        }
+        const data = await response.json();
+        setSteps(data as Step[]);
+      } catch (err: any) {
+        console.error('Error fetching steps:', err);
         setError('Failed to load steps');
-      } else {
-        setSteps((data as any[]) as Step[]);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchSteps();
@@ -75,54 +72,70 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     const title = addStepTitle.trim();
     if (!title) return;
     setAddStepLoading(true);
-    const { data: maxData } = await supabase
-      .from('project_steps')
-      .select('sort_order')
-      .eq('project_id', projectId)
-      .eq('stage', stageKey)
-      .order('sort_order', { ascending: false })
-      .limit(1);
-    const nextOrder = (maxData?.[0]?.sort_order ?? -1) + 1;
-    const { data, error } = await supabase
-      .from('project_steps')
-      .insert({
-        project_id: projectId,
-        title,
-        description: null,
-        stage: stageKey,
-        status: 'todo',
-        sort_order: nextOrder,
-      })
-      .select('*')
-      .single();
-    setAddStepLoading(false);
-    if (!error && data) {
+    try {
+      const response = await fetch('/api/project-steps', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: projectId,
+          title,
+          stage: stageKey,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create step');
+      }
+
+      const data = await response.json();
       setSteps(prev => [...prev, data as Step]);
-      setAddStepStage(null); setAddStepTitle('');
+      setAddStepStage(null);
+      setAddStepTitle('');
+    } catch (err) {
+      console.error('Error adding step:', err);
+      setError('Failed to add step');
+    } finally {
+      setAddStepLoading(false);
     }
   };
 
   const updateStepStage = async (stepId: string, stage: StageKey) => {
-    const { data, error } = await supabase
-      .from('project_steps')
-      .update({ stage })
-      .eq('id', stepId)
-      .select('*')
-      .single();
-    if (!error && data) {
+    try {
+      const response = await fetch('/api/project-steps', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: stepId, stage }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update step stage');
+      }
+
+      const data = await response.json();
       setSteps(prev => prev.map(s => (s.id === stepId ? (data as Step) : s)));
+    } catch (err) {
+      console.error('Error updating step stage:', err);
+      setError('Failed to update step');
     }
   };
 
   const updateStepStatus = async (stepId: string, status: Step['status']) => {
-    const { data, error } = await supabase
-      .from('project_steps')
-      .update({ status })
-      .eq('id', stepId)
-      .select('*')
-      .single();
-    if (!error && data) {
+    try {
+      const response = await fetch('/api/project-steps', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: stepId, status }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update step status');
+      }
+
+      const data = await response.json();
       setSteps(prev => prev.map(s => (s.id === stepId ? (data as Step) : s)));
+    } catch (err) {
+      console.error('Error updating step status:', err);
+      setError('Failed to update step');
     }
   };
 
@@ -220,15 +233,24 @@ function TaskList({ stepId }: { stepId: string }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ title: '', start: '', end: '', status: 'todo' as Task['status'] });
   const [saving, setSaving] = useState(false);
+  const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchTasks = async () => {
-      const { data } = await supabase
-        .from('project_step_tasks')
-        .select('*')
-        .eq('step_id', stepId)
-        .order('created_at', { ascending: true });
-      setTasks(((data as any[]) || []) as Task[]);
+      try {
+        // Fetch tasks via API route (uses cookie-based auth)
+        const response = await fetch(`/api/tasks?step_id=${stepId}`);
+
+        if (!response.ok) {
+          console.error('Failed to fetch tasks:', await response.text());
+          return;
+        }
+
+        const { tasks: fetchedTasks } = await response.json();
+        setTasks(fetchedTasks || []);
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+      }
     };
     fetchTasks();
   }, [stepId]);
@@ -236,22 +258,76 @@ function TaskList({ stepId }: { stepId: string }) {
   const createTask = async () => {
     if (!form.title.trim()) return;
     setSaving(true);
-    const { data, error } = await supabase
-      .from('project_step_tasks')
-      .insert({
-        step_id: stepId,
-        title: form.title.trim(),
-        start_date: form.start || null,
-        estimated_completion_date: form.end || null,
-        status: form.status,
-      })
-      .select('*')
-      .single();
-    setSaving(false);
-    if (!error && data) {
-      setTasks(prev => [...prev, data as Task]);
+
+    try {
+      console.log('Creating task for step_id:', stepId);
+
+      // Create task via API route (uses cookie-based auth)
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          step_id: stepId,
+          title: form.title.trim(),
+          start_date: form.start || null,
+          estimated_completion_date: form.end || null,
+          status: form.status,
+        }),
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        console.error('❌ Error creating task:', responseData);
+        alert(`Failed to create task: ${responseData.error}\n\nDetails: ${responseData.details || 'None'}\n\nPlease check the console for more details.`);
+        setSaving(false);
+        return;
+      }
+
+      console.log('✅ Task created successfully:', responseData.task);
+      setTasks(prev => [...prev, responseData.task]);
       setOpen(false);
       setForm({ title: '', start: '', end: '', status: 'todo' });
+    } catch (error: any) {
+      console.error('❌ Unexpected error creating task:', error);
+      alert(`Unexpected error: ${error.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateTaskStatus = async (taskId: string, newStatus: Task['status']) => {
+    setUpdatingTaskId(taskId);
+
+    try {
+      const response = await fetch('/api/tasks', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: taskId,
+          status: newStatus,
+        }),
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        console.error('❌ Error updating task status:', responseData);
+        alert(`Failed to update task status: ${responseData.error}`);
+        return;
+      }
+
+      console.log('✅ Task status updated successfully');
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+    } catch (error: any) {
+      console.error('❌ Unexpected error updating task status:', error);
+      alert(`Unexpected error: ${error.message}`);
+    } finally {
+      setUpdatingTaskId(null);
     }
   };
 
@@ -264,11 +340,21 @@ function TaskList({ stepId }: { stepId: string }) {
         </button>
       </div>
       {tasks.length > 0 && (
-        <ul className="mt-2 space-y-1">
+        <ul className="mt-2 space-y-2">
           {tasks.map(t => (
-            <li key={t.id} className="text-xs text-gray-700 flex items-center justify-between">
-              <span className="truncate mr-2">{t.title}</span>
-              <span className="text-[10px] text-gray-500">{t.status.replace('_',' ')}</span>
+            <li key={t.id} className="text-xs text-gray-700 flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-200">
+              <span className="truncate mr-2 flex-1">{t.title}</span>
+              <select
+                value={t.status}
+                onChange={(e) => updateTaskStatus(t.id, e.target.value as Task['status'])}
+                disabled={updatingTaskId === t.id}
+                className="text-[10px] border border-gray-300 rounded px-2 py-1 bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="todo">To Do</option>
+                <option value="in_progress">In Progress</option>
+                <option value="blocked">Blocked</option>
+                <option value="done">Done</option>
+              </select>
             </li>
           ))}
         </ul>
