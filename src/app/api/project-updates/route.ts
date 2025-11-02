@@ -156,7 +156,7 @@ export async function PATCH(request: NextRequest) {
 
     const body = await request.json();
     const parsed = updateUpdateSchema.safeParse(body);
-    
+
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invalid input', details: parsed.error.format() },
@@ -165,6 +165,22 @@ export async function PATCH(request: NextRequest) {
     }
 
     const { id, ...updates } = parsed.data;
+
+    // Check if user owns this update or is admin
+    const { data: existingUpdate, error: fetchError } = await supabaseAdmin
+      .from('project_updates')
+      .select('user_id')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !existingUpdate) {
+      return NextResponse.json({ error: 'Update not found' }, { status: 404 });
+    }
+
+    // Only allow update if user is the creator or is an admin
+    if (existingUpdate.user_id !== user.id && user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden: You can only edit your own updates' }, { status: 403 });
+    }
 
     const { data: update, error } = await supabaseAdmin
       .from('project_updates')
@@ -201,6 +217,22 @@ export async function DELETE(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
+    }
+
+    // Check if user owns this update or is admin
+    const { data: existingUpdate, error: fetchError } = await supabaseAdmin
+      .from('project_updates')
+      .select('user_id')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !existingUpdate) {
+      return NextResponse.json({ error: 'Update not found' }, { status: 404 });
+    }
+
+    // Only allow deletion if user is the creator or is an admin
+    if (existingUpdate.user_id !== user.id && user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden: You can only delete your own updates' }, { status: 403 });
     }
 
     const { error } = await supabaseAdmin

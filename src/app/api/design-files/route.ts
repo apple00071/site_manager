@@ -248,6 +248,22 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
+    // Check if user owns this design or is admin
+    const { data: existingDesign, error: fetchError } = await supabaseAdmin
+      .from('design_files')
+      .select('uploaded_by')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !existingDesign) {
+      return NextResponse.json({ error: 'Design file not found' }, { status: 404 });
+    }
+
+    // Only allow deletion if user is the creator or is an admin
+    if (existingDesign.uploaded_by !== user.id && user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden: You can only delete your own designs' }, { status: 403 });
+    }
+
     const { error } = await supabaseAdmin
       .from('design_files')
       .delete()

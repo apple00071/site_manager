@@ -171,7 +171,7 @@ export async function PATCH(request: NextRequest) {
 
     const body = await request.json();
     const parsed = updateInventoryItemSchema.safeParse(body);
-    
+
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invalid input', details: parsed.error.format() },
@@ -180,6 +180,22 @@ export async function PATCH(request: NextRequest) {
     }
 
     const { id, ...updates } = parsed.data;
+
+    // Check if user owns this item or is admin
+    const { data: existingItem, error: fetchError } = await supabaseAdmin
+      .from('inventory_items')
+      .select('created_by')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !existingItem) {
+      return NextResponse.json({ error: 'Item not found' }, { status: 404 });
+    }
+
+    // Only allow update if user is the creator or is an admin
+    if (existingItem.created_by !== user.id && user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden: You can only edit your own items' }, { status: 403 });
+    }
 
     const { data: item, error } = await supabaseAdmin
       .from('inventory_items')
@@ -216,6 +232,22 @@ export async function DELETE(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
+    }
+
+    // Check if user owns this item or is admin
+    const { data: existingItem, error: fetchError } = await supabaseAdmin
+      .from('inventory_items')
+      .select('created_by')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !existingItem) {
+      return NextResponse.json({ error: 'Item not found' }, { status: 404 });
+    }
+
+    // Only allow deletion if user is the creator or is an admin
+    if (existingItem.created_by !== user.id && user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden: You can only delete your own items' }, { status: 403 });
     }
 
     const { error } = await supabaseAdmin
