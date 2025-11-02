@@ -82,6 +82,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_project_updates_updated_at ON project_updates;
 CREATE TRIGGER trigger_update_project_updates_updated_at
   BEFORE UPDATE ON project_updates
   FOR EACH ROW
@@ -95,6 +96,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_inventory_items_updated_at ON inventory_items;
 CREATE TRIGGER trigger_update_inventory_items_updated_at
   BEFORE UPDATE ON inventory_items
   FOR EACH ROW
@@ -108,6 +110,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_design_files_updated_at ON design_files;
 CREATE TRIGGER trigger_update_design_files_updated_at
   BEFORE UPDATE ON design_files
   FOR EACH ROW
@@ -332,7 +335,147 @@ CREATE POLICY "Project members can add design_comments" ON design_comments
   );
 
 -- ============================================
--- DONE! Tables and policies created.
--- Now go to Storage section and create buckets manually.
+-- Step 9: Create Storage Buckets
+-- ============================================
+
+-- Create bucket for project update photos
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'project-update-photos',
+  'project-update-photos',
+  true,
+  52428800, -- 50MB limit
+  ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+)
+ON CONFLICT (id) DO UPDATE SET
+  public = true,
+  file_size_limit = 52428800,
+  allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+-- Create bucket for inventory bills/invoices
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'inventory-bills',
+  'inventory-bills',
+  true,
+  52428800, -- 50MB limit
+  ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf']
+)
+ON CONFLICT (id) DO UPDATE SET
+  public = true,
+  file_size_limit = 52428800,
+  allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+
+-- Create bucket for design files
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'design-files',
+  'design-files',
+  true,
+  104857600, -- 100MB limit
+  ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf', 'application/dwg', 'application/dxf', 'image/vnd.dwg', 'image/vnd.dxf']
+)
+ON CONFLICT (id) DO UPDATE SET
+  public = true,
+  file_size_limit = 104857600,
+  allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf', 'application/dwg', 'application/dxf', 'image/vnd.dwg', 'image/vnd.dxf'];
+
+-- ============================================
+-- Step 10: Storage RLS Policies
+-- ============================================
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Authenticated users can upload update photos" ON storage.objects;
+DROP POLICY IF EXISTS "Anyone can view update photos" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete their own update photos" ON storage.objects;
+DROP POLICY IF EXISTS "Users can update their own update photos" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can upload inventory bills" ON storage.objects;
+DROP POLICY IF EXISTS "Anyone can view inventory bills" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete their own inventory bills" ON storage.objects;
+DROP POLICY IF EXISTS "Users can update their own inventory bills" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can upload design files" ON storage.objects;
+DROP POLICY IF EXISTS "Anyone can view design files" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete their own design files" ON storage.objects;
+DROP POLICY IF EXISTS "Users can update their own design files" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated uploads to project-update-photos" ON storage.objects;
+DROP POLICY IF EXISTS "Allow public read from project-update-photos" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated delete from project-update-photos" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated update to project-update-photos" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated uploads to inventory-bills" ON storage.objects;
+DROP POLICY IF EXISTS "Allow public read from inventory-bills" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated delete from inventory-bills" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated update to inventory-bills" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated uploads to design-files" ON storage.objects;
+DROP POLICY IF EXISTS "Allow public read from design-files" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated delete from design-files" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated update to design-files" ON storage.objects;
+
+-- SIMPLIFIED Storage policies - Allow all authenticated users to upload/manage files
+
+-- Project Update Photos
+CREATE POLICY "Allow authenticated uploads to project-update-photos"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'project-update-photos');
+
+CREATE POLICY "Allow public read from project-update-photos"
+ON storage.objects FOR SELECT
+TO public
+USING (bucket_id = 'project-update-photos');
+
+CREATE POLICY "Allow authenticated delete from project-update-photos"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (bucket_id = 'project-update-photos');
+
+CREATE POLICY "Allow authenticated update to project-update-photos"
+ON storage.objects FOR UPDATE
+TO authenticated
+USING (bucket_id = 'project-update-photos');
+
+-- Inventory Bills
+CREATE POLICY "Allow authenticated uploads to inventory-bills"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'inventory-bills');
+
+CREATE POLICY "Allow public read from inventory-bills"
+ON storage.objects FOR SELECT
+TO public
+USING (bucket_id = 'inventory-bills');
+
+CREATE POLICY "Allow authenticated delete from inventory-bills"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (bucket_id = 'inventory-bills');
+
+CREATE POLICY "Allow authenticated update to inventory-bills"
+ON storage.objects FOR UPDATE
+TO authenticated
+USING (bucket_id = 'inventory-bills');
+
+-- Design Files
+CREATE POLICY "Allow authenticated uploads to design-files"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'design-files');
+
+CREATE POLICY "Allow public read from design-files"
+ON storage.objects FOR SELECT
+TO public
+USING (bucket_id = 'design-files');
+
+CREATE POLICY "Allow authenticated delete from design-files"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (bucket_id = 'design-files');
+
+CREATE POLICY "Allow authenticated update to design-files"
+ON storage.objects FOR UPDATE
+TO authenticated
+USING (bucket_id = 'design-files');
+
+-- ============================================
+-- DONE! All tables, policies, and storage buckets created.
 -- ============================================
 

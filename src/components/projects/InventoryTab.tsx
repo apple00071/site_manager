@@ -111,26 +111,41 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
       return;
     }
 
+    const quantity = parseFloat(form.quantity);
+    const price_per_unit = parseFloat(form.price_per_unit);
+
+    if (isNaN(quantity) || quantity <= 0) {
+      alert('Please enter a valid quantity');
+      return;
+    }
+
+    if (isNaN(price_per_unit) || price_per_unit < 0) {
+      alert('Please enter a valid price');
+      return;
+    }
+
     setSaving(true);
 
     try {
-      const url = editingItem ? '/api/inventory-items' : '/api/inventory-items';
+      const url = '/api/inventory-items';
       const method = editingItem ? 'PATCH' : 'POST';
-      
+
       const body: any = {
         project_id: projectId,
         item_name: form.item_name.trim(),
-        quantity: parseFloat(form.quantity),
+        quantity,
         unit: form.unit,
-        price_per_unit: parseFloat(form.price_per_unit),
-        supplier_name: form.supplier_name.trim() || null,
-        date_purchased: form.date_purchased || null,
-        bill_url: form.bill_url || null,
+        price_per_unit,
+        supplier_name: form.supplier_name.trim() || undefined,
+        date_purchased: form.date_purchased || undefined,
+        bill_url: form.bill_url || undefined,
       };
 
       if (editingItem) {
         body.id = editingItem.id;
       }
+
+      console.log('Submitting inventory item:', body);
 
       const response = await fetch(url, {
         method,
@@ -140,11 +155,12 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
 
       if (!response.ok) {
         const error = await response.json();
+        console.error('API error:', error);
         throw new Error(error.error || 'Failed to save item');
       }
 
       const { item } = await response.json();
-      
+
       if (editingItem) {
         setItems(prev => prev.map(i => i.id === item.id ? item : i));
       } else {

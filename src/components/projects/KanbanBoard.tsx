@@ -30,7 +30,11 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
 
   // Step add modal state
   const [addStepStage, setAddStepStage] = useState<StageKey|null>(null);
-  const [addStepTitle, setAddStepTitle] = useState('');
+  const [addStepForm, setAddStepForm] = useState({
+    title: '',
+    start_date: '',
+    end_date: '',
+  });
   const [addStepLoading, setAddStepLoading] = useState(false);
 
   const grouped = useMemo(() => {
@@ -69,7 +73,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
   }, [projectId]);
 
   const addStep = async (stageKey: StageKey) => {
-    const title = addStepTitle.trim();
+    const title = addStepForm.title.trim();
     if (!title) return;
     setAddStepLoading(true);
     try {
@@ -80,6 +84,8 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
           project_id: projectId,
           title,
           stage: stageKey,
+          start_date: addStepForm.start_date || null,
+          end_date: addStepForm.end_date || null,
         }),
       });
 
@@ -90,7 +96,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
       const data = await response.json();
       setSteps(prev => [...prev, data as Step]);
       setAddStepStage(null);
-      setAddStepTitle('');
+      setAddStepForm({ title: '', start_date: '', end_date: '' });
     } catch (err) {
       console.error('Error adding step:', err);
       setError('Failed to add step');
@@ -156,48 +162,27 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
 
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {STAGES.map(stage => (
-          <div key={stage.key} className="bg-white rounded-lg border shadow-sm">
-            <div className="flex items-center justify-between px-4 py-3 border-b font-semibold text-sm text-gray-800">
-              <span>{stage.label}</span>
-              <button className="p-1 rounded hover:bg-yellow-100 text-yellow-600 hover:text-yellow-700 text-xs font-medium flex items-center gap-1" onClick={() => { setAddStepStage(stage.key); setAddStepTitle(''); }}>
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeWidth="2" d="M12 6v12m6-6H6"/></svg> Add Task
+          <div key={stage.key} className="bg-gray-50 rounded-lg border border-gray-200">
+            {/* Stage Header */}
+            <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-gray-200 rounded-t-lg">
+              <span className="font-semibold text-sm text-gray-800">{stage.label}</span>
+              <button
+                className="p-1 rounded hover:bg-yellow-50 text-yellow-600 hover:text-yellow-700 text-xs font-medium flex items-center gap-1"
+                onClick={() => { setAddStepStage(stage.key); setAddStepForm({ title: '', start_date: '', end_date: '' }); }}
+              >
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                  <path stroke="currentColor" strokeWidth="2" d="M12 6v12m6-6H6"/>
+                </svg>
+                Add Task
               </button>
             </div>
-            <div className="p-4 space-y-3 min-h-24">
-              {grouped[stage.key].map(step => (
-                <div key={step.id} className="bg-gray-50 rounded-md border p-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="text-sm font-semibold text-gray-900">{step.title}</div>
-                    {step.description && (
-                      <div className="text-xs text-gray-600 mt-1">{step.description}</div>
-                    )}
-                  </div>
-                  <TaskList stepId={step.id} />
-                  <div className="flex items-center justify-between mt-3">
-                    <select
-                      className="text-xs border rounded px-2 py-1 bg-white"
-                      value={step.status}
-                      onChange={e => updateStepStatus(step.id, e.target.value as Step['status'])}
-                    >
-                      <option value="todo">To Do</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="blocked">Blocked</option>
-                      <option value="done">Done</option>
-                    </select>
-                    <select
-                      className="text-xs border rounded px-2 py-1 bg-white"
-                      value={step.stage}
-                      onChange={e => updateStepStage(step.id, e.target.value as StageKey)}
-                    >
-                      {STAGES.map(s => (
-                        <option key={s.key} value={s.key}>{s.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              ))}
+
+            {/* Tasks Container */}
+            <div className="p-3 space-y-2 min-h-[200px]">
+              <TaskList stepId={stage.key} stageKey={stage.key} projectId={projectId} />
+
               {grouped[stage.key].length === 0 && (
-                <div className="text-xs text-gray-500">No steps</div>
+                <div className="text-xs text-gray-400 text-center py-8">No tasks yet</div>
               )}
             </div>
           </div>
@@ -206,12 +191,60 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
       {addStepStage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => !addStepLoading && setAddStepStage(null)}></div>
-          <div className="relative bg-white rounded-lg shadow-lg w-full max-w-md p-5">
-            <div className="text-sm font-semibold text-gray-900 mb-3">Add Task – {STAGES.find(s=>s.key===addStepStage)?.label}</div>
-            <input value={addStepTitle} onChange={e => setAddStepTitle(e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm mb-4" placeholder="Task name" disabled={addStepLoading} autoFocus />
-            <div className="flex justify-end gap-2">
-              <button className="px-3 py-2 text-sm rounded-md border" disabled={addStepLoading} onClick={()=>setAddStepStage(null)}>Cancel</button>
-              <button className="px-4 py-2 text-sm rounded-md bg-yellow-500 text-gray-900 font-bold disabled:opacity-60" disabled={addStepLoading||!addStepTitle.trim()} onClick={()=>addStep(addStepStage)}>Add</button>
+          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Add Task to {STAGES.find(s=>s.key===addStepStage)?.label}
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Task Name *</label>
+                <input
+                  value={addStepForm.title}
+                  onChange={e => setAddStepForm(f => ({ ...f, title: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                  placeholder="Enter task name"
+                  disabled={addStepLoading}
+                  autoFocus
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={addStepForm.start_date}
+                    onChange={e => setAddStepForm(f => ({ ...f, start_date: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                    disabled={addStepLoading}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Estimated End Date</label>
+                  <input
+                    type="date"
+                    value={addStepForm.end_date}
+                    onChange={e => setAddStepForm(f => ({ ...f, end_date: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                    disabled={addStepLoading}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                className="px-4 py-2 text-sm rounded-md border border-gray-300 hover:bg-gray-50"
+                disabled={addStepLoading}
+                onClick={()=>setAddStepStage(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 text-sm rounded-md bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={addStepLoading||!addStepForm.title.trim()}
+                onClick={()=>addStep(addStepStage)}
+              >
+                {addStepLoading ? 'Adding...' : 'Add Task'}
+              </button>
             </div>
           </div>
         </div>
@@ -222,182 +255,105 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
 
 type Task = {
   id: string;
+  step_id: string;
   title: string;
   start_date: string | null;
   estimated_completion_date: string | null;
   status: 'todo' | 'in_progress' | 'blocked' | 'done';
 };
 
-function TaskList({ stepId }: { stepId: string }) {
+function TaskList({ stepId, stageKey, projectId }: { stepId: string; stageKey: StageKey; projectId: string }) {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ title: '', start: '', end: '', status: 'todo' as Task['status'] });
-  const [saving, setSaving] = useState(false);
-  const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
+  const [steps, setSteps] = useState<Step[]>([]);
 
   useEffect(() => {
-    const fetchTasks = async () => {
+    const fetchData = async () => {
       try {
-        // Fetch tasks via API route (uses cookie-based auth)
-        const response = await fetch(`/api/tasks?step_id=${stepId}`);
+        // Fetch steps for this stage
+        const stepsResponse = await fetch(`/api/project-steps?project_id=${projectId}`);
+        if (stepsResponse.ok) {
+          const allSteps = await stepsResponse.json();
+          const stageSteps = allSteps.filter((s: Step) => s.stage === stageKey);
+          setSteps(stageSteps);
 
-        if (!response.ok) {
-          console.error('Failed to fetch tasks:', await response.text());
-          return;
+          // Fetch all tasks for these steps
+          const allTasks: Task[] = [];
+          for (const step of stageSteps) {
+            const tasksResponse = await fetch(`/api/tasks?step_id=${step.id}`);
+            if (tasksResponse.ok) {
+              const { tasks: stepTasks } = await tasksResponse.json();
+              allTasks.push(...(stepTasks || []));
+            }
+          }
+          setTasks(allTasks);
         }
-
-        const { tasks: fetchedTasks } = await response.json();
-        setTasks(fetchedTasks || []);
       } catch (error) {
-        console.error('Error fetching tasks:', error);
+        console.error('Error fetching data:', error);
       }
     };
-    fetchTasks();
-  }, [stepId]);
-
-  const createTask = async () => {
-    if (!form.title.trim()) return;
-    setSaving(true);
-
-    try {
-      console.log('Creating task for step_id:', stepId);
-
-      // Create task via API route (uses cookie-based auth)
-      const response = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          step_id: stepId,
-          title: form.title.trim(),
-          start_date: form.start || null,
-          estimated_completion_date: form.end || null,
-          status: form.status,
-        }),
-      });
-
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        console.error('❌ Error creating task:', responseData);
-        alert(`Failed to create task: ${responseData.error}\n\nDetails: ${responseData.details || 'None'}\n\nPlease check the console for more details.`);
-        setSaving(false);
-        return;
-      }
-
-      console.log('✅ Task created successfully:', responseData.task);
-      setTasks(prev => [...prev, responseData.task]);
-      setOpen(false);
-      setForm({ title: '', start: '', end: '', status: 'todo' });
-    } catch (error: any) {
-      console.error('❌ Unexpected error creating task:', error);
-      alert(`Unexpected error: ${error.message}`);
-    } finally {
-      setSaving(false);
-    }
-  };
+    fetchData();
+  }, [projectId, stageKey]);
 
   const updateTaskStatus = async (taskId: string, newStatus: Task['status']) => {
-    setUpdatingTaskId(taskId);
-
     try {
       const response = await fetch('/api/tasks', {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: taskId,
-          status: newStatus,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: taskId, status: newStatus }),
       });
 
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        console.error('❌ Error updating task status:', responseData);
-        alert(`Failed to update task status: ${responseData.error}`);
-        return;
+      if (response.ok) {
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
       }
-
-      console.log('✅ Task status updated successfully');
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
-    } catch (error: any) {
-      console.error('❌ Unexpected error updating task status:', error);
-      alert(`Unexpected error: ${error.message}`);
-    } finally {
-      setUpdatingTaskId(null);
+    } catch (error) {
+      console.error('Error updating task status:', error);
     }
   };
 
-  return (
-    <div className="mt-2">
-      <div className="flex items-center justify-between">
-        <div className="text-xs font-medium text-gray-600">Subtasks ({tasks.length})</div>
-        <button className="text-xs bg-yellow-50 hover:bg-yellow-100 border border-yellow-200 text-yellow-700 px-2 py-1 rounded shadow-sm font-medium ml-2" onClick={() => setOpen(true)}>
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" className="inline-block align-middle mr-1"><path stroke="currentColor" strokeWidth="2" d="M12 6v12m6-6H6"/></svg> Add Subtask
-        </button>
-      </div>
-      {tasks.length > 0 && (
-        <ul className="mt-2 space-y-2">
-          {tasks.map(t => (
-            <li key={t.id} className="text-xs text-gray-700 flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-200">
-              <span className="truncate mr-2 flex-1">{t.title}</span>
-              <select
-                value={t.status}
-                onChange={(e) => updateTaskStatus(t.id, e.target.value as Task['status'])}
-                disabled={updatingTaskId === t.id}
-                className="text-[10px] border border-gray-300 rounded px-2 py-1 bg-white disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value="todo">To Do</option>
-                <option value="in_progress">In Progress</option>
-                <option value="blocked">Blocked</option>
-                <option value="done">Done</option>
-              </select>
-            </li>
-          ))}
-        </ul>
-      )}
+  const getStepName = (stepId: string) => {
+    const step = steps.find(s => s.id === stepId);
+    return step?.title || '';
+  };
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => !saving && setOpen(false)}></div>
-          <div className="relative bg-white rounded-lg shadow-lg w-full max-w-md p-5">
-            <div className="text-sm font-semibold text-gray-900 mb-3">Add Task</div>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Name</label>
-                <input className="w-full border rounded-md px-3 py-2 text-sm" value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">Start date</label>
-                  <input type="date" className="w-full border rounded-md px-3 py-2 text-sm" value={form.start} onChange={e => setForm(f => ({...f, start: e.target.value}))} />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">Estimated completion</label>
-                  <input type="date" className="w-full border rounded-md px-3 py-2 text-sm" value={form.end} onChange={e => setForm(f => ({...f, end: e.target.value}))} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Status</label>
-                <select className="w-full border rounded-md px-3 py-2 text-sm" value={form.status} onChange={e => setForm(f => ({...f, status: e.target.value as Task['status']}))}>
-                  <option value="todo">To Do</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="blocked">Blocked</option>
-                  <option value="done">Done</option>
-                </select>
-              </div>
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button className="px-3 py-2 text-sm rounded-md border" disabled={saving} onClick={() => setOpen(false)}>Cancel</button>
-              <button className="px-4 py-2 text-sm rounded-md bg-yellow-500 text-gray-900 font-bold disabled:opacity-60" disabled={saving} onClick={createTask}>{saving ? 'Saving...' : 'Save'}</button>
-            </div>
+  return (
+    <>
+      {tasks.map(task => (
+        <div key={task.id} className="bg-white rounded-md border border-gray-200 p-3 shadow-sm hover:shadow-md transition-shadow">
+          <div className="mb-2">
+            <h4 className="text-sm font-medium text-gray-900 mb-1">{task.title}</h4>
+            <p className="text-xs text-gray-500">{getStepName(task.step_id)}</p>
           </div>
+
+          {(task.start_date || task.estimated_completion_date) && (
+            <div className="text-xs text-gray-600 mb-2 space-y-1">
+              {task.start_date && (
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-500">Start:</span>
+                  <span>{new Date(task.start_date).toLocaleDateString()}</span>
+                </div>
+              )}
+              {task.estimated_completion_date && (
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-500">Due:</span>
+                  <span>{new Date(task.estimated_completion_date).toLocaleDateString()}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <select
+            value={task.status}
+            onChange={(e) => updateTaskStatus(task.id, e.target.value as Task['status'])}
+            className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 bg-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+          >
+            <option value="todo">To Do</option>
+            <option value="in_progress">In Progress</option>
+            <option value="blocked">Blocked</option>
+            <option value="done">Done</option>
+          </select>
         </div>
-      )}
-    </div>
+      ))}
+    </>
   );
 }
 
