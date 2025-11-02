@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatDateTimeReadable } from '@/lib/dateUtils';
 
 type DesignFile = {
   id: string;
@@ -207,15 +208,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
     );
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+
 
   if (loading) {
     return (
@@ -226,19 +219,19 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
   }
 
   return (
-    <div className="bg-white shadow overflow-hidden sm:rounded-lg p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-lg font-medium leading-6 text-gray-900">Design Files</h3>
+    <div className="bg-white shadow overflow-hidden sm:rounded-lg p-3 sm:p-4 md:p-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 md:mb-6">
+        <h3 className="text-base sm:text-lg font-medium leading-6 text-gray-900">Design Files</h3>
         <button
           onClick={() => setShowUploadForm(!showUploadForm)}
-          className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 text-sm font-bold"
+          className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 text-sm font-bold w-full sm:w-auto"
         >
           {showUploadForm ? 'Cancel' : '+ Upload Design'}
         </button>
       </div>
 
       {showUploadForm && (
-        <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+        <div className="mb-4 md:mb-6 p-3 md:p-4 border border-gray-200 rounded-lg bg-gray-50">
           <h4 className="text-sm font-medium text-gray-900 mb-3">Upload New Design</h4>
           <div className="space-y-3">
             <div>
@@ -247,7 +240,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                 type="file"
                 accept="image/*,application/pdf,.dwg,.dxf"
                 onChange={(e) => setUploadForm(prev => ({ ...prev, file: e.target.files?.[0] || null }))}
-                className="w-full border rounded-md px-3 py-2 text-sm"
+                className="w-full border rounded-md px-3 py-2 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"
               />
             </div>
             <div>
@@ -257,21 +250,21 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                 min="1"
                 value={uploadForm.version_number}
                 onChange={(e) => setUploadForm(prev => ({ ...prev, version_number: parseInt(e.target.value) || 1 }))}
-                className="w-full border rounded-md px-3 py-2 text-sm"
+                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
               />
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col sm:flex-row justify-end gap-2">
               <button
                 onClick={() => setShowUploadForm(false)}
                 disabled={uploading}
-                className="px-4 py-2 border rounded-md text-sm"
+                className="px-4 py-2 border rounded-md text-sm hover:bg-gray-50 w-full sm:w-auto"
               >
                 Cancel
               </button>
               <button
                 onClick={handleFileUpload}
                 disabled={uploading || !uploadForm.file}
-                className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 text-sm font-bold disabled:opacity-50"
+                className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 text-sm font-bold disabled:opacity-50 w-full sm:w-auto"
               >
                 {uploading ? 'Uploading...' : 'Upload'}
               </button>
@@ -281,36 +274,36 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
       )}
 
       {/* Designs Grid */}
-      <div className="space-y-4">
+      <div className="space-y-3 md:space-y-4">
         {designs.length === 0 ? (
           <p className="text-sm text-gray-500 text-center py-8">No designs uploaded yet. Upload your first design!</p>
         ) : (
           designs.map((design) => (
             <div
               key={design.id}
-              className={`border rounded-lg p-4 ${design.is_current_approved ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}
+              className={`border rounded-lg p-3 md:p-4 ${design.is_current_approved ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}
             >
-              <div className="flex gap-4">
+              <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
                 {/* Preview */}
-                <div className="flex-shrink-0">
+                <div className="flex-shrink-0 mx-auto sm:mx-0">
                   {design.file_type === 'image' ? (
-                    <img src={design.file_url} alt={design.file_name} className="w-32 h-32 object-cover rounded" />
+                    <img src={design.file_url} alt={design.file_name} className="w-full sm:w-24 md:w-32 h-48 sm:h-24 md:h-32 object-cover rounded" />
                   ) : (
-                    <div className="w-32 h-32 bg-gray-200 rounded flex items-center justify-center">
+                    <div className="w-full sm:w-24 md:w-32 h-48 sm:h-24 md:h-32 bg-gray-200 rounded flex items-center justify-center">
                       <span className="text-xs text-gray-500 uppercase">{design.file_type}</span>
                     </div>
                   )}
                 </div>
 
                 {/* Details */}
-                <div className="flex-1">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-900">{design.file_name}</h4>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-medium text-gray-900 truncate">{design.file_name}</h4>
                       <p className="text-xs text-gray-500">Version {design.version_number} • Uploaded by {design.uploaded_by_user.full_name}</p>
-                      <p className="text-xs text-gray-500">{formatDate(design.created_at)}</p>
+                      <p className="text-xs text-gray-500">{formatDateTimeReadable(design.created_at)}</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {design.is_current_approved && (
                         <span className="text-xs font-bold text-green-600">✓ CURRENT</span>
                       )}
@@ -321,27 +314,28 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                   {design.admin_comments && (
                     <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
                       <p className="text-xs font-medium text-gray-700">Admin Comments:</p>
-                      <p className="text-xs text-gray-600">{design.admin_comments}</p>
+                      <p className="text-xs text-gray-600 whitespace-pre-wrap">{design.admin_comments}</p>
                     </div>
                   )}
 
                   {design.approved_by_user && (
                     <p className="text-xs text-gray-500 mt-2">
-                      {design.approval_status === 'approved' ? 'Approved' : 'Reviewed'} by {design.approved_by_user.full_name} on {formatDate(design.approved_at!)}
+                      {design.approval_status === 'approved' ? 'Approved' : 'Reviewed'} by {design.approved_by_user.full_name} on {formatDateTimeReadable(design.approved_at!)}
                     </p>
                   )}
 
-                  <div className="mt-3 flex gap-2">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     <a
                       href={design.file_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-yellow-600 hover:underline"
+                      className="text-xs text-yellow-600 hover:underline font-medium"
                     >
-                      View File
+                      📄 View File
                     </a>
-                    
-                    {isAdmin && design.approval_status !== 'approved' && (
+
+                    {/* Admin actions - only show Approve if not rejected */}
+                    {isAdmin && design.approval_status === 'pending' && (
                       <>
                         <button
                           onClick={() => openApprovalModal(design, 'approved')}
@@ -363,6 +357,26 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                         </button>
                       </>
                     )}
+
+                    {/* Show Reupload button for rejected designs (employee view) */}
+                    {!isAdmin && design.approval_status === 'rejected' && (
+                      <button
+                        onClick={() => setShowUploadForm(true)}
+                        className="text-xs px-3 py-1 bg-yellow-500 text-gray-900 rounded hover:bg-yellow-600 font-medium"
+                      >
+                        🔄 Reupload New Version
+                      </button>
+                    )}
+
+                    {/* Admin can still review rejected designs */}
+                    {isAdmin && design.approval_status === 'rejected' && (
+                      <button
+                        onClick={() => openApprovalModal(design, 'approved')}
+                        className="text-xs text-green-600 hover:underline font-medium"
+                      >
+                        ✓ Approve Anyway
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -371,17 +385,17 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
         )}
       </div>
 
-      {/* Approval Modal */}
+      {/* Approval Modal - Mobile Responsive */}
       {showApprovalModal && selectedDesign && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-4 md:p-6 max-h-screen overflow-y-auto">
+            <h3 className="text-base md:text-lg font-medium text-gray-900 mb-3 md:mb-4">
               {approvalAction === 'approved' && '✓ Approve Design'}
               {approvalAction === 'rejected' && '✗ Reject Design'}
               {approvalAction === 'needs_changes' && '⚠ Request Changes'}
             </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Design: <span className="font-medium">{selectedDesign.file_name}</span>
+            <p className="text-sm text-gray-600 mb-3 md:mb-4">
+              Design: <span className="font-medium break-words">{selectedDesign.file_name}</span>
             </p>
             <div className="mb-4">
               <label className="block text-sm text-gray-700 mb-2">Comments (optional)</label>
@@ -390,21 +404,21 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                 onChange={(e) => setAdminComments(e.target.value)}
                 rows={4}
                 placeholder="Add your feedback..."
-                className="w-full border rounded-md px-3 py-2 text-sm"
+                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
               />
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col sm:flex-row justify-end gap-2">
               <button
                 onClick={() => setShowApprovalModal(false)}
                 disabled={processing}
-                className="px-4 py-2 border rounded-md text-sm"
+                className="px-4 py-2 border rounded-md text-sm hover:bg-gray-50 w-full sm:w-auto"
               >
                 Cancel
               </button>
               <button
                 onClick={handleApproval}
                 disabled={processing}
-                className={`px-4 py-2 text-white rounded-md text-sm font-medium disabled:opacity-50 ${
+                className={`px-4 py-2 text-white rounded-md text-sm font-medium disabled:opacity-50 w-full sm:w-auto ${
                   approvalAction === 'approved' ? 'bg-green-600 hover:bg-green-700' :
                   approvalAction === 'rejected' ? 'bg-red-600 hover:bg-red-700' :
                   'bg-orange-600 hover:bg-orange-700'

@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { project_id, title, stage, sort_order } = body;
+    const { project_id, title, stage, sort_order, start_date, end_date, description } = body;
 
     if (!project_id || !title || !stage) {
       return NextResponse.json(
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
         .eq('stage', stage)
         .order('sort_order', { ascending: false })
         .limit(1);
-      
+
       finalSortOrder = (maxData?.[0]?.sort_order ?? -1) + 1;
     }
 
@@ -120,9 +120,12 @@ export async function POST(request: NextRequest) {
       .insert({
         project_id,
         title,
+        description: description || null,
         stage,
         sort_order: finalSortOrder,
         status: 'todo',
+        start_date: start_date || null,
+        end_date: end_date || null,
       })
       .select('*')
       .single();

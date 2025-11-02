@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatDateIST, formatDateTimeReadable } from '@/lib/dateUtils';
 
 type InventoryItem = {
   id: string;
@@ -243,10 +244,10 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
   }
 
   return (
-    <div className="bg-white shadow overflow-hidden sm:rounded-lg p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="bg-white shadow overflow-hidden sm:rounded-lg p-3 sm:p-4 md:p-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 md:mb-6">
         <div>
-          <h3 className="text-lg font-medium leading-6 text-gray-900">Inventory</h3>
+          <h3 className="text-base sm:text-lg font-medium leading-6 text-gray-900">Inventory</h3>
           <p className="text-sm text-gray-500 mt-1">Total Cost: <span className="font-bold text-yellow-600">{formatCurrency(totalCost)}</span></p>
         </div>
         <button
@@ -255,23 +256,23 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
             resetForm();
             setShowForm(!showForm);
           }}
-          className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 text-sm font-bold"
+          className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 text-sm font-bold w-full sm:w-auto"
         >
           {showForm ? 'Cancel' : '+ Add Item'}
         </button>
       </div>
 
       {showForm && (
-        <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+        <div className="mb-4 md:mb-6 p-3 md:p-4 border border-gray-200 rounded-lg bg-gray-50">
           <h4 className="text-sm font-medium text-gray-900 mb-3">{editingItem ? 'Edit Item' : 'New Item'}</h4>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-gray-600 mb-1">Item Name *</label>
               <input
                 type="text"
                 value={form.item_name}
                 onChange={(e) => setForm(prev => ({ ...prev, item_name: e.target.value }))}
-                className="w-full border rounded-md px-3 py-2 text-sm"
+                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
               />
             </div>
             <div>
@@ -280,7 +281,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 type="text"
                 value={form.supplier_name}
                 onChange={(e) => setForm(prev => ({ ...prev, supplier_name: e.target.value }))}
-                className="w-full border rounded-md px-3 py-2 text-sm"
+                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
               />
             </div>
             <div>
@@ -290,7 +291,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 step="0.01"
                 value={form.quantity}
                 onChange={(e) => setForm(prev => ({ ...prev, quantity: e.target.value }))}
-                className="w-full border rounded-md px-3 py-2 text-sm"
+                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
               />
             </div>
             <div>
@@ -298,7 +299,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
               <select
                 value={form.unit}
                 onChange={(e) => setForm(prev => ({ ...prev, unit: e.target.value }))}
-                className="w-full border rounded-md px-3 py-2 text-sm"
+                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
               >
                 <option value="pieces">Pieces</option>
                 <option value="kg">Kilograms</option>
@@ -316,7 +317,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 step="0.01"
                 value={form.price_per_unit}
                 onChange={(e) => setForm(prev => ({ ...prev, price_per_unit: e.target.value }))}
-                className="w-full border rounded-md px-3 py-2 text-sm"
+                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
               />
             </div>
             <div>
@@ -325,27 +326,27 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 type="date"
                 value={form.date_purchased}
                 onChange={(e) => setForm(prev => ({ ...prev, date_purchased: e.target.value }))}
-                className="w-full border rounded-md px-3 py-2 text-sm"
+                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
               />
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className="block text-xs text-gray-600 mb-1">Bill/Invoice</label>
               <input
                 type="file"
                 accept="image/*,application/pdf"
                 onChange={handleBillUpload}
                 disabled={uploadingBill}
-                className="w-full border rounded-md px-3 py-2 text-sm"
+                className="w-full border rounded-md px-3 py-2 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"
               />
               {uploadingBill && <p className="text-xs text-gray-500 mt-1">Uploading...</p>}
               {form.bill_url && (
                 <a href={form.bill_url} target="_blank" rel="noopener noreferrer" className="text-xs text-yellow-600 hover:underline mt-1 block">
-                  View uploaded bill
+                  📄 View uploaded bill
                 </a>
               )}
             </div>
           </div>
-          <div className="flex justify-end gap-2 mt-4">
+          <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4">
             <button
               onClick={() => {
                 setShowForm(false);
@@ -353,14 +354,14 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 resetForm();
               }}
               disabled={saving}
-              className="px-4 py-2 border rounded-md text-sm"
+              className="px-4 py-2 border rounded-md text-sm hover:bg-gray-50 w-full sm:w-auto"
             >
               Cancel
             </button>
             <button
               onClick={handleSubmit}
               disabled={saving || uploadingBill}
-              className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 text-sm font-bold disabled:opacity-50"
+              className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 text-sm font-bold disabled:opacity-50 w-full sm:w-auto"
             >
               {saving ? 'Saving...' : editingItem ? 'Update' : 'Add Item'}
             </button>
@@ -368,64 +369,123 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
         </div>
       )}
 
-      {/* Inventory Table */}
-      <div className="overflow-x-auto">
-        {items.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-8">No inventory items yet. Add your first item!</p>
-        ) : (
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price/Unit</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bill</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {items.map((item) => (
-                <tr key={item.id}>
-                  <td className="px-4 py-3 text-sm text-gray-900">{item.item_name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{item.quantity} {item.unit}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(item.price_per_unit)}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{formatCurrency(item.total_cost)}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{item.supplier_name || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">
-                    {item.date_purchased ? new Date(item.date_purchased).toLocaleDateString() : '-'}
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    {item.bill_url ? (
-                      <a href={item.bill_url} target="_blank" rel="noopener noreferrer" className="text-yellow-600 hover:underline">
-                        View
-                      </a>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <button
-                      onClick={() => handleEdit(item)}
-                      className="text-yellow-600 hover:underline mr-3"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(item.id)}
-                      className="text-red-600 hover:underline"
-                    >
-                      Delete
-                    </button>
-                  </td>
+      {/* Inventory Display - Table for desktop, Cards for mobile */}
+      {items.length === 0 ? (
+        <p className="text-sm text-gray-500 text-center py-8">No inventory items yet. Add your first item!</p>
+      ) : (
+        <>
+          {/* Desktop Table View - hidden on mobile */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price/Unit</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bill</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {items.map((item) => (
+                  <tr key={item.id}>
+                    <td className="px-4 py-3 text-sm text-gray-900">{item.item_name}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{item.quantity} {item.unit}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(item.price_per_unit)}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{formatCurrency(item.total_cost)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{item.supplier_name || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {item.date_purchased ? formatDateIST(item.date_purchased) : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {item.bill_url ? (
+                        <a href={item.bill_url} target="_blank" rel="noopener noreferrer" className="text-yellow-600 hover:underline">
+                          View
+                        </a>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <button
+                        onClick={() => handleEdit(item)}
+                        className="text-yellow-600 hover:underline mr-3"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        className="text-red-600 hover:underline"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Card View - hidden on desktop */}
+          <div className="md:hidden space-y-3">
+            {items.map((item) => (
+              <div key={item.id} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                <div className="flex justify-between items-start mb-2">
+                  <h4 className="text-sm font-medium text-gray-900">{item.item_name}</h4>
+                  <span className="text-sm font-bold text-yellow-600">{formatCurrency(item.total_cost)}</span>
+                </div>
+                <div className="space-y-1 text-xs text-gray-600">
+                  <div className="flex justify-between">
+                    <span>Quantity:</span>
+                    <span className="font-medium text-gray-900">{item.quantity} {item.unit}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Price/Unit:</span>
+                    <span className="font-medium text-gray-900">{formatCurrency(item.price_per_unit)}</span>
+                  </div>
+                  {item.supplier_name && (
+                    <div className="flex justify-between">
+                      <span>Supplier:</span>
+                      <span className="font-medium text-gray-900">{item.supplier_name}</span>
+                    </div>
+                  )}
+                  {item.date_purchased && (
+                    <div className="flex justify-between">
+                      <span>Date:</span>
+                      <span className="font-medium text-gray-900">{formatDateIST(item.date_purchased)}</span>
+                    </div>
+                  )}
+                  {item.bill_url && (
+                    <div className="flex justify-between">
+                      <span>Bill:</span>
+                      <a href={item.bill_url} target="_blank" rel="noopener noreferrer" className="text-yellow-600 hover:underline font-medium">
+                        📄 View
+                      </a>
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2 mt-3 pt-2 border-t border-gray-200">
+                  <button
+                    onClick={() => handleEdit(item)}
+                    className="flex-1 px-3 py-1.5 text-xs bg-yellow-500 text-gray-900 rounded hover:bg-yellow-600 font-medium"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="flex-1 px-3 py-1.5 text-xs bg-red-500 text-white rounded hover:bg-red-600 font-medium"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

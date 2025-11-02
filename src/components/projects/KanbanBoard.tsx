@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { formatDateIST } from '@/lib/dateUtils';
 
 type StageKey = 'false_ceiling' | 'electrical_work' | 'carpenter_works' | 'painting_work' | 'deep_cleaning';
 
@@ -157,10 +158,71 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="mt-6">
-      {/* Add Task button in each column */}
+    <div className="mt-4 md:mt-6">
+      {/* Mobile: Horizontal scrolling stages, Desktop: Grid layout */}
+      <div className="md:hidden overflow-x-auto pb-4">
+        <div className="flex gap-3 min-w-max px-1">
+          {STAGES.map(stage => (
+            <div key={stage.key} className="bg-gray-50 rounded-lg border border-gray-200 w-72 flex-shrink-0">
+              {/* Stage Header */}
+              <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-gray-200 rounded-t-lg">
+                <span className="font-semibold text-sm text-gray-800">{stage.label}</span>
+                <button
+                  className="p-1 rounded hover:bg-yellow-50 text-yellow-600 hover:text-yellow-700 text-xs font-medium flex items-center gap-1"
+                  onClick={() => { setAddStepStage(stage.key); setAddStepForm({ title: '', start_date: '', end_date: '' }); }}
+                >
+                  <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                    <path stroke="currentColor" strokeWidth="2" d="M12 6v12m6-6H6"/>
+                  </svg>
+                  Add
+                </button>
+              </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {/* Tasks Container */}
+              <div className="p-3 space-y-2 min-h-[200px]">
+                {grouped[stage.key].length === 0 ? (
+                  <div className="text-xs text-gray-400 text-center py-8">No tasks yet</div>
+                ) : (
+                  grouped[stage.key].map(step => (
+                    <div key={step.id} className="bg-white rounded-md border border-gray-200 p-3 shadow-sm hover:shadow-md transition-shadow">
+                      <h4 className="text-sm font-medium text-gray-900 mb-2">{step.title}</h4>
+                      {(step.start_date || step.end_date) && (
+                        <div className="text-xs text-gray-600 mb-2 space-y-1">
+                          {step.start_date && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-gray-500">Start:</span>
+                              <span>{formatDateIST(step.start_date)}</span>
+                            </div>
+                          )}
+                          {step.end_date && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-gray-500">Due:</span>
+                              <span>{formatDateIST(step.end_date)}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <select
+                        value={step.status}
+                        onChange={(e) => updateStepStatus(step.id, e.target.value as Step['status'])}
+                        className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 bg-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                      >
+                        <option value="todo">To Do</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="blocked">Blocked</option>
+                        <option value="done">Done</option>
+                      </select>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Desktop: Grid layout */}
+      <div className="hidden md:grid grid-cols-3 lg:grid-cols-5 gap-4">
         {STAGES.map(stage => (
           <div key={stage.key} className="bg-gray-50 rounded-lg border border-gray-200">
             {/* Stage Header */}
@@ -179,23 +241,53 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
 
             {/* Tasks Container */}
             <div className="p-3 space-y-2 min-h-[200px]">
-              <TaskList stepId={stage.key} stageKey={stage.key} projectId={projectId} />
-
-              {grouped[stage.key].length === 0 && (
+              {grouped[stage.key].length === 0 ? (
                 <div className="text-xs text-gray-400 text-center py-8">No tasks yet</div>
+              ) : (
+                grouped[stage.key].map(step => (
+                  <div key={step.id} className="bg-white rounded-md border border-gray-200 p-3 shadow-sm hover:shadow-md transition-shadow">
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">{step.title}</h4>
+                    {(step.start_date || step.end_date) && (
+                      <div className="text-xs text-gray-600 mb-2 space-y-1">
+                        {step.start_date && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-500">Start:</span>
+                            <span>{formatDateIST(step.start_date)}</span>
+                          </div>
+                        )}
+                        {step.end_date && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-500">Due:</span>
+                            <span>{formatDateIST(step.end_date)}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <select
+                      value={step.status}
+                      onChange={(e) => updateStepStatus(step.id, e.target.value as Step['status'])}
+                      className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 bg-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                    >
+                      <option value="todo">To Do</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="blocked">Blocked</option>
+                      <option value="done">Done</option>
+                    </select>
+                  </div>
+                ))
               )}
             </div>
           </div>
         ))}
       </div>
       {addStepStage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => !addStepLoading && setAddStepStage(null)}></div>
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md p-4 md:p-6 max-h-screen overflow-y-auto">
+            <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">
               Add Task to {STAGES.find(s=>s.key===addStepStage)?.label}
             </h3>
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Task Name *</label>
                 <input
@@ -207,7 +299,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                   autoFocus
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                   <input
@@ -230,16 +322,16 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                 </div>
               </div>
             </div>
-            <div className="flex justify-end gap-2 mt-6">
+            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4 md:mt-6">
               <button
-                className="px-4 py-2 text-sm rounded-md border border-gray-300 hover:bg-gray-50"
+                className="px-4 py-2 text-sm rounded-md border border-gray-300 hover:bg-gray-50 w-full sm:w-auto"
                 disabled={addStepLoading}
                 onClick={()=>setAddStepStage(null)}
               >
                 Cancel
               </button>
               <button
-                className="px-4 py-2 text-sm rounded-md bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm rounded-md bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
                 disabled={addStepLoading||!addStepForm.title.trim()}
                 onClick={()=>addStep(addStepStage)}
               >
@@ -250,110 +342,6 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
         </div>
       )}
     </div>
-  );
-}
-
-type Task = {
-  id: string;
-  step_id: string;
-  title: string;
-  start_date: string | null;
-  estimated_completion_date: string | null;
-  status: 'todo' | 'in_progress' | 'blocked' | 'done';
-};
-
-function TaskList({ stepId, stageKey, projectId }: { stepId: string; stageKey: StageKey; projectId: string }) {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [steps, setSteps] = useState<Step[]>([]);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch steps for this stage
-        const stepsResponse = await fetch(`/api/project-steps?project_id=${projectId}`);
-        if (stepsResponse.ok) {
-          const allSteps = await stepsResponse.json();
-          const stageSteps = allSteps.filter((s: Step) => s.stage === stageKey);
-          setSteps(stageSteps);
-
-          // Fetch all tasks for these steps
-          const allTasks: Task[] = [];
-          for (const step of stageSteps) {
-            const tasksResponse = await fetch(`/api/tasks?step_id=${step.id}`);
-            if (tasksResponse.ok) {
-              const { tasks: stepTasks } = await tasksResponse.json();
-              allTasks.push(...(stepTasks || []));
-            }
-          }
-          setTasks(allTasks);
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      }
-    };
-    fetchData();
-  }, [projectId, stageKey]);
-
-  const updateTaskStatus = async (taskId: string, newStatus: Task['status']) => {
-    try {
-      const response = await fetch('/api/tasks', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: taskId, status: newStatus }),
-      });
-
-      if (response.ok) {
-        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
-      }
-    } catch (error) {
-      console.error('Error updating task status:', error);
-    }
-  };
-
-  const getStepName = (stepId: string) => {
-    const step = steps.find(s => s.id === stepId);
-    return step?.title || '';
-  };
-
-  return (
-    <>
-      {tasks.map(task => (
-        <div key={task.id} className="bg-white rounded-md border border-gray-200 p-3 shadow-sm hover:shadow-md transition-shadow">
-          <div className="mb-2">
-            <h4 className="text-sm font-medium text-gray-900 mb-1">{task.title}</h4>
-            <p className="text-xs text-gray-500">{getStepName(task.step_id)}</p>
-          </div>
-
-          {(task.start_date || task.estimated_completion_date) && (
-            <div className="text-xs text-gray-600 mb-2 space-y-1">
-              {task.start_date && (
-                <div className="flex items-center gap-1">
-                  <span className="text-gray-500">Start:</span>
-                  <span>{new Date(task.start_date).toLocaleDateString()}</span>
-                </div>
-              )}
-              {task.estimated_completion_date && (
-                <div className="flex items-center gap-1">
-                  <span className="text-gray-500">Due:</span>
-                  <span>{new Date(task.estimated_completion_date).toLocaleDateString()}</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          <select
-            value={task.status}
-            onChange={(e) => updateTaskStatus(task.id, e.target.value as Task['status'])}
-            className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 bg-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-          >
-            <option value="todo">To Do</option>
-            <option value="in_progress">In Progress</option>
-            <option value="blocked">Blocked</option>
-            <option value="done">Done</option>
-          </select>
-        </div>
-      ))}
-    </>
   );
 }
 
