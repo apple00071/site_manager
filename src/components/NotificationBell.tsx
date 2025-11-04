@@ -19,6 +19,10 @@ type Notification = {
 
 export function NotificationBell() {
   const { user } = useAuth();
+  
+  // Early return BEFORE any other hooks to prevent hooks rule violation
+  if (!user) return null;
+  
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
@@ -182,8 +186,6 @@ export function NotificationBell() {
         return '🔔';
     }
   };
-
-  if (!user) return null;
 
   return (
     <div className="relative" ref={dropdownRef}>

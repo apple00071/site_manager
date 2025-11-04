@@ -12,6 +12,9 @@ type ImageModalProps = {
 };
 
 export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }: ImageModalProps) {
+  // Early return BEFORE any hooks to prevent hooks rule violation
+  if (!isOpen || !images.length) return null;
+  
   const [activeIndex, setActiveIndex] = useState(currentIndex);
   const [mounted, setMounted] = useState(false);
 
@@ -57,7 +60,8 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
     onNavigate?.(newIndex);
   };
 
-  if (!mounted || !isOpen || !images.length) return null;
+  // Don't render until mounted to prevent hydration issues
+  if (!mounted) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-95">
