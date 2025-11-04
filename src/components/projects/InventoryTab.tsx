@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDateIST, formatDateTimeReadable } from '@/lib/dateUtils';
+import { ImageModal } from '@/components/ui/ImageModal';
 
 type InventoryItem = {
   id: string;
@@ -38,6 +39,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploadingBill, setUploadingBill] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   
   const [form, setForm] = useState({
     item_name: '',
@@ -340,9 +342,12 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
               />
               {uploadingBill && <p className="text-xs text-gray-500 mt-1">Uploading...</p>}
               {form.bill_url && (
-                <a href={form.bill_url} target="_blank" rel="noopener noreferrer" className="text-xs text-yellow-600 hover:underline mt-1 block">
+                <button 
+                  onClick={() => setSelectedImage(form.bill_url)}
+                  className="text-xs text-yellow-600 hover:underline hover:text-yellow-700 mt-1 block transition-colors"
+                >
                   📄 View uploaded bill
-                </a>
+                </button>
               )}
             </div>
           </div>
@@ -402,9 +407,12 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {item.bill_url ? (
-                        <a href={item.bill_url} target="_blank" rel="noopener noreferrer" className="text-yellow-600 hover:underline">
-                          View
-                        </a>
+                        <button 
+                          onClick={() => setSelectedImage(item.bill_url!)}
+                          className="text-yellow-600 hover:underline hover:text-yellow-700 transition-colors"
+                        >
+                          📄 View Bill
+                        </button>
                       ) : (
                         '-'
                       )}
@@ -461,9 +469,12 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                   {item.bill_url && (
                     <div className="flex justify-between">
                       <span>Bill:</span>
-                      <a href={item.bill_url} target="_blank" rel="noopener noreferrer" className="text-yellow-600 hover:underline font-medium">
-                        📄 View
-                      </a>
+                      <button 
+                        onClick={() => setSelectedImage(item.bill_url!)}
+                        className="text-yellow-600 hover:underline hover:text-yellow-700 font-medium transition-colors"
+                      >
+                        📄 View Bill
+                      </button>
                     </div>
                   )}
                 </div>
@@ -486,6 +497,14 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
           </div>
         </>
       )}
+
+      {/* Enhanced Image Modal for Bills */}
+      <ImageModal
+        images={selectedImage ? [selectedImage] : []}
+        currentIndex={0}
+        isOpen={!!selectedImage}
+        onClose={() => setSelectedImage(null)}
+      />
     </div>
   );
 }

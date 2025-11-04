@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDateReadable, formatDateTimeReadable, getTodayDateString } from '@/lib/dateUtils';
+import { ImageModal } from '@/components/ui/ImageModal';
 
 type ProjectUpdate = {
   id: string;
@@ -33,6 +34,8 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
   const [saving, setSaving] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [currentImages, setCurrentImages] = useState<string[]>([]);
   
   const [form, setForm] = useState({
     update_date: getTodayDateString(),
@@ -283,7 +286,11 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                           src={photo}
                           alt={`Update photo ${photoIndex + 1}`}
                           className="w-full h-20 sm:h-24 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => setSelectedImage(photo)}
+                          onClick={() => {
+                            setCurrentImages(update.photos);
+                            setSelectedImageIndex(photoIndex);
+                            setSelectedImage(photo);
+                          }}
                         />
                       ))}
                     </div>
@@ -295,29 +302,21 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         )}
       </div>
 
-      {/* Image Lightbox Modal - Mobile Friendly */}
-      {selectedImage && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 p-4"
-          onClick={() => setSelectedImage(null)}
-        >
-          <div className="relative w-full h-full flex items-center justify-center">
-            <img
-              src={selectedImage}
-              alt="Full size"
-              className="max-w-full max-h-full object-contain"
-              onClick={(e) => e.stopPropagation()}
-            />
-            <button
-              onClick={() => setSelectedImage(null)}
-              className="absolute top-2 right-2 md:top-4 md:right-4 bg-white text-gray-900 rounded-full w-10 h-10 md:w-12 md:h-12 flex items-center justify-center text-2xl font-bold shadow-lg hover:bg-gray-100 transition-colors"
-              aria-label="Close"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Enhanced Image Modal with Navigation */}
+      <ImageModal
+        images={currentImages}
+        currentIndex={selectedImageIndex}
+        isOpen={!!selectedImage}
+        onClose={() => {
+          setSelectedImage(null);
+          setCurrentImages([]);
+          setSelectedImageIndex(0);
+        }}
+        onNavigate={(index) => {
+          setSelectedImageIndex(index);
+          setSelectedImage(currentImages[index]);
+        }}
+      />
     </div>
   );
 }
