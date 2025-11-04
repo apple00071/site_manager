@@ -115,15 +115,6 @@ export default function NewProjectPage() {
     fetchData();
   }, [isAdmin, router, authLoading, isInitialized, user]);
 
-  // Show loading state while checking auth or loading data
-  if (authLoading || (!isInitialized && isAdmin !== false)) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
-      </div>
-    );
-  }
-
   const onSubmit = async (data: ProjectFormValues) => {
     setIsSubmitting(true);
     setError(null);
@@ -193,6 +184,15 @@ export default function NewProjectPage() {
       setIsSubmitting(false);
     }
   };
+
+  // Show loading state while checking auth or loading data
+  if (authLoading || (!isInitialized && isAdmin !== false)) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6 safe-area-inset-bottom">

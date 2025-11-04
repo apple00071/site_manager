@@ -13,9 +13,15 @@ export default function ClientLayout({
   children: React.ReactNode;
 }) {
   const [isMounted, setIsMounted] = useState(false);
+  const [hydrationComplete, setHydrationComplete] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
+    
+    // Add a small delay to ensure hydration is complete
+    const timer = setTimeout(() => {
+      setHydrationComplete(true);
+    }, 100);
     
     // Register service worker for PWA
     if ('serviceWorker' in navigator) {
@@ -27,10 +33,12 @@ export default function ClientLayout({
           console.log('SW registration failed: ', registrationError);
         });
     }
+
+    return () => clearTimeout(timer);
   }, []);
 
   // Don't render anything until client-side hydration is complete
-  if (!isMounted) {
+  if (!isMounted || !hydrationComplete) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500"></div>
