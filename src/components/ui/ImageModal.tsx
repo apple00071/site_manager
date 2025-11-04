@@ -13,6 +13,11 @@ type ImageModalProps = {
 
 export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }: ImageModalProps) {
   const [activeIndex, setActiveIndex] = useState(currentIndex);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     setActiveIndex(currentIndex);
@@ -52,7 +57,7 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
     onNavigate?.(newIndex);
   };
 
-  if (!isOpen || !images.length) return null;
+  if (!mounted || !isOpen || !images.length) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-95">

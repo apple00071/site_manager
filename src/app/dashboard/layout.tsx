@@ -37,8 +37,11 @@ export default function DashboardLayout({
   }
 
   const [scrolled, setScrolled] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+    
     const handleScroll = () => {
       const scrollTop = window.scrollY;
       setScrolled(scrollTop > 50);
@@ -148,7 +151,7 @@ export default function DashboardLayout({
       <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
         {/* Mobile header with scroll behavior */}
         <header className={`bg-white shadow-sm border-b border-gray-200 lg:hidden fixed top-0 left-0 right-0 z-30 transition-transform duration-300 ${
-          scrolled ? '-translate-y-full' : 'translate-y-0'
+          mounted && scrolled ? '-translate-y-full' : 'translate-y-0'
         }`}>
           <div className="px-4 py-3 flex items-center justify-between">
             <button
@@ -172,7 +175,7 @@ export default function DashboardLayout({
 
         {/* Desktop header with scroll behavior */}
         <header className={`bg-white shadow-sm border-b border-gray-200 hidden lg:block fixed top-0 left-20 right-0 z-30 transition-transform duration-300 ${
-          scrolled ? '-translate-y-full' : 'translate-y-0'
+          mounted && scrolled ? '-translate-y-full' : 'translate-y-0'
         }`}>
           <div className="px-6 py-4 flex items-center justify-between">
             <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>

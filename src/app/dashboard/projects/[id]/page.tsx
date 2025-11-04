@@ -47,11 +47,16 @@ export default function ProjectDetailsPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'board' | 'updates' | 'inventory' | 'designs'>('details');
   const [showTabWidget, setShowTabWidget] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const KanbanBoard = dynamic(() => import('@/components/projects/KanbanBoard').then(m => m.KanbanBoard), { ssr: false });
   const UpdatesTab = dynamic(() => import('@/components/projects/UpdatesTab').then(m => m.UpdatesTab), { ssr: false });
   const InventoryTab = dynamic(() => import('@/components/projects/InventoryTab').then(m => m.InventoryTab), { ssr: false });
   const DesignsTab = dynamic(() => import('@/components/projects/DesignsTab').then(m => m.DesignsTab), { ssr: false });
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
@@ -170,7 +175,8 @@ export default function ProjectDetailsPage() {
       </div>
 
       {/* Mobile Tab Widget - Floating Action Button */}
-      <div className="lg:hidden fixed bottom-6 right-6 z-50">
+      {mounted && (
+        <div className="lg:hidden fixed bottom-6 right-6 z-50">
         <div className="relative">
           <button
             onClick={() => setShowTabWidget(!showTabWidget)}
@@ -254,6 +260,7 @@ export default function ProjectDetailsPage() {
           )}
         </div>
       </div>
+      )}
 
       {/* Desktop Tabs */}
       <div className="bg-white rounded-xl shadow-card border border-gray-100 overflow-hidden">

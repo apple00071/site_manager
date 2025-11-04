@@ -15,6 +15,19 @@ const nextConfig = {
   generateBuildId: async () => {
     return 'build-' + Date.now()
   },
+
+  // Experimental features to help with hydration
+  experimental: {
+    optimizePackageImports: ['react-icons'],
+  },
+
+  // Compiler options
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+
+  // Output configuration
+  output: 'standalone',
 };
 
 // Ensure we're not using Turbopack
