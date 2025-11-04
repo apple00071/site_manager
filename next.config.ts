@@ -2,8 +2,8 @@
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Disable React Strict Mode to prevent double rendering in development
-  reactStrictMode: false,
+  // Enable React Strict Mode to catch hydration issues in development
+  reactStrictMode: true,
 
   // Environment variables
   env: {
@@ -19,11 +19,24 @@ const nextConfig = {
   // Experimental features to help with hydration
   experimental: {
     optimizePackageImports: ['react-icons'],
+    serverComponentsExternalPackages: ['@supabase/supabase-js'],
   },
 
   // Compiler options
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
+    removeConsole: process.env.NODE_ENV === 'production' ? ['log', 'warn'] : [],
+  },
+
+  // Webpack configuration for better error handling
+  webpack: (config: any, { dev, isServer }: { dev: boolean; isServer: boolean }) => {
+    if (dev && !isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'react-dom$': 'react-dom/profiling',
+        'scheduler/tracing': 'scheduler/tracing-profiling',
+      };
+    }
+    return config;
   },
 
   // Output configuration

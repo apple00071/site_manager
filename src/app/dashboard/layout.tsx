@@ -8,6 +8,7 @@ import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX } from 
 import { supabase } from '@/lib/supabase';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 import { NotificationBell } from '@/components/NotificationBell';
+import HydrationSafe from '@/components/HydrationSafe';
 
 export default function DashboardLayout({
   children,
@@ -15,16 +16,18 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { user, isLoading, signOut, isAdmin } = useAuth();
-  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // Removed automatic redirect check - middleware already handles authentication
-  // The middleware ensures only authenticated users can reach this page
+  const [scrolled, setScrolled] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const router = useRouter();
 
   const handleSignOut = async () => {
     await signOut();
     router.push('/login');
   };
+
+  // Removed automatic redirect check - middleware already handles authentication
+  // The middleware ensures only authenticated users can reach this page
 
   // Show loading state while AuthContext initializes
   // Middleware already authenticated the user, so we just wait for AuthContext to sync
@@ -35,9 +38,6 @@ export default function DashboardLayout({
       </div>
     );
   }
-
-  const [scrolled, setScrolled] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -150,9 +150,20 @@ export default function DashboardLayout({
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
         {/* Mobile header with scroll behavior */}
-        <header className={`bg-white shadow-sm border-b border-gray-200 lg:hidden fixed top-0 left-0 right-0 z-30 transition-transform duration-300 ${
-          mounted && scrolled ? '-translate-y-full' : 'translate-y-0'
-        }`}>
+        <HydrationSafe fallback={
+          <header className="bg-white shadow-sm border-b border-gray-200 lg:hidden fixed top-0 left-0 right-0 z-30">
+            <div className="px-4 py-3 flex items-center justify-between">
+              <button className="p-3 rounded-xl text-gray-600">
+                <FiMenu className="h-6 w-6" />
+              </button>
+              <h2 className="text-lg font-semibold text-gray-900">Dashboard</h2>
+              <div className="w-8 h-8 bg-yellow-500 rounded-full"></div>
+            </div>
+          </header>
+        }>
+          <header className={`bg-white shadow-sm border-b border-gray-200 lg:hidden fixed top-0 left-0 right-0 z-30 transition-transform duration-300 ${
+            scrolled ? '-translate-y-full' : 'translate-y-0'
+          }`}>
           <div className="px-4 py-3 flex items-center justify-between">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -172,16 +183,26 @@ export default function DashboardLayout({
             </div>
           </div>
         </header>
+        </HydrationSafe>
 
         {/* Desktop header with scroll behavior */}
-        <header className={`bg-white shadow-sm border-b border-gray-200 hidden lg:block fixed top-0 left-20 right-0 z-30 transition-transform duration-300 ${
-          mounted && scrolled ? '-translate-y-full' : 'translate-y-0'
-        }`}>
-          <div className="px-6 py-4 flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
-            <NotificationBell />
-          </div>
-        </header>
+        <HydrationSafe fallback={
+          <header className="bg-white shadow-sm border-b border-gray-200 hidden lg:block fixed top-0 left-20 right-0 z-30">
+            <div className="px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
+              <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse"></div>
+            </div>
+          </header>
+        }>
+          <header className={`bg-white shadow-sm border-b border-gray-200 hidden lg:block fixed top-0 left-20 right-0 z-30 transition-transform duration-300 ${
+            scrolled ? '-translate-y-full' : 'translate-y-0'
+          }`}>
+            <div className="px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
+              <NotificationBell />
+            </div>
+          </header>
+        </HydrationSafe>
 
         {/* Main content area with top padding for fixed header */}
         <main className="flex-1 overflow-auto bg-gray-50 pt-16 lg:pt-20">

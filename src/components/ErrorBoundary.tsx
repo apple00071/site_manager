@@ -24,6 +24,17 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+    
+    // Log specific hydration errors
+    if (error.message.includes('Minified React error #310') || 
+        error.message.includes('hydration') ||
+        errorInfo.componentStack?.includes('useState')) {
+      console.error('Hydration error detected:', {
+        error: error.message,
+        componentStack: errorInfo.componentStack,
+        timestamp: new Date().toISOString()
+      });
+    }
   }
 
   render() {
