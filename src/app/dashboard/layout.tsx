@@ -36,18 +36,18 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 safe-area-inset-top safe-area-inset-bottom">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-gray-600 bg-opacity-75 lg:hidden"
+          className="fixed inset-0 z-40 bg-gray-900 bg-opacity-50 lg:hidden backdrop-blur-sm"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-16 lg:w-20 bg-white text-gray-900 shadow-lg border-r border-gray-200 transform transition-transform duration-300 ease-in-out
+        fixed inset-y-0 left-0 z-50 w-20 sm:w-24 lg:w-20 bg-white text-gray-900 shadow-xl border-r border-gray-200 transform transition-all duration-300 ease-in-out
         lg:translate-x-0 lg:static lg:inset-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
@@ -67,45 +67,45 @@ export default function DashboardLayout({
         
         {/* Navigation */}
         <nav className="flex-1 py-4">
-          <div className="space-y-1">
+          <div className="space-y-2">
             <Link
               href="/dashboard"
-              className="flex flex-col items-center px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 transition-colors group rounded-lg mx-2"
+              className="flex flex-col items-center px-3 py-4 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-xl mx-2 touch-target"
               onClick={() => setSidebarOpen(false)}
               title="Dashboard"
             >
-              <FiHome className="h-5 w-5 mb-1 group-hover:text-yellow-600" />
-              <span className="text-xs text-center hidden lg:block">Dashboard</span>
+              <FiHome className="h-6 w-6 mb-1 group-hover:text-yellow-600 transition-colors" />
+              <span className="text-xs text-center font-medium hidden lg:block">Dashboard</span>
             </Link>
             <Link
               href="/dashboard/projects"
-              className="flex flex-col items-center px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 transition-colors group rounded-lg mx-2"
+              className="flex flex-col items-center px-3 py-4 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-xl mx-2 touch-target"
               onClick={() => setSidebarOpen(false)}
               title="Projects"
             >
-              <FiBriefcase className="h-5 w-5 mb-1 group-hover:text-yellow-600" />
-              <span className="text-xs text-center hidden lg:block">Projects</span>
+              <FiBriefcase className="h-6 w-6 mb-1 group-hover:text-yellow-600 transition-colors" />
+              <span className="text-xs text-center font-medium hidden lg:block">Projects</span>
             </Link>
             {isAdmin && (
               <Link
                 href="/dashboard/users"
-                className="flex flex-col items-center px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 transition-colors group rounded-lg mx-2"
+                className="flex flex-col items-center px-3 py-4 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-xl mx-2 touch-target"
                 onClick={() => setSidebarOpen(false)}
                 title="Users"
               >
-                <FiUsers className="h-5 w-5 mb-1 group-hover:text-yellow-600" />
-                <span className="text-xs text-center hidden lg:block">Users</span>
+                <FiUsers className="h-6 w-6 mb-1 group-hover:text-yellow-600 transition-colors" />
+                <span className="text-xs text-center font-medium hidden lg:block">Users</span>
               </Link>
             )}
             {isAdmin && (
               <Link
                 href="/dashboard/settings"
-                className="flex flex-col items-center px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 transition-colors group rounded-lg mx-2"
+                className="flex flex-col items-center px-3 py-4 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-xl mx-2 touch-target"
                 onClick={() => setSidebarOpen(false)}
                 title="Settings"
               >
-                <FiSettings className="h-5 w-5 mb-1 group-hover:text-yellow-600" />
-                <span className="text-xs text-center hidden lg:block">Settings</span>
+                <FiSettings className="h-6 w-6 mb-1 group-hover:text-yellow-600 transition-colors" />
+                <span className="text-xs text-center font-medium hidden lg:block">Settings</span>
               </Link>
             )}
           </div>
@@ -134,16 +134,23 @@ export default function DashboardLayout({
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
         {/* Mobile header */}
-        <header className="bg-white shadow-sm border-b border-gray-200 lg:hidden">
+        <header className="bg-white shadow-sm border-b border-gray-200 lg:hidden safe-area-inset-top">
           <div className="px-4 py-3 flex items-center justify-between">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+              className="p-3 rounded-xl text-gray-600 hover:text-gray-900 hover:bg-gray-100 active:bg-gray-200 transition-all duration-200 touch-target"
+              aria-label="Open navigation menu"
             >
               <FiMenu className="h-6 w-6" />
             </button>
-            <h2 className="text-lg font-semibold text-gray-900">Dashboard</h2>
-            <div className="w-10"></div> {/* Spacer for centering */}
+            <h2 className="text-lg font-semibold text-gray-900 truncate">Dashboard</h2>
+            <div className="w-12 flex justify-end">
+              <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center shadow-sm">
+                <span className="text-gray-900 text-xs font-bold">
+                  {(user.full_name || user.email || 'U').charAt(0).toUpperCase()}
+                </span>
+              </div>
+            </div>
           </div>
         </header>
 
@@ -155,7 +162,7 @@ export default function DashboardLayout({
         </header>
 
         {/* Main content area */}
-        <main className="flex-1 overflow-auto p-4 lg:p-8 bg-gray-50">
+        <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8 bg-gray-50 safe-area-inset-bottom">
           {children}
         </main>
       </div>

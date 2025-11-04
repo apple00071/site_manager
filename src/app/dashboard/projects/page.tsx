@@ -92,8 +92,64 @@ export default function ProjectsPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500"></div>
+      <div className="space-y-6 animate-pulse-mobile">
+        {/* Header skeleton */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="h-8 bg-gray-200 rounded-lg w-32 mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded w-64"></div>
+          </div>
+          <div className="h-10 bg-gray-200 rounded-xl w-32"></div>
+        </div>
+
+        {/* Projects skeleton */}
+        <div className="bg-white shadow-card overflow-hidden rounded-2xl border border-gray-100">
+          <div className="lg:hidden">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="border-b border-gray-100 p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+                    <div className="h-4 bg-gray-200 rounded w-2/3 mb-3"></div>
+                    <div className="flex gap-4">
+                      <div className="h-3 bg-gray-200 rounded w-20"></div>
+                      <div className="h-3 bg-gray-200 rounded w-16"></div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="h-6 bg-gray-200 rounded-full w-20"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="hidden lg:block">
+            <div className="bg-gray-50 px-6 py-4">
+              <div className="flex justify-between">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="h-4 bg-gray-200 rounded w-20"></div>
+                ))}
+              </div>
+            </div>
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="px-6 py-4 border-b border-gray-100">
+                <div className="flex justify-between items-center">
+                  <div className="h-4 bg-gray-200 rounded w-40"></div>
+                  <div className="h-4 bg-gray-200 rounded w-24"></div>
+                  <div className="h-6 bg-gray-200 rounded-full w-20"></div>
+                  <div className="h-4 bg-gray-200 rounded w-20"></div>
+                  <div className="flex gap-2">
+                    <div className="h-4 w-4 bg-gray-200 rounded"></div>
+                    <div className="h-4 w-4 bg-gray-200 rounded"></div>
+                    <div className="h-4 w-4 bg-gray-200 rounded"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -101,70 +157,95 @@ export default function ProjectsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Projects</h1>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Projects</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">
+            Manage and track all your interior design projects
+          </p>
+        </div>
         <Link
           href="/dashboard/projects/new"
-          className="px-5 py-2.5 bg-yellow-500 text-gray-900 rounded-lg flex items-center justify-center hover:bg-yellow-600 transition-colors shadow-sm font-bold"
+          className="px-4 sm:px-5 py-3 sm:py-2.5 bg-yellow-500 text-gray-900 rounded-xl flex items-center justify-center hover:bg-yellow-600 active:bg-yellow-700 transition-all duration-200 shadow-sm font-bold text-sm sm:text-base touch-target"
         >
-          <FiPlus className="mr-2 h-5 w-5" /> New Project
+          <FiPlus className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+          <span className="whitespace-nowrap">New Project</span>
         </Link>
       </div>
 
-      <div className="bg-white shadow-sm overflow-hidden rounded-xl border border-gray-100">
+      <div className="bg-white shadow-card overflow-hidden rounded-2xl border border-gray-100 animate-slide-up">
         {/* Mobile view - cards */}
         <div className="lg:hidden">
-          {projects.map((project) => (
-            <div key={project.id} className="border-b border-gray-100 p-4 hover:bg-gray-50 transition-colors">
-              <div className="flex items-start justify-between">
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-semibold text-gray-900 truncate">{project.title}</h3>
-                  <p className="text-sm text-gray-600 mt-1 line-clamp-2">{project.description}</p>
-                  <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
-                    <span>{project.customer_name || 'N/A'}</span>
-                    <span>{project.estimated_completion_date ? new Date(project.estimated_completion_date).toLocaleDateString() : 'No date set'}</span>
+          {projects.map((project, index) => (
+            <div 
+              key={project.id} 
+              className="border-b border-gray-100 last:border-b-0 animate-fade-in"
+              style={{ animationDelay: `${index * 100}ms` }}
+            >
+              <Link
+                href={`/dashboard/projects/${project.id}`}
+                className="block p-4 sm:p-5 hover:bg-gray-50 active:bg-gray-100 transition-all duration-200 touch-target"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm sm:text-base font-semibold text-gray-900 truncate leading-tight">
+                      {project.title}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-2 leading-relaxed">
+                      {project.description}
+                    </p>
+                    <div className="mt-3 flex flex-col xs:flex-row xs:items-center gap-2 xs:gap-4 text-xs text-gray-500">
+                      <span className="flex items-center">
+                        <span className="font-medium">Customer:</span>
+                        <span className="ml-1 truncate">{project.customer_name || 'N/A'}</span>
+                      </span>
+                      {project.estimated_completion_date && (
+                        <span className="flex items-center">
+                          <span className="font-medium">Due:</span>
+                          <span className="ml-1">{new Date(project.estimated_completion_date).toLocaleDateString()}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-2 ml-2">
+                    <span className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
+                      project.status === 'completed'
+                        ? 'bg-green-100 text-green-700'
+                        : project.status === 'in_progress'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {project.status.replace('_', ' ')}
+                    </span>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2 ml-4">
-                  <span className={`px-3 py-1 text-xs font-medium rounded-full ${
-                    project.status === 'completed'
-                      ? 'bg-green-100 text-green-700'
-                      : project.status === 'in_progress'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-amber-100 text-amber-700'
-                  }`}>
-                    {project.status.replace('_', ' ')}
-                  </span>
-                  <div className="flex space-x-1">
-                    <Link
-                      href={`/dashboard/projects/${project.id}`}
-                      className="p-2 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 rounded-lg transition-colors"
-                    >
-                      <FiEye className="h-4 w-4" />
-                    </Link>
-                    {isAdmin && (
-                      <>
-                        <Link
-                          href={`/dashboard/projects/${project.id}/edit`}
-                          className="p-2 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 rounded-lg transition-colors"
-                        >
-                          <FiEdit2 className="h-4 w-4" />
-                        </Link>
-                        <button
-                          onClick={() => handleDeleteProject(project.id)}
-                          className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <FiTrash2 className="h-4 w-4" />
-                        </button>
-                      </>
-                    )}
-                  </div>
+              </Link>
+              
+              {/* Action buttons for mobile */}
+              {isAdmin && (
+                <div className="px-4 sm:px-5 pb-4 flex justify-end gap-2">
+                  <Link
+                    href={`/dashboard/projects/${project.id}/edit`}
+                    className="p-2 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 active:bg-yellow-100 rounded-xl transition-all duration-200 touch-target"
+                    title="Edit project"
+                  >
+                    <FiEdit2 className="h-4 w-4" />
+                  </Link>
+                  <button
+                    onClick={() => handleDeleteProject(project.id)}
+                    className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 active:bg-red-100 rounded-xl transition-all duration-200 touch-target"
+                    title="Delete project"
+                  >
+                    <FiTrash2 className="h-4 w-4" />
+                  </button>
                 </div>
-              </div>
+              )}
             </div>
           ))}
           {projects.length === 0 && (
-            <div className="p-12 text-center text-gray-500">
-              <p className="text-base">No projects found</p>
+            <div className="p-8 sm:p-12 text-center text-gray-500">
+              <FiPlus className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+              <p className="text-sm sm:text-base font-medium">No projects found</p>
+              <p className="text-xs sm:text-sm mt-1">Create your first project to get started</p>
             </div>
           )}
         </div>

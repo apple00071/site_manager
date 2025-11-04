@@ -50,20 +50,20 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-gray-50 flex items-center justify-center p-6">
-      <div className="w-full max-w-md bg-white shadow-xl rounded-2xl p-8 border border-gray-100">
-        <div className="text-center mb-8">
+    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-gray-50 flex items-center justify-center p-4 sm:p-6 safe-area-inset-top safe-area-inset-bottom">
+      <div className="w-full max-w-sm sm:max-w-md bg-white shadow-xl rounded-2xl sm:rounded-3xl p-6 sm:p-8 border border-gray-100 animate-scale-in">
+        <div className="text-center mb-6 sm:mb-8">
           <img
             src="/New-logo.png"
             alt="Apple Interior Manager"
-            className="h-20 mx-auto mb-4"
+            className="h-16 sm:h-20 mx-auto mb-3 sm:mb-4"
             onError={(e) => {
               // Fallback if logo fails to load
               e.currentTarget.style.display = 'none';
             }}
           />
-          <h1 className="text-3xl font-bold text-gray-900">Apple Interior Manager</h1>
-          <p className="text-sm text-gray-600 mt-2">Sign in to access your dashboard</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 leading-tight">Apple Interior Manager</h1>
+          <p className="text-xs sm:text-sm text-gray-600 mt-2">Sign in to access your dashboard</p>
         </div>
 
         {serverError && (
@@ -72,20 +72,25 @@ export default function LoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 sm:space-y-6">
           <div>
             <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
             <input
               id="email"
               type="email"
               {...register('email')}
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 sm:py-4 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white touch-target"
               placeholder="you@example.com"
               aria-invalid={!!errors.email || undefined}
               aria-describedby={errors.email ? 'email-error' : undefined}
+              autoComplete="email"
+              inputMode="email"
             />
             {errors.email && (
-              <p id="email-error" className="mt-2 text-xs text-red-600">{errors.email.message}</p>
+              <p id="email-error" className="mt-2 text-xs sm:text-sm text-red-600 flex items-center">
+                <span className="inline-block w-1 h-1 bg-red-600 rounded-full mr-2"></span>
+                {errors.email.message}
+              </p>
             )}
           </div>
 
@@ -95,22 +100,33 @@ export default function LoginPage() {
               id="password"
               type="password"
               {...register('password')}
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 sm:py-4 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white touch-target"
               placeholder="••••••••"
               aria-invalid={!!errors.password || undefined}
               aria-describedby={errors.password ? 'password-error' : undefined}
+              autoComplete="current-password"
             />
             {errors.password && (
-              <p id="password-error" className="mt-2 text-xs text-red-600">{errors.password.message}</p>
+              <p id="password-error" className="mt-2 text-xs sm:text-sm text-red-600 flex items-center">
+                <span className="inline-block w-1 h-1 bg-red-600 rounded-full mr-2"></span>
+                {errors.password.message}
+              </p>
             )}
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-yellow-500 px-4 py-3 text-gray-900 text-sm font-bold hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+            className="w-full rounded-xl bg-yellow-500 px-4 py-3 sm:py-4 text-gray-900 text-sm sm:text-base font-bold hover:bg-yellow-600 active:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm touch-target"
           >
-            {loading ? 'Signing in…' : 'Sign in'}
+            {loading ? (
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-gray-900 mr-2"></div>
+                Signing in…
+              </div>
+            ) : (
+              'Sign in'
+            )}
           </button>
         </form>
       </div>
