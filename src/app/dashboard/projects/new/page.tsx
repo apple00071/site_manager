@@ -16,9 +16,22 @@ const projectSchema = z.object({
   phone_number: z.string().min(10, 'Phone number is required'),
   alt_phone_number: z.string().optional().nullable(),
   address: z.string().min(5, 'Address is required'),
+  // New address fields for interior design projects
+  apartment_name: z.string().optional().nullable(),
+  block_number: z.string().optional().nullable(),
+  flat_number: z.string().optional().nullable(),
+  floor_number: z.string().optional().nullable(),
+  area_sqft: z.string().optional().nullable(),
+  property_type: z.enum(['apartment', 'villa', 'independent_house', 'office', 'commercial', 'other']).optional().nullable(),
+  // Project details
   start_date: z.string().min(1, 'Start date is required'),
   estimated_completion_date: z.string().min(1, 'Estimated completion date is required'),
   assigned_employee_id: z.string().uuid('Please select an employee'),
+  // Design specifications
+  design_style: z.string().optional().nullable(),
+  room_types: z.string().optional().nullable(),
+  special_requirements: z.string().optional().nullable(),
+  // Team details
   designer_name: z.string().min(2, 'Designer name is required'),
   designer_phone: z.string().min(10, 'Designer phone is required'),
   carpenter_name: z.string().optional().nullable(),
@@ -182,13 +195,16 @@ export default function NewProjectPage() {
   };
 
   return (
-    <div className="space-y-4 lg:space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Create New Project</h1>
+    <div className="space-y-4 sm:space-y-6 safe-area-inset-bottom">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Create New Project</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Add a new interior design project with complete details</p>
+        </div>
       </div>
 
-      <div className="bg-white shadow overflow-hidden rounded-lg">
-        <div className="px-4 py-4 sm:px-6 sm:py-5">
+      <div className="bg-white shadow-card overflow-hidden rounded-2xl border border-gray-100">
+        <div className="px-4 py-4 sm:px-6 sm:py-6">
           {error && (
             <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
               <p className="text-red-700">{error}</p>
@@ -255,68 +271,179 @@ export default function NewProjectPage() {
             <div className="border-t border-gray-200 pt-6 mt-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Customer Details</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div className="md:col-span-2">
-                  <label htmlFor="customer_name" className="block text-sm font-medium text-gray-700 mb-1">
-                    Customer Name *
-                  </label>
-                  <input
-                    id="customer_name"
-                    type="text"
-                    {...register('customer_name')}
-                    placeholder="Enter customer full name"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                  {errors.customer_name && (
-                    <p className="mt-1 text-sm text-red-600">{errors.customer_name.message}</p>
-                  )}
+              <div className="space-y-4 sm:space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div className="sm:col-span-2">
+                    <label htmlFor="customer_name" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Customer Name *
+                    </label>
+                    <input
+                      id="customer_name"
+                      type="text"
+                      {...register('customer_name')}
+                      placeholder="Enter customer full name"
+                      className="block w-full px-4 py-3 sm:py-4 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white touch-target"
+                      autoComplete="name"
+                    />
+                    {errors.customer_name && (
+                      <p className="mt-2 text-xs sm:text-sm text-red-600 flex items-center">
+                        <span className="inline-block w-1 h-1 bg-red-600 rounded-full mr-2"></span>
+                        {errors.customer_name.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="phone_number" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Phone Number *
+                    </label>
+                    <input
+                      id="phone_number"
+                      type="tel"
+                      {...register('phone_number')}
+                      placeholder="1234567890"
+                      className="block w-full px-4 py-3 sm:py-4 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white touch-target"
+                      autoComplete="tel"
+                      inputMode="tel"
+                    />
+                    {errors.phone_number && (
+                      <p className="mt-2 text-xs sm:text-sm text-red-600 flex items-center">
+                        <span className="inline-block w-1 h-1 bg-red-600 rounded-full mr-2"></span>
+                        {errors.phone_number.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="alt_phone_number" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Alternative Phone
+                    </label>
+                    <input
+                      id="alt_phone_number"
+                      type="tel"
+                      {...register('alt_phone_number')}
+                      placeholder="Optional"
+                      className="block w-full px-4 py-3 sm:py-4 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white touch-target"
+                      autoComplete="tel"
+                      inputMode="tel"
+                    />
+                    {errors.alt_phone_number && (
+                      <p className="mt-2 text-xs sm:text-sm text-red-600 flex items-center">
+                        <span className="inline-block w-1 h-1 bg-red-600 rounded-full mr-2"></span>
+                        {errors.alt_phone_number.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Property Details Section */}
+                <div className="bg-gray-50 rounded-xl p-4 sm:p-6 space-y-4">
+                  <h4 className="text-md font-semibold text-gray-800 mb-3">Property Details</h4>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label htmlFor="property_type" className="block text-sm font-medium text-gray-700 mb-2">
+                        Property Type
+                      </label>
+                      <select
+                        id="property_type"
+                        {...register('property_type')}
+                        className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-white touch-target"
+                      >
+                        <option value="">Select property type</option>
+                        <option value="apartment">Apartment</option>
+                        <option value="villa">Villa</option>
+                        <option value="independent_house">Independent House</option>
+                        <option value="office">Office</option>
+                        <option value="commercial">Commercial</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label htmlFor="apartment_name" className="block text-sm font-medium text-gray-700 mb-2">
+                        Apartment/Building Name
+                      </label>
+                      <input
+                        id="apartment_name"
+                        type="text"
+                        {...register('apartment_name')}
+                        placeholder="e.g., Green Valley Apartments"
+                        className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-white touch-target"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="area_sqft" className="block text-sm font-medium text-gray-700 mb-2">
+                        Area (sq ft)
+                      </label>
+                      <input
+                        id="area_sqft"
+                        type="number"
+                        {...register('area_sqft')}
+                        placeholder="e.g., 1200"
+                        className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-white touch-target"
+                        inputMode="numeric"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="block_number" className="block text-sm font-medium text-gray-700 mb-2">
+                        Block Number
+                      </label>
+                      <input
+                        id="block_number"
+                        type="text"
+                        {...register('block_number')}
+                        placeholder="e.g., A, B1, Tower 2"
+                        className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-white touch-target"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="flat_number" className="block text-sm font-medium text-gray-700 mb-2">
+                        Flat Number
+                      </label>
+                      <input
+                        id="flat_number"
+                        type="text"
+                        {...register('flat_number')}
+                        placeholder="e.g., 101, A-205"
+                        className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-white touch-target"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="floor_number" className="block text-sm font-medium text-gray-700 mb-2">
+                        Floor Number
+                      </label>
+                      <input
+                        id="floor_number"
+                        type="text"
+                        {...register('floor_number')}
+                        placeholder="e.g., 2nd, Ground"
+                        className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-white touch-target"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div>
-                  <label htmlFor="phone_number" className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone Number *
-                  </label>
-                  <input
-                    id="phone_number"
-                    type="tel"
-                    {...register('phone_number')}
-                    placeholder="1234567890"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                  {errors.phone_number && (
-                    <p className="mt-1 text-sm text-red-600">{errors.phone_number.message}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label htmlFor="alt_phone_number" className="block text-sm font-medium text-gray-700 mb-1">
-                    Alternative Phone
-                  </label>
-                  <input
-                    id="alt_phone_number"
-                    type="tel"
-                    {...register('alt_phone_number')}
-                    placeholder="Optional"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                  {errors.alt_phone_number && (
-                    <p className="mt-1 text-sm text-red-600">{errors.alt_phone_number.message}</p>
-                  )}
-                </div>
-
-                <div className="md:col-span-2">
-                  <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-                    Address *
+                  <label htmlFor="address" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Complete Address *
                   </label>
                   <textarea
                     id="address"
                     rows={3}
                     {...register('address')}
-                    placeholder="Enter full address"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="Enter full address with landmarks"
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white resize-none"
                   />
                   {errors.address && (
-                    <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
+                    <p className="mt-2 text-xs sm:text-sm text-red-600 flex items-center">
+                      <span className="inline-block w-1 h-1 bg-red-600 rounded-full mr-2"></span>
+                      {errors.address.message}
+                    </p>
                   )}
                 </div>
               </div>
@@ -325,52 +452,121 @@ export default function NewProjectPage() {
             <div className="border-t border-gray-200 pt-6 mt-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Project Details</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div>
-                  <label htmlFor="start_date" className="block text-sm font-medium text-gray-700 mb-1">
-                    Start Date *
-                  </label>
-                  <input
-                    id="start_date"
-                    type="date"
-                    {...register('start_date')}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                  {errors.start_date && (
-                    <p className="mt-1 text-sm text-red-600">{errors.start_date.message}</p>
-                  )}
+              <div className="space-y-4 sm:space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div>
+                    <label htmlFor="start_date" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Start Date *
+                    </label>
+                    <input
+                      id="start_date"
+                      type="date"
+                      {...register('start_date')}
+                      className="block w-full px-4 py-3 sm:py-4 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white touch-target"
+                    />
+                    {errors.start_date && (
+                      <p className="mt-2 text-xs sm:text-sm text-red-600 flex items-center">
+                        <span className="inline-block w-1 h-1 bg-red-600 rounded-full mr-2"></span>
+                        {errors.start_date.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="estimated_completion_date" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Estimated Completion Date *
+                    </label>
+                    <input
+                      id="estimated_completion_date"
+                      type="date"
+                      {...register('estimated_completion_date')}
+                      className="block w-full px-4 py-3 sm:py-4 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white touch-target"
+                    />
+                    {errors.estimated_completion_date && (
+                      <p className="mt-2 text-xs sm:text-sm text-red-600 flex items-center">
+                        <span className="inline-block w-1 h-1 bg-red-600 rounded-full mr-2"></span>
+                        {errors.estimated_completion_date.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label htmlFor="project_budget" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Project Budget
+                    </label>
+                    <input
+                      id="project_budget"
+                      type="number"
+                      step="0.01"
+                      {...register('project_budget')}
+                      placeholder="Enter project budget in ₹"
+                      className="block w-full px-4 py-3 sm:py-4 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white touch-target"
+                      inputMode="decimal"
+                    />
+                    {errors.project_budget && (
+                      <p className="mt-2 text-xs sm:text-sm text-red-600 flex items-center">
+                        <span className="inline-block w-1 h-1 bg-red-600 rounded-full mr-2"></span>
+                        {errors.project_budget.message}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                <div>
-                  <label htmlFor="estimated_completion_date" className="block text-sm font-medium text-gray-700 mb-1">
-                    Estimated Completion Date *
-                  </label>
-                  <input
-                    id="estimated_completion_date"
-                    type="date"
-                    {...register('estimated_completion_date')}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                  {errors.estimated_completion_date && (
-                    <p className="mt-1 text-sm text-red-600">{errors.estimated_completion_date.message}</p>
-                  )}
-                </div>
+                {/* Design Specifications Section */}
+                <div className="bg-yellow-50 rounded-xl p-4 sm:p-6 space-y-4">
+                  <h4 className="text-md font-semibold text-gray-800 mb-3">Design Specifications</h4>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="design_style" className="block text-sm font-medium text-gray-700 mb-2">
+                        Design Style
+                      </label>
+                      <select
+                        id="design_style"
+                        {...register('design_style')}
+                        className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-white touch-target"
+                      >
+                        <option value="">Select design style</option>
+                        <option value="modern">Modern</option>
+                        <option value="contemporary">Contemporary</option>
+                        <option value="traditional">Traditional</option>
+                        <option value="minimalist">Minimalist</option>
+                        <option value="scandinavian">Scandinavian</option>
+                        <option value="industrial">Industrial</option>
+                        <option value="rustic">Rustic</option>
+                        <option value="bohemian">Bohemian</option>
+                        <option value="art_deco">Art Deco</option>
+                        <option value="eclectic">Eclectic</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
 
-                <div className="md:col-span-2">
-                  <label htmlFor="project_budget" className="block text-sm font-medium text-gray-700 mb-1">
-                    Project Budget
-                  </label>
-                  <input
-                    id="project_budget"
-                    type="number"
-                    step="0.01"
-                    {...register('project_budget')}
-                    placeholder="Enter project budget in ₹"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                  {errors.project_budget && (
-                    <p className="mt-1 text-sm text-red-600">{errors.project_budget.message}</p>
-                  )}
+                    <div>
+                      <label htmlFor="room_types" className="block text-sm font-medium text-gray-700 mb-2">
+                        Rooms to Design
+                      </label>
+                      <input
+                        id="room_types"
+                        type="text"
+                        {...register('room_types')}
+                        placeholder="e.g., Living Room, Kitchen, 2 Bedrooms"
+                        className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-white touch-target"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label htmlFor="special_requirements" className="block text-sm font-medium text-gray-700 mb-2">
+                        Special Requirements
+                      </label>
+                      <textarea
+                        id="special_requirements"
+                        rows={3}
+                        {...register('special_requirements')}
+                        placeholder="e.g., Pet-friendly materials, wheelchair accessibility, storage solutions"
+                        className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-white resize-none"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -601,19 +797,26 @@ export default function NewProjectPage() {
               )}
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex flex-col sm:flex-row gap-3 sm:justify-end pt-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="w-full sm:w-auto px-6 py-3 sm:py-4 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 transition-all duration-200 font-semibold text-sm sm:text-base touch-target"
+              >
+                Cancel
+              </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-70 disabled:cursor-not-allowed flex items-center"
+                className="w-full sm:w-auto px-6 py-3 sm:py-4 bg-yellow-500 text-gray-900 rounded-xl hover:bg-yellow-600 active:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-200 font-bold text-sm sm:text-base touch-target flex items-center justify-center"
               >
                 {isSubmitting ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Creating...
+                    Creating Project...
                   </>
                 ) : 'Create Project'}
               </button>

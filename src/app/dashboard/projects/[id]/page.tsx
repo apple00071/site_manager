@@ -148,208 +148,258 @@ export default function ProjectDetailsPage() {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{project.title}</h1>
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 safe-area-inset-bottom">
+      {/* Mobile-friendly header */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-4">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 truncate">{project.title}</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Project ID: {project.id.slice(0, 8)}</p>
         </div>
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-          {project.status.replace('_', ' ').charAt(0).toUpperCase() + project.status.replace('_', ' ').slice(1)}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs sm:text-sm font-semibold ${
+            project.status === 'completed' 
+              ? 'bg-green-100 text-green-700' 
+              : project.status === 'in_progress' 
+              ? 'bg-blue-100 text-blue-700' 
+              : 'bg-yellow-100 text-yellow-700'
+          }`}>
+            {project.status.replace('_', ' ').charAt(0).toUpperCase() + project.status.replace('_', ' ').slice(1)}
+          </span>
+        </div>
       </div>
 
-      {/* Tabs - Mobile: Horizontal scroll, Desktop: Normal flex */}
-      <div className="border-b mb-4 overflow-x-auto">
-        <nav className="-mb-px flex space-x-4 md:space-x-6 min-w-max md:min-w-0" aria-label="Tabs">
-          <button
-            className={`whitespace-nowrap py-2 px-3 md:px-1 border-b-2 text-sm font-medium transition-colors ${activeTab === 'details' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-            onClick={() => setActiveTab('details')}
-          >
-            Details
-          </button>
-          <button
-            className={`whitespace-nowrap py-2 px-3 md:px-1 border-b-2 text-sm font-medium transition-colors ${activeTab === 'board' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-            onClick={() => setActiveTab('board')}
-          >
-            Stages Board
-          </button>
-          <button
-            className={`whitespace-nowrap py-2 px-3 md:px-1 border-b-2 text-sm font-medium transition-colors ${activeTab === 'updates' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-            onClick={() => setActiveTab('updates')}
-          >
-            Updates
-          </button>
-          <button
-            className={`whitespace-nowrap py-2 px-3 md:px-1 border-b-2 text-sm font-medium transition-colors ${activeTab === 'inventory' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-            onClick={() => setActiveTab('inventory')}
-          >
-            Inventory
-          </button>
-          <button
-            className={`whitespace-nowrap py-2 px-3 md:px-1 border-b-2 text-sm font-medium transition-colors ${activeTab === 'designs' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-            onClick={() => setActiveTab('designs')}
-          >
-            Designs
-          </button>
-        </nav>
-      </div>
-
-      {activeTab === 'details' && (
-      <>
-      <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-        <div className="px-4 py-5 sm:px-6">
-          <h3 className="text-lg font-medium leading-6 text-gray-900">Project Information</h3>
-          <p className="mt-1 max-w-2xl text-sm text-gray-500">Details about the project.</p>
+      {/* Enhanced Mobile-first Tabs */}
+      <div className="bg-white rounded-xl shadow-card border border-gray-100 overflow-hidden">
+        <div className="border-b border-gray-200 overflow-x-auto scrollbar-hide">
+          <nav className="flex min-w-max" aria-label="Tabs">
+            <button
+              className={`flex-1 min-w-0 py-3 px-4 text-sm font-semibold text-center border-b-2 transition-all duration-200 touch-target ${
+                activeTab === 'details' 
+                  ? 'border-yellow-500 text-yellow-600 bg-yellow-50' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
+              }`}
+              onClick={() => setActiveTab('details')}
+            >
+              <span className="truncate">Details</span>
+            </button>
+            <button
+              className={`flex-1 min-w-0 py-3 px-4 text-sm font-semibold text-center border-b-2 transition-all duration-200 touch-target ${
+                activeTab === 'board' 
+                  ? 'border-yellow-500 text-yellow-600 bg-yellow-50' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
+              }`}
+              onClick={() => setActiveTab('board')}
+            >
+              <span className="truncate">Stages</span>
+            </button>
+            <button
+              className={`flex-1 min-w-0 py-3 px-4 text-sm font-semibold text-center border-b-2 transition-all duration-200 touch-target ${
+                activeTab === 'updates' 
+                  ? 'border-yellow-500 text-yellow-600 bg-yellow-50' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
+              }`}
+              onClick={() => setActiveTab('updates')}
+            >
+              <span className="truncate">Updates</span>
+            </button>
+            <button
+              className={`flex-1 min-w-0 py-3 px-4 text-sm font-semibold text-center border-b-2 transition-all duration-200 touch-target ${
+                activeTab === 'inventory' 
+                  ? 'border-yellow-500 text-yellow-600 bg-yellow-50' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
+              }`}
+              onClick={() => setActiveTab('inventory')}
+            >
+              <span className="truncate">Inventory</span>
+            </button>
+            <button
+              className={`flex-1 min-w-0 py-3 px-4 text-sm font-semibold text-center border-b-2 transition-all duration-200 touch-target ${
+                activeTab === 'designs' 
+                  ? 'border-yellow-500 text-yellow-600 bg-yellow-50' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
+              }`}
+              onClick={() => setActiveTab('designs')}
+            >
+              <span className="truncate">Designs</span>
+            </button>
+          </nav>
         </div>
-        <div className="border-t border-gray-200">
-          <dl>
-            <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt className="text-sm font-medium text-gray-500">Description</dt>
-              <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
-                {project.description || 'No description provided.'}
-              </dd>
-            </div>
-            <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt className="text-sm font-medium text-gray-500">Customer</dt>
-              <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
-                {project.customer_name}
-              </dd>
-            </div>
-            <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt className="text-sm font-medium text-gray-500">Phone Number</dt>
-              <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
-                {project.phone_number}
-                {project.alt_phone_number && (
-                  <span className="block text-gray-500 text-sm">Alt: {project.alt_phone_number}</span>
+
+        {/* Tab Content */}
+        <div className="p-4 sm:p-6">
+          {activeTab === 'details' && (
+            <div className="space-y-6">
+              {/* Project Information */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Project Information</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 mb-1">Description</dt>
+                      <dd className="text-sm text-gray-900">{project.description || 'No description provided.'}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 mb-1">Customer</dt>
+                      <dd className="text-sm text-gray-900">{project.customer_name}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 mb-1">Phone Number</dt>
+                      <dd className="text-sm text-gray-900">
+                        <a href={`tel:${project.phone_number}`} className="text-blue-600 hover:text-blue-800">
+                          {project.phone_number}
+                        </a>
+                        {project.alt_phone_number && (
+                          <div className="text-gray-500 text-sm mt-1">
+                            Alt: <a href={`tel:${project.alt_phone_number}`} className="text-blue-600 hover:text-blue-800">
+                              {project.alt_phone_number}
+                            </a>
+                          </div>
+                        )}
+                      </dd>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 mb-1">Start Date</dt>
+                      <dd className="text-sm text-gray-900">{new Date(project.start_date).toLocaleDateString()}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 mb-1">Estimated Completion</dt>
+                      <dd className="text-sm text-gray-900">{new Date(project.estimated_completion_date).toLocaleDateString()}</dd>
+                    </div>
+                    {project.project_budget && (
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500 mb-1">Project Budget</dt>
+                        <dd className="text-sm text-gray-900">₹{project.project_budget.toLocaleString()}</dd>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="mt-4">
+                  <dt className="text-sm font-medium text-gray-500 mb-1">Address</dt>
+                  <dd className="text-sm text-gray-900 whitespace-pre-line">{project.address}</dd>
+                </div>
+
+                {project.project_notes && (
+                  <div className="mt-4">
+                    <dt className="text-sm font-medium text-gray-500 mb-1">Project Notes</dt>
+                    <dd className="text-sm text-gray-900 whitespace-pre-line">{project.project_notes}</dd>
+                  </div>
                 )}
-              </dd>
-            </div>
-            <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt className="text-sm font-medium text-gray-500">Address</dt>
-              <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0 whitespace-pre-line">
-                {project.address}
-              </dd>
-            </div>
-            <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt className="text-sm font-medium text-gray-500">Start Date</dt>
-              <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
-                {new Date(project.start_date).toLocaleDateString()}
-              </dd>
-            </div>
-            <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt className="text-sm font-medium text-gray-500">Estimated Completion Date</dt>
-              <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
-                {new Date(project.estimated_completion_date).toLocaleDateString()}
-              </dd>
-            </div>
-            {project.project_budget && (
-              <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                <dt className="text-sm font-medium text-gray-500">Project Budget</dt>
-                <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
-                  ₹{project.project_budget.toLocaleString()}
-                </dd>
               </div>
-            )}
-            {project.assigned_employee && (
-              <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                <dt className="text-sm font-medium text-gray-500">Assigned Employee</dt>
-                <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
-                  {project.assigned_employee.name}
-                  <span className="block text-gray-500 text-sm">{project.assigned_employee.email}</span>
-                </dd>
+
+              {/* Team Details */}
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Team Details</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500 mb-1">Designer</dt>
+                    <dd className="text-sm text-gray-900">
+                      {project.designer_name}
+                      <div className="text-gray-500 text-sm">
+                        <a href={`tel:${project.designer_phone}`} className="text-blue-600 hover:text-blue-800">
+                          {project.designer_phone}
+                        </a>
+                      </div>
+                    </dd>
+                  </div>
+                  
+                  {project.assigned_employee && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 mb-1">Assigned Employee</dt>
+                      <dd className="text-sm text-gray-900">
+                        {project.assigned_employee.name}
+                        <div className="text-gray-500 text-sm">{project.assigned_employee.email}</div>
+                      </dd>
+                    </div>
+                  )}
+
+                  {project.carpenter_name && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 mb-1">Carpenter</dt>
+                      <dd className="text-sm text-gray-900">
+                        {project.carpenter_name}
+                        {project.carpenter_phone && (
+                          <div className="text-gray-500 text-sm">
+                            <a href={`tel:${project.carpenter_phone}`} className="text-blue-600 hover:text-blue-800">
+                              {project.carpenter_phone}
+                            </a>
+                          </div>
+                        )}
+                      </dd>
+                    </div>
+                  )}
+
+                  {project.electrician_name && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 mb-1">Electrician</dt>
+                      <dd className="text-sm text-gray-900">
+                        {project.electrician_name}
+                        {project.electrician_phone && (
+                          <div className="text-gray-500 text-sm">
+                            <a href={`tel:${project.electrician_phone}`} className="text-blue-600 hover:text-blue-800">
+                              {project.electrician_phone}
+                            </a>
+                          </div>
+                        )}
+                      </dd>
+                    </div>
+                  )}
+
+                  {project.plumber_name && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 mb-1">Plumber</dt>
+                      <dd className="text-sm text-gray-900">
+                        {project.plumber_name}
+                        {project.plumber_phone && (
+                          <div className="text-gray-500 text-sm">
+                            <a href={`tel:${project.plumber_phone}`} className="text-blue-600 hover:text-blue-800">
+                              {project.plumber_phone}
+                            </a>
+                          </div>
+                        )}
+                      </dd>
+                    </div>
+                  )}
+
+                  {project.painter_name && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 mb-1">Painter</dt>
+                      <dd className="text-sm text-gray-900">
+                        {project.painter_name}
+                        {project.painter_phone && (
+                          <div className="text-gray-500 text-sm">
+                            <a href={`tel:${project.painter_phone}`} className="text-blue-600 hover:text-blue-800">
+                              {project.painter_phone}
+                            </a>
+                          </div>
+                        )}
+                      </dd>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-            {project.project_notes && (
-              <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                <dt className="text-sm font-medium text-gray-500">Project Notes</dt>
-                <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0 whitespace-pre-line">
-                  {project.project_notes}
-                </dd>
-              </div>
-            )}
-          </dl>
+            </div>
+          )}
+
+          {activeTab === 'board' && (
+            <KanbanBoard projectId={project.id} />
+          )}
+
+          {activeTab === 'updates' && (
+            <UpdatesTab projectId={project.id} />
+          )}
+
+          {activeTab === 'inventory' && (
+            <InventoryTab projectId={project.id} />
+          )}
+
+          {activeTab === 'designs' && (
+            <DesignsTab projectId={project.id} />
+          )}
         </div>
       </div>
-
-      <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
-        <div className="px-4 py-5 sm:px-6">
-          <h3 className="text-lg font-medium leading-6 text-gray-900">Team Details</h3>
-          <p className="mt-1 max-w-2xl text-sm text-gray-500">Team members assigned to this project.</p>
-        </div>
-        <div className="border-t border-gray-200">
-          <dl>
-            <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt className="text-sm font-medium text-gray-500">Designer</dt>
-              <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
-                {project.designer_name}
-                <span className="block text-gray-500 text-sm">{project.designer_phone}</span>
-              </dd>
-            </div>
-            {project.carpenter_name && (
-              <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                <dt className="text-sm font-medium text-gray-500">Carpenter</dt>
-                <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
-                  {project.carpenter_name}
-                  {project.carpenter_phone && (
-                    <span className="block text-gray-500 text-sm">{project.carpenter_phone}</span>
-                  )}
-                </dd>
-              </div>
-            )}
-            {project.electrician_name && (
-              <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                <dt className="text-sm font-medium text-gray-500">Electrician</dt>
-                <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
-                  {project.electrician_name}
-                  {project.electrician_phone && (
-                    <span className="block text-gray-500 text-sm">{project.electrician_phone}</span>
-                  )}
-                </dd>
-              </div>
-            )}
-            {project.plumber_name && (
-              <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                <dt className="text-sm font-medium text-gray-500">Plumber</dt>
-                <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
-                  {project.plumber_name}
-                  {project.plumber_phone && (
-                    <span className="block text-gray-500 text-sm">{project.plumber_phone}</span>
-                  )}
-                </dd>
-              </div>
-            )}
-            {project.painter_name && (
-              <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                <dt className="text-sm font-medium text-gray-500">Painter</dt>
-                <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
-                  {project.painter_name}
-                  {project.painter_phone && (
-                    <span className="block text-gray-500 text-sm">{project.painter_phone}</span>
-                  )}
-                </dd>
-              </div>
-            )}
-          </dl>
-        </div>
-      </div>
-      </>
-      )}
-
-      {activeTab === 'board' && (
-        <KanbanBoard projectId={project.id} />
-      )}
-
-      {activeTab === 'updates' && (
-        <UpdatesTab projectId={project.id} />
-      )}
-
-      {activeTab === 'inventory' && (
-        <InventoryTab projectId={project.id} />
-      )}
-
-      {activeTab === 'designs' && (
-        <DesignsTab projectId={project.id} />
-      )}
     </div>
   );
 }
