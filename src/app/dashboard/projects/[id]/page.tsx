@@ -46,6 +46,7 @@ export default function ProjectDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'board' | 'updates' | 'inventory' | 'designs'>('details');
+  const [showTabWidget, setShowTabWidget] = useState(false);
 
   const KanbanBoard = dynamic(() => import('@/components/projects/KanbanBoard').then(m => m.KanbanBoard), { ssr: false });
   const UpdatesTab = dynamic(() => import('@/components/projects/UpdatesTab').then(m => m.UpdatesTab), { ssr: false });
@@ -153,7 +154,7 @@ export default function ProjectDetailsPage() {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-4">
         <div className="flex-1 min-w-0">
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 truncate">{project.title}</h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">Project ID: {project.id.slice(0, 8)}</p>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">{project.customer_name}</p>
         </div>
         <div className="flex items-center gap-3">
           <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs sm:text-sm font-semibold ${
@@ -168,59 +169,145 @@ export default function ProjectDetailsPage() {
         </div>
       </div>
 
-      {/* Enhanced Mobile-first Tabs */}
+      {/* Mobile Tab Widget - Floating Action Button */}
+      <div className="lg:hidden fixed bottom-6 right-6 z-50">
+        <div className="relative">
+          <button
+            onClick={() => setShowTabWidget(!showTabWidget)}
+            className="w-14 h-14 bg-yellow-500 hover:bg-yellow-600 text-gray-900 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 touch-target"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          
+          {showTabWidget && (
+            <div className="absolute bottom-16 right-0 bg-white rounded-2xl shadow-xl border border-gray-200 p-2 min-w-48">
+              <div className="space-y-1">
+                <button
+                  className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                    activeTab === 'details' 
+                      ? 'bg-yellow-100 text-yellow-700' 
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                  onClick={() => {
+                    setActiveTab('details');
+                    setShowTabWidget(false);
+                  }}
+                >
+                  📋 Project Details
+                </button>
+                <button
+                  className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                    activeTab === 'board' 
+                      ? 'bg-yellow-100 text-yellow-700' 
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                  onClick={() => {
+                    setActiveTab('board');
+                    setShowTabWidget(false);
+                  }}
+                >
+                  📊 Stage Board
+                </button>
+                <button
+                  className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                    activeTab === 'updates' 
+                      ? 'bg-yellow-100 text-yellow-700' 
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                  onClick={() => {
+                    setActiveTab('updates');
+                    setShowTabWidget(false);
+                  }}
+                >
+                  📝 Updates
+                </button>
+                <button
+                  className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                    activeTab === 'inventory' 
+                      ? 'bg-yellow-100 text-yellow-700' 
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                  onClick={() => {
+                    setActiveTab('inventory');
+                    setShowTabWidget(false);
+                  }}
+                >
+                  📦 Inventory
+                </button>
+                <button
+                  className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                    activeTab === 'designs' 
+                      ? 'bg-yellow-100 text-yellow-700' 
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                  onClick={() => {
+                    setActiveTab('designs');
+                    setShowTabWidget(false);
+                  }}
+                >
+                  🎨 Designs
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Desktop Tabs */}
       <div className="bg-white rounded-xl shadow-card border border-gray-100 overflow-hidden">
-        <div className="border-b border-gray-200 overflow-x-auto scrollbar-hide">
-          <nav className="flex min-w-max" aria-label="Tabs">
+        <div className="hidden lg:block border-b border-gray-200">
+          <nav className="flex" aria-label="Tabs">
             <button
-              className={`flex-1 min-w-0 py-3 px-4 text-sm font-semibold text-center border-b-2 transition-all duration-200 touch-target ${
+              className={`flex-1 py-4 px-6 text-sm font-semibold text-center border-b-2 transition-all duration-200 ${
                 activeTab === 'details' 
                   ? 'border-yellow-500 text-yellow-600 bg-yellow-50' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
               onClick={() => setActiveTab('details')}
             >
-              <span className="truncate">Details</span>
+              📋 Project Details
             </button>
             <button
-              className={`flex-1 min-w-0 py-3 px-4 text-sm font-semibold text-center border-b-2 transition-all duration-200 touch-target ${
+              className={`flex-1 py-4 px-6 text-sm font-semibold text-center border-b-2 transition-all duration-200 ${
                 activeTab === 'board' 
                   ? 'border-yellow-500 text-yellow-600 bg-yellow-50' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
               onClick={() => setActiveTab('board')}
             >
-              <span className="truncate">Stages</span>
+              📊 Stage Board
             </button>
             <button
-              className={`flex-1 min-w-0 py-3 px-4 text-sm font-semibold text-center border-b-2 transition-all duration-200 touch-target ${
+              className={`flex-1 py-4 px-6 text-sm font-semibold text-center border-b-2 transition-all duration-200 ${
                 activeTab === 'updates' 
                   ? 'border-yellow-500 text-yellow-600 bg-yellow-50' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
               onClick={() => setActiveTab('updates')}
             >
-              <span className="truncate">Updates</span>
+              📝 Updates
             </button>
             <button
-              className={`flex-1 min-w-0 py-3 px-4 text-sm font-semibold text-center border-b-2 transition-all duration-200 touch-target ${
+              className={`flex-1 py-4 px-6 text-sm font-semibold text-center border-b-2 transition-all duration-200 ${
                 activeTab === 'inventory' 
                   ? 'border-yellow-500 text-yellow-600 bg-yellow-50' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
               onClick={() => setActiveTab('inventory')}
             >
-              <span className="truncate">Inventory</span>
+              📦 Inventory
             </button>
             <button
-              className={`flex-1 min-w-0 py-3 px-4 text-sm font-semibold text-center border-b-2 transition-all duration-200 touch-target ${
+              className={`flex-1 py-4 px-6 text-sm font-semibold text-center border-b-2 transition-all duration-200 ${
                 activeTab === 'designs' 
                   ? 'border-yellow-500 text-yellow-600 bg-yellow-50' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
               onClick={() => setActiveTab('designs')}
             >
-              <span className="truncate">Designs</span>
+              🎨 Designs
             </button>
           </nav>
         </div>

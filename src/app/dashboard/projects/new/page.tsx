@@ -512,62 +512,6 @@ export default function NewProjectPage() {
                   </div>
                 </div>
 
-                {/* Design Specifications Section */}
-                <div className="bg-yellow-50 rounded-xl p-4 sm:p-6 space-y-4">
-                  <h4 className="text-md font-semibold text-gray-800 mb-3">Design Specifications</h4>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="design_style" className="block text-sm font-medium text-gray-700 mb-2">
-                        Design Style
-                      </label>
-                      <select
-                        id="design_style"
-                        {...register('design_style')}
-                        className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-white touch-target"
-                      >
-                        <option value="">Select design style</option>
-                        <option value="modern">Modern</option>
-                        <option value="contemporary">Contemporary</option>
-                        <option value="traditional">Traditional</option>
-                        <option value="minimalist">Minimalist</option>
-                        <option value="scandinavian">Scandinavian</option>
-                        <option value="industrial">Industrial</option>
-                        <option value="rustic">Rustic</option>
-                        <option value="bohemian">Bohemian</option>
-                        <option value="art_deco">Art Deco</option>
-                        <option value="eclectic">Eclectic</option>
-                        <option value="other">Other</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label htmlFor="room_types" className="block text-sm font-medium text-gray-700 mb-2">
-                        Rooms to Design
-                      </label>
-                      <input
-                        id="room_types"
-                        type="text"
-                        {...register('room_types')}
-                        placeholder="e.g., Living Room, Kitchen, 2 Bedrooms"
-                        className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-white touch-target"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label htmlFor="special_requirements" className="block text-sm font-medium text-gray-700 mb-2">
-                        Special Requirements
-                      </label>
-                      <textarea
-                        id="special_requirements"
-                        rows={3}
-                        {...register('special_requirements')}
-                        placeholder="e.g., Pet-friendly materials, wheelchair accessibility, storage solutions"
-                        className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-white resize-none"
-                      />
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
 

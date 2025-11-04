@@ -158,180 +158,217 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="mt-4 md:mt-6">
-      {/* Mobile: Horizontal scrolling stages, Desktop: Grid layout */}
-      <div className="md:hidden overflow-x-auto pb-4">
-        <div className="flex gap-3 min-w-max px-1">
-          {STAGES.map(stage => (
-            <div key={stage.key} className="bg-gray-50 rounded-lg border border-gray-200 w-72 flex-shrink-0">
-              {/* Stage Header */}
-              <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-gray-200 rounded-t-lg">
-                <span className="font-semibold text-sm text-gray-800">{stage.label}</span>
-                <button
-                  className="p-1 rounded hover:bg-yellow-50 text-yellow-600 hover:text-yellow-700 text-xs font-medium flex items-center gap-1"
-                  onClick={() => { setAddStepStage(stage.key); setAddStepForm({ title: '', start_date: '', end_date: '' }); }}
-                >
-                  <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-                    <path stroke="currentColor" strokeWidth="2" d="M12 6v12m6-6H6"/>
-                  </svg>
-                  Add
-                </button>
-              </div>
+    <div className="space-y-6">
+      {error && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-xl">
+          <p className="text-red-700">{error}</p>
+        </div>
+      )}
 
-              {/* Tasks Container */}
-              <div className="p-3 space-y-2 min-h-[200px]">
-                {grouped[stage.key].length === 0 ? (
-                  <div className="text-xs text-gray-400 text-center py-8">No tasks yet</div>
-                ) : (
-                  grouped[stage.key].map(step => (
-                    <div key={step.id} className="bg-white rounded-md border border-gray-200 p-3 shadow-sm hover:shadow-md transition-shadow">
-                      <h4 className="text-sm font-medium text-gray-900 mb-2">{step.title}</h4>
-                      {(step.start_date || step.end_date) && (
-                        <div className="text-xs text-gray-600 mb-2 space-y-1">
+      {loading ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500"></div>
+        </div>
+      ) : (
+        <>
+          {/* Mobile View - Accordion Style */}
+          <div className="lg:hidden space-y-4">
+            {STAGES.map(stage => (
+              <div key={stage.key} className="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden">
+                <div className="p-4 sm:p-5 border-b border-gray-200 bg-gray-50">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900">{stage.label}</h3>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs sm:text-sm text-gray-500 bg-white px-2 py-1 rounded-full">
+                        {grouped[stage.key].length} tasks
+                      </span>
+                      <button
+                        onClick={() => setAddStepStage(stage.key)}
+                        className="p-2 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 rounded-xl transition-all duration-200 touch-target"
+                        title="Add Step"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4 sm:p-5 space-y-3">
+                  {grouped[stage.key].length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                      <p className="text-sm">No tasks in this stage</p>
+                      <button
+                        onClick={() => setAddStepStage(stage.key)}
+                        className="mt-2 text-yellow-600 hover:text-yellow-700 text-sm font-medium"
+                      >
+                        Add first task
+                      </button>
+                    </div>
+                  ) : (
+                    grouped[stage.key].map((step, index) => (
+                      <div key={step.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100 animate-fade-in" style={{ animationDelay: `${index * 100}ms` }}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-gray-900 mb-1 text-sm sm:text-base">{step.title}</h4>
+                            {step.description && (
+                              <p className="text-xs sm:text-sm text-gray-600 mb-2 line-clamp-2">{step.description}</p>
+                            )}
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                step.status === 'done' ? 'bg-green-100 text-green-700' :
+                                step.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                                step.status === 'blocked' ? 'bg-red-100 text-red-700' :
+                                'bg-gray-100 text-gray-700'
+                              }`}>
+                                {step.status.replace('_', ' ')}
+                              </span>
+                              {step.start_date && (
+                                <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full">
+                                  {formatDateIST(step.start_date)}
+                                </span>
+                              )}
+                            </div>
+                            <select
+                              value={step.status}
+                              onChange={(e) => updateStepStatus(step.id, e.target.value as Step['status'])}
+                              className="w-full text-sm border border-gray-300 rounded-xl px-3 py-2 bg-white focus:ring-2 focus:ring-yellow-400 focus:border-transparent touch-target"
+                            >
+                              <option value="todo">To Do</option>
+                              <option value="in_progress">In Progress</option>
+                              <option value="blocked">Blocked</option>
+                              <option value="done">Done</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop View - Traditional Kanban */}
+          <div className="hidden lg:block overflow-x-auto">
+            <div className="flex space-x-6 min-w-max pb-4">
+              {STAGES.map(stage => (
+                <div key={stage.key} className="w-80 bg-gray-50 rounded-2xl p-4 shadow-card border border-gray-100">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">{stage.label}</h3>
+                    <button
+                      onClick={() => setAddStepStage(stage.key)}
+                      className="text-yellow-600 hover:text-yellow-700 text-sm font-medium px-3 py-1 rounded-lg hover:bg-yellow-50 transition-all duration-200"
+                    >
+                      + Add Step
+                    </button>
+                  </div>
+                  <div className="space-y-3 min-h-96">
+                    {grouped[stage.key].map(step => (
+                      <div key={step.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200">
+                        <h4 className="font-medium text-gray-900 mb-2">{step.title}</h4>
+                        {step.description && (
+                          <p className="text-sm text-gray-600 mb-3">{step.description}</p>
+                        )}
+                        <div className="flex items-center justify-between mb-3">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            step.status === 'done' ? 'bg-green-100 text-green-700' :
+                            step.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                            step.status === 'blocked' ? 'bg-red-100 text-red-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {step.status.replace('_', ' ')}
+                          </span>
                           {step.start_date && (
-                            <div className="flex items-center gap-1">
-                              <span className="text-gray-500">Start:</span>
-                              <span>{formatDateIST(step.start_date)}</span>
-                            </div>
-                          )}
-                          {step.end_date && (
-                            <div className="flex items-center gap-1">
-                              <span className="text-gray-500">Due:</span>
-                              <span>{formatDateIST(step.end_date)}</span>
-                            </div>
+                            <span className="text-xs text-gray-500">
+                              {formatDateIST(step.start_date)}
+                            </span>
                           )}
                         </div>
-                      )}
-                      <select
-                        value={step.status}
-                        onChange={(e) => updateStepStatus(step.id, e.target.value as Step['status'])}
-                        className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 bg-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                      >
-                        <option value="todo">To Do</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="blocked">Blocked</option>
-                        <option value="done">Done</option>
-                      </select>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Desktop: Grid layout */}
-      <div className="hidden md:grid grid-cols-3 lg:grid-cols-5 gap-4">
-        {STAGES.map(stage => (
-          <div key={stage.key} className="bg-gray-50 rounded-lg border border-gray-200">
-            {/* Stage Header */}
-            <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-gray-200 rounded-t-lg">
-              <span className="font-semibold text-sm text-gray-800">{stage.label}</span>
-              <button
-                className="p-1 rounded hover:bg-yellow-50 text-yellow-600 hover:text-yellow-700 text-xs font-medium flex items-center gap-1"
-                onClick={() => { setAddStepStage(stage.key); setAddStepForm({ title: '', start_date: '', end_date: '' }); }}
-              >
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-                  <path stroke="currentColor" strokeWidth="2" d="M12 6v12m6-6H6"/>
-                </svg>
-                Add Task
-              </button>
-            </div>
-
-            {/* Tasks Container */}
-            <div className="p-3 space-y-2 min-h-[200px]">
-              {grouped[stage.key].length === 0 ? (
-                <div className="text-xs text-gray-400 text-center py-8">No tasks yet</div>
-              ) : (
-                grouped[stage.key].map(step => (
-                  <div key={step.id} className="bg-white rounded-md border border-gray-200 p-3 shadow-sm hover:shadow-md transition-shadow">
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">{step.title}</h4>
-                    {(step.start_date || step.end_date) && (
-                      <div className="text-xs text-gray-600 mb-2 space-y-1">
-                        {step.start_date && (
-                          <div className="flex items-center gap-1">
-                            <span className="text-gray-500">Start:</span>
-                            <span>{formatDateIST(step.start_date)}</span>
-                          </div>
-                        )}
-                        {step.end_date && (
-                          <div className="flex items-center gap-1">
-                            <span className="text-gray-500">Due:</span>
-                            <span>{formatDateIST(step.end_date)}</span>
-                          </div>
-                        )}
+                        <select
+                          value={step.status}
+                          onChange={(e) => updateStepStatus(step.id, e.target.value as Step['status'])}
+                          className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                        >
+                          <option value="todo">To Do</option>
+                          <option value="in_progress">In Progress</option>
+                          <option value="blocked">Blocked</option>
+                          <option value="done">Done</option>
+                        </select>
+                      </div>
+                    ))}
+                    {grouped[stage.key].length === 0 && (
+                      <div className="text-center py-12 text-gray-400">
+                        <svg className="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        <p className="text-sm">No tasks</p>
                       </div>
                     )}
-                    <select
-                      value={step.status}
-                      onChange={(e) => updateStepStatus(step.id, e.target.value as Step['status'])}
-                      className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 bg-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                    >
-                      <option value="todo">To Do</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="blocked">Blocked</option>
-                      <option value="done">Done</option>
-                    </select>
                   </div>
-                ))
-              )}
+                </div>
+              ))}
             </div>
           </div>
-        ))}
-      </div>
+        </>
+      )}
+
+      {/* Add Step Modal */}
       {addStepStage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => !addStepLoading && setAddStepStage(null)}></div>
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md p-4 md:p-6 max-h-screen overflow-y-auto">
-            <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-screen overflow-y-auto">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Add Task to {STAGES.find(s=>s.key===addStepStage)?.label}
             </h3>
-            <div className="space-y-3 md:space-y-4">
+            <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Task Name *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Task Name *</label>
                 <input
                   value={addStepForm.title}
                   onChange={e => setAddStepForm(f => ({ ...f, title: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                  className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-yellow-400 focus:border-transparent touch-target"
                   placeholder="Enter task name"
                   disabled={addStepLoading}
                   autoFocus
                 />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
                   <input
                     type="date"
                     value={addStepForm.start_date}
                     onChange={e => setAddStepForm(f => ({ ...f, start_date: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-yellow-400 focus:border-transparent touch-target"
                     disabled={addStepLoading}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Estimated End Date</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
                   <input
                     type="date"
                     value={addStepForm.end_date}
                     onChange={e => setAddStepForm(f => ({ ...f, end_date: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-yellow-400 focus:border-transparent touch-target"
                     disabled={addStepLoading}
                   />
                 </div>
               </div>
             </div>
-            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4 md:mt-6">
+            <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
               <button
-                className="px-4 py-2 text-sm rounded-md border border-gray-300 hover:bg-gray-50 w-full sm:w-auto"
+                className="px-6 py-3 text-sm rounded-xl border border-gray-300 hover:bg-gray-50 w-full sm:w-auto touch-target"
                 disabled={addStepLoading}
                 onClick={()=>setAddStepStage(null)}
               >
                 Cancel
               </button>
               <button
-                className="px-4 py-2 text-sm rounded-md bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+                className="px-6 py-3 text-sm rounded-xl bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto touch-target"
                 disabled={addStepLoading||!addStepForm.title.trim()}
                 onClick={()=>addStep(addStepStage)}
               >

@@ -36,8 +36,20 @@ export default function DashboardLayout({
     );
   }
 
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY;
+      setScrolled(scrollTop > 50);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
-    <div className="flex h-screen bg-gray-50 safe-area-inset-top safe-area-inset-bottom">
+    <div className="flex h-screen bg-gray-50">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -134,8 +146,10 @@ export default function DashboardLayout({
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
-        {/* Mobile header */}
-        <header className="bg-white shadow-sm border-b border-gray-200 lg:hidden safe-area-inset-top">
+        {/* Mobile header with scroll behavior */}
+        <header className={`bg-white shadow-sm border-b border-gray-200 lg:hidden fixed top-0 left-0 right-0 z-30 transition-transform duration-300 ${
+          scrolled ? '-translate-y-full' : 'translate-y-0'
+        }`}>
           <div className="px-4 py-3 flex items-center justify-between">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -156,17 +170,21 @@ export default function DashboardLayout({
           </div>
         </header>
 
-        {/* Desktop header */}
-        <header className="bg-white shadow-sm border-b border-gray-200 hidden lg:block">
+        {/* Desktop header with scroll behavior */}
+        <header className={`bg-white shadow-sm border-b border-gray-200 hidden lg:block fixed top-0 left-20 right-0 z-30 transition-transform duration-300 ${
+          scrolled ? '-translate-y-full' : 'translate-y-0'
+        }`}>
           <div className="px-6 py-4 flex items-center justify-between">
             <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
             <NotificationBell />
           </div>
         </header>
 
-        {/* Main content area */}
-        <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8 bg-gray-50 safe-area-inset-bottom">
-          {children}
+        {/* Main content area with top padding for fixed header */}
+        <main className="flex-1 overflow-auto bg-gray-50 pt-16 lg:pt-20">
+          <div className="p-4 sm:p-6 lg:p-8">
+            {children}
+          </div>
         </main>
       </div>
       
