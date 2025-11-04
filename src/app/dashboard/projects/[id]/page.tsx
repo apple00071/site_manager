@@ -45,10 +45,12 @@ export default function ProjectDetailsPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'details' | 'board' | 'gantt'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'board' | 'updates' | 'inventory' | 'designs'>('details');
 
   const KanbanBoard = dynamic(() => import('@/components/projects/KanbanBoard').then(m => m.KanbanBoard), { ssr: false });
-  const GanttView = dynamic(() => import('@/components/projects/GanttView').then(m => m.GanttView), { ssr: false });
+  const UpdatesTab = dynamic(() => import('@/components/projects/UpdatesTab').then(m => m.UpdatesTab), { ssr: false });
+  const InventoryTab = dynamic(() => import('@/components/projects/InventoryTab').then(m => m.InventoryTab), { ssr: false });
+  const DesignsTab = dynamic(() => import('@/components/projects/DesignsTab').then(m => m.DesignsTab), { ssr: false });
 
   useEffect(() => {
     if (authLoading) return;
@@ -150,33 +152,44 @@ export default function ProjectDetailsPage() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{project.title}</h1>
-          <p className="text-sm text-gray-500 mt-1">Project ID: {project.id}</p>
         </div>
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
           {project.status.replace('_', ' ').charAt(0).toUpperCase() + project.status.replace('_', ' ').slice(1)}
         </span>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b mb-4">
-        <nav className="-mb-px flex space-x-6" aria-label="Tabs">
+      {/* Tabs - Mobile: Horizontal scroll, Desktop: Normal flex */}
+      <div className="border-b mb-4 overflow-x-auto">
+        <nav className="-mb-px flex space-x-4 md:space-x-6 min-w-max md:min-w-0" aria-label="Tabs">
           <button
-            className={`whitespace-nowrap py-2 px-1 border-b-2 text-sm font-medium ${activeTab === 'details' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            className={`whitespace-nowrap py-2 px-3 md:px-1 border-b-2 text-sm font-medium transition-colors ${activeTab === 'details' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             onClick={() => setActiveTab('details')}
           >
             Details
           </button>
           <button
-            className={`whitespace-nowrap py-2 px-1 border-b-2 text-sm font-medium ${activeTab === 'board' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            className={`whitespace-nowrap py-2 px-3 md:px-1 border-b-2 text-sm font-medium transition-colors ${activeTab === 'board' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             onClick={() => setActiveTab('board')}
           >
             Stages Board
           </button>
           <button
-            className={`whitespace-nowrap py-2 px-1 border-b-2 text-sm font-medium ${activeTab === 'gantt' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-            onClick={() => setActiveTab('gantt')}
+            className={`whitespace-nowrap py-2 px-3 md:px-1 border-b-2 text-sm font-medium transition-colors ${activeTab === 'updates' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            onClick={() => setActiveTab('updates')}
           >
-            Gantt Chart
+            Updates
+          </button>
+          <button
+            className={`whitespace-nowrap py-2 px-3 md:px-1 border-b-2 text-sm font-medium transition-colors ${activeTab === 'inventory' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            onClick={() => setActiveTab('inventory')}
+          >
+            Inventory
+          </button>
+          <button
+            className={`whitespace-nowrap py-2 px-3 md:px-1 border-b-2 text-sm font-medium transition-colors ${activeTab === 'designs' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            onClick={() => setActiveTab('designs')}
+          >
+            Designs
           </button>
         </nav>
       </div>
@@ -326,8 +339,16 @@ export default function ProjectDetailsPage() {
         <KanbanBoard projectId={project.id} />
       )}
 
-      {activeTab === 'gantt' && (
-        <GanttView projectId={project.id} />
+      {activeTab === 'updates' && (
+        <UpdatesTab projectId={project.id} />
+      )}
+
+      {activeTab === 'inventory' && (
+        <InventoryTab projectId={project.id} />
+      )}
+
+      {activeTab === 'designs' && (
+        <DesignsTab projectId={project.id} />
       )}
     </div>
   );

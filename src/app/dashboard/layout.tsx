@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX } from 'react-icons/fi';
 import { supabase } from '@/lib/supabase';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
+import { NotificationBell } from '@/components/NotificationBell';
 
 export default function DashboardLayout({
   children,
@@ -144,7 +145,8 @@ export default function DashboardLayout({
               <FiMenu className="h-6 w-6" />
             </button>
             <h2 className="text-lg font-semibold text-gray-900 truncate">Dashboard</h2>
-            <div className="w-12 flex justify-end">
+            <div className="flex items-center gap-3">
+              <NotificationBell />
               <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center shadow-sm">
                 <span className="text-gray-900 text-xs font-bold">
                   {(user.full_name || user.email || 'U').charAt(0).toUpperCase()}
@@ -156,8 +158,9 @@ export default function DashboardLayout({
 
         {/* Desktop header */}
         <header className="bg-white shadow-sm border-b border-gray-200 hidden lg:block">
-          <div className="px-6 py-4">
+          <div className="px-6 py-4 flex items-center justify-between">
             <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
+            <NotificationBell />
           </div>
         </header>
 

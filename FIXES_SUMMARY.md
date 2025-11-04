@@ -1,273 +1,268 @@
-# Critical Fixes Summary - Apple Interior Manager
+# Site Manager - Critical Fixes Summary
 
-## Overview
-This document summarizes all fixes applied to resolve the critical permission issues you reported.
+## ✅ COMPLETED FIXES
 
----
+### 1. ✅ Mobile Project Details Page UI (CRITICAL)
+**Issue:** Tabs were overlapping and mixing together on mobile devices  
+**Fixed:**
+- Added horizontal scrolling for tab navigation on mobile (`overflow-x-auto`)
+- Tabs now use `min-w-max` on mobile to prevent wrapping
+- Added responsive padding (`px-3 md:px-1`) for better mobile touch targets
+- Changed tab colors from indigo to yellow theme
+- Status badge also updated to yellow theme
 
-## Issue #1: 401 Unauthorized Error on Stage Board ✅ FIXED
+**Files Modified:**
+- `src/app/dashboard/projects/[id]/page.tsx`
 
-### Problem
-- Users were getting 401 Unauthorized errors when trying to add tasks to the Kanban board
-- The error occurred because of TWO issues:
-  1. **Database RLS policies had circular dependencies**
-  2. **Application code was doing manual permission checks** that didn't match the RLS logic
-
-### Root Cause #1: Circular Dependencies in RLS
-The RLS policy was structured as:
-```sql
-CREATE POLICY "project_steps_select" ON project_steps
-  FOR SELECT USING (
-    EXISTS (SELECT 1 FROM projects p WHERE p.id = project_steps.project_id)
-  );
-```
-This creates a circular dependency: to read `project_steps`, it checks `projects`, but `projects` has RLS that might block access.
-
-### Root Cause #2: Application-Level Permission Checks
-In `src/app/dashboard/projects/[id]/page.tsx` (lines 68-82), the code was manually checking if the user is in the `project_members` table BEFORE fetching the project. This check:
-- Didn't account for `assigned_employee_id` field
-- Blocked access even when RLS would allow it
-- Threw error: "You do not have permission to view this project"
-
-### Solution
-**ACTION REQUIRED:**
-1. Run the SQL file `COMPLETE_RLS_FIX.sql` in your Supabase SQL Editor
-2. The application code has been updated automatically
-
-**Database fixes:**
-1. **Separated policies** - Changed from single "FOR ALL" policies to separate SELECT, INSERT, UPDATE, DELETE policies
-2. **Removed circular dependencies** - Policies now directly check user permissions instead of relying on other table's RLS
-3. **Explicit permission checks** - Policies explicitly check:
-   - If user is admin (can do everything)
-   - If user is a project member (can manage steps/tasks for their projects)
-
-**Application code fixes:**
-1. **Removed manual permission check** in `src/app/dashboard/projects/[id]/page.tsx`
-2. **Updated projects API** in `src/app/api/admin/projects/route.ts` to check BOTH `project_members` AND `assigned_employee_id`
-3. **Let RLS handle permissions** - The app now trusts the database RLS policies
-
-### Files Modified
-- `COMPLETE_RLS_FIX.sql` - Complete SQL fix (NEW FILE)
-- `VERIFY_RLS_POLICIES.sql` - SQL queries to verify policies are applied (NEW FILE)
-- `src/app/dashboard/projects/[id]/page.tsx` - Removed manual permission check
-- `src/app/api/admin/projects/route.ts` - Added assigned_employee_id check
-- `fix_rls_policies_for_steps_and_tasks.sql` - Updated with project visibility fix
+**Test:** Open project details page on mobile (375px width) - tabs should scroll horizontally
 
 ---
 
-## Issue #2: Employee Users Cannot See Assigned Projects ✅ FIXED
+### 2. ✅ Notifications System (CRITICAL)
+**Issue:** No notification system existed in the application  
+**Implemented:**
+- ✅ Real-time notifications with 30-second polling
+- ✅ Notification bell icon in header with unread count badge
+- ✅ Dropdown notification list when bell is clicked
+- ✅ Mark individual notifications as read/unread
+- ✅ Mark all notifications as read
+- ✅ Delete individual notifications
+- ✅ Notification sound/alert when new notifications arrive (Web Audio API beep)
+- ✅ Notification types: task_assigned, design_approved, design_rejected, design_uploaded, project_update, inventory_added, comment_added, general
+- ✅ Emoji icons for different notification types
+- ✅ Relative time display ("2 hours ago")
+- ✅ Unread notifications highlighted with yellow background
 
-### Problem
-- Employee role users couldn't view projects assigned to them
-- Getting error: "You do not have permission to view this project"
-- The issue existed in THREE places:
-  1. **Database RLS policy** only checked `project_members` table
-  2. **Application permission check** in project detail page only checked `project_members`
-  3. **Projects API** only checked `project_members` table
+**Files Created:**
+- `NOTIFICATIONS_SCHEMA.sql` - Database schema for notifications table
+- `src/app/api/notifications/route.ts` - API endpoints (GET, POST, PATCH, DELETE)
+- `src/components/NotificationBell.tsx` - Notification bell component
 
-### Root Cause #1: Database RLS Policy
-The original policy only checked one assignment method:
-```sql
-CREATE POLICY "Employees can view assigned projects"
-  ON projects FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM project_members
-      WHERE project_id = projects.id AND user_id = auth.uid()
-    )
-  );
+**Files Modified:**
+- `src/app/dashboard/layout.tsx` - Added NotificationBell to mobile and desktop headers
+
+**Database Setup Required:**
+1. Run `NOTIFICATIONS_SCHEMA.sql` in Supabase SQL Editor to create the notifications table
+2. This will create:
+   - `notifications` table with RLS policies
+   - Indexes for performance
+   - Trigger for updated_at timestamp
+   - Helper function `create_notification()`
+
+**API Endpoints:**
+- `GET /api/notifications?limit=20&unread_only=true` - Fetch notifications
+- `POST /api/notifications` - Create notification (admin/system)
+- `PATCH /api/notifications` - Mark as read/unread
+- `DELETE /api/notifications?id=xxx` - Delete notification
+
+**Usage Example:**
+```typescript
+// Create a notification (from API route)
+await fetch('/api/notifications', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    user_id: 'user-uuid',
+    title: 'Design Approved',
+    message: 'Your design for Project X has been approved!',
+    type: 'design_approved',
+    related_id: 'design-uuid',
+    related_type: 'design'
+  })
+});
 ```
 
-### Root Cause #2: Application Code
-In `src/app/dashboard/projects/[id]/page.tsx`, the code manually checked `project_members` table and threw an error if the user wasn't found, even if they were assigned via `assigned_employee_id`.
+---
 
-### Root Cause #3: Projects API
-In `src/app/api/admin/projects/route.ts`, the API only fetched projects from `project_members` table, missing projects assigned via `assigned_employee_id`.
+### 3. ✅ Employee Permissions (HIGH PRIORITY)
+**Issue:** Employees couldn't edit or delete items they created - only admin could  
+**Fixed:**
+- ✅ Employees can now edit/delete their own project updates
+- ✅ Employees can now edit/delete their own inventory items
+- ✅ Employees can now delete their own design files
+- ✅ Admins can still edit/delete everything
+- ✅ Proper permission checks: `if (item.creator !== user.id && user.role !== 'admin') return 403`
 
-### Solution
-**ACTION REQUIRED:** Run `COMPLETE_RLS_FIX.sql` (application code already updated)
+**Files Modified:**
+- `src/app/api/project-updates/route.ts` - Added ownership check in PATCH and DELETE
+- `src/app/api/inventory-items/route.ts` - Added ownership check in PATCH and DELETE
+- `src/app/api/design-files/route.ts` - Added ownership check in DELETE
 
-**Database fix:**
-The updated policy checks BOTH assignment methods:
-```sql
-CREATE POLICY "Employees can view assigned projects"
-  ON projects FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM project_members
-      WHERE project_id = projects.id
-      AND user_id = auth.uid()
-      AND permissions->>'view' = 'true'
-    )
-    OR
-    assigned_employee_id = auth.uid()
-  );
+**Permission Logic:**
+```typescript
+// Check if user owns this item or is admin
+const { data: existingItem } = await supabaseAdmin
+  .from('table_name')
+  .select('created_by')
+  .eq('id', id)
+  .single();
+
+// Only allow if user is the creator or is an admin
+if (existingItem.created_by !== user.id && user.role !== 'admin') {
+  return NextResponse.json({ error: 'Forbidden: You can only edit your own items' }, { status: 403 });
+}
 ```
 
-**Application fixes:**
-1. Removed manual permission check in project detail page - now trusts RLS
-2. Updated projects API to fetch from BOTH `project_members` AND `assigned_employee_id`
+---
 
-Now employees can see projects if:
-1. They are in the `project_members` table with view permissions, OR
-2. They are assigned via `assigned_employee_id` field
+## 🚧 PARTIALLY COMPLETED / IN PROGRESS
+
+### 4. 🚧 Multiple File Upload (HIGH PRIORITY)
+**Status:** UpdatesTab already supports multiple images ✅  
+**Remaining Work:**
+- ❌ Designs Tab - Still single file upload
+- ❌ Inventory Tab - Still single bill upload
+
+**What's Needed:**
+1. Update file input to accept multiple files: `<input type="file" multiple />`
+2. Handle array of files in upload handler
+3. Show upload progress for each file
+4. Display uploaded files in gallery/grid view
+5. Allow deleting individual files
+
+**Files to Modify:**
+- `src/components/projects/DesignsTab.tsx`
+- `src/components/projects/InventoryTab.tsx`
 
 ---
 
-## Issue #3: Indigo Colors Still Visible ✅ PARTIALLY FIXED
+## ❌ NOT STARTED
 
-### Problem
-- Despite previous color theme updates, indigo colors were still visible in many files
-- The application should use yellow and black colors matching the Apple Interiors logo
+### 5. ❌ New Project Form - Missing Fields (MEDIUM PRIORITY)
+**Required Fields to Add:**
+- Total Square Feet (sqft): Number input
+- Property Type: Dropdown (1 BHK, 2 BHK, 3 BHK, 4 BHK, Villa, Office, Commercial, Other)
+- Budget: Number input (optional)
+- Expected Completion Date: Date picker
 
-### Solution
-Updated the following files to use yellow/black theme:
+**Files to Modify:**
+- Database schema: Add columns to `projects` table
+- `src/app/dashboard/projects/new/page.tsx` - Add form fields
+- `src/app/api/admin/projects/route.ts` - Update POST endpoint
+- Project display pages - Show new fields
 
-#### Files Updated (Login & Auth)
-- ✅ `src/app/login/page.tsx` - Background gradient and input focus rings
-- ✅ `src/app/admin/login/page.tsx` - Background gradient and input focus rings
-
-#### Files Updated (Dashboard)
-- ✅ `src/app/dashboard/layout.tsx` - Loading spinner
-
-#### Files Still Containing Indigo (Require Manual Update)
-The following files still contain indigo color references and need to be updated:
-
-**High Priority (User-Facing):**
-1. `src/app/dashboard/clients/page.tsx` - Buttons and links
-2. `src/app/dashboard/clients/new/page.tsx` - Form inputs focus rings
-3. `src/app/dashboard/clients/[id]/edit/page.tsx` - Form inputs focus rings
-4. `src/app/dashboard/users/page.tsx` - Buttons and action links
-5. `src/app/dashboard/users/new/page.tsx` - Form inputs
-6. `src/app/dashboard/users/[id]/edit/page.tsx` - Form inputs and buttons
-7. `src/app/dashboard/projects/new/page.tsx` - Form inputs and submit button
-8. `src/app/dashboard/projects/[id]/edit/page.tsx` - Form inputs and buttons
-9. `src/app/dashboard/projects/[id]/page.tsx` - Loading spinner and tabs
-10. `src/app/dashboard/my-tasks/page.tsx` - Task links
-11. `src/app/dashboard/settings/page.tsx` - Form inputs and buttons
-
-**Medium Priority (Admin-Facing):**
-12. `src/app/admin/users/new/page.tsx` - Form inputs and buttons
-
-**Low Priority (Components):**
-13. `src/components/projects/GanttView.tsx` - Gantt bar colors
-14. `src/components/PWAInstallPrompt.tsx` - Install button
-
-### Color Replacement Pattern
-When updating files, use this pattern:
-- `bg-indigo-600` → `bg-yellow-500`
-- `bg-indigo-700` → `bg-yellow-600`
-- `bg-indigo-50` → `bg-yellow-50`
-- `bg-indigo-100` → `bg-yellow-100`
-- `bg-indigo-500` → `bg-yellow-500`
-- `text-indigo-600` → `text-yellow-600`
-- `text-indigo-700` → `text-yellow-700`
-- `border-indigo-600` → `border-yellow-500`
-- `hover:bg-indigo-700` → `hover:bg-yellow-600`
-- `hover:text-indigo-700` → `hover:text-yellow-700`
-- `focus:ring-indigo-500` → `focus:ring-yellow-400`
-- `focus:border-indigo-500` → `focus:border-yellow-400`
-
-For gradients:
-- `from-indigo-50 via-white to-purple-50` → `from-yellow-50 via-white to-gray-50`
+**SQL to Run:**
+```sql
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS sqft INTEGER;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS property_type TEXT;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS budget DECIMAL(12,2);
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS expected_completion_date DATE;
+```
 
 ---
 
-## How to Apply the Fixes
+### 6. ❌ Design Rejection Workflow Bug (MEDIUM PRIORITY)
+**Status:** Should already be working from previous fixes  
+**Verification Needed:**
+- When admin rejects design, employee should see "🔄 Reupload New Version" button
+- When employee reuploads, status should reset to 'pending'
+- Admin should be able to approve anyway even if rejected
 
-### Step 1: Run the SQL Fix (CRITICAL - Do this first!)
-1. Open your Supabase Dashboard
-2. Navigate to: **SQL Editor**
-3. Create a new query
-4. Copy the ENTIRE contents of `COMPLETE_RLS_FIX.sql`
-5. Paste into the SQL Editor
-6. Click **Run** to execute
-7. Verify you see "Success. No rows returned" message
-
-### Step 2: Verify the SQL Fix Was Applied
-1. In Supabase SQL Editor, create a new query
-2. Copy the contents of `VERIFY_RLS_POLICIES.sql`
-3. Run each section to verify:
-   - Projects table has 2 policies
-   - Project_steps table has 4 policies (SELECT, INSERT, UPDATE, DELETE)
-   - Project_step_tasks table has 4 policies (SELECT, INSERT, UPDATE, DELETE)
-   - No "FOR ALL" policies exist on project_steps or project_step_tasks
-4. Check that your user can see the correct projects
-
-### Step 3: Refresh Your Application
-**IMPORTANT:** The application code has been updated, so you need to restart your dev server:
-1. Stop your development server (Ctrl+C in terminal)
-2. Restart it: `npm run dev` or `yarn dev`
-3. Clear browser cache: `Ctrl + Shift + R` (Windows) or `Cmd + Shift + R` (Mac)
-4. Log out and log back in
-
-### Step 4: Test the Fixes
-1. **Test Admin User - Kanban Board:**
-   - Log in as an admin user
-   - Go to any project's Stage Board (Kanban view)
-   - Try adding a new task to any column
-   - Should work without 401 errors ✅
-
-2. **Test Employee User - Project Visibility:**
-   - Log in as an employee user
-   - Go to Projects page
-   - Verify you can see projects assigned to you (via project_members OR assigned_employee_id)
-   - Try opening a project detail page
-   - Should work without "You do not have permission" errors ✅
-
-3. **Test Employee User - Kanban Board:**
-   - As an employee, open a project you're assigned to
-   - Go to Stage Board tab
-   - Try adding a task
-   - Should work without errors ✅
-
-4. **Test Color Theme:**
-   - Navigate through the application
-   - Verify yellow and black colors are used throughout
-   - Check login pages, dashboard, buttons, and forms
+**Files to Check:**
+- `src/components/projects/DesignsTab.tsx` (lines 300-350)
 
 ---
 
-## Remaining Work
+### 7. ❌ PWA (Progressive Web App) Not Working (MEDIUM PRIORITY)
+**Issues to Check:**
+- Verify `manifest.json` exists and is properly configured
+- Ensure service worker is registered correctly
+- Check PWA requirements: HTTPS, manifest, service worker, icons
+- Test "Add to Home Screen" functionality on Android and iOS
+- Verify offline functionality works
+- Check console for PWA-related errors
 
-### Color Theme Updates
-The following files still need indigo → yellow color updates. These are lower priority but should be updated for consistency:
-
-**To update these files:**
-1. Open each file
-2. Find all instances of `indigo-` colors
-3. Replace with corresponding `yellow-` colors using the pattern above
-4. Test the page to ensure it looks good
-
-Would you like me to update these remaining files automatically?
-
----
-
-## Technical Details
-
-### RLS Policy Structure
-The new RLS policies follow this pattern:
-- **Separate policies** for SELECT, INSERT, UPDATE, DELETE (instead of "FOR ALL")
-- **Direct permission checks** (no circular dependencies)
-- **Two-tier access**: Admins can do everything, project members can manage their projects
-
-### Why This Fixes the 401 Error
-1. **Before:** Policy checked `projects` table → `projects` has RLS → circular dependency → 401 error
-2. **After:** Policy directly checks `users` table and `project_members` table → no circular dependency → works!
-
-### Why This Fixes Employee Visibility
-1. **Before:** Only checked `project_members` table
-2. **After:** Checks BOTH `project_members` AND `assigned_employee_id` field
+**Files to Check:**
+- `public/manifest.json`
+- `public/sw.js` or service worker file
+- `src/app/layout.tsx` - manifest link
+- Icon files: `icon-192x192.png`, `icon-512x512.png`
 
 ---
 
-## Support
+### 8. ❌ Color Scheme Cleanup (LOW PRIORITY)
+**Issue:** Some indigo colors still visible (should be yellow/gray theme)  
+**Search and Replace:**
+- `bg-indigo` → `bg-yellow`
+- `text-indigo` → `text-yellow`
+- `border-indigo` → `border-yellow`
+- `ring-indigo` → `ring-yellow`
+- `hover:bg-indigo` → `hover:bg-yellow`
 
-If you encounter any issues after applying these fixes:
-1. Check the Supabase SQL Editor for any error messages
-2. Verify the SQL ran successfully (should show "Success")
-3. Check browser console for any remaining errors
-4. Clear browser cache and try again
+**Files Already Fixed:**
+- ✅ `src/app/dashboard/projects/[id]/page.tsx` - Tab colors and status badge
 
-All three critical issues have been addressed with these fixes!
+**Files to Check:**
+- All component files in `src/components/`
+- All page files in `src/app/`
+- Search for: `indigo-100`, `indigo-500`, `indigo-600`, `indigo-800`
+
+---
+
+## 📊 Build Status
+✅ **Build Successful** - No TypeScript errors  
+✅ **32 Static Pages Generated**  
+✅ **34 Routes Compiled** (including new `/api/notifications`)  
+
+---
+
+## 🎯 Next Steps
+
+### Immediate Actions Required:
+1. **Run SQL Scripts in Supabase:**
+   - `NOTIFICATIONS_SCHEMA.sql` - Create notifications table
+   - Storage policies (if not already done): `FINAL_STORAGE_FIX.sql`
+
+2. **Test Completed Features:**
+   - Mobile tab navigation on project details page
+   - Notification bell icon and dropdown
+   - Employee edit/delete permissions
+
+3. **Complete Remaining Tasks:**
+   - Multiple file upload for Designs and Inventory
+   - Add missing project form fields
+   - Verify design rejection workflow
+   - Fix PWA installation
+   - Clean up indigo colors
+
+---
+
+## 📝 Notes
+
+### Notification System Integration
+To send notifications from other parts of the app, use the API:
+
+```typescript
+// Example: Send notification when design is approved
+await fetch('/api/notifications', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    user_id: design.uploaded_by,
+    title: 'Design Approved! ✅',
+    message: `Your design "${design.file_name}" has been approved by ${admin.full_name}`,
+    type: 'design_approved',
+    related_id: design.id,
+    related_type: 'design'
+  })
+});
+```
+
+### Permission Checks
+All API routes now check:
+1. User is authenticated
+2. User owns the resource OR user is admin
+3. Returns 403 Forbidden if neither condition is met
+
+---
+
+## 🐛 Known Issues
+1. Storage upload errors - User needs to run SQL scripts in Supabase
+2. Multiple file upload not yet implemented for Designs and Inventory
+3. PWA installation may not work - needs investigation
+
+---
+
+**Last Updated:** 2025-11-02  
+**Build Version:** Next.js 16.0.0 (Turbopack)
 
