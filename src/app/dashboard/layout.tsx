@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX } from 'react-icons/fi';
@@ -20,11 +20,55 @@ export default function DashboardLayout({
   const [scrolled, setScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
+
+  // Get dynamic page title based on current route
+  const getPageTitle = () => {
+    if (pathname === '/dashboard') return 'Dashboard';
+    if (pathname === '/dashboard/projects') return 'Projects';
+    if (pathname === '/dashboard/users') return 'User Management';
+    if (pathname === '/dashboard/clients') return 'Client Management';
+    if (pathname === '/dashboard/settings') return 'Settings';
+    if (pathname === '/dashboard/my-projects') return 'My Projects';
+    if (pathname === '/dashboard/my-tasks') return 'My Tasks';
+    if (pathname.startsWith('/dashboard/projects/')) {
+      if (pathname.endsWith('/edit')) return 'Edit Project';
+      if (pathname.endsWith('/members')) return 'Project Members';
+      return 'Project Details';
+    }
+    if (pathname.startsWith('/dashboard/users/')) {
+      if (pathname.endsWith('/edit')) return 'Edit User';
+      return 'User Details';
+    }
+    if (pathname.startsWith('/dashboard/clients/')) {
+      if (pathname.endsWith('/edit')) return 'Edit Client';
+      return 'Client Details';
+    }
+    if (pathname.endsWith('/new')) {
+      if (pathname.includes('/projects/')) return 'New Project';
+      if (pathname.includes('/users/')) return 'New User';
+      if (pathname.includes('/clients/')) return 'New Client';
+    }
+    return 'Dashboard';
+  };
 
   const handleSignOut = async () => {
     await signOut();
     router.push('/login');
   };
+
+  // Move useEffect before conditional return to maintain hook order
+  useEffect(() => {
+    setMounted(true);
+    
+    const handleScroll = () => {
+      const scrollTop = window.scrollY;
+      setScrolled(scrollTop > 50);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Removed automatic redirect check - middleware already handles authentication
   // The middleware ensures only authenticated users can reach this page
@@ -38,18 +82,6 @@ export default function DashboardLayout({
       </div>
     );
   }
-
-  useEffect(() => {
-    setMounted(true);
-    
-    const handleScroll = () => {
-      const scrollTop = window.scrollY;
-      setScrolled(scrollTop > 50);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -149,64 +181,23 @@ export default function DashboardLayout({
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
-        {/* Mobile header with scroll behavior */}
-        <HydrationSafe fallback={
-          <header className="bg-white shadow-sm border-b border-gray-200 lg:hidden fixed top-0 left-0 right-0 z-30">
-            <div className="px-4 py-3 flex items-center justify-between">
-              <button className="p-3 rounded-xl text-gray-600">
-                <FiMenu className="h-6 w-6" />
-              </button>
-              <h2 className="text-lg font-semibold text-gray-900">Dashboard</h2>
-              <div className="w-8 h-8 bg-yellow-500 rounded-full"></div>
-            </div>
-          </header>
-        }>
-          <header className={`bg-white shadow-sm border-b border-gray-200 lg:hidden fixed top-0 left-0 right-0 z-30 transition-transform duration-300 ${
-            scrolled ? '-translate-y-full' : 'translate-y-0'
-          }`}>
-          <div className="px-4 py-3 flex items-center justify-between">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="p-3 rounded-xl text-gray-600 hover:text-gray-900 hover:bg-gray-100 active:bg-gray-200 transition-all duration-200 touch-target"
-              aria-label="Open navigation menu"
-            >
-              <FiMenu className="h-6 w-6" />
-            </button>
-            <h2 className="text-lg font-semibold text-gray-900 truncate">Dashboard</h2>
-            <div className="flex items-center gap-3">
-              <NotificationBell />
-              <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center shadow-sm">
-                <span className="text-gray-900 text-xs font-bold">
-                  {(user.full_name || user.email || 'U').charAt(0).toUpperCase()}
-                </span>
-              </div>
-            </div>
-          </div>
-        </header>
-        </HydrationSafe>
+        {/* Mobile menu button - floating */}
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="lg:hidden fixed top-4 left-4 z-30 p-3 rounded-xl text-gray-600 hover:text-gray-900 hover:bg-white hover:shadow-md bg-white/80 backdrop-blur-sm border border-gray-200 transition-all duration-200 touch-target"
+          aria-label="Open navigation menu"
+        >
+          <FiMenu className="h-6 w-6" />
+        </button>
 
-        {/* Desktop header with scroll behavior */}
-        <HydrationSafe fallback={
-          <header className="bg-white shadow-sm border-b border-gray-200 hidden lg:block fixed top-0 left-20 right-0 z-30">
-            <div className="px-6 py-4 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
-              <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse"></div>
-            </div>
-          </header>
-        }>
-          <header className={`bg-white shadow-sm border-b border-gray-200 hidden lg:block fixed top-0 left-20 right-0 z-30 transition-transform duration-300 ${
-            scrolled ? '-translate-y-full' : 'translate-y-0'
-          }`}>
-            <div className="px-6 py-4 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
-              <NotificationBell />
-            </div>
-          </header>
-        </HydrationSafe>
+        {/* Notification bell - floating */}
+        <div className="fixed top-4 right-4 z-30">
+          <NotificationBell />
+        </div>
 
-        {/* Main content area with top padding for fixed header */}
-        <main className="flex-1 overflow-auto bg-gray-50 pt-16 lg:pt-20">
-          <div className="p-4 sm:p-6 lg:p-8">
+        {/* Main content area with top padding to avoid overlap */}
+        <main className="flex-1 overflow-auto bg-gray-50">
+          <div className="p-4 sm:p-6 lg:p-8 pt-16 lg:pt-4">
             {children}
           </div>
         </main>

@@ -12,9 +12,6 @@ type ImageModalProps = {
 };
 
 export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }: ImageModalProps) {
-  // Early return BEFORE any hooks to prevent hooks rule violation
-  if (!isOpen || !images.length) return null;
-  
   const [activeIndex, setActiveIndex] = useState(currentIndex);
   const [mounted, setMounted] = useState(false);
 
@@ -25,6 +22,18 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
   useEffect(() => {
     setActiveIndex(currentIndex);
   }, [currentIndex]);
+
+  const handlePrevious = () => {
+    const newIndex = activeIndex > 0 ? activeIndex - 1 : images.length - 1;
+    setActiveIndex(newIndex);
+    onNavigate?.(newIndex);
+  };
+
+  const handleNext = () => {
+    const newIndex = activeIndex < images.length - 1 ? activeIndex + 1 : 0;
+    setActiveIndex(newIndex);
+    onNavigate?.(newIndex);
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -46,19 +55,10 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, activeIndex]);
+  }, [isOpen, activeIndex, handlePrevious, handleNext, onClose]);
 
-  const handlePrevious = () => {
-    const newIndex = activeIndex > 0 ? activeIndex - 1 : images.length - 1;
-    setActiveIndex(newIndex);
-    onNavigate?.(newIndex);
-  };
-
-  const handleNext = () => {
-    const newIndex = activeIndex < images.length - 1 ? activeIndex + 1 : 0;
-    setActiveIndex(newIndex);
-    onNavigate?.(newIndex);
-  };
+  // Early return AFTER all hooks to prevent hooks rule violation
+  if (!isOpen || !images.length) return null;
 
   // Don't render until mounted to prevent hydration issues
   if (!mounted) return null;
