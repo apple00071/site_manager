@@ -487,7 +487,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         if (DEBUG_ENABLED) console.error('Error signing out:', error);
-        throw error;
+        // Don't throw error, continue with logout process
       }
 
       // Reset all auth state
@@ -507,19 +507,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch (_) {}
       }
 
-      // Force a hard redirect to the login page (absolute URL in production)
-      if (typeof window !== 'undefined') {
-        const base = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
-        window.location.replace(`${base}/login`);
-      }
-
     } catch (error) {
       if (DEBUG_ENABLED) console.error('Error during sign out:', error);
-      // Even if there's an error, still try to redirect to login
-      if (typeof window !== 'undefined') {
-        const base = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
-        window.location.replace(`${base}/login`);
-      }
+      // Reset auth state even if there's an error
+      setUser(null);
+      setSession(null);
+      setIsAdmin(false);
     }
   };
 

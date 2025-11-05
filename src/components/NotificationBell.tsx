@@ -69,16 +69,26 @@ export function NotificationBell() {
 
   // Play notification sound when new unread notifications arrive
   useEffect(() => {
-    if (unreadCount > 0 && notifications.length > 0) {
+    if (unreadCount > 0 && notifications.length > 0 && mounted) {
       const latestNotification = notifications[0];
       const notificationAge = Date.now() - new Date(latestNotification.created_at).getTime();
       
-      // Only play sound if notification is less than 5 seconds old (likely just arrived)
-      if (notificationAge < 5000 && !latestNotification.is_read) {
+      // Get the last played notification ID to avoid replaying the same notification
+      const lastPlayedId = sessionStorage.getItem('last_notification_sound_id');
+      
+      // Play sound if:
+      // 1. Notification is less than 5 minutes old (recently arrived)
+      // 2. We haven't played sound for this specific notification yet
+      // 3. The notification is unread
+      if (notificationAge < 300000 && // 5 minutes
+          !latestNotification.is_read && 
+          lastPlayedId !== latestNotification.id) {
         playNotificationSound();
+        // Store the ID of the notification we just played sound for
+        sessionStorage.setItem('last_notification_sound_id', latestNotification.id);
       }
     }
-  }, [unreadCount, notifications]);
+  }, [unreadCount, notifications, mounted]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -99,41 +109,71 @@ export function NotificationBell() {
 
   const playNotificationSound = async () => {
     try {
+      console.log('🔊 Attempting to play notification sound...');
+      
       // Try browser notification API first (works in PWA)
       if ('Notification' in window && Notification.permission === 'granted') {
+        console.log('🔔 Using browser notification with sound');
         new Notification('New notification', {
           body: 'You have a new notification',
           icon: '/New-logo.png',
           badge: '/New-logo.png',
-          silent: false
+          silent: false,
+          requireInteraction: false
         });
         return;
       }
 
       // Fallback to Web Audio API
+      console.log('🎵 Using Web Audio API for sound');
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       
-      // Resume context if suspended (required for PWA)
+      // Resume context if suspended (required for PWA and user interaction)
       if (audioContext.state === 'suspended') {
+        console.log('🔄 Resuming audio context...');
         await audioContext.resume();
       }
 
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
+      // Create a pleasant notification sound (two-tone beep)
+      const playTone = (frequency: number, startTime: number, duration: number) => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
 
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
 
-      oscillator.frequency.value = 800;
-      oscillator.type = 'sine';
+        oscillator.frequency.value = frequency;
+        oscillator.type = 'sine';
 
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        gainNode.gain.setValueAtTime(0, startTime);
+        gainNode.gain.linearRampToValueAtTime(0.2, startTime + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
 
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.5);
+        oscillator.start(startTime);
+        oscillator.stop(startTime + duration);
+      };
+
+      // Play two-tone notification sound
+      const now = audioContext.currentTime;
+      playTone(800, now, 0.15); // First tone
+      playTone(600, now + 0.2, 0.15); // Second tone
+      
+      console.log('✅ Notification sound played successfully');
     } catch (error) {
-      console.error('Error playing notification sound:', error);
+      console.error('❌ Error playing notification sound:', error);
+      
+      // Final fallback: try to play a system beep
+      try {
+        if (window.speechSynthesis) {
+          const utterance = new SpeechSynthesisUtterance('');
+          utterance.volume = 0.1;
+          utterance.rate = 10;
+          utterance.pitch = 2;
+          window.speechSynthesis.speak(utterance);
+        }
+      } catch (fallbackError) {
+        console.error('❌ Fallback sound also failed:', fallbackError);
+      }
     }
   };
 

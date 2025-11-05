@@ -53,8 +53,15 @@ export default function DashboardLayout({
   };
 
   const handleSignOut = async () => {
-    await signOut();
-    router.push('/login');
+    try {
+      await signOut();
+      // Use router.replace to avoid 404 issues
+      router.replace('/login');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Force redirect even if signOut fails
+      router.replace('/login');
+    }
   };
 
   // Move useEffect before conditional return to maintain hook order
