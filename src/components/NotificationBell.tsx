@@ -85,10 +85,27 @@ export function NotificationBell() {
     };
   }, [isOpen]);
 
-  const playNotificationSound = () => {
-    // Create a simple beep sound using Web Audio API
+  const playNotificationSound = async () => {
     try {
+      // Try browser notification API first (works in PWA)
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('New notification', {
+          body: 'You have a new notification',
+          icon: '/New-logo.png',
+          badge: '/New-logo.png',
+          silent: false
+        });
+        return;
+      }
+
+      // Fallback to Web Audio API
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Resume context if suspended (required for PWA)
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
 

@@ -190,14 +190,22 @@ export default function DashboardLayout({
           <FiMenu className="h-6 w-6" />
         </button>
 
-        {/* Notification bell - floating */}
-        <div className="fixed top-4 right-4 z-30">
+        {/* Notification bell - floating (mobile only) */}
+        <div className="lg:hidden fixed top-4 right-4 z-30">
           <NotificationBell />
         </div>
 
-        {/* Main content area with top padding to avoid overlap */}
+        {/* Desktop header only */}
+        <header className="bg-white shadow-sm border-b border-gray-200 hidden lg:block">
+          <div className="px-6 py-4 flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-gray-900">{getPageTitle()}</h2>
+            <NotificationBell />
+          </div>
+        </header>
+
+        {/* Main content area with appropriate padding */}
         <main className="flex-1 overflow-auto bg-gray-50">
-          <div className="p-4 sm:p-6 lg:p-8 pt-16 lg:pt-4">
+          <div className="p-4 sm:p-6 lg:p-8 pt-16 lg:pt-0">
             {children}
           </div>
         </main>
