@@ -23,6 +23,7 @@ export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
@@ -44,6 +45,17 @@ export function NotificationBell() {
       console.error('Error fetching notifications:', error);
     }
   };
+
+  useEffect(() => {
+    setMounted(true);
+    
+    // Request notification permission on mount
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then(permission => {
+        console.log('Notification permission:', permission);
+      });
+    }
+  }, []);
 
   // Poll for new notifications every 30 seconds
   useEffect(() => {
