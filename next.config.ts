@@ -24,7 +24,7 @@ const nextConfig = {
 
   // Compiler options
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production' ? ['log', 'warn'] : [],
+    removeConsole: process.env.NODE_ENV === 'production' ? true : false,
   },
 
   // Webpack configuration for better error handling
