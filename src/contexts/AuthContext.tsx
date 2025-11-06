@@ -128,34 +128,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         setIsLoading(true);
 
-        debugLog('📡 Getting current session from server...');
-        // Try to get session from server-side API which has access to httpOnly cookies
+        debugLog('📡 Getting current session...');
+        // Get session directly from client-side first (faster)
         let currentSession = null;
         let sessionError = null;
         
-        try {
-          const response = await fetch('/api/auth/session');
-          if (response.ok) {
-            const data = await response.json();
-            debugLog('📋 Server session check:', data);
-            
-            if (data.authenticated && data.user) {
-              // We have an authenticated user from server-side
-              // Now get the full session from client-side
-              const { data: { session }, error: clientError } = await supabase.auth.getSession();
-              currentSession = session;
-              sessionError = clientError;
-            }
-          }
-        } catch (error) {
-          debugLog('⚠️ Error checking server session:', error);
-        }
+        const { data: { session }, error } = await supabase.auth.getSession();
+        currentSession = session;
+        sessionError = error;
         
-        // Fallback to direct client-side check
-        if (!currentSession) {
-          const { data: { session }, error } = await supabase.auth.getSession();
-          currentSession = session;
-          sessionError = error;
+        // Only check server-side if client-side session is missing but we might be authenticated
+        if (!currentSession && !sessionError) {
+          try {
+            const response = await fetch('/api/auth/session', {
+              cache: 'no-cache',
+              headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+              }
+            });
+            if (response.ok) {
+              const data = await response.json();
+              debugLog('📋 Server session fallback check:', data);
+              
+              if (data.authenticated && data.user) {
+                // Refresh client session if server has valid session
+                await supabase.auth.refreshSession();
+                const { data: { session: refreshedSession } } = await supabase.auth.getSession();
+                currentSession = refreshedSession;
+              }
+            }
+          } catch (error) {
+            debugLog('⚠️ Error checking server session:', error);
+          }
         }
 
         debugLog('📋 Initial session check:', {
