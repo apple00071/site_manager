@@ -37,6 +37,11 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     end_date: '',
   });
   const [addStepLoading, setAddStepLoading] = useState(false);
+  
+  // Quick add state for mobile
+  const [quickAddStage, setQuickAddStage] = useState<StageKey|null>(null);
+  const [quickTaskName, setQuickTaskName] = useState('');
+  const [quickAddLoading, setQuickAddLoading] = useState(false);
 
   const grouped = useMemo(() => {
     const byStage: Record<StageKey, Step[]> = {
@@ -103,6 +108,40 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
       setError('Failed to add step');
     } finally {
       setAddStepLoading(false);
+    }
+  };
+
+  // Quick add function for mobile - just needs task name
+  const quickAddTask = async (stageKey: StageKey) => {
+    const title = quickTaskName.trim();
+    if (!title) return;
+    setQuickAddLoading(true);
+    try {
+      const response = await fetch('/api/project-steps', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: projectId,
+          title,
+          stage: stageKey,
+          start_date: null,
+          end_date: null,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create task');
+      }
+
+      const data = await response.json();
+      setSteps(prev => [...prev, data as Step]);
+      setQuickAddStage(null);
+      setQuickTaskName('');
+    } catch (err) {
+      console.error('Error adding task:', err);
+      setError('Failed to add task');
+    } finally {
+      setQuickAddLoading(false);
     }
   };
 
@@ -183,13 +222,11 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                         {grouped[stage.key].length} tasks
                       </span>
                       <button
-                        onClick={() => setAddStepStage(stage.key)}
-                        className="p-2 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 rounded-xl transition-all duration-200 touch-target"
-                        title="Add Step"
+                        onClick={() => setQuickAddStage(stage.key)}
+                        className="px-3 py-1.5 text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 rounded-xl transition-all duration-200 touch-target"
+                        title="Quick Add Task"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
+                        + Add Task
                       </button>
                     </div>
                   </div>
@@ -374,6 +411,48 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
               >
                 {addStepLoading ? 'Adding...' : 'Add Task'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Add Task Modal for Mobile */}
+      {quickAddStage && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => !quickAddLoading && setQuickAddStage(null)}></div>
+          <div className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full max-w-md p-6 animate-slide-up">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Quick Add Task to {STAGES.find(s=>s.key===quickAddStage)?.label}
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Task Name</label>
+                <input
+                  value={quickTaskName}
+                  onChange={e => setQuickTaskName(e.target.value)}
+                  onKeyPress={e => e.key === 'Enter' && quickAddTask(quickAddStage)}
+                  className="w-full border border-gray-300 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-yellow-400 focus:border-transparent touch-target"
+                  placeholder="Enter task name and press Enter"
+                  disabled={quickAddLoading}
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  className="flex-1 px-4 py-3 text-sm rounded-xl border border-gray-300 hover:bg-gray-50 touch-target"
+                  disabled={quickAddLoading}
+                  onClick={() => setQuickAddStage(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="flex-1 px-4 py-3 text-sm rounded-xl bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold disabled:opacity-50 disabled:cursor-not-allowed touch-target"
+                  disabled={quickAddLoading || !quickTaskName.trim()}
+                  onClick={() => quickAddTask(quickAddStage)}
+                >
+                  {quickAddLoading ? 'Adding...' : 'Add Task'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

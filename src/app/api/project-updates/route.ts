@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { z } from 'zod';
+import { NotificationService } from '@/lib/notificationService';
 
 // Validation schemas
 const createUpdateSchema = z.object({
@@ -137,6 +138,30 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Error creating project update:', error);
       return NextResponse.json({ error: 'Failed to create update' }, { status: 500 });
+    }
+
+    // Notify admin of new project update
+    try {
+      const { data: projectData } = await supabaseAdmin
+        .from('projects')
+        .select('created_by, title')
+        .eq('id', project_id)
+        .single();
+
+      if (projectData && projectData.created_by !== user.id) {
+        await NotificationService.createNotification({
+          userId: projectData.created_by,
+          title: 'Project Update Added',
+          message: `${user.full_name} added an update to project "${projectData.title}"`,
+          type: 'project_update',
+          relatedId: project_id,
+          relatedType: 'project'
+        });
+        console.log('Project update notification sent to admin:', projectData.created_by);
+      }
+    } catch (notificationError) {
+      console.error('Failed to send project update notification:', notificationError);
+      // Don't fail the main operation if notification fails
     }
 
     return NextResponse.json({ update }, { status: 201 });

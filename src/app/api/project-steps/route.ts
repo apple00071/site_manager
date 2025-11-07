@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { NotificationService } from '@/lib/notificationService';
 
 // Helper function to get current user from session
 async function getCurrentUser(request: NextRequest) {
@@ -135,6 +136,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Notify admin of new project step
+    try {
+      const { data: projectData } = await supabaseAdmin
+        .from('projects')
+        .select('created_by, title')
+        .eq('id', project_id)
+        .single();
+
+      if (projectData && projectData.created_by !== user.id) {
+        await NotificationService.createNotification({
+          userId: projectData.created_by,
+          title: 'New Project Step Added',
+          message: `${user.full_name} added step "${title}" to project "${projectData.title}"`,
+          type: 'project_update',
+          relatedId: project_id,
+          relatedType: 'project'
+        });
+        console.log('Project step notification sent to admin:', projectData.created_by);
+      }
+    } catch (notificationError) {
+      console.error('Failed to send project step notification:', notificationError);
+      // Don't fail the main operation if notification fails
+    }
+
     return NextResponse.json(step);
   } catch (error: any) {
     console.error('Error in POST /api/project-steps:', error);
@@ -168,6 +193,36 @@ export async function PATCH(request: NextRequest) {
     if (error) {
       console.error('Error updating project step:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Notify admin of step status change if status was updated
+    if (updates.status && updates.status !== 'todo') {
+      try {
+        const { data: projectData } = await supabaseAdmin
+          .from('projects')
+          .select('created_by, title')
+          .eq('id', step.project_id)
+          .single();
+
+        if (projectData && projectData.created_by !== user.id) {
+          const statusText = updates.status === 'completed' ? 'completed' : 
+                           updates.status === 'in_progress' ? 'started working on' : 
+                           `updated status of`;
+          
+          await NotificationService.createNotification({
+            userId: projectData.created_by,
+            title: 'Project Step Updated',
+            message: `${user.full_name} ${statusText} step "${step.title}" in project "${projectData.title}"`,
+            type: 'project_update',
+            relatedId: step.project_id,
+            relatedType: 'project'
+          });
+          console.log('Project step update notification sent to admin:', projectData.created_by);
+        }
+      } catch (notificationError) {
+        console.error('Failed to send project step update notification:', notificationError);
+        // Don't fail the main operation if notification fails
+      }
     }
 
     return NextResponse.json(step);

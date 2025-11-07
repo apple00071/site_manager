@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 // Import service role key for admin operations
 import { createClient } from '@supabase/supabase-js';
+import { NotificationService } from '@/lib/notificationService';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -95,6 +96,22 @@ export async function POST(req: Request) {
       }
 
       console.log('User profile created successfully');
+
+      // Send welcome notification to new user
+      try {
+        await NotificationService.createNotification({
+          userId: authData.user.id,
+          title: 'Welcome to Apple Interior Manager',
+          message: `Welcome ${full_name}! Your account has been created successfully. You can now access the system with your assigned role: ${role}.`,
+          type: 'general',
+          relatedId: authData.user.id,
+          relatedType: 'user'
+        });
+        console.log('Welcome notification sent to new user:', authData.user.id);
+      } catch (notificationError) {
+        console.error('Failed to send welcome notification:', notificationError);
+        // Don't fail the main operation if notification fails
+      }
 
       return NextResponse.json(
         { 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { NotificationService } from '@/lib/notificationService';
 
 // Schema for project validation
 const projectSchema = z.object({
@@ -311,6 +312,24 @@ export async function POST(req: Request) {
         console.error('Error adding assigned employee to project:', assigneeError);
         // Don't fail the request if we can't add the assignee
         // Just log it and continue
+      }
+    }
+
+    // Send notification to assigned employee
+    if (parsed.data.assigned_employee_id !== user.id) {
+      try {
+        await NotificationService.createNotification({
+          userId: parsed.data.assigned_employee_id,
+          title: 'New Project Assigned',
+          message: `You have been assigned to project "${parsed.data.title}" for customer ${parsed.data.customer_name}`,
+          type: 'task_assigned',
+          relatedId: project.id,
+          relatedType: 'project'
+        });
+        console.log('Assignment notification sent to employee:', parsed.data.assigned_employee_id);
+      } catch (notificationError) {
+        console.error('Failed to send assignment notification:', notificationError);
+        // Don't fail the main operation if notification fails
       }
     }
 

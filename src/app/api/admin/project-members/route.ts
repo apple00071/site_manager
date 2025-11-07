@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { handleApiError, sanitizeErrorMessage } from '@/lib/errorHandler';
+import { NotificationService } from '@/lib/notificationService';
 
 // Check if we're in a build context
 const isBuildContext = process.env.NEXT_PHASE === 'phase-production-build';
@@ -52,9 +53,49 @@ export async function POST(req: Request) {
       );
     }
 
-    // Audit log - only in non-build context
+    // Notify user of project member assignment
     if (!isBuildContext) {
       try {
+        // Get project and user details
+        const { data: projectData } = await supabaseAdmin
+          .from('projects')
+          .select('title, created_by')
+          .eq('id', project_id)
+          .single();
+
+        const { data: userData } = await supabaseAdmin
+          .from('users')
+          .select('full_name')
+          .eq('id', user_id)
+          .single();
+
+        if (projectData && userData) {
+          // Notify the user being added to the project
+          await NotificationService.createNotification({
+            userId: user_id,
+            title: 'Added to Project',
+            message: `You have been added to project "${projectData.title}" with new permissions`,
+            type: 'task_assigned',
+            relatedId: project_id,
+            relatedType: 'project'
+          });
+
+          // Notify admin if they're not the one making the change
+          if (projectData.created_by !== user_id) {
+            await NotificationService.createNotification({
+              userId: projectData.created_by,
+              title: 'Project Member Updated',
+              message: `${userData.full_name} has been added/updated in project "${projectData.title}"`,
+              type: 'project_update',
+              relatedId: project_id,
+              relatedType: 'project'
+            });
+          }
+
+          console.log('Project member notifications sent');
+        }
+
+        // Audit log
         await supabaseAdmin.from('audit_logs').insert({
           action: 'permissions_update',
           target_type: 'project',
@@ -64,7 +105,7 @@ export async function POST(req: Request) {
         });
       } catch (logError: unknown) {
         const errorMessage = logError instanceof Error ? logError.message : 'Unknown error';
-        console.error('Failed to log audit:', errorMessage);
+        console.error('Failed to log audit or send notifications:', errorMessage);
       }
     }
 

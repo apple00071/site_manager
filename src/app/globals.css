@@ -180,6 +180,38 @@ html {
   animation: pulse-mobile 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+/* Slide up animation for mobile modals */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Fade in animation for task cards */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* Card hover effects for desktop, tap effects for mobile */
 @media (hover: hover) {
   .card-hover:hover {

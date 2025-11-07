@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { z } from 'zod';
+import { NotificationService } from '@/lib/notificationService';
 
 // Validation schemas
 const createDesignFileSchema = z.object({
@@ -154,6 +155,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create design file' }, { status: 500 });
     }
 
+    // Notify admin of new design upload
+    try {
+      const { data: projectData } = await supabaseAdmin
+        .from('projects')
+        .select('created_by, title')
+        .eq('id', project_id)
+        .single();
+
+      if (projectData && projectData.created_by !== user.id) {
+        await NotificationService.createNotification({
+          userId: projectData.created_by,
+          title: 'New Design Uploaded',
+          message: `${user.full_name} uploaded "${file_name}" for project "${projectData.title}"`,
+          type: 'design_uploaded',
+          relatedId: design.id,
+          relatedType: 'design_file'
+        });
+        console.log('Design upload notification sent to admin:', projectData.created_by);
+      }
+    } catch (notificationError) {
+      console.error('Failed to send design upload notification:', notificationError);
+      // Don't fail the main operation if notification fails
+    }
+
     return NextResponse.json({ design }, { status: 201 });
   } catch (error) {
     console.error('Unexpected error:', error);
@@ -224,6 +249,32 @@ export async function PATCH(request: NextRequest) {
     if (error) {
       console.error('Error updating design approval:', error);
       return NextResponse.json({ error: 'Failed to update design approval' }, { status: 500 });
+    }
+
+    // Notify employee of approval/rejection
+    try {
+      if (design.uploaded_by_user && design.uploaded_by_user.id !== user.id) {
+        const statusMessage = approval_status === 'approved' ? 'approved' : 
+                             approval_status === 'rejected' ? 'rejected' : 
+                             approval_status === 'needs_changes' ? 'needs changes' : approval_status;
+        
+        const message = admin_comments ? 
+          `Your design "${design.file_name}" has been ${statusMessage}. Admin comment: ${admin_comments}` :
+          `Your design "${design.file_name}" has been ${statusMessage}`;
+
+        await NotificationService.createNotification({
+          userId: design.uploaded_by_user.id,
+          title: `Design ${statusMessage.charAt(0).toUpperCase() + statusMessage.slice(1)}`,
+          message: message,
+          type: approval_status === 'approved' ? 'design_approved' : 'design_rejected',
+          relatedId: design.id,
+          relatedType: 'design_file'
+        });
+        console.log('Design approval notification sent to employee:', design.uploaded_by_user.id);
+      }
+    } catch (notificationError) {
+      console.error('Failed to send design approval notification:', notificationError);
+      // Don't fail the main operation if notification fails
     }
 
     return NextResponse.json({ design });

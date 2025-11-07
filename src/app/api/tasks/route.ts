@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { z } from 'zod';
+import { NotificationService } from '@/lib/notificationService';
 
 // Create admin client with service role key to bypass RLS
 const supabaseAdmin = createClient(
@@ -261,6 +262,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Notify admin of new task
+    try {
+      const { data: stepData } = await supabaseAdmin
+        .from('project_steps')
+        .select(`
+          title,
+          project:projects(created_by, title)
+        `)
+        .eq('id', parsed.data.step_id)
+        .single();
+
+      const project = Array.isArray(stepData?.project) ? stepData.project[0] : stepData?.project;
+      if (stepData && project && project.created_by !== user.id) {
+        await NotificationService.createNotification({
+          userId: project.created_by,
+          title: 'New Task Created',
+          message: `${user.full_name} created task "${parsed.data.title}" in step "${stepData.title}" for project "${project.title}"`,
+          type: 'task_assigned',
+          relatedId: task.step_id,
+          relatedType: 'project_step'
+        });
+        console.log('Task creation notification sent to admin:', project.created_by);
+      }
+    } catch (notificationError) {
+      console.error('Failed to send task creation notification:', notificationError);
+      // Don't fail the main operation if notification fails
+    }
+
     console.log('✅ Task created successfully:', task.id);
     return NextResponse.json({ task }, { status: 201 });
   } catch (error: any) {
@@ -344,6 +373,41 @@ export async function PATCH(request: NextRequest) {
         { error: 'Failed to update task' },
         { status: 500 }
       );
+    }
+
+    // Notify admin of task status change if status was updated
+    if (parsed.data.status && parsed.data.status !== 'todo') {
+      try {
+        const { data: stepData } = await supabaseAdmin
+          .from('project_steps')
+          .select(`
+            title,
+            project:projects(created_by, title)
+          `)
+          .eq('id', existingTask.step_id)
+          .single();
+
+        const project = Array.isArray(stepData?.project) ? stepData.project[0] : stepData?.project;
+        if (project && project.created_by !== user.id) {
+          const statusText = parsed.data.status === 'done' ? 'completed' : 
+                           parsed.data.status === 'in_progress' ? 'started working on' : 
+                           parsed.data.status === 'blocked' ? 'marked as blocked' : 
+                           'updated';
+          
+          await NotificationService.createNotification({
+            userId: project.created_by,
+            title: 'Task Status Updated',
+            message: `${user.full_name} ${statusText} task "${task.title}" in project "${project.title}"`,
+            type: 'project_update',
+            relatedId: task.step_id,
+            relatedType: 'project_step'
+          });
+          console.log('Task update notification sent to admin:', project.created_by);
+        }
+      } catch (notificationError) {
+        console.error('Failed to send task update notification:', notificationError);
+        // Don't fail the main operation if notification fails
+      }
     }
 
     return NextResponse.json({ task }, { status: 200 });

@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { z } from 'zod';
+import { NotificationService } from '@/lib/notificationService';
 
 const addCommentSchema = z.object({
   design_file_id: z.string().uuid(),
@@ -87,6 +88,61 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Error adding comment:', error);
       return NextResponse.json({ error: 'Failed to add comment' }, { status: 500 });
+    }
+
+    // Notify relevant users about the new comment
+    try {
+      // Get design file info and project details
+      const { data: designFile } = await supabaseAdmin
+        .from('design_files')
+        .select(`
+          file_name,
+          uploaded_by,
+          project_id,
+          project:projects(created_by, title)
+        `)
+        .eq('id', design_file_id)
+        .single();
+
+      if (designFile) {
+        const notifications = [];
+        
+        // Notify the design uploader if commenter is not the uploader
+        if (designFile.uploaded_by !== user.id) {
+          notifications.push(
+            NotificationService.createNotification({
+              userId: designFile.uploaded_by,
+              title: 'New Comment on Your Design',
+              message: `${user.full_name} commented on your design "${designFile.file_name}"`,
+              type: 'comment_added',
+              relatedId: design_file_id,
+              relatedType: 'design_file'
+            })
+          );
+        }
+
+        // Notify project admin if commenter is not the admin
+        const project = Array.isArray(designFile.project) ? designFile.project[0] : designFile.project;
+        if (project?.created_by && project.created_by !== user.id && project.created_by !== designFile.uploaded_by) {
+          notifications.push(
+            NotificationService.createNotification({
+              userId: project.created_by,
+              title: 'New Comment on Project Design',
+              message: `${user.full_name} commented on design "${designFile.file_name}" in project "${project.title}"`,
+              type: 'comment_added',
+              relatedId: design_file_id,
+              relatedType: 'design_file'
+            })
+          );
+        }
+
+        // Send all notifications
+        await Promise.all(notifications);
+        console.log('Comment notifications sent for design:', design_file_id);
+      }
+    } catch (notificationError) {
+      console.error('Failed to send comment notifications:', notificationError);
+      // Don't fail the main operation if notification fails
     }
 
     return NextResponse.json({ comment: newComment }, { status: 201 });

@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { z } from 'zod';
+import { NotificationService } from '@/lib/notificationService';
 
 // Validation schemas
 const createInventoryItemSchema = z.object({
@@ -152,6 +153,30 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Error creating inventory item:', error);
       return NextResponse.json({ error: 'Failed to create inventory item' }, { status: 500 });
+    }
+
+    // Notify admin of new inventory item
+    try {
+      const { data: projectData } = await supabaseAdmin
+        .from('projects')
+        .select('created_by, title')
+        .eq('id', project_id)
+        .single();
+
+      if (projectData && projectData.created_by !== user.id) {
+        await NotificationService.createNotification({
+          userId: projectData.created_by,
+          title: 'New Inventory Item Added',
+          message: `${user.full_name} added "${item_name}" (${quantity} ${unit}) to project "${projectData.title}"`,
+          type: 'inventory_added',
+          relatedId: project_id,
+          relatedType: 'project'
+        });
+        console.log('Inventory notification sent to admin:', projectData.created_by);
+      }
+    } catch (notificationError) {
+      console.error('Failed to send inventory notification:', notificationError);
+      // Don't fail the main operation if notification fails
     }
 
     return NextResponse.json({ item }, { status: 201 });
