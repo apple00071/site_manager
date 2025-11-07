@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { formatDateIST } from '@/lib/dateUtils';
 
 type StageKey = 'false_ceiling' | 'electrical_work' | 'carpenter_works' | 'painting_work' | 'deep_cleaning';
@@ -13,75 +13,85 @@ const STAGES: { key: StageKey; label: string }[] = [
   { key: 'deep_cleaning', label: 'Deep Cleaning' },
 ];
 
-type Step = {
+type TaskStatus = 'todo' | 'progress' | 'completed';
+
+type Task = {
   id: string;
   title: string;
   description: string | null;
   stage: StageKey;
-  status: 'todo' | 'in_progress' | 'blocked' | 'done';
+  status: TaskStatus;
   start_date: string | null;
   end_date: string | null;
+  worker_name?: string;
+  worker_number?: string;
   sort_order: number;
 };
 
 export function KanbanBoard({ projectId }: { projectId: string }) {
-  const [steps, setSteps] = useState<Step[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Step add modal state
-  const [addStepStage, setAddStepStage] = useState<StageKey|null>(null);
-  const [addStepForm, setAddStepForm] = useState({
+  // Add task modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addTaskForm, setAddTaskForm] = useState({
     title: '',
+    stage: 'false_ceiling' as StageKey,
     start_date: '',
     end_date: '',
+    worker_name: '',
+    worker_number: '',
   });
-  const [addStepLoading, setAddStepLoading] = useState(false);
-  
-  // Quick add state for mobile
-  const [quickAddStage, setQuickAddStage] = useState<StageKey|null>(null);
-  const [quickTaskName, setQuickTaskName] = useState('');
-  const [quickAddLoading, setQuickAddLoading] = useState(false);
+  const [addTaskLoading, setAddTaskLoading] = useState(false);
 
-  const grouped = useMemo(() => {
-    const byStage: Record<StageKey, Step[]> = {
-      false_ceiling: [],
-      electrical_work: [],
-      carpenter_works: [],
-      painting_work: [],
-      deep_cleaning: [],
-    };
-    steps.forEach(s => byStage[s.stage].push(s));
-    Object.values(byStage).forEach(list => list.sort((a, b) => a.sort_order - b.sort_order));
-    return byStage;
-  }, [steps]);
+  // Group tasks by status for display
+  const groupedByStatus = {
+    todo: tasks.filter(t => t.status === 'todo'),
+    progress: tasks.filter(t => t.status === 'progress'),
+    completed: tasks.filter(t => t.status === 'completed'),
+  };
 
   useEffect(() => {
-    const fetchSteps = async () => {
+    const fetchTasks = async () => {
       setLoading(true);
       setError(null);
       try {
         const response = await fetch(`/api/project-steps?project_id=${projectId}`);
         if (!response.ok) {
-          throw new Error('Failed to fetch steps');
+          throw new Error('Failed to fetch tasks');
         }
         const data = await response.json();
-        setSteps(data as Step[]);
+        // Convert API response to our Task format
+        const formattedTasks = data.map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          description: item.description,
+          stage: item.stage,
+          status: item.status === 'done' ? 'completed' : 
+                  item.status === 'in_progress' ? 'progress' : 'todo',
+          start_date: item.start_date,
+          end_date: item.end_date,
+          worker_name: item.worker_name || '',
+          worker_number: item.worker_number || '',
+          sort_order: item.sort_order || 0
+        }));
+        setTasks(formattedTasks);
       } catch (err: any) {
-        console.error('Error fetching steps:', err);
-        setError('Failed to load steps');
+        console.error('Error fetching tasks:', err);
+        setError('Failed to load tasks');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSteps();
+    fetchTasks();
   }, [projectId]);
 
-  const addStep = async (stageKey: StageKey) => {
-    const title = addStepForm.title.trim();
+  const addTask = async () => {
+    const title = addTaskForm.title.trim();
     if (!title) return;
-    setAddStepLoading(true);
+    setAddTaskLoading(true);
     try {
       const response = await fetch('/api/project-steps', {
         method: 'POST',
@@ -89,43 +99,11 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
         body: JSON.stringify({
           project_id: projectId,
           title,
-          stage: stageKey,
-          start_date: addStepForm.start_date || null,
-          end_date: addStepForm.end_date || null,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create step');
-      }
-
-      const data = await response.json();
-      setSteps(prev => [...prev, data as Step]);
-      setAddStepStage(null);
-      setAddStepForm({ title: '', start_date: '', end_date: '' });
-    } catch (err) {
-      console.error('Error adding step:', err);
-      setError('Failed to add step');
-    } finally {
-      setAddStepLoading(false);
-    }
-  };
-
-  // Quick add function for mobile - just needs task name
-  const quickAddTask = async (stageKey: StageKey) => {
-    const title = quickTaskName.trim();
-    if (!title) return;
-    setQuickAddLoading(true);
-    try {
-      const response = await fetch('/api/project-steps', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project_id: projectId,
-          title,
-          stage: stageKey,
-          start_date: null,
-          end_date: null,
+          stage: addTaskForm.stage,
+          start_date: addTaskForm.start_date || null,
+          end_date: addTaskForm.end_date || null,
+          worker_name: addTaskForm.worker_name || null,
+          worker_number: addTaskForm.worker_number || null,
         }),
       });
 
@@ -134,60 +112,77 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
       }
 
       const data = await response.json();
-      setSteps(prev => [...prev, data as Step]);
-      setQuickAddStage(null);
-      setQuickTaskName('');
+      const newTask: Task = {
+        id: data.id,
+        title: data.title,
+        description: data.description,
+        stage: data.stage,
+        status: 'todo',
+        start_date: data.start_date,
+        end_date: data.end_date,
+        worker_name: addTaskForm.worker_name,
+        worker_number: addTaskForm.worker_number,
+        sort_order: data.sort_order || 0
+      };
+      setTasks(prev => [...prev, newTask]);
+      setShowAddModal(false);
+      setAddTaskForm({
+        title: '',
+        stage: 'false_ceiling',
+        start_date: '',
+        end_date: '',
+        worker_name: '',
+        worker_number: '',
+      });
     } catch (err) {
       console.error('Error adding task:', err);
       setError('Failed to add task');
     } finally {
-      setQuickAddLoading(false);
+      setAddTaskLoading(false);
     }
   };
 
-  const updateStepStage = async (stepId: string, stage: StageKey) => {
+  const updateTaskStatus = async (taskId: string, newStatus: TaskStatus) => {
     try {
+      const apiStatus = newStatus === 'completed' ? 'done' : 
+                       newStatus === 'progress' ? 'in_progress' : 'todo';
+      
       const response = await fetch('/api/project-steps', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: stepId, stage }),
+        body: JSON.stringify({ id: taskId, status: apiStatus }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update step stage');
+        throw new Error('Failed to update task status');
       }
 
-      const data = await response.json();
-      setSteps(prev => prev.map(s => (s.id === stepId ? (data as Step) : s)));
+      setTasks(prev => prev.map(task => 
+        task.id === taskId ? { ...task, status: newStatus } : task
+      ));
     } catch (err) {
-      console.error('Error updating step stage:', err);
-      setError('Failed to update step');
+      console.error('Error updating task status:', err);
+      setError('Failed to update task');
     }
   };
 
-  const updateStepStatus = async (stepId: string, status: Step['status']) => {
-    try {
-      const response = await fetch('/api/project-steps', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: stepId, status }),
-      });
+  const onDragStart = (e: React.DragEvent, taskId: string) => {
+    e.dataTransfer.setData('text/plain', taskId);
+  };
 
-      if (!response.ok) {
-        throw new Error('Failed to update step status');
-      }
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
 
-      const data = await response.json();
-      setSteps(prev => prev.map(s => (s.id === stepId ? (data as Step) : s)));
-    } catch (err) {
-      console.error('Error updating step status:', err);
-      setError('Failed to update step');
-    }
+  const onDrop = (e: React.DragEvent, newStatus: TaskStatus) => {
+    e.preventDefault();
+    const taskId = e.dataTransfer.getData('text/plain');
+    updateTaskStatus(taskId, newStatus);
   };
 
   if (loading) {
     return (
-      <div className="p-4 text-sm text-gray-500">Loading board…</div>
+      <div className="p-4 text-sm text-gray-500">Loading tasks…</div>
     );
   }
   if (error) {
@@ -204,255 +199,201 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
         </div>
       )}
 
-      {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500"></div>
-        </div>
-      ) : (
-        <>
-          {/* Mobile View - Accordion Style */}
-          <div className="lg:hidden space-y-4">
-            {STAGES.map(stage => (
-              <div key={stage.key} className="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden">
-                <div className="p-4 sm:p-5 border-b border-gray-200 bg-gray-50">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900">{stage.label}</h3>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs sm:text-sm text-gray-500 bg-white px-2 py-1 rounded-full">
-                        {grouped[stage.key].length} tasks
-                      </span>
-                      <button
-                        onClick={() => setQuickAddStage(stage.key)}
-                        className="px-3 py-1.5 text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 rounded-xl transition-all duration-200 touch-target"
-                        title="Quick Add Task"
-                      >
-                        + Add Task
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div className="p-4 sm:p-5 space-y-3">
-                  {grouped[stage.key].length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                      </svg>
-                      <p className="text-sm">No tasks in this stage</p>
-                      <button
-                        onClick={() => setAddStepStage(stage.key)}
-                        className="mt-2 text-yellow-600 hover:text-yellow-700 text-sm font-medium"
-                      >
-                        Add first task
-                      </button>
-                    </div>
-                  ) : (
-                    grouped[stage.key].map((step, index) => (
-                      <div key={step.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100 animate-fade-in" style={{ animationDelay: `${index * 100}ms` }}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-gray-900 mb-1 text-sm sm:text-base">{step.title}</h4>
-                            {step.description && (
-                              <p className="text-xs sm:text-sm text-gray-600 mb-2 line-clamp-2">{step.description}</p>
-                            )}
-                            <div className="flex flex-wrap items-center gap-2 mb-2">
-                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                step.status === 'done' ? 'bg-green-100 text-green-700' :
-                                step.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-                                step.status === 'blocked' ? 'bg-red-100 text-red-700' :
-                                'bg-gray-100 text-gray-700'
-                              }`}>
-                                {step.status.replace('_', ' ')}
-                              </span>
-                              {step.start_date && (
-                                <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full">
-                                  {formatDateIST(step.start_date)}
-                                </span>
-                              )}
-                            </div>
-                            <select
-                              value={step.status}
-                              onChange={(e) => updateStepStatus(step.id, e.target.value as Step['status'])}
-                              className="w-full text-sm border border-gray-300 rounded-xl px-3 py-2 bg-white focus:ring-2 focus:ring-yellow-400 focus:border-transparent touch-target"
-                            >
-                              <option value="todo">To Do</option>
-                              <option value="in_progress">In Progress</option>
-                              <option value="blocked">Blocked</option>
-                              <option value="done">Done</option>
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+      {/* Add Task Button */}
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-semibold text-gray-900">Project Tasks</h2>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium rounded-xl transition-all duration-200 touch-target"
+        >
+          + Add Task
+        </button>
+      </div>
 
-          {/* Desktop View - Traditional Kanban */}
-          <div className="hidden lg:block overflow-x-auto">
-            <div className="flex space-x-6 min-w-max pb-4">
-              {STAGES.map(stage => (
-                <div key={stage.key} className="w-80 bg-gray-50 rounded-2xl p-4 shadow-card border border-gray-100">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">{stage.label}</h3>
-                    <button
-                      onClick={() => setAddStepStage(stage.key)}
-                      className="text-yellow-600 hover:text-yellow-700 text-sm font-medium px-3 py-1 rounded-lg hover:bg-yellow-50 transition-all duration-200"
-                    >
-                      + Add Step
-                    </button>
-                  </div>
-                  <div className="space-y-3 min-h-96">
-                    {grouped[stage.key].map(step => (
-                      <div key={step.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200">
-                        <h4 className="font-medium text-gray-900 mb-2">{step.title}</h4>
-                        {step.description && (
-                          <p className="text-sm text-gray-600 mb-3">{step.description}</p>
-                        )}
-                        <div className="flex items-center justify-between mb-3">
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            step.status === 'done' ? 'bg-green-100 text-green-700' :
-                            step.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-                            step.status === 'blocked' ? 'bg-red-100 text-red-700' :
-                            'bg-gray-100 text-gray-700'
-                          }`}>
-                            {step.status.replace('_', ' ')}
-                          </span>
-                          {step.start_date && (
-                            <span className="text-xs text-gray-500">
-                              {formatDateIST(step.start_date)}
-                            </span>
-                          )}
-                        </div>
-                        <select
-                          value={step.status}
-                          onChange={(e) => updateStepStatus(step.id, e.target.value as Step['status'])}
-                          className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-                        >
-                          <option value="todo">To Do</option>
-                          <option value="in_progress">In Progress</option>
-                          <option value="blocked">Blocked</option>
-                          <option value="done">Done</option>
-                        </select>
+      {/* Desktop View - Drag and Drop Columns */}
+      <div className="hidden lg:block overflow-x-auto">
+        <div className="flex space-x-6 min-w-max pb-4">
+          {(['todo', 'progress', 'completed'] as TaskStatus[]).map(status => (
+            <div 
+              key={status}
+              className="w-80 bg-gray-50 rounded-2xl p-4 shadow-card border border-gray-100"
+              onDragOver={onDragOver}
+              onDrop={(e) => onDrop(e, status)}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 capitalize">
+                  {status === 'progress' ? 'In Progress' : status}
+                </h3>
+                <span className="text-sm text-gray-500 bg-white px-2 py-1 rounded-full">
+                  {groupedByStatus[status].length} tasks
+                </span>
+              </div>
+              <div className="space-y-3 min-h-96">
+                {groupedByStatus[status].map(task => (
+                  <div 
+                    key={task.id}
+                    draggable
+                    onDragStart={(e) => onDragStart(e, task.id)}
+                    className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 cursor-move"
+                  >
+                    <h4 className="font-medium text-gray-900 mb-2">{task.title}</h4>
+                    <div className="text-sm text-gray-600 mb-2">
+                      <span className="font-medium">{STAGES.find(s => s.key === task.stage)?.label}</span>
+                    </div>
+                    {task.worker_name && (
+                      <div className="text-xs text-gray-500 mb-2">
+                        Worker: {task.worker_name}
                       </div>
-                    ))}
-                    {grouped[stage.key].length === 0 && (
-                      <div className="text-center py-12 text-gray-400">
-                        <svg className="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                        </svg>
-                        <p className="text-sm">No tasks</p>
+                    )}
+                    {task.start_date && (
+                      <div className="text-xs text-gray-500">
+                        Start: {formatDateIST(task.start_date)}
                       </div>
                     )}
                   </div>
-                </div>
-              ))}
+                ))}
+                {groupedByStatus[status].length === 0 && (
+                  <div className="text-center py-12 text-gray-400">
+                    <p className="text-sm">No {status} tasks</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </>
-      )}
+          ))}
+        </div>
+      </div>
 
-      {/* Add Step Modal */}
-      {addStepStage && (
+      {/* Mobile View - Simple List with Status Dropdowns */}
+      <div className="lg:hidden space-y-4">
+        {tasks.map((task, index) => (
+          <div key={task.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 animate-fade-in" style={{ animationDelay: `${index * 50}ms` }}>
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="flex-1 min-w-0">
+                <h4 className="font-semibold text-gray-900 mb-1 text-sm sm:text-base">{task.title}</h4>
+                <div className="text-sm text-gray-600 mb-2">
+                  <span className="font-medium">{STAGES.find(s => s.key === task.stage)?.label}</span>
+                </div>
+                {task.worker_name && (
+                  <div className="text-xs text-gray-500 mb-2">
+                    Worker: {task.worker_name}
+                  </div>
+                )}
+                {task.start_date && (
+                  <div className="text-xs text-gray-500 mb-2">
+                    Start: {formatDateIST(task.start_date)}
+                  </div>
+                )}
+              </div>
+            </div>
+            <select
+              value={task.status}
+              onChange={(e) => updateTaskStatus(task.id, e.target.value as TaskStatus)}
+              className="w-full text-sm border border-gray-300 rounded-xl px-3 py-2 bg-white focus:ring-2 focus:ring-yellow-400 focus:border-transparent touch-target"
+            >
+              <option value="todo">To Do</option>
+              <option value="progress">In Progress</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+        ))}
+        {tasks.length === 0 && (
+          <div className="text-center py-12 text-gray-400">
+            <p className="text-sm">No tasks yet. Add your first task!</p>
+          </div>
+        )}
+      </div>
+
+      {/* Add Task Modal */}
+      {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => !addStepLoading && setAddStepStage(null)}></div>
+          <div className="absolute inset-0 bg-black/40" onClick={() => !addTaskLoading && setShowAddModal(false)}></div>
           <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-screen overflow-y-auto">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Add Task to {STAGES.find(s=>s.key===addStepStage)?.label}
-            </h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Task</h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Task Name *</label>
                 <input
-                  value={addStepForm.title}
-                  onChange={e => setAddStepForm(f => ({ ...f, title: e.target.value }))}
+                  value={addTaskForm.title}
+                  onChange={e => setAddTaskForm(f => ({ ...f, title: e.target.value }))}
                   className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-yellow-400 focus:border-transparent touch-target"
                   placeholder="Enter task name"
-                  disabled={addStepLoading}
+                  disabled={addTaskLoading}
                   autoFocus
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Stage *</label>
+                <select
+                  value={addTaskForm.stage}
+                  onChange={e => setAddTaskForm(f => ({ ...f, stage: e.target.value as StageKey }))}
+                  className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-yellow-400 focus:border-transparent touch-target"
+                  disabled={addTaskLoading}
+                >
+                  {STAGES.map(stage => (
+                    <option key={stage.key} value={stage.key}>{stage.label}</option>
+                  ))}
+                </select>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
                   <input
                     type="date"
-                    value={addStepForm.start_date}
-                    onChange={e => setAddStepForm(f => ({ ...f, start_date: e.target.value }))}
+                    value={addTaskForm.start_date}
+                    onChange={e => setAddTaskForm(f => ({ ...f, start_date: e.target.value }))}
                     className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-yellow-400 focus:border-transparent touch-target"
-                    disabled={addStepLoading}
+                    disabled={addTaskLoading}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Estimated Completion</label>
                   <input
                     type="date"
-                    value={addStepForm.end_date}
-                    onChange={e => setAddStepForm(f => ({ ...f, end_date: e.target.value }))}
+                    value={addTaskForm.end_date}
+                    onChange={e => setAddTaskForm(f => ({ ...f, end_date: e.target.value }))}
                     className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-yellow-400 focus:border-transparent touch-target"
-                    disabled={addStepLoading}
+                    disabled={addTaskLoading}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Worker Name</label>
+                  <input
+                    value={addTaskForm.worker_name}
+                    onChange={e => setAddTaskForm(f => ({ ...f, worker_name: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-yellow-400 focus:border-transparent touch-target"
+                    placeholder="Enter worker name"
+                    disabled={addTaskLoading}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Worker Number</label>
+                  <input
+                    value={addTaskForm.worker_number}
+                    onChange={e => setAddTaskForm(f => ({ ...f, worker_number: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-yellow-400 focus:border-transparent touch-target"
+                    placeholder="Enter worker number"
+                    disabled={addTaskLoading}
                   />
                 </div>
               </div>
             </div>
-            <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
+            <div className="flex gap-3 mt-6">
               <button
                 className="px-6 py-3 text-sm rounded-xl border border-gray-300 hover:bg-gray-50 w-full sm:w-auto touch-target"
-                disabled={addStepLoading}
-                onClick={()=>setAddStepStage(null)}
+                disabled={addTaskLoading}
+                onClick={() => setShowAddModal(false)}
               >
                 Cancel
               </button>
               <button
                 className="px-6 py-3 text-sm rounded-xl bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto touch-target"
-                disabled={addStepLoading||!addStepForm.title.trim()}
-                onClick={()=>addStep(addStepStage)}
+                disabled={addTaskLoading || !addTaskForm.title.trim()}
+                onClick={addTask}
               >
-                {addStepLoading ? 'Adding...' : 'Add Task'}
+                {addTaskLoading ? 'Adding...' : 'Add Task'}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quick Add Task Modal for Mobile */}
-      {quickAddStage && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => !quickAddLoading && setQuickAddStage(null)}></div>
-          <div className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full max-w-md p-6 animate-slide-up">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Quick Add Task to {STAGES.find(s=>s.key===quickAddStage)?.label}
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Task Name</label>
-                <input
-                  value={quickTaskName}
-                  onChange={e => setQuickTaskName(e.target.value)}
-                  onKeyPress={e => e.key === 'Enter' && quickAddTask(quickAddStage)}
-                  className="w-full border border-gray-300 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-yellow-400 focus:border-transparent touch-target"
-                  placeholder="Enter task name and press Enter"
-                  disabled={quickAddLoading}
-                  autoFocus
-                />
-              </div>
-              <div className="flex gap-3">
-                <button
-                  className="flex-1 px-4 py-3 text-sm rounded-xl border border-gray-300 hover:bg-gray-50 touch-target"
-                  disabled={quickAddLoading}
-                  onClick={() => setQuickAddStage(null)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="flex-1 px-4 py-3 text-sm rounded-xl bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold disabled:opacity-50 disabled:cursor-not-allowed touch-target"
-                  disabled={quickAddLoading || !quickTaskName.trim()}
-                  onClick={() => quickAddTask(quickAddStage)}
-                >
-                  {quickAddLoading ? 'Adding...' : 'Add Task'}
-                </button>
-              </div>
             </div>
           </div>
         </div>
@@ -462,5 +403,3 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
 }
 
 export default KanbanBoard;
-
-
