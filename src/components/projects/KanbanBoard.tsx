@@ -228,7 +228,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                   {groupedByStatus[status].length} tasks
                 </span>
               </div>
-              <div className="space-y-3 min-h-96">
+              <div className="space-y-3 min-h-[200px] flex flex-col">
                 {groupedByStatus[status].map(task => (
                   <div 
                     key={task.id}
@@ -253,8 +253,16 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                   </div>
                 ))}
                 {groupedByStatus[status].length === 0 && (
-                  <div className="text-center py-12 text-gray-400">
-                    <p className="text-sm">No {status} tasks</p>
+                  <div className="flex-1 flex items-center justify-center py-8">
+                    <div className="text-center text-gray-400">
+                      <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                      <p className="text-sm">No {status} tasks</p>
+                      {status === 'todo' && (
+                        <p className="text-xs mt-1">Tasks will appear here</p>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
