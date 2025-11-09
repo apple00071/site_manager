@@ -4,6 +4,11 @@ import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
+import { createNoCacheResponse } from '@/lib/apiHelpers';
+
+// Force dynamic rendering - never cache design comments
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const addCommentSchema = z.object({
   design_file_id: z.string().uuid(),

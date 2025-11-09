@@ -4,6 +4,11 @@ import { z } from 'zod';
 // Import service role key for admin operations
 import { createClient } from '@supabase/supabase-js';
 import { NotificationService } from '@/lib/notificationService';
+import { createNoCacheResponse } from '@/lib/apiHelpers';
+
+// Force dynamic rendering - never cache user data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

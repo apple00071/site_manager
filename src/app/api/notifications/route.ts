@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { createNoCacheResponse } from '@/lib/apiHelpers';
+
+// Force dynamic rendering - never cache this route
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -62,13 +67,13 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching notifications:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return createNoCacheResponse({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(notifications);
+    return createNoCacheResponse(notifications);
   } catch (error) {
     console.error('Error in GET /api/notifications:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return createNoCacheResponse({ error: 'Internal server error' }, { status: 500 });
   }
 }
 

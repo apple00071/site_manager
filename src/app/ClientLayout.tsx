@@ -23,14 +23,36 @@ export default function ClientLayout({
       setHydrationComplete(true);
     }, 100);
     
-    // Register service worker for PWA
+    // Register service worker for PWA with update handling
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js')
         .then((registration) => {
-          console.log('SW registered: ', registration);
+          console.log('[App] Service Worker registered successfully');
+
+          // Check for updates every hour
+          setInterval(() => {
+            registration.update();
+          }, 60 * 60 * 1000);
+
+          // Listen for updates
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  // New service worker available, prompt user to reload
+                  console.log('[App] New version available! Please refresh the page.');
+                  // Optionally show a notification to the user
+                  if (confirm('A new version is available. Reload to update?')) {
+                    window.location.reload();
+                  }
+                }
+              });
+            }
+          });
         })
         .catch((registrationError) => {
-          console.log('SW registration failed: ', registrationError);
+          console.error('[App] Service Worker registration failed:', registrationError);
         });
     }
 

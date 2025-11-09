@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { createNoCacheResponse } from '@/lib/apiHelpers';
+
+// Force dynamic rendering - never cache authentication
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function POST() {
   try {

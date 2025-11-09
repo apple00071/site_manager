@@ -4,6 +4,11 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
+import { createNoCacheResponse } from '@/lib/apiHelpers';
+
+// Force dynamic rendering - never cache task data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 // Create admin client with service role key to bypass RLS
 const supabaseAdmin = createClient(

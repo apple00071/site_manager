@@ -3,6 +3,11 @@ import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { handleApiError, sanitizeErrorMessage } from '@/lib/errorHandler';
 import { NotificationService } from '@/lib/notificationService';
+import { createNoCacheResponse } from '@/lib/apiHelpers';
+
+// Force dynamic rendering - never cache project member data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 // Check if we're in a build context
 const isBuildContext = process.env.NEXT_PHASE === 'phase-production-build';

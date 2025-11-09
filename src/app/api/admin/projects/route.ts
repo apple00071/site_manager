@@ -3,6 +3,11 @@ import { z } from 'zod';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NotificationService } from '@/lib/notificationService';
+import { createNoCacheResponse } from '@/lib/apiHelpers';
+
+// Force dynamic rendering - never cache project data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 // Schema for project validation
 const projectSchema = z.object({

@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { createNoCacheResponse } from '@/lib/apiHelpers';
+
+// Force dynamic rendering - never cache authentication checks
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET() {
   try {
@@ -26,11 +31,11 @@ export async function GET() {
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
-      return NextResponse.json({ authenticated: false }, { status: 200 });
+      return createNoCacheResponse({ authenticated: false }, { status: 200 });
     }
 
-    return NextResponse.json({ authenticated: true, user: session.user }, { status: 200 });
+    return createNoCacheResponse({ authenticated: true, user: session.user }, { status: 200 });
   } catch (err: any) {
-    return NextResponse.json({ error: 'Unexpected error' }, { status: 500 });
+    return createNoCacheResponse({ error: 'Unexpected error' }, { status: 500 });
   }
 }

@@ -1,90 +1,167 @@
-const CACHE_NAME = 'apple-interior-manager-v2';
-const urlsToCache = [
-  '/',
-  '/dashboard',
-  '/login',
+const CACHE_NAME = 'apple-interior-manager-v3';
+const STATIC_CACHE = 'static-v3';
+const DYNAMIC_CACHE = 'dynamic-v3';
+
+// Static assets to cache on install
+const staticAssets = [
   '/manifest.json',
   '/icon-192x192.png',
   '/icon-512x512.png',
   '/New-logo.png'
 ];
 
-// Install event - cache resources
+// URLs that should NEVER be cached (always fetch from network)
+const noCacheUrls = [
+  '/api/',           // All API routes
+  '/auth/',          // Authentication routes
+  '/_next/data/',    // Next.js data fetching
+];
+
+// Check if URL should never be cached
+function shouldNeverCache(url) {
+  return noCacheUrls.some(pattern => url.includes(pattern));
+}
+
+// Check if request is for a static asset
+function isStaticAsset(url) {
+  return url.match(/\.(png|jpg|jpeg|svg|gif|webp|ico|css|js|woff|woff2|ttf|eot)$/);
+}
+
+// Install event - cache static resources only
 self.addEventListener('install', (event) => {
-  console.log('Service Worker installing...');
+  console.log('[SW] Installing Service Worker v3...');
   event.waitUntil(
-    caches.open(CACHE_NAME)
+    caches.open(STATIC_CACHE)
       .then((cache) => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
+        console.log('[SW] Caching static assets');
+        return cache.addAll(staticAssets);
       })
       .then(() => {
-        console.log('Service Worker installed successfully');
-        self.skipWaiting();
+        console.log('[SW] Service Worker installed successfully');
+        return self.skipWaiting();
+      })
+      .catch((error) => {
+        console.error('[SW] Installation failed:', error);
       })
   );
 });
 
-// Fetch event - serve from cache when offline
+// Fetch event - smart caching strategy
 self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = request.url;
+
   // Skip non-GET requests
-  if (event.request.method !== 'GET') {
+  if (request.method !== 'GET') {
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        if (response) {
-          console.log('Serving from cache:', event.request.url);
-          return response;
-        }
-        
-        console.log('Fetching from network:', event.request.url);
-        return fetch(event.request)
-          .then((response) => {
-            // Don't cache non-successful responses
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
+  // NEVER cache API routes, auth, or dynamic data - always use network
+  if (shouldNeverCache(url)) {
+    event.respondWith(
+      fetch(request)
+        .catch((error) => {
+          console.error('[SW] Network request failed for:', url, error);
+          // Return a proper error response instead of cached data
+          return new Response(
+            JSON.stringify({ error: 'Network request failed', offline: true }),
+            {
+              status: 503,
+              statusText: 'Service Unavailable',
+              headers: { 'Content-Type': 'application/json' }
             }
+          );
+        })
+    );
+    return;
+  }
 
-            // Clone the response
+  // For static assets: Cache-first strategy
+  if (isStaticAsset(url)) {
+    event.respondWith(
+      caches.match(request)
+        .then((cachedResponse) => {
+          if (cachedResponse) {
+            console.log('[SW] Serving static asset from cache:', url);
+            return cachedResponse;
+          }
+
+          return fetch(request)
+            .then((response) => {
+              // Cache successful responses
+              if (response && response.status === 200) {
+                const responseToCache = response.clone();
+                caches.open(STATIC_CACHE).then((cache) => {
+                  cache.put(request, responseToCache);
+                });
+              }
+              return response;
+            });
+        })
+    );
+    return;
+  }
+
+  // For HTML pages: Network-first strategy (always get fresh content)
+  if (request.destination === 'document' || request.headers.get('accept')?.includes('text/html')) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          // Optionally cache the page for offline access
+          if (response && response.status === 200) {
             const responseToCache = response.clone();
+            caches.open(DYNAMIC_CACHE).then((cache) => {
+              cache.put(request, responseToCache);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          // Only serve cached version if network fails (offline)
+          console.log('[SW] Network failed, serving cached page:', url);
+          return caches.match(request)
+            .then((cachedResponse) => {
+              return cachedResponse || caches.match('/dashboard');
+            });
+        })
+    );
+    return;
+  }
 
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseToCache);
-              });
-
-            return response;
-          });
+  // For everything else: Network-first
+  event.respondWith(
+    fetch(request)
+      .then((response) => {
+        return response;
       })
       .catch(() => {
-        // Return offline page for navigation requests
-        if (event.request.destination === 'document') {
-          return caches.match('/dashboard');
-        }
+        return caches.match(request);
       })
   );
 });
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('Service Worker activating...');
+  console.log('[SW] Activating Service Worker v3...');
+
+  const currentCaches = [CACHE_NAME, STATIC_CACHE, DYNAMIC_CACHE];
+
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    }).then(() => {
-      console.log('Service Worker activated');
-      return self.clients.claim();
-    })
+    caches.keys()
+      .then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            if (!currentCaches.includes(cacheName)) {
+              console.log('[SW] Deleting old cache:', cacheName);
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      })
+      .then(() => {
+        console.log('[SW] Service Worker activated and claiming clients');
+        return self.clients.claim();
+      })
   );
 });
 
