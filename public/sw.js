@@ -1,6 +1,6 @@
-const CACHE_NAME = 'apple-interior-manager-v3';
-const STATIC_CACHE = 'static-v3';
-const DYNAMIC_CACHE = 'dynamic-v3';
+const CACHE_NAME = 'apple-interior-manager-v4';
+const STATIC_CACHE = 'static-v4';
+const DYNAMIC_CACHE = 'dynamic-v4';
 
 // Static assets to cache on install
 const staticAssets = [
@@ -29,7 +29,7 @@ function isStaticAsset(url) {
 
 // Install event - cache static resources only
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing Service Worker v3...');
+  console.log('[SW] Installing Service Worker v4...');
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then((cache) => {
@@ -53,6 +53,11 @@ self.addEventListener('fetch', (event) => {
 
   // Skip non-GET requests
   if (request.method !== 'GET') {
+    return;
+  }
+
+  // Skip non-http(s) requests (chrome-extension, etc.)
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
     return;
   }
 
@@ -88,11 +93,14 @@ self.addEventListener('fetch', (event) => {
 
           return fetch(request)
             .then((response) => {
-              // Cache successful responses
-              if (response && response.status === 200) {
+              // Cache successful responses (only http/https)
+              if (response && response.status === 200 &&
+                  (url.startsWith('http://') || url.startsWith('https://'))) {
                 const responseToCache = response.clone();
                 caches.open(STATIC_CACHE).then((cache) => {
-                  cache.put(request, responseToCache);
+                  cache.put(request, responseToCache).catch((err) => {
+                    console.warn('[SW] Failed to cache:', url, err.message);
+                  });
                 });
               }
               return response;
@@ -107,11 +115,14 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          // Optionally cache the page for offline access
-          if (response && response.status === 200) {
+          // Optionally cache the page for offline access (only http/https)
+          if (response && response.status === 200 &&
+              (url.startsWith('http://') || url.startsWith('https://'))) {
             const responseToCache = response.clone();
             caches.open(DYNAMIC_CACHE).then((cache) => {
-              cache.put(request, responseToCache);
+              cache.put(request, responseToCache).catch((err) => {
+                console.warn('[SW] Failed to cache page:', url, err.message);
+              });
             });
           }
           return response;
@@ -142,7 +153,7 @@ self.addEventListener('fetch', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating Service Worker v3...');
+  console.log('[SW] Activating Service Worker v4...');
 
   const currentCaches = [CACHE_NAME, STATIC_CACHE, DYNAMIC_CACHE];
 
