@@ -3,6 +3,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDateTimeReadable, getRelativeTime } from '@/lib/dateUtils';
+import { authenticatedFetch, setupTokenRefreshInterval, getAuthErrorMessage } from '@/lib/authHelpers';
+import { supabase } from '@/lib/supabase-client-helper';
 
 type Notification = {
   id: string;
@@ -24,47 +26,184 @@ export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  
+  const cleanupTokenRefreshRef = useRef<(() => void) | null>(null);
+  const realtimeChannelRef = useRef<any>(null);
+
   // Early return AFTER all hooks to prevent hooks rule violation
   if (!user) return null;
 
-  // Fetch notifications
-  const fetchNotifications = async () => {
+  // Fetch notifications with auth token refresh
+  const fetchNotifications = async (showLoading = false) => {
     if (!user) return;
 
     try {
-      const response = await fetch('/api/notifications?limit=20');
+      if (showLoading) setIsLoading(true);
+      setError(null);
+
+      console.log('🔔 Fetching notifications...');
+
+      // Use authenticatedFetch which handles token refresh automatically
+      const response = await authenticatedFetch('/api/notifications?limit=20');
+
       if (response.ok) {
         const data = await response.json();
         setNotifications(data);
         setUnreadCount(data.filter((n: Notification) => !n.is_read).length);
+        setRetryCount(0); // Reset retry count on success
+        console.log(`✅ Fetched ${data.length} notifications (${data.filter((n: Notification) => !n.is_read).length} unread)`);
+      } else if (response.status === 401) {
+        console.error('❌ Unauthorized - session may have expired');
+        setError('Session expired. Please refresh the page.');
+        // Clear notifications on auth error
+        setNotifications([]);
+        setUnreadCount(0);
+      } else {
+        console.error('❌ Failed to fetch notifications:', response.status);
+        setError('Failed to load notifications');
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.error('💥 Error fetching notifications:', error);
+      setError(getAuthErrorMessage(error));
+
+      // Retry logic with exponential backoff
+      if (retryCount < 3) {
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+        console.log(`🔄 Retrying in ${delay}ms... (attempt ${retryCount + 1}/3)`);
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          fetchNotifications();
+        }, delay);
+      }
+    } finally {
+      if (showLoading) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     setMounted(true);
-    
+
     // Request notification permission on mount
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission().then(permission => {
-        console.log('Notification permission:', permission);
+        console.log('🔔 Notification permission:', permission);
       });
     }
+
+    // Setup automatic token refresh
+    console.log('⏰ Setting up automatic token refresh...');
+    cleanupTokenRefreshRef.current = setupTokenRefreshInterval();
+
+    return () => {
+      // Cleanup token refresh on unmount
+      if (cleanupTokenRefreshRef.current) {
+        cleanupTokenRefreshRef.current();
+      }
+    };
   }, []);
 
-  // Poll for new notifications every 30 seconds
+  // Setup real-time notifications subscription + polling fallback
   useEffect(() => {
     if (!user) return;
 
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
+    console.log('🔌 Setting up notification system for user:', user.id);
 
-    return () => clearInterval(interval);
+    // Initial fetch
+    fetchNotifications(true);
+
+    // Setup real-time subscription for instant updates
+    const setupRealtimeSubscription = async () => {
+      try {
+        console.log('📡 Setting up real-time subscription...');
+
+        // Subscribe to INSERT events on notifications table for this user
+        const channel = supabase
+          .channel(`notifications:${user.id}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'notifications',
+              filter: `user_id=eq.${user.id}`,
+            },
+            (payload) => {
+              console.log('🔔 New notification received via realtime:', payload.new);
+
+              // Add the new notification to the list
+              const newNotification = payload.new as Notification;
+              setNotifications(prev => [newNotification, ...prev]);
+              setUnreadCount(prev => prev + 1);
+
+              // Play sound for new notification
+              playNotificationSound();
+
+              // Store the notification ID to prevent duplicate sounds
+              sessionStorage.setItem('last_notification_sound_id', newNotification.id);
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'notifications',
+              filter: `user_id=eq.${user.id}`,
+            },
+            (payload) => {
+              console.log('🔄 Notification updated via realtime:', payload.new);
+
+              // Update the notification in the list
+              const updatedNotification = payload.new as Notification;
+              setNotifications(prev =>
+                prev.map(n => (n.id === updatedNotification.id ? updatedNotification : n))
+              );
+
+              // Recalculate unread count
+              setNotifications(prev => {
+                setUnreadCount(prev.filter(n => !n.is_read).length);
+                return prev;
+              });
+            }
+          )
+          .subscribe((status) => {
+            console.log('📡 Realtime subscription status:', status);
+
+            if (status === 'SUBSCRIBED') {
+              console.log('✅ Successfully subscribed to real-time notifications');
+            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+              console.error('❌ Realtime subscription error:', status);
+            }
+          });
+
+        realtimeChannelRef.current = channel;
+      } catch (error) {
+        console.error('💥 Error setting up realtime subscription:', error);
+      }
+    };
+
+    setupRealtimeSubscription();
+
+    // Fallback: Poll every 60 seconds (reduced from 30 since we have realtime)
+    // This ensures we don't miss notifications if realtime fails
+    const pollInterval = setInterval(() => {
+      console.log('🔄 Polling for notifications (fallback)...');
+      fetchNotifications();
+    }, 60000);
+
+    return () => {
+      console.log('🧹 Cleaning up notification system...');
+      clearInterval(pollInterval);
+
+      // Unsubscribe from realtime channel
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
+        realtimeChannelRef.current = null;
+      }
+    };
   }, [user]);
 
   // Play notification sound when new unread notifications arrive
@@ -179,7 +318,7 @@ export function NotificationBell() {
 
   const markAsRead = async (notificationId: string) => {
     try {
-      const response = await fetch('/api/notifications', {
+      const response = await authenticatedFetch('/api/notifications', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notification_id: notificationId, is_read: true }),
@@ -190,6 +329,8 @@ export function NotificationBell() {
           prev.map(n => (n.id === notificationId ? { ...n, is_read: true } : n))
         );
         setUnreadCount(prev => Math.max(0, prev - 1));
+      } else {
+        console.error('Failed to mark notification as read:', response.status);
       }
     } catch (error) {
       console.error('Error marking notification as read:', error);
@@ -199,7 +340,7 @@ export function NotificationBell() {
   const markAllAsRead = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/notifications', {
+      const response = await authenticatedFetch('/api/notifications', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_read: true }),
@@ -208,6 +349,8 @@ export function NotificationBell() {
       if (response.ok) {
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         setUnreadCount(0);
+      } else {
+        console.error('Failed to mark all as read:', response.status);
       }
     } catch (error) {
       console.error('Error marking all as read:', error);
@@ -218,7 +361,7 @@ export function NotificationBell() {
 
   const deleteNotification = async (notificationId: string) => {
     try {
-      const response = await fetch(`/api/notifications?id=${notificationId}`, {
+      const response = await authenticatedFetch(`/api/notifications?id=${notificationId}`, {
         method: 'DELETE',
       });
 
@@ -228,6 +371,8 @@ export function NotificationBell() {
           const notification = notifications.find(n => n.id === notificationId);
           return notification && !notification.is_read ? Math.max(0, prev - 1) : prev;
         });
+      } else {
+        console.error('Failed to delete notification:', response.status);
       }
     } catch (error) {
       console.error('Error deleting notification:', error);
@@ -302,9 +447,37 @@ export function NotificationBell() {
             )}
           </div>
 
+          {/* Error Message */}
+          {error && (
+            <div className="px-4 py-3 bg-red-50 border-b border-red-100">
+              <div className="flex items-start gap-2">
+                <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-sm text-red-800">{error}</p>
+                  <button
+                    onClick={() => {
+                      setError(null);
+                      fetchNotifications(true);
+                    }}
+                    className="text-xs text-red-600 hover:text-red-700 font-medium mt-1"
+                  >
+                    Try again
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Notifications List */}
           <div className="overflow-y-auto flex-1">
-            {notifications.length === 0 ? (
+            {isLoading && notifications.length === 0 ? (
+              <div className="px-4 py-8 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-yellow-500 mx-auto"></div>
+                <p className="text-sm text-gray-500 mt-2">Loading notifications...</p>
+              </div>
+            ) : notifications.length === 0 ? (
               <div className="px-4 py-8 text-center text-gray-500 text-sm">
                 No notifications yet
               </div>
