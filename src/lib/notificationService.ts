@@ -26,6 +26,8 @@ export type NotificationType =
   | 'project_update'
   | 'inventory_added'
   | 'comment_added'
+  | 'bill_approved'
+  | 'bill_rejected'
   | 'general';
 
 export interface CreateNotificationParams {

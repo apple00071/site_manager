@@ -19,8 +19,10 @@ const nextConfig = {
   // Experimental features to help with hydration
   experimental: {
     optimizePackageImports: ['react-icons'],
-    serverComponentsExternalPackages: ['@supabase/supabase-js'],
   },
+
+  // Server external packages (moved from experimental in Next.js 16)
+  serverExternalPackages: ['@supabase/supabase-js'],
 
   // Compiler options
   compiler: {
