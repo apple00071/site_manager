@@ -119,16 +119,12 @@ export async function POST(
 
     // Create notification for designer
     await NotificationService.createNotification({
-      user_id: designer_id,
-      type: 'project_assigned',
+      userId: designer_id,
+      type: 'project_update',
       title: 'New Project Assigned',
       message: `You have been assigned to design project: ${project.title}`,
-      link: `/dashboard/projects/${projectId}`,
-      metadata: {
-        project_id: projectId,
-        project_title: project.title,
-        assigned_by: user.full_name,
-      },
+      relatedId: projectId,
+      relatedType: 'project',
     });
 
     return NextResponse.json({

@@ -132,18 +132,12 @@ export async function POST(
     // Create notification for designer
     if (project.designer) {
       await NotificationService.createNotification({
-        user_id: project.designer.id,
+        userId: project.designer.id,
         type: 'design_rejected',
         title: 'Design Needs Changes',
         message: `Your design for project "${project.title}" needs changes. Reason: ${rejection_reason}`,
-        link: `/dashboard/projects/${projectId}`,
-        metadata: {
-          project_id: projectId,
-          project_title: project.title,
-          rejected_by: user.full_name,
-          rejection_reason,
-          comments: admin_comments,
-        },
+        relatedId: projectId,
+        relatedType: 'project',
       });
     }
 

@@ -81,7 +81,15 @@ export function WorkflowTab({ projectId }: WorkflowTabProps) {
         .single();
 
       if (error) throw error;
-      setProject(data as ProjectWorkflow);
+      
+      // Transform the data to match ProjectWorkflow type
+      const transformedData: ProjectWorkflow = {
+        ...data,
+        designer: Array.isArray(data.designer) ? data.designer[0] || null : data.designer,
+        site_supervisor: Array.isArray(data.site_supervisor) ? data.site_supervisor[0] || null : data.site_supervisor,
+      };
+      
+      setProject(transformedData);
       if (data.designer_id) setSelectedDesigner(data.designer_id);
       if (data.site_supervisor_id) setSelectedSupervisor(data.site_supervisor_id);
     } catch (error) {
@@ -181,7 +189,7 @@ export function WorkflowTab({ projectId }: WorkflowTabProps) {
     }
   };
 
-  const getStageColor = (stage: string | null) => {
+  const getStageColor = (stage: string | null | undefined) => {
     switch (stage) {
       case 'requirements_upload':
         return 'bg-gray-100 text-gray-800';
@@ -202,7 +210,7 @@ export function WorkflowTab({ projectId }: WorkflowTabProps) {
     }
   };
 
-  const formatStage = (stage: string | null) => {
+  const formatStage = (stage: string | null | undefined) => {
     if (!stage) return 'Not Started';
     return stage.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };

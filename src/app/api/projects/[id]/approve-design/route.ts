@@ -140,16 +140,12 @@ export async function POST(
 
       // Create notification for site supervisor
       await NotificationService.createNotification({
-        user_id: site_supervisor_id,
-        type: 'project_assigned',
+        userId: site_supervisor_id,
+        type: 'project_update',
         title: 'Project Assigned',
         message: `You have been assigned as site supervisor for project: ${project.title}`,
-        link: `/dashboard/projects/${projectId}`,
-        metadata: {
-          project_id: projectId,
-          project_title: project.title,
-          assigned_by: user.full_name,
-        },
+        relatedId: projectId,
+        relatedType: 'project',
       });
     }
 
@@ -175,17 +171,12 @@ export async function POST(
     // Create notification for designer
     if (project.designer) {
       await NotificationService.createNotification({
-        user_id: project.designer.id,
+        userId: project.designer.id,
         type: 'design_approved',
         title: 'Design Approved',
         message: `Your design for project "${project.title}" has been approved!`,
-        link: `/dashboard/projects/${projectId}`,
-        metadata: {
-          project_id: projectId,
-          project_title: project.title,
-          approved_by: user.full_name,
-          comments: admin_comments,
-        },
+        relatedId: projectId,
+        relatedType: 'project',
       });
     }
 

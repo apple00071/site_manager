@@ -102,18 +102,12 @@ export async function POST(
     // Create notification for the person who uploaded the bill
     if (item.created_by_user) {
       await NotificationService.createNotification({
-        user_id: item.created_by_user.id,
+        userId: item.created_by_user.id,
         type: 'bill_approved',
         title: 'Bill Approved',
         message: `Your bill for "${item.item_name}" in project "${item.project.title}" has been approved.`,
-        link: `/dashboard/projects/${item.project_id}`,
-        metadata: {
-          project_id: item.project_id,
-          project_title: item.project.title,
-          item_id: itemId,
-          item_name: item.item_name,
-          approved_by: user.full_name,
-        },
+        relatedId: itemId,
+        relatedType: 'inventory_item',
       });
     }
 

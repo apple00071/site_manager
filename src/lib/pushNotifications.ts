@@ -70,7 +70,7 @@ export async function subscribeToPushNotifications(userId: string): Promise<Push
 
     subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: convertedVapidKey,
+      applicationServerKey: convertedVapidKey as BufferSource,
     });
 
     console.log('Subscribed to push notifications:', subscription);
