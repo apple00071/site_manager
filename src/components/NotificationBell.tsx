@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatDateTimeReadable, getRelativeTime } from '@/lib/dateUtils';
+import { getRelativeTime } from '@/lib/dateUtils';
 import { authenticatedFetch, setupTokenRefreshInterval, getAuthErrorMessage } from '@/lib/authHelpers';
 import { supabase } from '@/lib/supabase-client-helper';
 
@@ -29,7 +29,6 @@ export function NotificationBell() {
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [lastFetchHash, setLastFetchHash] = useState<string>(''); // Track changes
-  const [audioContextReady, setAudioContextReady] = useState(false); // Track audio readiness
   const dropdownRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const cleanupTokenRefreshRef = useRef<(() => void) | null>(null);
@@ -80,7 +79,7 @@ export function NotificationBell() {
 
           // Play sound for new unread notifications
           if (newNotifications.length > 0 && mounted) {
-            const newUnread = newNotifications.filter(n => !n.is_read);
+            const newUnread = newNotifications.filter((n: Notification) => !n.is_read);
             if (newUnread.length > 0) {
               console.log(`🔔 ${newUnread.length} new unread notification(s) detected`);
               playNotificationSound();
@@ -129,7 +128,6 @@ export function NotificationBell() {
         try {
           const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
           audioContextRef.current = new AudioContextClass();
-          setAudioContextReady(true);
           console.log('🎵 Audio context initialized');
         } catch (error) {
           console.error('❌ Failed to initialize audio context:', error);
