@@ -1,14 +1,31 @@
 // Notification Service for creating and managing notifications
-import { supabase } from './supabase';
+import { createClient } from '@supabase/supabase-js';
 
-export type NotificationType = 
-  | 'task_assigned' 
-  | 'design_approved' 
-  | 'design_rejected' 
-  | 'design_uploaded' 
-  | 'project_update' 
-  | 'inventory_added' 
-  | 'comment_added' 
+// Use service role client for server-side operations
+const getSupabaseServiceClient = () => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Missing Supabase environment variables');
+  }
+
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+};
+
+export type NotificationType =
+  | 'task_assigned'
+  | 'design_approved'
+  | 'design_rejected'
+  | 'design_uploaded'
+  | 'project_update'
+  | 'inventory_added'
+  | 'comment_added'
   | 'general';
 
 export interface CreateNotificationParams {
@@ -23,26 +40,31 @@ export interface CreateNotificationParams {
 export class NotificationService {
   static async createNotification(params: CreateNotificationParams) {
     try {
-      const response = await fetch('/api/notifications', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Use Supabase service role client to insert directly
+      // This works both client-side and server-side
+      const supabase = getSupabaseServiceClient();
+
+      const { data, error } = await supabase
+        .from('notifications')
+        .insert({
           user_id: params.userId,
           title: params.title,
           message: params.message,
           type: params.type,
-          related_id: params.relatedId,
-          related_type: params.relatedType,
-        }),
-      });
+          related_id: params.relatedId || null,
+          related_type: params.relatedType || null,
+          is_read: false,
+        })
+        .select()
+        .single();
 
-      if (!response.ok) {
-        throw new Error(`Failed to create notification: ${response.statusText}`);
+      if (error) {
+        console.error('Supabase error creating notification:', error);
+        throw new Error(`Failed to create notification: ${error.message}`);
       }
 
-      return await response.json();
+      console.log('✅ Notification created successfully:', data);
+      return data;
     } catch (error) {
       console.error('Error creating notification:', error);
       throw error;

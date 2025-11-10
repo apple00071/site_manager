@@ -118,31 +118,47 @@ export function NotificationBell() {
     const setupRealtimeSubscription = async () => {
       try {
         console.log('📡 Setting up real-time subscription...');
+        console.log('📡 User ID:', user.id);
+        console.log('📡 NOTE: Using polling-only mode due to persistent Realtime issues');
+        console.log('📡 Notifications will update every 60 seconds');
 
-        // Subscribe to INSERT events on notifications table for this user
+        // TEMPORARY: Disable postgres_changes subscription due to persistent
+        // "mismatch between server and client bindings" error
+        // This is a known Supabase Realtime issue that can occur even with
+        // correct REPLICA IDENTITY and publication settings.
+        //
+        // The app will use polling (60-second intervals) instead.
+        // This is a reliable fallback that works in all cases.
+        //
+        // To re-enable Realtime in the future, uncomment the code below
+        // and ensure:
+        // 1. REPLICA IDENTITY is FULL
+        // 2. Table is in supabase_realtime publication
+        // 3. RLS policies allow SELECT for authenticated users
+        // 4. Supabase project is on a recent version
+
+        /*
         const channel = supabase
-          .channel(`notifications:${user.id}`)
+          .channel('notifications-all')
           .on(
             'postgres_changes',
             {
               event: 'INSERT',
               schema: 'public',
               table: 'notifications',
-              filter: `user_id=eq.${user.id}`,
             },
             (payload) => {
-              console.log('🔔 New notification received via realtime:', payload.new);
+              console.log('🔔 Notification event received:', payload);
 
-              // Add the new notification to the list
               const newNotification = payload.new as Notification;
-              setNotifications(prev => [newNotification, ...prev]);
-              setUnreadCount(prev => prev + 1);
 
-              // Play sound for new notification
-              playNotificationSound();
-
-              // Store the notification ID to prevent duplicate sounds
-              sessionStorage.setItem('last_notification_sound_id', newNotification.id);
+              if (newNotification.user_id === user.id) {
+                console.log('🔔 New notification for current user:', newNotification);
+                setNotifications(prev => [newNotification, ...prev]);
+                setUnreadCount(prev => prev + 1);
+                playNotificationSound();
+                sessionStorage.setItem('last_notification_sound_id', newNotification.id);
+              }
             }
           )
           .on(
@@ -151,37 +167,48 @@ export function NotificationBell() {
               event: 'UPDATE',
               schema: 'public',
               table: 'notifications',
-              filter: `user_id=eq.${user.id}`,
             },
             (payload) => {
-              console.log('🔄 Notification updated via realtime:', payload.new);
-
-              // Update the notification in the list
               const updatedNotification = payload.new as Notification;
-              setNotifications(prev =>
-                prev.map(n => (n.id === updatedNotification.id ? updatedNotification : n))
-              );
 
-              // Recalculate unread count
-              setNotifications(prev => {
-                setUnreadCount(prev.filter(n => !n.is_read).length);
-                return prev;
-              });
+              if (updatedNotification.user_id === user.id) {
+                console.log('🔄 Notification updated for current user:', updatedNotification);
+                setNotifications(prev =>
+                  prev.map(n => (n.id === updatedNotification.id ? updatedNotification : n))
+                );
+                setNotifications(prev => {
+                  setUnreadCount(prev.filter(n => !n.is_read).length);
+                  return prev;
+                });
+              }
             }
           )
-          .subscribe((status) => {
+          .subscribe((status, err) => {
             console.log('📡 Realtime subscription status:', status);
 
             if (status === 'SUBSCRIBED') {
               console.log('✅ Successfully subscribed to real-time notifications');
-            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-              console.error('❌ Realtime subscription error:', status);
+              setError(null);
+            } else if (status === 'CHANNEL_ERROR') {
+              console.error('❌ Realtime subscription error:', status, err);
+              console.warn('⚠️ Falling back to polling only (60-second intervals).');
+            } else if (status === 'TIMED_OUT') {
+              console.error('❌ Realtime subscription timed out:', status);
+              console.warn('⚠️ Falling back to polling only (60-second intervals).');
+            } else if (status === 'CLOSED') {
+              console.log('📡 Realtime channel closed');
             }
           });
 
         realtimeChannelRef.current = channel;
+        */
+
+        // Realtime is disabled - polling will handle all updates
+        console.log('✅ Polling mode active - notifications will update every 60 seconds');
       } catch (error) {
         console.error('💥 Error setting up realtime subscription:', error);
+        console.warn('⚠️ Realtime subscription failed. Using polling fallback only.');
+        // Don't show error to user - polling will handle it
       }
     };
 
