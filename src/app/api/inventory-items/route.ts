@@ -10,27 +10,25 @@ import { createNoCacheResponse } from '@/lib/apiHelpers';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// Validation schemas
+// Validation schemas - All fields optional except project_id and item_name
 const createInventoryItemSchema = z.object({
   project_id: z.string().uuid(),
   item_name: z.string().min(1),
-  quantity: z.number().positive(),
-  unit: z.string().min(1),
-  price_per_unit: z.number().nonnegative(),
+  quantity: z.number().positive().optional(),
   supplier_name: z.string().optional(),
   date_purchased: z.string().optional(), // ISO date string
   bill_url: z.string().optional(),
+  total_cost: z.number().nonnegative().optional(), // Manual total cost entry
 });
 
 const updateInventoryItemSchema = z.object({
   id: z.string().uuid(),
   item_name: z.string().min(1).optional(),
   quantity: z.number().positive().optional(),
-  unit: z.string().min(1).optional(),
-  price_per_unit: z.number().nonnegative().optional(),
   supplier_name: z.string().optional(),
   date_purchased: z.string().optional(),
   bill_url: z.string().optional(),
+  total_cost: z.number().nonnegative().optional(),
 });
 
 async function getCurrentUser(request: NextRequest) {
@@ -134,7 +132,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { project_id, item_name, quantity, unit, price_per_unit, supplier_name, date_purchased, bill_url } = parsed.data;
+    const { project_id, item_name, quantity, supplier_name, date_purchased, bill_url, total_cost } = parsed.data;
 
     const { data: item, error } = await supabaseAdmin
       .from('inventory_items')
@@ -142,12 +140,12 @@ export async function POST(request: NextRequest) {
         project_id,
         item_name,
         quantity,
-        unit,
-        price_per_unit,
         supplier_name,
         date_purchased,
         bill_url,
+        total_cost,
         created_by: user.id,
+        bill_approval_status: 'pending', // Default to pending approval
       })
       .select(`
         *,
@@ -169,10 +167,11 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (projectData && projectData.created_by !== user.id) {
+        const quantityText = quantity ? ` (${quantity})` : '';
         await NotificationService.createNotification({
           userId: projectData.created_by,
           title: 'New Inventory Item Added',
-          message: `${user.full_name} added "${item_name}" (${quantity} ${unit}) to project "${projectData.title}"`,
+          message: `${user.full_name} added "${item_name}"${quantityText} to project "${projectData.title}"`,
           type: 'inventory_added',
           relatedId: project_id,
           relatedType: 'project'

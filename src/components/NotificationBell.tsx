@@ -341,82 +341,74 @@ export function NotificationBell() {
     try {
       console.log('🔊 Attempting to play notification sound...');
 
-      // Try browser notification API first (works in PWA and shows notification)
-      if ('Notification' in window && Notification.permission === 'granted') {
-        console.log('🔔 Using browser notification with sound');
-        new Notification('New notification', {
-          body: 'You have a new notification',
-          icon: '/New-logo.png',
-          badge: '/New-logo.png',
-          silent: false,
-          requireInteraction: false,
-          tag: 'notification-sound', // Prevent duplicate notifications
-        });
-        // Also play sound via Web Audio for better mobile support
-      }
-
-      // Use the initialized audio context (mobile-friendly)
+      // Method 1: Simple and reliable - Web Audio API with proper initialization
       let audioContext = audioContextRef.current;
 
-      // Fallback: create new context if not initialized
+      // Create audio context if not exists
       if (!audioContext) {
-        console.log('🎵 Creating new audio context...');
+        console.log('🎵 Creating audio context...');
         const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
         audioContext = new AudioContextClass();
         audioContextRef.current = audioContext;
       }
 
-      // Resume context if suspended (required for mobile browsers)
+      // Resume if suspended (required for mobile)
       if (audioContext.state === 'suspended') {
-        console.log('🔄 Resuming audio context (required for mobile)...');
-        try {
-          await audioContext.resume();
-          console.log('✅ Audio context resumed, state:', audioContext.state);
-        } catch (resumeError) {
-          console.error('❌ Failed to resume audio context:', resumeError);
-          return; // Can't play sound if context won't resume
-        }
+        console.log('🔄 Resuming audio context...');
+        await audioContext.resume();
       }
 
-      // Create a pleasant notification sound (two-tone beep)
-      const playTone = (frequency: number, startTime: number, duration: number) => {
-        if (!audioContext) return;
+      console.log('🎵 Audio context state:', audioContext.state);
 
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
+      // Create a pleasant two-tone notification sound
+      const createBeep = (frequency: number, startTime: number, duration: number) => {
+        const oscillator = audioContext!.createOscillator();
+        const gainNode = audioContext!.createGain();
 
         oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
+        gainNode.connect(audioContext!.destination);
 
         oscillator.frequency.value = frequency;
         oscillator.type = 'sine';
 
-        // Smoother envelope for better sound quality
+        // Envelope for smooth sound
         gainNode.gain.setValueAtTime(0, startTime);
-        gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.01); // Slightly louder
+        gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.01);
         gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
 
         oscillator.start(startTime);
         oscillator.stop(startTime + duration);
+
+        return oscillator;
       };
 
-      // Play two-tone notification sound (pleasant "ding-dong")
+      // Play two-tone beep (ding-dong)
       const now = audioContext.currentTime;
-      playTone(800, now, 0.15); // First tone (higher pitch)
-      playTone(600, now + 0.2, 0.15); // Second tone (lower pitch)
+      createBeep(800, now, 0.15); // High tone
+      createBeep(600, now + 0.2, 0.15); // Low tone
 
       console.log('✅ Notification sound played successfully');
+
+      // Method 2: Also show browser notification if permission granted
+      if ('Notification' in window && Notification.permission === 'granted') {
+        console.log('🔔 Showing browser notification');
+        new Notification('New notification', {
+          body: 'You have a new notification',
+          icon: '/New-logo.png',
+          badge: '/New-logo.png',
+          silent: false, // Play system sound
+          tag: 'notification-' + Date.now(), // Unique tag to allow multiple notifications
+        });
+      } else if ('Notification' in window && Notification.permission === 'default') {
+        // Request permission if not yet asked
+        Notification.requestPermission().then(permission => {
+          console.log('🔔 Notification permission:', permission);
+        });
+      }
+
     } catch (error) {
       console.error('❌ Error playing notification sound:', error);
       console.error('Error details:', error);
-
-      // Log environment info for debugging
-      console.log('Environment:', {
-        isProduction: process.env.NODE_ENV === 'production',
-        hasAudioContext: !!(window.AudioContext || (window as any).webkitAudioContext),
-        hasNotification: 'Notification' in window,
-        notificationPermission: 'Notification' in window ? Notification.permission : 'N/A',
-      });
     }
   };
 
@@ -552,15 +544,28 @@ export function NotificationBell() {
           {/* Header */}
           <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center bg-gray-50">
             <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
-            {unreadCount > 0 && (
+            <div className="flex gap-2">
+              {/* Test Sound Button (for debugging) */}
               <button
-                onClick={markAllAsRead}
-                disabled={isLoading}
-                className="text-xs text-yellow-600 hover:text-yellow-700 font-medium disabled:opacity-50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  playNotificationSound();
+                }}
+                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                title="Test notification sound"
               >
-                Mark all read
+                🔊 Test
               </button>
-            )}
+              {unreadCount > 0 && (
+                <button
+                  onClick={markAllAsRead}
+                  disabled={isLoading}
+                  className="text-xs text-yellow-600 hover:text-yellow-700 font-medium disabled:opacity-50"
+                >
+                  Mark all read
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Error Message */}

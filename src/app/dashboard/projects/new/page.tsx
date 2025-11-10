@@ -245,27 +245,42 @@ export default function NewProjectPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="assigned_employee_id" className="block text-sm font-medium text-gray-700">
-                  Assign to Employee
-                </label>
-                <select
-                  id="assigned_employee_id"
-                  {...register('assigned_employee_id')}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="">Select an employee</option>
-                  {employees.map((employee) => (
-                    <option key={employee.id} value={employee.id}>
-                      {employee.name} - {employee.designation || 'Designation'}
-                    </option>
-                  ))}
-                </select>
-                {errors.assigned_employee_id && (
-                  <p className="mt-1 text-sm text-red-600">{errors.assigned_employee_id.message}</p>
+            <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Assign Designer *
+              </label>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {employees.length === 0 ? (
+                  <p className="text-sm text-gray-500 italic">No employees available</p>
+                ) : (
+                  employees.map((employee) => (
+                    <label
+                      key={employee.id}
+                      className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-white hover:border-indigo-500 cursor-pointer transition-all duration-200"
+                    >
+                      <input
+                        type="radio"
+                        value={employee.id}
+                        {...register('assigned_employee_id')}
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                      />
+                      <span className="ml-3 flex-1">
+                        <span className="block text-sm font-medium text-gray-900">
+                          {employee.name}
+                        </span>
+                        {employee.designation && (
+                          <span className="block text-xs text-gray-500">
+                            {employee.designation}
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  ))
                 )}
               </div>
+              {errors.assigned_employee_id && (
+                <p className="mt-2 text-sm text-red-600">{errors.assigned_employee_id.message}</p>
+              )}
             </div>
 
             <div className="border-t border-gray-200 pt-6 mt-6">

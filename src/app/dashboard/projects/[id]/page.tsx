@@ -45,10 +45,11 @@ export default function ProjectDetailsPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'details' | 'board' | 'updates' | 'inventory' | 'designs'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'workflow' | 'board' | 'updates' | 'inventory' | 'designs'>('details');
   const [showTabWidget, setShowTabWidget] = useState(false);
   const [mounted, setMounted] = useState(false);
 
+  const WorkflowTab = dynamic(() => import('@/components/projects/WorkflowTab').then(m => m.WorkflowTab), { ssr: false });
   const KanbanBoard = dynamic(() => import('@/components/projects/KanbanBoard').then(m => m.KanbanBoard), { ssr: false });
   const UpdatesTab = dynamic(() => import('@/components/projects/UpdatesTab').then(m => m.UpdatesTab), { ssr: false });
   const InventoryTab = dynamic(() => import('@/components/projects/InventoryTab').then(m => m.InventoryTab), { ssr: false });

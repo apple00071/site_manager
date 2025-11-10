@@ -10,15 +10,14 @@ type InventoryItem = {
   id: string;
   project_id: string;
   item_name: string;
-  quantity: number;
-  unit: string;
-  price_per_unit: number;
-  total_cost: number;
+  quantity: number | null;
+  total_cost: number | null;
   supplier_name: string | null;
   date_purchased: string | null;
   bill_url: string | null;
   created_by: string;
   created_at: string;
+  bill_approval_status: string | null;
   created_by_user: {
     id: string;
     full_name: string;
@@ -40,12 +39,14 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
   const [saving, setSaving] = useState(false);
   const [uploadingBill, setUploadingBill] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectingItem, setRejectingItem] = useState<InventoryItem | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [processingApproval, setProcessingApproval] = useState(false);
   
   const [form, setForm] = useState({
     item_name: '',
     quantity: '',
-    unit: 'pieces',
-    price_per_unit: '',
     supplier_name: '',
     date_purchased: '',
     bill_url: '',
@@ -109,21 +110,8 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
   };
 
   const handleSubmit = async () => {
-    if (!form.item_name.trim() || !form.quantity || !form.price_per_unit) {
-      alert('Please fill in all required fields');
-      return;
-    }
-
-    const quantity = parseFloat(form.quantity);
-    const price_per_unit = parseFloat(form.price_per_unit);
-
-    if (isNaN(quantity) || quantity <= 0) {
-      alert('Please enter a valid quantity');
-      return;
-    }
-
-    if (isNaN(price_per_unit) || price_per_unit < 0) {
-      alert('Please enter a valid price');
+    if (!form.item_name.trim()) {
+      alert('Please enter an item name');
       return;
     }
 
@@ -136,9 +124,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
       const body: any = {
         project_id: projectId,
         item_name: form.item_name.trim(),
-        quantity,
-        unit: form.unit,
-        price_per_unit,
+        quantity: form.quantity ? parseFloat(form.quantity) : undefined,
         supplier_name: form.supplier_name.trim() || undefined,
         date_purchased: form.date_purchased || undefined,
         bill_url: form.bill_url || undefined,
@@ -188,9 +174,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
     setEditingItem(item);
     setForm({
       item_name: item.item_name,
-      quantity: item.quantity.toString(),
-      unit: item.unit,
-      price_per_unit: item.price_per_unit.toString(),
+      quantity: item.quantity?.toString() || '',
       supplier_name: item.supplier_name || '',
       date_purchased: item.date_purchased || '',
       bill_url: item.bill_url || '',
@@ -218,12 +202,85 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
     }
   };
 
+  const handleApproveBill = async (itemId: string) => {
+    if (!confirm('Are you sure you want to approve this bill?')) return;
+
+    setProcessingApproval(true);
+    try {
+      const response = await fetch(`/api/inventory-items/${itemId}/approve-bill`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to approve bill');
+      }
+
+      // Update the item in the list
+      setItems(prev => prev.map(item =>
+        item.id === itemId
+          ? { ...item, bill_approval_status: 'approved' }
+          : item
+      ));
+
+      alert('Bill approved successfully!');
+    } catch (error: any) {
+      console.error('Error approving bill:', error);
+      alert(error.message || 'Failed to approve bill');
+    } finally {
+      setProcessingApproval(false);
+    }
+  };
+
+  const handleRejectBill = (item: InventoryItem) => {
+    setRejectingItem(item);
+    setRejectionReason('');
+    setShowRejectModal(true);
+  };
+
+  const submitRejectBill = async () => {
+    if (!rejectingItem) return;
+    if (!rejectionReason.trim()) {
+      alert('Please provide a rejection reason');
+      return;
+    }
+
+    setProcessingApproval(true);
+    try {
+      const response = await fetch(`/api/inventory-items/${rejectingItem.id}/reject-bill`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rejection_reason: rejectionReason.trim() }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to reject bill');
+      }
+
+      // Update the item in the list
+      setItems(prev => prev.map(item =>
+        item.id === rejectingItem.id
+          ? { ...item, bill_approval_status: 'rejected' }
+          : item
+      ));
+
+      setShowRejectModal(false);
+      setRejectingItem(null);
+      setRejectionReason('');
+      alert('Bill rejected successfully!');
+    } catch (error: any) {
+      console.error('Error rejecting bill:', error);
+      alert(error.message || 'Failed to reject bill');
+    } finally {
+      setProcessingApproval(false);
+    }
+  };
+
   const resetForm = () => {
     setForm({
       item_name: '',
       quantity: '',
-      unit: 'pieces',
-      price_per_unit: '',
       supplier_name: '',
       date_purchased: '',
       bill_url: '',
@@ -275,6 +332,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 value={form.item_name}
                 onChange={(e) => setForm(prev => ({ ...prev, item_name: e.target.value }))}
                 className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                placeholder="e.g., Cement, Paint, Tiles"
               />
             </div>
             <div>
@@ -284,42 +342,18 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 value={form.supplier_name}
                 onChange={(e) => setForm(prev => ({ ...prev, supplier_name: e.target.value }))}
                 className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                placeholder="Optional"
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-600 mb-1">Quantity *</label>
+              <label className="block text-xs text-gray-600 mb-1">Quantity</label>
               <input
                 type="number"
                 step="0.01"
                 value={form.quantity}
                 onChange={(e) => setForm(prev => ({ ...prev, quantity: e.target.value }))}
                 className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Unit *</label>
-              <select
-                value={form.unit}
-                onChange={(e) => setForm(prev => ({ ...prev, unit: e.target.value }))}
-                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-              >
-                <option value="pieces">Pieces</option>
-                <option value="kg">Kilograms</option>
-                <option value="meters">Meters</option>
-                <option value="liters">Liters</option>
-                <option value="boxes">Boxes</option>
-                <option value="bags">Bags</option>
-                <option value="sqft">Square Feet</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Price per Unit *</label>
-              <input
-                type="number"
-                step="0.01"
-                value={form.price_per_unit}
-                onChange={(e) => setForm(prev => ({ ...prev, price_per_unit: e.target.value }))}
-                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                placeholder="Optional"
               />
             </div>
             <div>
@@ -342,7 +376,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
               />
               {uploadingBill && <p className="text-xs text-gray-500 mt-1">Uploading...</p>}
               {form.bill_url && (
-                <button 
+                <button
                   onClick={() => setSelectedImage(form.bill_url)}
                   className="text-xs text-yellow-600 hover:underline hover:text-yellow-700 mt-1 block transition-colors"
                 >
@@ -386,11 +420,11 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price/Unit</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Cost</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bill</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
@@ -398,16 +432,17 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 {items.map((item) => (
                   <tr key={item.id}>
                     <td className="px-4 py-3 text-sm text-gray-900">{item.item_name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{item.quantity} {item.unit}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(item.price_per_unit)}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{formatCurrency(item.total_cost)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{item.quantity || '-'}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                      {item.total_cost ? formatCurrency(item.total_cost) : '-'}
+                    </td>
                     <td className="px-4 py-3 text-sm text-gray-500">{item.supplier_name || '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">
                       {item.date_purchased ? formatDateIST(item.date_purchased) : '-'}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {item.bill_url ? (
-                        <button 
+                        <button
                           onClick={() => setSelectedImage(item.bill_url!)}
                           className="text-yellow-600 hover:underline hover:text-yellow-700 transition-colors"
                         >
@@ -418,18 +453,49 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      <button
-                        onClick={() => handleEdit(item)}
-                        className="text-yellow-600 hover:underline mr-3"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="text-red-600 hover:underline"
-                      >
-                        Delete
-                      </button>
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        item.bill_approval_status === 'approved' ? 'bg-green-100 text-green-800' :
+                        item.bill_approval_status === 'rejected' ? 'bg-red-100 text-red-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {item.bill_approval_status || 'pending'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="flex flex-col gap-1">
+                        <div>
+                          <button
+                            onClick={() => handleEdit(item)}
+                            className="text-yellow-600 hover:underline mr-3"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            className="text-red-600 hover:underline"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                        {user?.role === 'admin' && item.bill_url && item.bill_approval_status === 'pending' && (
+                          <div className="flex gap-2 mt-1">
+                            <button
+                              onClick={() => handleApproveBill(item.id)}
+                              disabled={processingApproval}
+                              className="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
+                            >
+                              ✓ Approve
+                            </button>
+                            <button
+                              onClick={() => handleRejectBill(item)}
+                              disabled={processingApproval}
+                              className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
+                            >
+                              ✗ Reject
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -443,17 +509,17 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
               <div key={item.id} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
                 <div className="flex justify-between items-start mb-2">
                   <h4 className="text-sm font-medium text-gray-900">{item.item_name}</h4>
-                  <span className="text-sm font-bold text-yellow-600">{formatCurrency(item.total_cost)}</span>
+                  <span className="text-sm font-bold text-yellow-600">
+                    {item.total_cost ? formatCurrency(item.total_cost) : '-'}
+                  </span>
                 </div>
                 <div className="space-y-1 text-xs text-gray-600">
-                  <div className="flex justify-between">
-                    <span>Quantity:</span>
-                    <span className="font-medium text-gray-900">{item.quantity} {item.unit}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Price/Unit:</span>
-                    <span className="font-medium text-gray-900">{formatCurrency(item.price_per_unit)}</span>
-                  </div>
+                  {item.quantity && (
+                    <div className="flex justify-between">
+                      <span>Quantity:</span>
+                      <span className="font-medium text-gray-900">{item.quantity}</span>
+                    </div>
+                  )}
                   {item.supplier_name && (
                     <div className="flex justify-between">
                       <span>Supplier:</span>
@@ -466,10 +532,20 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                       <span className="font-medium text-gray-900">{formatDateIST(item.date_purchased)}</span>
                     </div>
                   )}
+                  <div className="flex justify-between">
+                    <span>Status:</span>
+                    <span className={`px-2 py-0.5 text-xs rounded-full ${
+                      item.bill_approval_status === 'approved' ? 'bg-green-100 text-green-800' :
+                      item.bill_approval_status === 'rejected' ? 'bg-red-100 text-red-800' :
+                      'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {item.bill_approval_status || 'pending'}
+                    </span>
+                  </div>
                   {item.bill_url && (
                     <div className="flex justify-between">
                       <span>Bill:</span>
-                      <button 
+                      <button
                         onClick={() => setSelectedImage(item.bill_url!)}
                         className="text-yellow-600 hover:underline hover:text-yellow-700 font-medium transition-colors"
                       >
@@ -492,6 +568,24 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                     Delete
                   </button>
                 </div>
+                {user?.role === 'admin' && item.bill_url && item.bill_approval_status === 'pending' && (
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => handleApproveBill(item.id)}
+                      disabled={processingApproval}
+                      className="flex-1 px-3 py-1.5 text-xs bg-green-500 text-white rounded hover:bg-green-600 font-medium disabled:opacity-50"
+                    >
+                      ✓ Approve Bill
+                    </button>
+                    <button
+                      onClick={() => handleRejectBill(item)}
+                      disabled={processingApproval}
+                      className="flex-1 px-3 py-1.5 text-xs bg-red-500 text-white rounded hover:bg-red-600 font-medium disabled:opacity-50"
+                    >
+                      ✗ Reject Bill
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -505,6 +599,47 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
         isOpen={!!selectedImage}
         onClose={() => setSelectedImage(null)}
       />
+
+      {/* Rejection Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Reject Bill
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Please provide a reason for rejecting this bill. The site supervisor will be notified.
+            </p>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="Enter rejection reason..."
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 min-h-[100px]"
+              autoFocus
+            />
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setRejectingItem(null);
+                  setRejectionReason('');
+                }}
+                disabled={processingApproval}
+                className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitRejectBill}
+                disabled={processingApproval || !rejectionReason.trim()}
+                className="flex-1 px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
+              >
+                {processingApproval ? 'Rejecting...' : 'Reject Bill'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
