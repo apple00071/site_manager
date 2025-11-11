@@ -25,8 +25,17 @@ const createUserSchema = z.object({
   email: z.string().email('Invalid email address'),
   full_name: z.string().min(2, 'Full name must be at least 2 characters'),
   designation: z.string().min(2, 'Designation must be at least 2 characters'),
-  role: z.enum(['admin', 'employee']),
+  role: z.enum(['admin', 'designer', 'site_supervisor', 'employee']),
   password: z.string().min(6, 'Password must be at least 6 characters'),
+});
+
+const updateUserSchema = z.object({
+  id: z.string().uuid('Invalid user ID'),
+  email: z.string().email('Invalid email address'),
+  full_name: z.string().min(2, 'Full name must be at least 2 characters'),
+  designation: z.string().min(2, 'Designation must be at least 2 characters'),
+  role: z.enum(['admin', 'designer', 'site_supervisor', 'employee']),
+  password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
 });
 
 export async function POST(req: Request) {
@@ -137,6 +146,93 @@ export async function POST(req: Request) {
     }
   } catch (err: any) {
     console.error('Unexpected error in POST handler:', err);
+    return NextResponse.json(
+      { error: 'An unexpected error occurred', details: err.message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const body = await req.json();
+    const parsed = updateUserSchema.safeParse(body);
+    
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid request', details: parsed.error.format() },
+        { status: 400 }
+      );
+    }
+
+    const { id, email, full_name, designation, role, password } = parsed.data;
+
+    console.log('Updating user:', { id, email, full_name, role });
+
+    // Update user profile in database
+    const { error: profileError } = await supabaseAdmin
+      .from('users')
+      .update({
+        email,
+        full_name,
+        designation,
+        role,
+      })
+      .eq('id', id);
+
+    if (profileError) {
+      console.error('Error updating user profile:', profileError);
+      return NextResponse.json(
+        { error: profileError.message || 'Failed to update user profile' },
+        { status: 500 }
+      );
+    }
+
+    // Update password if provided
+    if (password && password.trim() !== '') {
+      const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(
+        id,
+        { password }
+      );
+
+      if (passwordError) {
+        console.error('Error updating password:', passwordError);
+        return NextResponse.json(
+          { error: passwordError.message || 'Failed to update password' },
+          { status: 500 }
+        );
+      }
+      console.log('Password updated successfully');
+    }
+
+    // Update auth user metadata
+    const { error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(
+      id,
+      {
+        user_metadata: {
+          full_name,
+          designation,
+          role,
+        },
+      }
+    );
+
+    if (metadataError) {
+      console.error('Error updating user metadata:', metadataError);
+      // Don't fail the operation if metadata update fails
+    }
+
+    console.log('User updated successfully');
+
+    return NextResponse.json(
+      { 
+        success: true, 
+        message: 'User updated successfully'
+      },
+      { status: 200 }
+    );
+  } catch (err: any) {
+    console.error('Unexpected error in PATCH handler:', err);
     return NextResponse.json(
       { error: 'An unexpected error occurred', details: err.message },
       { status: 500 }

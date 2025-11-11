@@ -15,7 +15,8 @@ const userSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   full_name: z.string().min(2, 'Full name is required'),
   designation: z.string().min(2, 'Designation is required'),
-  role: z.enum(['admin', 'employee']),
+  role: z.enum(['admin', 'designer', 'site_supervisor', 'employee']),
+  password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
@@ -78,22 +79,31 @@ export default function EditUserPage() {
   const onSubmit = async (data: UserFormValues) => {
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('users')
-        .update({
+      const response = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: userId,
           email: data.email,
           full_name: data.full_name,
           designation: data.designation,
           role: data.role,
-        })
-        .eq('id', userId);
+          password: data.password || '',
+        }),
+      });
 
-      if (error) throw error;
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update user');
+      }
       
       router.push('/dashboard/users');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating user:', error);
-      alert('Failed to update user. Please try again.');
+      alert(error.message || 'Failed to update user. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -200,10 +210,28 @@ export default function EditUserPage() {
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 >
                   <option value="employee">Employee</option>
+                  <option value="designer">Designer</option>
+                  <option value="site_supervisor">Site Supervisor</option>
                   <option value="admin">Admin</option>
                 </select>
                 {errors.role && (
                   <p className="mt-1 text-sm text-red-600">{errors.role.message}</p>
+                )}
+              </div>
+
+              <div className="sm:col-span-2">
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                  New Password (leave blank to keep current password)
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  {...register('password')}
+                  placeholder="Enter new password (optional)"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                {errors.password && (
+                  <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
                 )}
               </div>
             </div>

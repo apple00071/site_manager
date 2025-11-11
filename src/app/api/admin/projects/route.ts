@@ -149,8 +149,24 @@ export async function GET() {
 
       const assignedProjectIds = assignedProjects?.map(p => p.id) || [];
 
-      // Combine both lists (remove duplicates)
-      const allProjectIds = [...new Set([...memberProjectIds, ...assignedProjectIds])];
+      // Get projects assigned via designer_id field
+      const { data: designerProjects, error: designerError } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('designer_id', userId);
+
+      if (designerError) {
+        console.error('Error fetching designer projects:', designerError.message);
+        return NextResponse.json(
+          { error: { message: 'Error fetching designer projects', code: 'PROJECT_FETCH_ERROR' } },
+          { status: 500 }
+        );
+      }
+
+      const designerProjectIds = designerProjects?.map(p => p.id) || [];
+
+      // Combine all lists (remove duplicates)
+      const allProjectIds = [...new Set([...memberProjectIds, ...assignedProjectIds, ...designerProjectIds])];
 
       if (allProjectIds.length === 0) {
         // User is not assigned to any projects

@@ -1,6 +1,6 @@
 # Apple Interior Manager - Codebase Index
 
-**Last Updated:** November 10, 2025  
+**Last Updated:** November 11, 2025  
 **Project Version:** 0.1.0  
 **Framework:** Next.js 16.0.0 with React 19.2.0
 
@@ -302,18 +302,44 @@ Response to Client
 - **Storage**: Supabase Storage for file uploads
 - **Realtime**: Supabase Realtime for live updates
 
-### Key Tables (Inferred)
-- `users` - User profiles with roles
-- `projects` - Project information
-- `clients` - Client data
-- `tasks` - Task assignments
-- `project_steps` - Project workflow steps
-- `project_updates` - Project activity logs
-- `design_files` - Design file metadata
-- `design_comments` - Design feedback
-- `inventory_items` - Inventory tracking
-- `notifications` - User notifications
-- `project_members` - Project team assignments
+### Key Tables
+
+#### Core Tables (from `supabase-schema.sql`)
+- **`users`** - User profiles with roles (admin/employee)
+  - Extends `auth.users`
+  - Fields: id, email, full_name, role, created_at, updated_at
+  - RLS policies for admin and self-access
+
+- **`clients`** - Client information
+  - Fields: id, name, email, phone, address, created_at, updated_at
+  - Used for project client relationships
+
+- **`projects`** - Project management
+  - Fields: id, title, description, client_id, deadline, status, created_at, updated_at
+  - RLS policies for admin and assigned employees
+
+- **`project_members`** - Project team assignments
+  - Junction table for projects and users
+  - Fields: id, project_id, user_id, permissions (JSONB), created_at
+  - Permissions: view, edit, upload, mark_done
+
+- **`files`** - File uploads for projects
+  - Fields: id, project_id, user_id, file_name, file_path, file_type, file_size, created_at
+  - RLS policies for viewing and uploading based on project membership
+
+- **`audit_logs`** - Admin action tracking
+  - Fields: id, created_at, actor_user_id, target_type, target_id, action, details (JSONB)
+  - Admin-only read access
+
+#### Extended Tables (from migrations)
+- **`tasks`** - Task assignments and tracking
+- **`project_steps`** - Project workflow steps
+- **`project_updates`** - Project activity logs
+- **`design_files`** - Design file metadata
+- **`design_comments`** - Design feedback and comments
+- **`inventory_items`** - Inventory tracking and bills
+- **`notifications`** - User notifications
+- **`push_subscriptions`** - Push notification subscriptions
 
 ### Row Level Security (RLS)
 - Enabled on all tables
@@ -330,10 +356,65 @@ Response to Client
 - **`src/app/dashboard/layout.tsx`**: Dashboard layout with sidebar
 
 ### UI Components
-- **`NotificationBell.tsx`**: Real-time notification bell (26KB - complex component)
-- **`PWAInstallPrompt.tsx`**: PWA installation prompt
-- **`BackButton.tsx`**: Navigation helper
-- **`HydrationSafe.tsx`**: Prevents hydration mismatches
+
+#### Core UI Components
+- **`NotificationBell.tsx`** (26KB): Real-time notification bell with badge counter
+  - Fetches and displays notifications
+  - Mark as read functionality
+  - Real-time updates via Supabase subscriptions
+  - Dropdown menu with notification list
+
+- **`PWAInstallPrompt.tsx`**: Progressive Web App installation prompt
+  - Detects PWA install capability
+  - Shows install banner for mobile devices
+  - Handles beforeinstallprompt event
+
+- **`BackButton.tsx`**: Navigation back button
+  - Uses Next.js router for navigation
+  - Consistent styling across pages
+
+- **`HydrationSafe.tsx`**: Client-side only wrapper
+  - Prevents hydration mismatches
+  - Delays rendering until client-side
+  - Used for localStorage-dependent components
+
+#### Project Components (`src/components/projects/`)
+- **`DesignsTab.tsx`** (17KB): Design file management interface
+  - Upload design files
+  - View design gallery
+  - Comment on designs
+  - Approve/reject designs
+
+- **`InventoryTab.tsx`** (25KB): Inventory management interface
+  - Add inventory items
+  - Upload bills
+  - Approve/reject bills
+  - Track inventory status
+
+- **`WorkflowTab.tsx`** (13KB): Project workflow management
+  - Define project steps
+  - Track step completion
+  - Workflow visualization
+
+- **`UpdatesTab.tsx`** (12KB): Project update logs
+  - View project timeline
+  - Add updates
+  - Filter by type
+
+- **`KanbanBoard.tsx`** (13KB): Task kanban board
+  - Drag-and-drop task management
+  - Status columns (To Do, In Progress, Done)
+  - Task assignment and tracking
+
+- **`GanttView.tsx`** (3KB): Project timeline visualization
+  - Gantt chart for project schedule
+  - Timeline view of tasks
+
+#### UI Utilities (`src/components/ui/`)
+- **`ImageModal.tsx`** (5KB): Image lightbox modal
+  - Full-screen image viewer
+  - Navigation between images
+  - Zoom and pan capabilities
 
 ### Error Handling
 - **`AppErrorBoundary.tsx`**: App-level error boundary
@@ -594,6 +675,35 @@ npm run lint
 
 ---
 
+---
+
+## 📊 Project Statistics
+
+### File Count
+- **Total TypeScript/TSX files**: 76+
+- **API Routes**: 15 endpoints
+- **Page Components**: 25+ pages
+- **Reusable Components**: 13+ components
+- **Context Providers**: 2 (AuthContext, AdminAuthContext)
+- **Utility Libraries**: 10+ helper files
+- **Database Migrations**: 4 SQL files
+
+### Code Metrics
+- **Largest Component**: `NotificationBell.tsx` (26KB)
+- **Largest Project Component**: `InventoryTab.tsx` (25KB)
+- **Middleware**: 166 lines (authentication & authorization)
+- **Database Schema**: 188 lines (core tables + RLS policies)
+
+### Technology Versions
+- Next.js: 16.0.0
+- React: 19.2.0
+- TypeScript: 5.9.3
+- Tailwind CSS: 4.x
+- Supabase JS: 2.76.1
+- Node.js: 20.19.24 (types)
+
+---
+
 **Generated by:** Cascade AI  
-**Date:** November 10, 2025  
+**Date:** November 11, 2025  
 **Purpose:** Comprehensive codebase reference for development and onboarding

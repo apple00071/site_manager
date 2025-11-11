@@ -9,31 +9,55 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { supabase } from '@/lib/supabase';
 
 const projectSchema = z.object({
+  // Basic Information
   title: z.string().min(2, 'Title is required'),
   description: z.string().optional().nullable(),
-  status: z.enum(['pending', 'in_progress', 'completed']),
+  
+  // Customer Details
   customer_name: z.string().min(2, 'Customer name is required'),
   phone_number: z.string().min(10, 'Phone number is required'),
   alt_phone_number: z.string().optional().nullable(),
+  email: z.string().email('Invalid email address').optional().nullable(),
+  
+  // Address Details
   address: z.string().min(5, 'Address is required'),
-  // New address fields for interior design projects
+  landmark: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  state: z.string().optional().nullable(),
+  pincode: z.string().optional().nullable(),
+  
+  // Property Details
+  property_type: z.enum(['apartment', 'villa', 'independent_house', 'office', 'commercial', 'granite', 'glass', 'other']).optional().nullable(),
   apartment_name: z.string().optional().nullable(),
   block_number: z.string().optional().nullable(),
   flat_number: z.string().optional().nullable(),
   floor_number: z.string().optional().nullable(),
   area_sqft: z.string().optional().nullable(),
-  property_type: z.enum(['apartment', 'villa', 'independent_house', 'office', 'commercial', 'other']).optional().nullable(),
-  // Project details
+  
+  // Project Details
   start_date: z.string().min(1, 'Start date is required'),
   estimated_completion_date: z.string().min(1, 'Estimated completion date is required'),
+  project_type: z.string().optional().nullable(),
+  
+  // Financial Details
+  project_budget: z.string().optional().nullable(),
+  advance_payment: z.string().optional().nullable(),
+  payment_terms: z.string().optional().nullable(),
+  
+  // Team Assignment
   assigned_employee_id: z.string().uuid('Please select an employee'),
-  // Design specifications
+  team_members: z.array(z.string()).optional().nullable(),
+  
+  // Design Specifications
   design_style: z.string().optional().nullable(),
   room_types: z.string().optional().nullable(),
   special_requirements: z.string().optional().nullable(),
-  // Team details
+  
+  // Worker Details
   designer_name: z.string().min(2, 'Designer name is required'),
   designer_phone: z.string().min(10, 'Designer phone is required'),
+  
+  // Tradespeople
   carpenter_name: z.string().optional().nullable(),
   carpenter_phone: z.string().optional().nullable(),
   electrician_name: z.string().optional().nullable(),
@@ -42,8 +66,23 @@ const projectSchema = z.object({
   plumber_phone: z.string().optional().nullable(),
   painter_name: z.string().optional().nullable(),
   painter_phone: z.string().optional().nullable(),
-  project_budget: z.string().optional().nullable(),
+  granite_worker_name: z.string().optional().nullable(),
+  granite_worker_phone: z.string().optional().nullable(),
+  glass_worker_name: z.string().optional().nullable(),
+  glass_worker_phone: z.string().optional().nullable(),
+  
+  // Additional Information
   project_notes: z.string().optional().nullable(),
+  internal_notes: z.string().optional().nullable(),
+  
+  // Attachments
+  requirements_pdf_url: z.string().optional().nullable(),
+  attachments: z.array(z.string()).optional().nullable(),
+  
+  // System Fields
+  status: z.string().optional().nullable(),
+  created_by: z.string().optional(),
+  updated_by: z.string().optional()
 });
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
@@ -215,19 +254,42 @@ export default function NewProjectPage() {
             e.preventDefault();
             handleSubmit(onSubmit)();
           }} className="space-y-6">
-            <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-                Project Title
-              </label>
-              <input
-                id="title"
-                type="text"
-                {...register('title')}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              {errors.title && (
-                <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+                  Project Title *
+                </label>
+                <input
+                  id="title"
+                  type="text"
+                  {...register('title')}
+                  className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                  placeholder="Enter project title"
+                />
+                {errors.title && (
+                  <p className="mt-1 text-xs text-red-600">{errors.title.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="project_type" className="block text-sm font-medium text-gray-700 mb-1">
+                  Project Type
+                </label>
+                <select
+                  id="project_type"
+                  {...register('project_type')}
+                  className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-white"
+                >
+                  <option value="">Select project type</option>
+                  <option value="residential">Residential</option>
+                  <option value="commercial">Commercial</option>
+                  <option value="office">Office</option>
+                  <option value="hospitality">Hospitality</option>
+                  <option value="retail">Retail</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
             </div>
 
             <div>
@@ -245,42 +307,94 @@ export default function NewProjectPage() {
               )}
             </div>
 
-            <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Assign Designer *
-              </label>
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {employees.length === 0 ? (
-                  <p className="text-sm text-gray-500 italic">No employees available</p>
-                ) : (
-                  employees.map((employee) => (
-                    <label
-                      key={employee.id}
-                      className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-white hover:border-indigo-500 cursor-pointer transition-all duration-200"
-                    >
-                      <input
-                        type="radio"
-                        value={employee.id}
-                        {...register('assigned_employee_id')}
-                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                      />
-                      <span className="ml-3 flex-1">
-                        <span className="block text-sm font-medium text-gray-900">
-                          {employee.name}
-                        </span>
-                        {employee.designation && (
-                          <span className="block text-xs text-gray-500">
-                            {employee.designation}
+            <div className="border border-gray-200 rounded-xl p-4 bg-white shadow-sm">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Assign Team</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Assign Project Manager *
+                  </label>
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                    {!employees || employees.length === 0 ? (
+                      <div className="flex items-center justify-center py-4">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-500"></div>
+                        <span className="ml-2 text-sm text-gray-500">Loading team members...</span>
+                      </div>
+                    ) : (
+                      employees
+                        .filter(emp => emp.designation?.toLowerCase().includes('manager') || emp.designation?.toLowerCase().includes('lead'))
+                        .map((employee) => (
+                          <label
+                            key={employee.id}
+                            className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-white hover:border-yellow-400 cursor-pointer transition-all duration-200 mb-2"
+                          >
+                            <input
+                              type="radio"
+                              value={employee.id}
+                              {...register('assigned_employee_id')}
+                              className="h-4 w-4 text-yellow-500 focus:ring-yellow-400 border-gray-300"
+                            />
+                            <span className="ml-3 flex-1">
+                              <span className="block text-sm font-medium text-gray-900">
+                                {employee.name}
+                              </span>
+                              {employee.designation && (
+                                <span className="block text-xs text-gray-500">
+                                  {employee.designation}
+                                </span>
+                              )}
+                              {employee.email && (
+                                <span className="block text-xs text-gray-500 truncate">
+                                  {employee.email}
+                                </span>
+                              )}
+                            </span>
+                          </label>
+                        ))
+                    )}
+                  </div>
+                  {errors.assigned_employee_id && (
+                    <p className="mt-2 text-xs text-red-600">{errors.assigned_employee_id.message}</p>
+                  )}
+                </div>
+
+                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Assign Team Members
+                  </label>
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                    {!employees || employees.length === 0 ? (
+                      <div className="flex items-center justify-center py-4">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-500"></div>
+                        <span className="ml-2 text-sm text-gray-500">Loading team members...</span>
+                      </div>
+                    ) : (
+                      employees.map((employee) => (
+                        <label
+                          key={employee.id}
+                          className="flex items-start p-2 border border-gray-200 rounded-lg hover:bg-white hover:border-yellow-400 cursor-pointer transition-all duration-200 mb-2"
+                        >
+                          <input
+                            type="checkbox"
+                            value={employee.id}
+                            {...register('team_members')}
+                            className="h-4 w-4 text-yellow-500 focus:ring-yellow-400 border-gray-300 rounded mt-1"
+                          />
+                          <span className="ml-3 flex-1">
+                            <span className="block text-sm font-medium text-gray-900">
+                              {employee.name}
+                            </span>
+                            <span className="block text-xs text-gray-500">
+                              {employee.designation || 'Team Member'}
+                            </span>
                           </span>
-                        )}
-                      </span>
-                    </label>
-                  ))
-                )}
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
               </div>
-              {errors.assigned_employee_id && (
-                <p className="mt-2 text-sm text-red-600">{errors.assigned_employee_id.message}</p>
-              )}
             </div>
 
             <div className="border-t border-gray-200 pt-6 mt-6">
@@ -531,187 +645,167 @@ export default function NewProjectPage() {
             </div>
 
             <div className="border-t border-gray-200 pt-6 mt-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Team Details</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Worker Details</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div className="md:col-span-2">
-                  <h4 className="text-md font-medium text-gray-800 mb-3">Designer</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="designer_name" className="block text-sm font-medium text-gray-700 mb-1">
-                        Designer Name *
-                      </label>
-                      <input
-                        id="designer_name"
-                        type="text"
-                        {...register('designer_name')}
-                        placeholder="Enter designer name"
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                      {errors.designer_name && (
-                        <p className="mt-1 text-sm text-red-600">{errors.designer_name.message}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label htmlFor="designer_phone" className="block text-sm font-medium text-gray-700 mb-1">
-                        Designer Phone *
-                      </label>
-                      <input
-                        id="designer_phone"
-                        type="tel"
-                        {...register('designer_phone')}
-                        placeholder="1234567890"
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                      {errors.designer_phone && (
-                        <p className="mt-1 text-sm text-red-600">{errors.designer_phone.message}</p>
-                      )}
-                    </div>
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Designer */}
+                <div>
+                  <label htmlFor="designer_name" className="block text-sm font-medium text-gray-700 mb-1">
+                    Designer Name *
+                  </label>
+                  <input
+                    id="designer_name"
+                    type="text"
+                    {...register('designer_name')}
+                    placeholder="Enter designer name"
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                  />
+                  {errors.designer_name && (
+                    <p className="mt-1 text-xs text-red-600">{errors.designer_name.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="designer_phone" className="block text-sm font-medium text-gray-700 mb-1">
+                    Designer Phone *
+                  </label>
+                  <input
+                    id="designer_phone"
+                    type="tel"
+                    {...register('designer_phone')}
+                    placeholder="1234567890"
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                  />
+                  {errors.designer_phone && (
+                    <p className="mt-1 text-xs text-red-600">{errors.designer_phone.message}</p>
+                  )}
                 </div>
 
-                <div className="md:col-span-2">
-                  <h4 className="text-md font-medium text-gray-800 mb-3">Carpenter</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="carpenter_name" className="block text-sm font-medium text-gray-700 mb-1">
-                        Carpenter Name
-                      </label>
-                      <input
-                        id="carpenter_name"
-                        type="text"
-                        {...register('carpenter_name')}
-                        placeholder="Enter carpenter name"
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                      {errors.carpenter_name && (
-                        <p className="mt-1 text-sm text-red-600">{errors.carpenter_name.message}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label htmlFor="carpenter_phone" className="block text-sm font-medium text-gray-700 mb-1">
-                        Carpenter Phone
-                      </label>
-                      <input
-                        id="carpenter_phone"
-                        type="tel"
-                        {...register('carpenter_phone')}
-                        placeholder="1234567890"
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                      {errors.carpenter_phone && (
-                        <p className="mt-1 text-sm text-red-600">{errors.carpenter_phone.message}</p>
-                      )}
-                    </div>
-                  </div>
+                {/* Carpenter */}
+                <div>
+                  <label htmlFor="carpenter_name" className="block text-sm font-medium text-gray-700 mb-1">
+                    Carpenter Name
+                  </label>
+                  <input
+                    id="carpenter_name"
+                    type="text"
+                    {...register('carpenter_name')}
+                    placeholder="Enter carpenter name"
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                  />
+                  {errors.carpenter_name && (
+                    <p className="mt-1 text-xs text-red-600">{errors.carpenter_name.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="carpenter_phone" className="block text-sm font-medium text-gray-700 mb-1">
+                    Carpenter Phone
+                  </label>
+                  <input
+                    id="carpenter_phone"
+                    type="tel"
+                    {...register('carpenter_phone')}
+                    placeholder="1234567890"
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                  />
+                  {errors.carpenter_phone && (
+                    <p className="mt-1 text-xs text-red-600">{errors.carpenter_phone.message}</p>
+                  )}
                 </div>
 
-                <div className="md:col-span-2">
-                  <h4 className="text-md font-medium text-gray-800 mb-3">Electrician</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="electrician_name" className="block text-sm font-medium text-gray-700 mb-1">
-                        Electrician Name
-                      </label>
-                      <input
-                        id="electrician_name"
-                        type="text"
-                        {...register('electrician_name')}
-                        placeholder="Enter electrician name"
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                      {errors.electrician_name && (
-                        <p className="mt-1 text-sm text-red-600">{errors.electrician_name.message}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label htmlFor="electrician_phone" className="block text-sm font-medium text-gray-700 mb-1">
-                        Electrician Phone
-                      </label>
-                      <input
-                        id="electrician_phone"
-                        type="tel"
-                        {...register('electrician_phone')}
-                        placeholder="1234567890"
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                      {errors.electrician_phone && (
-                        <p className="mt-1 text-sm text-red-600">{errors.electrician_phone.message}</p>
-                      )}
-                    </div>
-                  </div>
+                {/* Electrician */}
+                <div>
+                  <label htmlFor="electrician_name" className="block text-sm font-medium text-gray-700 mb-1">
+                    Electrician Name
+                  </label>
+                  <input
+                    id="electrician_name"
+                    type="text"
+                    {...register('electrician_name')}
+                    placeholder="Enter electrician name"
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                  />
+                  {errors.electrician_name && (
+                    <p className="mt-1 text-xs text-red-600">{errors.electrician_name.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="electrician_phone" className="block text-sm font-medium text-gray-700 mb-1">
+                    Electrician Phone
+                  </label>
+                  <input
+                    id="electrician_phone"
+                    type="tel"
+                    {...register('electrician_phone')}
+                    placeholder="1234567890"
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                  />
+                  {errors.electrician_phone && (
+                    <p className="mt-1 text-xs text-red-600">{errors.electrician_phone.message}</p>
+                  )}
                 </div>
 
-                <div className="md:col-span-2">
-                  <h4 className="text-md font-medium text-gray-800 mb-3">Plumber</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="plumber_name" className="block text-sm font-medium text-gray-700 mb-1">
-                        Plumber Name
-                      </label>
-                      <input
-                        id="plumber_name"
-                        type="text"
-                        {...register('plumber_name')}
-                        placeholder="Enter plumber name"
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                      {errors.plumber_name && (
-                        <p className="mt-1 text-sm text-red-600">{errors.plumber_name.message}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label htmlFor="plumber_phone" className="block text-sm font-medium text-gray-700 mb-1">
-                        Plumber Phone
-                      </label>
-                      <input
-                        id="plumber_phone"
-                        type="tel"
-                        {...register('plumber_phone')}
-                        placeholder="1234567890"
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                      {errors.plumber_phone && (
-                        <p className="mt-1 text-sm text-red-600">{errors.plumber_phone.message}</p>
-                      )}
-                    </div>
-                  </div>
+                {/* Plumber */}
+                <div>
+                  <label htmlFor="plumber_name" className="block text-sm font-medium text-gray-700 mb-1">
+                    Plumber Name
+                  </label>
+                  <input
+                    id="plumber_name"
+                    type="text"
+                    {...register('plumber_name')}
+                    placeholder="Enter plumber name"
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                  />
+                  {errors.plumber_name && (
+                    <p className="mt-1 text-xs text-red-600">{errors.plumber_name.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="plumber_phone" className="block text-sm font-medium text-gray-700 mb-1">
+                    Plumber Phone
+                  </label>
+                  <input
+                    id="plumber_phone"
+                    type="tel"
+                    {...register('plumber_phone')}
+                    placeholder="1234567890"
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                  />
+                  {errors.plumber_phone && (
+                    <p className="mt-1 text-xs text-red-600">{errors.plumber_phone.message}</p>
+                  )}
                 </div>
 
-                <div className="md:col-span-2">
-                  <h4 className="text-md font-medium text-gray-800 mb-3">Painter</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="painter_name" className="block text-sm font-medium text-gray-700 mb-1">
-                        Painter Name
-                      </label>
-                      <input
-                        id="painter_name"
-                        type="text"
-                        {...register('painter_name')}
-                        placeholder="Enter painter name"
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                      {errors.painter_name && (
-                        <p className="mt-1 text-sm text-red-600">{errors.painter_name.message}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label htmlFor="painter_phone" className="block text-sm font-medium text-gray-700 mb-1">
-                        Painter Phone
-                      </label>
-                      <input
-                        id="painter_phone"
-                        type="tel"
-                        {...register('painter_phone')}
-                        placeholder="1234567890"
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                      {errors.painter_phone && (
-                        <p className="mt-1 text-sm text-red-600">{errors.painter_phone.message}</p>
-                      )}
-                    </div>
-                  </div>
+                {/* Painter */}
+                <div>
+                  <label htmlFor="painter_name" className="block text-sm font-medium text-gray-700 mb-1">
+                    Painter Name
+                  </label>
+                  <input
+                    id="painter_name"
+                    type="text"
+                    {...register('painter_name')}
+                    placeholder="Enter painter name"
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                  />
+                  {errors.painter_name && (
+                    <p className="mt-1 text-xs text-red-600">{errors.painter_name.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="painter_phone" className="block text-sm font-medium text-gray-700 mb-1">
+                    Painter Phone
+                  </label>
+                  <input
+                    id="painter_phone"
+                    type="tel"
+                    {...register('painter_phone')}
+                    placeholder="1234567890"
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                  />
+                  {errors.painter_phone && (
+                    <p className="mt-1 text-xs text-red-600">{errors.painter_phone.message}</p>
+                  )}
                 </div>
               </div>
             </div>

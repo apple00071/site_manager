@@ -22,17 +22,19 @@ export default function DashboardPage() {
       setLoading(true);
       try {
         // Fetch stats
-        let projectsQuery = supabase.from('projects').select('*');
+        let projects: any[] = [];
         
-        if (!isAdmin && user) {
-          // For employees, get projects where they are assigned via assigned_employee_id
-          projectsQuery = supabase
+        if (isAdmin) {
+          const { data } = await supabase.from('projects').select('*');
+          projects = data || [];
+        } else if (user) {
+          // For non-admin users, get projects where they are assigned via assigned_employee_id OR designer_id
+          const { data } = await supabase
             .from('projects')
             .select('*')
-            .eq('assigned_employee_id', user.id);
+            .or(`assigned_employee_id.eq.${user.id},designer_id.eq.${user.id}`);
+          projects = data || [];
         }
-        
-        const { data: projects } = await projectsQuery;
         
         if (projects) {
           const active = projects.filter(p => p.status !== 'completed').length;
@@ -54,24 +56,37 @@ export default function DashboardPage() {
         }
         
         // Fetch recent projects
-        let recentQuery = supabase
-          .from('projects')
-          .select(`
-            id, 
-            title, 
-            status, 
-            estimated_completion_date,
-            customer_name
-          `)
-          .order('created_at', { ascending: false })
-          .limit(5);
-          
-        if (!isAdmin && user) {
-          // For employees, get projects where they are assigned via assigned_employee_id
-          recentQuery = recentQuery.eq('assigned_employee_id', user.id);
-        }
+        let recentData: any[] = [];
         
-        const { data: recentData } = await recentQuery;
+        if (isAdmin) {
+          const { data } = await supabase
+            .from('projects')
+            .select(`
+              id, 
+              title, 
+              status, 
+              estimated_completion_date,
+              customer_name
+            `)
+            .order('created_at', { ascending: false })
+            .limit(5);
+          recentData = data || [];
+        } else if (user) {
+          // For non-admin users, get projects where they are assigned via assigned_employee_id OR designer_id
+          const { data } = await supabase
+            .from('projects')
+            .select(`
+              id, 
+              title, 
+              status, 
+              estimated_completion_date,
+              customer_name
+            `)
+            .or(`assigned_employee_id.eq.${user.id},designer_id.eq.${user.id}`)
+            .order('created_at', { ascending: false })
+            .limit(5);
+          recentData = data || [];
+        }
         if (recentData) {
           setRecentProjects(recentData);
         }

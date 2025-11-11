@@ -255,19 +255,28 @@ export default function ProjectsPage() {
           <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Project
+              <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                Project Name
               </th>
-              <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+              <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Customer
               </th>
-              <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Status
+              <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                Flat No
               </th>
-              <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Estimated Completion
+              <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                Phone
               </th>
-              <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+              <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                Designing Status
+              </th>
+              <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                Site Status
+              </th>
+              <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                Est. Completion
+              </th>
+              <th scope="col" className="px-4 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
@@ -275,28 +284,46 @@ export default function ProjectsPage() {
           <tbody className="bg-white divide-y divide-gray-100">
             {projects.map((project) => (
               <tr key={project.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4">
+                <td className="px-4 py-4">
                   <div className="text-sm font-semibold text-gray-900">{project.title}</div>
-                  <div className="text-sm text-gray-600 mt-1">{project.description?.substring(0, 50)}{project.description?.length > 50 ? '...' : ''}</div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-4 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-900">{project.customer_name || 'N/A'}</div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
+                <td className="px-4 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-900">{project.flat_number || '-'}</div>
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-900">{project.phone_number || '-'}</div>
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap">
+                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
+                    project.workflow_stage === 'design_completed'
+                      ? 'bg-green-100 text-green-700'
+                      : project.workflow_stage === 'design_in_progress'
+                      ? 'bg-blue-100 text-blue-700'
+                      : project.workflow_stage === 'design_pending'
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-gray-100 text-gray-700'
+                  }`}>
+                    {project.workflow_stage ? project.workflow_stage.replace(/_/g, ' ') : 'Not Started'}
+                  </span>
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap">
+                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
                     project.status === 'completed'
                       ? 'bg-green-100 text-green-700'
                       : project.status === 'in_progress'
                       ? 'bg-blue-100 text-blue-700'
                       : 'bg-amber-100 text-amber-700'
                   }`}>
-                    {project.status.replace('_', ' ')}
+                    {project.status ? project.status.replace(/_/g, ' ') : 'Pending'}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                  {project.estimated_completion_date ? new Date(project.estimated_completion_date).toLocaleDateString() : 'No date set'}
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                  {project.estimated_completion_date ? new Date(project.estimated_completion_date).toLocaleDateString() : '-'}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <Link
                     href={`/dashboard/projects/${project.id}`}
                     className="text-yellow-600 hover:text-yellow-700 mr-4 inline-flex items-center"

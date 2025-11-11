@@ -13,7 +13,7 @@ const userSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
   full_name: z.string().min(2, 'Full name is required'),
   designation: z.string().min(2, 'Designation is required'),
-  role: z.enum(['admin', 'employee']),
+  role: z.enum(['admin', 'designer', 'site_supervisor', 'employee']),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
@@ -161,6 +161,8 @@ export default function NewUserPage() {
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               >
                 <option value="employee">Employee</option>
+                <option value="designer">Designer</option>
+                <option value="site_supervisor">Site Supervisor</option>
                 <option value="admin">Admin</option>
               </select>
               {errors.role && (
