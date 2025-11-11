@@ -8,7 +8,7 @@
 -- First, let's make sure buckets exist and are PUBLIC
 UPDATE storage.buckets 
 SET public = true 
-WHERE id IN ('project-update-photos', 'inventory-bills', 'design-files');
+WHERE id IN ('project-update-photos', 'inventory-bills', 'design-files', 'project-files');
 
 -- Drop ALL existing policies on storage.objects
 DO $$ 
@@ -77,6 +77,23 @@ USING (bucket_id = 'design-files');
 CREATE POLICY "Public update to design-files"
 ON storage.objects FOR UPDATE
 USING (bucket_id = 'design-files');
+
+-- Allow ANYONE to upload to project-files
+CREATE POLICY "Public upload to project-files"
+ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'project-files');
+
+CREATE POLICY "Public read from project-files"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'project-files');
+
+CREATE POLICY "Public delete from project-files"
+ON storage.objects FOR DELETE
+USING (bucket_id = 'project-files');
+
+CREATE POLICY "Public update to project-files"
+ON storage.objects FOR UPDATE
+USING (bucket_id = 'project-files');
 
 -- ============================================
 -- ✅ DONE! 

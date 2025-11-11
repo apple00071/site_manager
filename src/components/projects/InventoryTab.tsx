@@ -18,6 +18,8 @@ type InventoryItem = {
   created_by: string;
   created_at: string;
   bill_approval_status: string | null;
+  bill_rejection_reason: string | null;
+  is_bill_resubmission: boolean | null;
   created_by_user: {
     id: string;
     full_name: string;
@@ -32,7 +34,6 @@ type InventoryTabProps = {
 export function InventoryTab({ projectId }: InventoryTabProps) {
   const { user } = useAuth();
   const [items, setItems] = useState<InventoryItem[]>([]);
-  const [totalCost, setTotalCost] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
@@ -43,6 +44,8 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
   const [rejectingItem, setRejectingItem] = useState<InventoryItem | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [processingApproval, setProcessingApproval] = useState(false);
+  const [resubmittingItem, setResubmittingItem] = useState<InventoryItem | null>(null);
+  const [showResubmitModal, setShowResubmitModal] = useState(false);
   
   const [form, setForm] = useState({
     item_name: '',
@@ -66,9 +69,8 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
         return;
       }
 
-      const { items: fetchedItems, totalCost: total } = await response.json();
+      const { items: fetchedItems } = await response.json();
       setItems(fetchedItems || []);
-      setTotalCost(total || 0);
     } catch (error) {
       console.error('Error fetching inventory items:', error);
     } finally {
@@ -115,6 +117,12 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
       return;
     }
 
+    // Quantity is now optional, only validate if provided
+    if (form.quantity && parseFloat(form.quantity) <= 0) {
+      alert('Please enter a valid quantity (greater than 0)');
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -156,7 +164,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
         setItems(prev => [item, ...prev]);
       }
 
-      // Recalculate total
+      // Refresh items list
       fetchItems();
 
       setShowForm(false);
@@ -195,7 +203,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
       }
 
       setItems(prev => prev.filter(i => i.id !== id));
-      fetchItems(); // Recalculate total
+      fetchItems(); // Refresh items list
     } catch (error) {
       console.error('Error deleting item:', error);
       alert('Failed to delete item');
@@ -258,10 +266,10 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
         throw new Error(error.error || 'Failed to reject bill');
       }
 
-      // Update the item in the list
+      // Update the item in the list with rejection reason
       setItems(prev => prev.map(item =>
         item.id === rejectingItem.id
-          ? { ...item, bill_approval_status: 'rejected' }
+          ? { ...item, bill_approval_status: 'rejected', bill_rejection_reason: rejectionReason.trim() }
           : item
       ));
 
@@ -269,9 +277,58 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
       setRejectingItem(null);
       setRejectionReason('');
       alert('Bill rejected successfully!');
+      
+      // Refresh items to get latest data from server
+      fetchItems();
     } catch (error: any) {
       console.error('Error rejecting bill:', error);
       alert(error.message || 'Failed to reject bill');
+    } finally {
+      setProcessingApproval(false);
+    }
+  };
+
+  const handleResubmitBill = (item: InventoryItem) => {
+    setResubmittingItem(item);
+    setForm(prev => ({ ...prev, bill_url: '' }));
+    setShowResubmitModal(true);
+  };
+
+  const submitResubmitBill = async () => {
+    if (!resubmittingItem) return;
+    if (!form.bill_url) {
+      alert('Please upload a new bill');
+      return;
+    }
+
+    setProcessingApproval(true);
+    try {
+      const response = await fetch(`/api/inventory-items/${resubmittingItem.id}/resubmit-bill`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bill_url: form.bill_url }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to resubmit bill');
+      }
+
+      // Update the item in the list
+      setItems(prev => prev.map(item =>
+        item.id === resubmittingItem.id
+          ? { ...item, bill_approval_status: 'pending', bill_url: form.bill_url, bill_rejection_reason: null, is_bill_resubmission: true }
+          : item
+      ));
+
+      setShowResubmitModal(false);
+      setResubmittingItem(null);
+      setForm(prev => ({ ...prev, bill_url: '' }));
+      alert('Bill resubmitted successfully!');
+      fetchItems(); // Refresh items list
+    } catch (error: any) {
+      console.error('Error resubmitting bill:', error);
+      alert(error.message || 'Failed to resubmit bill');
     } finally {
       setProcessingApproval(false);
     }
@@ -307,7 +364,6 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 md:mb-6">
         <div>
           <h3 className="text-base sm:text-lg font-medium leading-6 text-gray-900">Inventory</h3>
-          <p className="text-sm text-gray-500 mt-1">Total Cost: <span className="font-bold text-yellow-600">{formatCurrency(totalCost)}</span></p>
         </div>
         <button
           onClick={() => {
@@ -350,6 +406,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
               <input
                 type="number"
                 step="0.01"
+                min="0.01"
                 value={form.quantity}
                 onChange={(e) => setForm(prev => ({ ...prev, quantity: e.target.value }))}
                 className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
@@ -420,7 +477,6 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Cost</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bill</th>
@@ -433,9 +489,6 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                   <tr key={item.id}>
                     <td className="px-4 py-3 text-sm text-gray-900">{item.item_name}</td>
                     <td className="px-4 py-3 text-sm text-gray-900">{item.quantity || '-'}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                      {item.total_cost ? formatCurrency(item.total_cost) : '-'}
-                    </td>
                     <td className="px-4 py-3 text-sm text-gray-500">{item.supplier_name || '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">
                       {item.date_purchased ? formatDateIST(item.date_purchased) : '-'}
@@ -453,13 +506,21 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        item.bill_approval_status === 'approved' ? 'bg-green-100 text-green-800' :
-                        item.bill_approval_status === 'rejected' ? 'bg-red-100 text-red-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {item.bill_approval_status || 'pending'}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span className={`px-2 py-1 text-xs rounded-full inline-block ${
+                          item.bill_approval_status === 'approved' ? 'bg-green-100 text-green-800' :
+                          item.bill_approval_status === 'rejected' ? 'bg-red-100 text-red-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {item.bill_approval_status || 'pending'}
+                          {item.is_bill_resubmission && ' (Resubmitted)'}
+                        </span>
+                        {item.bill_approval_status === 'rejected' && item.bill_rejection_reason && (
+                          <p className="text-xs text-red-600 mt-1">
+                            Reason: {item.bill_rejection_reason}
+                          </p>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <div className="flex flex-col gap-1">
@@ -495,6 +556,17 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                             </button>
                           </div>
                         )}
+                        {item.bill_approval_status === 'rejected' && item.created_by === user?.id && (
+                          <div className="mt-1">
+                            <button
+                              onClick={() => handleResubmitBill(item)}
+                              disabled={processingApproval}
+                              className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+                            >
+                              🔄 Resubmit Bill
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -509,9 +581,6 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
               <div key={item.id} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
                 <div className="flex justify-between items-start mb-2">
                   <h4 className="text-sm font-medium text-gray-900">{item.item_name}</h4>
-                  <span className="text-sm font-bold text-yellow-600">
-                    {item.total_cost ? formatCurrency(item.total_cost) : '-'}
-                  </span>
                 </div>
                 <div className="space-y-1 text-xs text-gray-600">
                   {item.quantity && (
@@ -532,15 +601,23 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                       <span className="font-medium text-gray-900">{formatDateIST(item.date_purchased)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between">
-                    <span>Status:</span>
-                    <span className={`px-2 py-0.5 text-xs rounded-full ${
-                      item.bill_approval_status === 'approved' ? 'bg-green-100 text-green-800' :
-                      item.bill_approval_status === 'rejected' ? 'bg-red-100 text-red-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {item.bill_approval_status || 'pending'}
-                    </span>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between">
+                      <span>Status:</span>
+                      <span className={`px-2 py-0.5 text-xs rounded-full ${
+                        item.bill_approval_status === 'approved' ? 'bg-green-100 text-green-800' :
+                        item.bill_approval_status === 'rejected' ? 'bg-red-100 text-red-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {item.bill_approval_status || 'pending'}
+                        {item.is_bill_resubmission && ' (Resubmitted)'}
+                      </span>
+                    </div>
+                    {item.bill_approval_status === 'rejected' && item.bill_rejection_reason && (
+                      <p className="text-xs text-red-600 mt-1">
+                        <strong>Reason:</strong> {item.bill_rejection_reason}
+                      </p>
+                    )}
                   </div>
                   {item.bill_url && (
                     <div className="flex justify-between">
@@ -583,6 +660,17 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                       className="flex-1 px-3 py-1.5 text-xs bg-red-500 text-white rounded hover:bg-red-600 font-medium disabled:opacity-50"
                     >
                       ✗ Reject Bill
+                    </button>
+                  </div>
+                )}
+                {item.bill_approval_status === 'rejected' && item.created_by === user?.id && (
+                  <div className="mt-2">
+                    <button
+                      onClick={() => handleResubmitBill(item)}
+                      disabled={processingApproval}
+                      className="w-full px-3 py-1.5 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 font-medium disabled:opacity-50"
+                    >
+                      🔄 Resubmit Bill
                     </button>
                   </div>
                 )}
@@ -635,6 +723,64 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 className="flex-1 px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
               >
                 {processingApproval ? 'Rejecting...' : 'Reject Bill'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resubmit Bill Modal */}
+      {showResubmitModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Resubmit Bill
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Upload a new bill to resubmit for approval.
+            </p>
+            {resubmittingItem?.bill_rejection_reason && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-800">
+                  <strong>Previous rejection reason:</strong><br />
+                  {resubmittingItem.bill_rejection_reason}
+                </p>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Upload New Bill *
+              </label>
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={handleBillUpload}
+                disabled={uploadingBill}
+                className="w-full border rounded-md px-3 py-2 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+              {uploadingBill && <p className="text-xs text-gray-500 mt-1">Uploading...</p>}
+              {form.bill_url && (
+                <p className="text-xs text-green-600 mt-1">✓ Bill uploaded successfully</p>
+              )}
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowResubmitModal(false);
+                  setResubmittingItem(null);
+                  setForm(prev => ({ ...prev, bill_url: '' }));
+                }}
+                disabled={processingApproval || uploadingBill}
+                className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitResubmitBill}
+                disabled={processingApproval || uploadingBill || !form.bill_url}
+                className="flex-1 px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+              >
+                {processingApproval ? 'Resubmitting...' : 'Resubmit Bill'}
               </button>
             </div>
           </div>

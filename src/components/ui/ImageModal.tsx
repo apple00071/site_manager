@@ -15,6 +15,21 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
   const [activeIndex, setActiveIndex] = useState(currentIndex);
   const [mounted, setMounted] = useState(false);
 
+  // Helper function to check if URL is a PDF
+  const isPDF = (url: string | undefined) => {
+    if (!url) return false;
+    const lowerUrl = url.toLowerCase();
+    return lowerUrl.endsWith('.pdf') || lowerUrl.includes('.pdf?') || lowerUrl.includes('/pdf');
+  };
+
+  const currentUrl = images[activeIndex] || '';
+  const isCurrentPDF = isPDF(currentUrl);
+  
+  // Debug log to verify PDF detection
+  if (currentUrl && currentUrl.includes('.pdf')) {
+    console.log('PDF detected:', currentUrl, 'isPDF:', isCurrentPDF);
+  }
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -63,6 +78,9 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
   // Don't render until mounted to prevent hydration issues
   if (!mounted) return null;
 
+  // Don't render if current URL is invalid
+  if (!currentUrl) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-95">
       {/* Close Button */}
@@ -103,20 +121,44 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
         </button>
       )}
 
-      {/* Main Image */}
+      {/* Main Content - Image or PDF */}
       <div 
         className="relative w-full h-full flex items-center justify-center p-4 sm:p-8"
         onClick={onClose}
       >
-        <img
-          src={images[activeIndex]}
-          alt={`Image ${activeIndex + 1}`}
-          className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-          onClick={(e) => e.stopPropagation()}
-          onError={(e) => {
-            console.error('Failed to load image:', images[activeIndex]);
-          }}
-        />
+        {isCurrentPDF ? (
+          <div className="w-full h-full flex flex-col items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            <iframe
+              src={currentUrl}
+              className="w-full h-full rounded-lg shadow-2xl bg-white"
+              title={`PDF ${activeIndex + 1}`}
+            />
+            <a
+              href={currentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 px-6 py-3 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 font-medium transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              📄 Open PDF in New Tab
+            </a>
+          </div>
+        ) : (
+          <img
+            src={currentUrl}
+            alt={`Image ${activeIndex + 1}`}
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            onError={(e) => {
+              // Only log error if it's not a PDF (shouldn't happen but just in case)
+              if (!isPDF(currentUrl)) {
+                console.error('Failed to load image:', currentUrl);
+              }
+              // Hide broken image icon
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        )}
       </div>
 
       {/* Thumbnail Navigation (for mobile swipe) */}
@@ -129,17 +171,27 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
                 setActiveIndex(index);
                 onNavigate?.(index);
               }}
-              className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+              className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-all duration-200 flex items-center justify-center ${
                 index === activeIndex 
                   ? 'border-yellow-400 opacity-100' 
                   : 'border-transparent opacity-60 hover:opacity-80'
               }`}
             >
-              <img
-                src={image}
-                alt={`Thumbnail ${index + 1}`}
-                className="w-full h-full object-cover"
-              />
+              {isPDF(image) ? (
+                <div className="w-full h-full bg-red-100 flex items-center justify-center text-xs font-bold text-red-700">
+                  PDF
+                </div>
+              ) : (
+                <img
+                  src={image}
+                  alt={`Thumbnail ${index + 1}`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // Hide broken image icon
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              )}
             </button>
           ))}
         </div>

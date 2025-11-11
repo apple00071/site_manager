@@ -50,8 +50,8 @@ async function getCurrentUser(request: NextRequest) {
 }
 
 /**
- * POST /api/inventory-items/[id]/approve-bill
- * Approve inventory bill
+ * POST /api/inventory-items/[id]/resubmit-bill
+ * Resubmit a rejected bill with a new bill URL
  */
 export async function POST(
   request: NextRequest,
@@ -63,17 +63,18 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Only admins can approve bills
-    if (user.role !== 'admin') {
-      return NextResponse.json({ error: 'Only admins can approve bills' }, { status: 403 });
-    }
-
     const { id: itemId } = await params;
+    const body = await request.json();
+    const { bill_url } = body;
+
+    if (!bill_url) {
+      return NextResponse.json({ error: 'bill_url is required' }, { status: 400 });
+    }
 
     // Get inventory item details
     const { data: item, error: itemError } = await supabaseAdmin
       .from('inventory_items')
-      .select('*, project:projects(id, title), created_by_user:users!inventory_items_created_by_fkey(id, full_name, email)')
+      .select('*, project:projects(id, title, created_by), created_by_user:users!inventory_items_created_by_fkey(id, full_name, email)')
       .eq('id', itemId)
       .single();
 
@@ -81,32 +82,47 @@ export async function POST(
       return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
     }
 
-    // Update bill approval status
+    // Check if item is rejected
+    if (item.bill_approval_status !== 'rejected') {
+      return NextResponse.json({ error: 'Only rejected bills can be resubmitted' }, { status: 400 });
+    }
+
+    // Check if user owns this item or is admin
+    if (item.created_by !== user.id && user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden: You can only resubmit your own bills' }, { status: 403 });
+    }
+
+    // Update bill with new URL and reset status
     const { data: updatedItem, error: updateError } = await supabaseAdmin
       .from('inventory_items')
       .update({
-        bill_approval_status: 'approved',
-        bill_approved_by: user.id,
-        bill_approved_at: new Date().toISOString(),
+        bill_url: bill_url,
+        bill_approval_status: 'pending',
+        bill_resubmitted_from: itemId, // Track original item
+        is_bill_resubmission: true,
+        bill_rejection_reason: null, // Clear previous rejection reason
         updated_at: new Date().toISOString(),
       })
       .eq('id', itemId)
-      .select()
+      .select(`
+        *,
+        created_by_user:users!inventory_items_created_by_fkey(id, full_name, email)
+      `)
       .single();
 
     if (updateError) {
-      console.error('Error approving bill:', updateError);
-      return NextResponse.json({ error: 'Failed to approve bill' }, { status: 500 });
+      console.error('Error resubmitting bill:', updateError);
+      return NextResponse.json({ error: 'Failed to resubmit bill' }, { status: 500 });
     }
 
-    // Create notification for the person who uploaded the bill
-    if (item.created_by_user) {
+    // Create notification for admin/project creator
+    if (item.project && item.project.created_by) {
       try {
         await NotificationService.createNotification({
-          userId: item.created_by_user.id,
-          type: 'bill_approved',
-          title: 'Bill Approved',
-          message: `Your bill for "${item.item_name}" in project "${item.project.title}" has been approved.`,
+          userId: item.project.created_by,
+          type: 'inventory_added',
+          title: 'Bill Resubmitted',
+          message: `${user.full_name} resubmitted the bill for "${item.item_name}" in project "${item.project.title}"`,
           relatedId: itemId,
           relatedType: 'inventory_item',
         });
@@ -118,12 +134,11 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      message: 'Bill approved successfully',
+      message: 'Bill resubmitted successfully',
       item: updatedItem,
     });
   } catch (error) {
-    console.error('Unexpected error in POST /api/inventory-items/[id]/approve-bill:', error);
+    console.error('Unexpected error in POST /api/inventory-items/[id]/resubmit-bill:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-

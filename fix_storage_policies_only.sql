@@ -1,74 +1,12 @@
 -- ============================================
--- RUN THIS IN SUPABASE SQL EDITOR TO FIX STORAGE UPLOAD ERRORS
+-- FIX STORAGE POLICIES ONLY (Buckets already exist)
 -- ============================================
--- This script:
--- 1. Creates storage buckets if they don't exist
--- 2. Drops all old storage policies
--- 3. Creates new simplified policies that allow authenticated users to upload
+-- Run this in Supabase SQL Editor to fix upload errors
+-- This only updates the RLS policies, not the buckets
 -- ============================================
 
 -- ============================================
--- Step 1: Create Storage Buckets
--- ============================================
-
--- Create bucket for project update photos
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES (
-  'project-update-photos',
-  'project-update-photos',
-  true,
-  52428800, -- 50MB limit
-  ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-)
-ON CONFLICT (id) DO UPDATE SET
-  public = true,
-  file_size_limit = 52428800,
-  allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-
--- Create bucket for inventory bills/invoices
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES (
-  'inventory-bills',
-  'inventory-bills',
-  true,
-  52428800, -- 50MB limit
-  ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf']
-)
-ON CONFLICT (id) DO UPDATE SET
-  public = true,
-  file_size_limit = 52428800,
-  allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
-
--- Create bucket for design files
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES (
-  'design-files',
-  'design-files',
-  true,
-  104857600, -- 100MB limit
-  ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf', 'application/dwg', 'application/dxf', 'image/vnd.dwg', 'image/vnd.dxf']
-)
-ON CONFLICT (id) DO UPDATE SET
-  public = true,
-  file_size_limit = 104857600,
-  allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf', 'application/dwg', 'application/dxf', 'image/vnd.dwg', 'image/vnd.dxf'];
-
--- Create bucket for project files (requirements PDFs, etc.)
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES (
-  'project-files',
-  'project-files',
-  true,
-  52428800, -- 50MB limit
-  ARRAY['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp']
-)
-ON CONFLICT (id) DO UPDATE SET
-  public = true,
-  file_size_limit = 52428800,
-  allowed_mime_types = ARRAY['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-
--- ============================================
--- Step 2: Drop All Existing Storage Policies
+-- Step 1: Drop All Existing Storage Policies
 -- ============================================
 
 DROP POLICY IF EXISTS "Authenticated users can upload update photos" ON storage.objects;
@@ -95,12 +33,15 @@ DROP POLICY IF EXISTS "Allow authenticated uploads to design-files" ON storage.o
 DROP POLICY IF EXISTS "Allow public read from design-files" ON storage.objects;
 DROP POLICY IF EXISTS "Allow authenticated delete from design-files" ON storage.objects;
 DROP POLICY IF EXISTS "Allow authenticated update to design-files" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated uploads to project-files" ON storage.objects;
+DROP POLICY IF EXISTS "Allow public read from project-files" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated delete from project-files" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated update to project-files" ON storage.objects;
 
 -- ============================================
--- Step 3: Create New Simplified Storage Policies
+-- Step 2: Create New Simplified Storage Policies
 -- ============================================
 -- These policies allow ANY authenticated user to upload/manage files
--- This is simpler and avoids the folder ownership issues
 
 -- Project Update Photos - Allow all authenticated users
 CREATE POLICY "Allow authenticated uploads to project-update-photos"
@@ -187,16 +128,16 @@ TO authenticated
 USING (bucket_id = 'project-files');
 
 -- ============================================
--- ✅ DONE! Storage buckets and policies created.
+-- ✅ DONE! Storage policies updated.
 -- ============================================
 -- You should now be able to:
 -- 1. Upload photos in Updates tab
--- 2. Upload bills in Inventory tab
+-- 2. Upload bills in Inventory tab ✅
 -- 3. Upload design files in Designs tab
+-- 4. Upload requirements PDFs in new project form
 --
--- If you still get errors, check:
--- - You are logged in (authenticated)
--- - Your session hasn't expired
--- - The file type is allowed (JPEG, PNG, GIF, WebP, PDF)
+-- If you still get errors:
+-- - Make sure you're logged in
+-- - Refresh your browser
+-- - Check browser console for specific errors
 -- ============================================
-

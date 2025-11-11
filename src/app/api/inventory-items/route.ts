@@ -10,11 +10,11 @@ import { createNoCacheResponse } from '@/lib/apiHelpers';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// Validation schemas - All fields optional except project_id and item_name
+// Validation schemas - quantity is now optional
 const createInventoryItemSchema = z.object({
   project_id: z.string().uuid(),
   item_name: z.string().min(1),
-  quantity: z.number().positive().optional(),
+  quantity: z.number().positive().optional(), // Optional field
   supplier_name: z.string().optional(),
   date_purchased: z.string().optional(), // ISO date string
   bill_url: z.string().optional(),
@@ -89,11 +89,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'project_id is required' }, { status: 400 });
     }
 
-    // Fetch inventory items with creator information
+    // Fetch inventory items with creator information and bill status
     const { data: items, error } = await supabaseAdmin
       .from('inventory_items')
       .select(`
-        *,
+        id,
+        project_id,
+        item_name,
+        quantity,
+        total_cost,
+        supplier_name,
+        date_purchased,
+        bill_url,
+        created_by,
+        created_at,
+        bill_approval_status,
+        bill_rejection_reason,
+        is_bill_resubmission,
         created_by_user:users!inventory_items_created_by_fkey(id, full_name, email)
       `)
       .eq('project_id', project_id)
@@ -104,10 +116,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch inventory items' }, { status: 500 });
     }
 
-    // Calculate total cost
-    const totalCost = items?.reduce((sum, item) => sum + parseFloat(item.total_cost || '0'), 0) || 0;
-
-    return NextResponse.json({ items, totalCost });
+    return NextResponse.json({ items });
   } catch (error) {
     console.error('Unexpected error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

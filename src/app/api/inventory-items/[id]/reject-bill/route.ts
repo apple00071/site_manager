@@ -106,14 +106,19 @@ export async function POST(
 
     // Create notification for the person who uploaded the bill
     if (item.created_by_user) {
-      await NotificationService.createNotification({
-        userId: item.created_by_user.id,
-        type: 'bill_rejected',
-        title: 'Bill Rejected',
-        message: `Your bill for "${item.item_name}" in project "${item.project.title}" was rejected. Reason: ${rejection_reason}`,
-        relatedId: itemId,
-        relatedType: 'inventory_item',
-      });
+      try {
+        await NotificationService.createNotification({
+          userId: item.created_by_user.id,
+          type: 'bill_rejected',
+          title: 'Bill Rejected',
+          message: `Your bill for "${item.item_name}" in project "${item.project.title}" was rejected. Reason: ${rejection_reason}`,
+          relatedId: itemId,
+          relatedType: 'inventory_item',
+        });
+      } catch (notificationError) {
+        // Log but don't fail the request if notification fails
+        console.error('Failed to create notification:', notificationError);
+      }
     }
 
     return NextResponse.json({
