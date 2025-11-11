@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       // If we already have the user from session, use that instead of making another API call
-      let user = sessionUser;
+      let user: User | null = sessionUser || null;
       
       if (!user) {
         // Rate limit check
@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return { role: 'employee', full_name: 'User' };
         }
         
-        user = fetchedUser;
+        user = fetchedUser || null;
       }
 
       if (user) {

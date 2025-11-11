@@ -45,7 +45,7 @@ const projectSchema = z.object({
   payment_terms: z.string().optional().nullable(),
   
   // Team Assignment
-  assigned_employee_id: z.string().uuid('Please select an employee'),
+  assigned_employee_id: z.string().min(1, 'Please select a designer'),
   team_members: z.array(z.string()).optional().nullable(),
   
   // Design Specifications
@@ -53,9 +53,7 @@ const projectSchema = z.object({
   room_types: z.string().optional().nullable(),
   special_requirements: z.string().optional().nullable(),
   
-  // Worker Details
-  designer_name: z.string().min(2, 'Designer name is required'),
-  designer_phone: z.string().min(10, 'Designer phone is required'),
+  // Worker Details (all optional - can be assigned later)
   
   // Tradespeople
   carpenter_name: z.string().optional().nullable(),
@@ -95,6 +93,8 @@ export default function NewProjectPage() {
   const [employees, setEmployees] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [uploadingPDF, setUploadingPDF] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
@@ -106,10 +106,16 @@ export default function NewProjectPage() {
 
   useEffect(() => {
     // Wait for auth to finish loading
-    if (authLoading) return;
+    if (authLoading) {
+      console.log('Auth still loading...');
+      return;
+    }
     
     // If we've already initialized, don't run this effect again
-    if (isInitialized) return;
+    if (isInitialized) {
+      console.log('Already initialized, skipping...');
+      return;
+    }
 
     console.log('Auth state loaded. isAdmin:', isAdmin, 'User:', user?.email);
 
@@ -117,6 +123,12 @@ export default function NewProjectPage() {
     if (isAdmin === false) {
       console.log('User is not an admin, redirecting to dashboard');
       router.push('/dashboard');
+      return;
+    }
+
+    // Only fetch if we have a user (admin check passed or still loading)
+    if (!user) {
+      console.log('No user found, waiting...');
       return;
     }
 
@@ -128,19 +140,27 @@ export default function NewProjectPage() {
         console.log('Fetching employees...');
         const { data: employeesData, error: employeesError } = await supabase
           .from('users')
-          .select('id, full_name, email, designation')
+          .select('id, full_name, email, designation, role')
           .eq('role', 'employee')
           .order('full_name', { ascending: true });
 
-        if (employeesError) throw employeesError;
-        console.log('Employees loaded:', employeesData?.length);
+        if (employeesError) {
+          console.error('Error fetching employees:', employeesError);
+          throw employeesError;
+        }
+        
+        console.log('Employees loaded:', employeesData?.length, employeesData);
+        
         // Map to the expected format with 'name' field
-        setEmployees((employeesData || []).map(u => ({
+        const mappedEmployees = (employeesData || []).map(u => ({
           id: u.id,
           name: u.full_name,
           email: u.email,
           designation: u.designation
-        })));
+        }));
+        
+        console.log('Mapped employees:', mappedEmployees);
+        setEmployees(mappedEmployees);
         
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -154,27 +174,86 @@ export default function NewProjectPage() {
     fetchData();
   }, [isAdmin, router, authLoading, isInitialized, user]);
 
+  const handlePDFUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      setError('Please upload a PDF file');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      setError('PDF file size must be less than 10MB');
+      return;
+    }
+
+    setPdfFile(file);
+    setError(null);
+  };
+
   const onSubmit = async (data: ProjectFormValues) => {
+    console.log('=== FORM SUBMISSION STARTED ===');
+    console.log('Form data received:', data);
+    console.log('Form errors:', errors);
+    
     setIsSubmitting(true);
     setError(null);
 
     try {
       console.log('Submitting project:', data);
       
+      // Upload PDF to Supabase Storage if file is selected
+      let pdfUrl = null;
+      if (pdfFile) {
+        try {
+          setUploadingPDF(true);
+          const fileExt = pdfFile.name.split('.').pop();
+          const fileName = `requirements-${Date.now()}.${fileExt}`;
+          const filePath = `requirements/${fileName}`;
+
+          console.log('Uploading PDF to storage:', filePath);
+          
+          const { error: uploadError } = await supabase.storage
+            .from('project-files')
+            .upload(filePath, pdfFile);
+
+          if (uploadError) {
+            console.error('PDF upload error:', uploadError);
+            throw new Error('Failed to upload PDF: ' + uploadError.message);
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('project-files')
+            .getPublicUrl(filePath);
+
+          pdfUrl = publicUrl;
+          console.log('PDF uploaded successfully:', pdfUrl);
+        } catch (uploadErr: any) {
+          setUploadingPDF(false);
+          throw new Error('PDF upload failed: ' + uploadErr.message);
+        } finally {
+          setUploadingPDF(false);
+        }
+      }
+      
       // Prepare the project data with all fields
       const projectData = {
         title: data.title,
-        description: data.description,
-        status: data.status,
+        status: data.status || 'pending',
         customer_name: data.customer_name,
         phone_number: data.phone_number,
         alt_phone_number: data.alt_phone_number || null,
         address: data.address,
+        property_type: data.property_type || null,
+        apartment_name: data.apartment_name || null,
+        block_number: data.block_number || null,
+        flat_number: data.flat_number || null,
+        floor_number: data.floor_number || null,
+        area_sqft: data.area_sqft || null,
         start_date: data.start_date,
         estimated_completion_date: data.estimated_completion_date,
         assigned_employee_id: data.assigned_employee_id,
-        designer_name: data.designer_name,
-        designer_phone: data.designer_phone,
         carpenter_name: data.carpenter_name || null,
         carpenter_phone: data.carpenter_phone || null,
         electrician_name: data.electrician_name || null,
@@ -183,7 +262,12 @@ export default function NewProjectPage() {
         plumber_phone: data.plumber_phone || null,
         painter_name: data.painter_name || null,
         painter_phone: data.painter_phone || null,
+        granite_worker_name: data.granite_worker_name || null,
+        granite_worker_phone: data.granite_worker_phone || null,
+        glass_worker_name: data.glass_worker_name || null,
+        glass_worker_phone: data.glass_worker_phone || null,
         project_budget: data.project_budget || null,
+        requirements_pdf_url: pdfUrl,
         project_notes: data.project_notes || null,
         created_by: user?.id,
       };
@@ -250,158 +334,49 @@ export default function NewProjectPage() {
             </div>
           )}
 
+          {Object.keys(errors).length > 0 && (
+            <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-4">
+              <p className="text-yellow-800 font-semibold mb-2">Please fix the following errors:</p>
+              <ul className="list-disc list-inside text-sm text-yellow-700">
+                {Object.entries(errors).map(([field, error]) => (
+                  <li key={field}>
+                    <strong>{field.replace(/_/g, ' ')}:</strong> {error?.message?.toString()}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <form onSubmit={(e) => {
+            console.log('Form onSubmit triggered!');
             e.preventDefault();
+            console.log('Calling handleSubmit...');
             handleSubmit(onSubmit)();
           }} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-                  Project Title *
-                </label>
-                <input
-                  id="title"
-                  type="text"
-                  {...register('title')}
-                  className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
-                  placeholder="Enter project title"
-                />
-                {errors.title && (
-                  <p className="mt-1 text-xs text-red-600">{errors.title.message}</p>
-                )}
-              </div>
-
-              <div>
-                <label htmlFor="project_type" className="block text-sm font-medium text-gray-700 mb-1">
-                  Project Type
-                </label>
-                <select
-                  id="project_type"
-                  {...register('project_type')}
-                  className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-white"
-                >
-                  <option value="">Select project type</option>
-                  <option value="residential">Residential</option>
-                  <option value="commercial">Commercial</option>
-                  <option value="office">Office</option>
-                  <option value="hospitality">Hospitality</option>
-                  <option value="retail">Retail</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-
-            </div>
-
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-                Description
-              </label>
-              <textarea
-                id="description"
-                rows={3}
-                {...register('description')}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              {errors.description && (
-                <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
-              )}
-            </div>
-
-            <div className="border border-gray-200 rounded-xl p-4 bg-white shadow-sm">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Assign Team</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Assign Project Manager *
-                  </label>
-                  <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                    {!employees || employees.length === 0 ? (
-                      <div className="flex items-center justify-center py-4">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-500"></div>
-                        <span className="ml-2 text-sm text-gray-500">Loading team members...</span>
-                      </div>
-                    ) : (
-                      employees
-                        .filter(emp => emp.designation?.toLowerCase().includes('manager') || emp.designation?.toLowerCase().includes('lead'))
-                        .map((employee) => (
-                          <label
-                            key={employee.id}
-                            className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-white hover:border-yellow-400 cursor-pointer transition-all duration-200 mb-2"
-                          >
-                            <input
-                              type="radio"
-                              value={employee.id}
-                              {...register('assigned_employee_id')}
-                              className="h-4 w-4 text-yellow-500 focus:ring-yellow-400 border-gray-300"
-                            />
-                            <span className="ml-3 flex-1">
-                              <span className="block text-sm font-medium text-gray-900">
-                                {employee.name}
-                              </span>
-                              {employee.designation && (
-                                <span className="block text-xs text-gray-500">
-                                  {employee.designation}
-                                </span>
-                              )}
-                              {employee.email && (
-                                <span className="block text-xs text-gray-500 truncate">
-                                  {employee.email}
-                                </span>
-                              )}
-                            </span>
-                          </label>
-                        ))
-                    )}
-                  </div>
-                  {errors.assigned_employee_id && (
-                    <p className="mt-2 text-xs text-red-600">{errors.assigned_employee_id.message}</p>
-                  )}
-                </div>
-
-                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Assign Team Members
-                  </label>
-                  <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                    {!employees || employees.length === 0 ? (
-                      <div className="flex items-center justify-center py-4">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-500"></div>
-                        <span className="ml-2 text-sm text-gray-500">Loading team members...</span>
-                      </div>
-                    ) : (
-                      employees.map((employee) => (
-                        <label
-                          key={employee.id}
-                          className="flex items-start p-2 border border-gray-200 rounded-lg hover:bg-white hover:border-yellow-400 cursor-pointer transition-all duration-200 mb-2"
-                        >
-                          <input
-                            type="checkbox"
-                            value={employee.id}
-                            {...register('team_members')}
-                            className="h-4 w-4 text-yellow-500 focus:ring-yellow-400 border-gray-300 rounded mt-1"
-                          />
-                          <span className="ml-3 flex-1">
-                            <span className="block text-sm font-medium text-gray-900">
-                              {employee.name}
-                            </span>
-                            <span className="block text-xs text-gray-500">
-                              {employee.designation || 'Team Member'}
-                            </span>
-                          </span>
-                        </label>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
             <div className="border-t border-gray-200 pt-6 mt-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Customer Details</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Project Details</h3>
               
               <div className="space-y-4 sm:space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div className="sm:col-span-2">
+                    <label htmlFor="title" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Project Title *
+                    </label>
+                    <input
+                      id="title"
+                      type="text"
+                      {...register('title')}
+                      placeholder="Enter project title"
+                      className="block w-full px-4 py-3 sm:py-4 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white touch-target"
+                    />
+                    {errors.title && (
+                      <p className="mt-2 text-xs sm:text-sm text-red-600 flex items-center">
+                        <span className="inline-block w-1 h-1 bg-red-600 rounded-full mr-2"></span>
+                        {errors.title.message}
+                      </p>
+                    )}
+                  </div>
+
                   <div className="sm:col-span-2">
                     <label htmlFor="customer_name" className="block text-sm font-semibold text-gray-700 mb-2">
                       Customer Name *
@@ -579,7 +554,7 @@ export default function NewProjectPage() {
             </div>
 
             <div className="border-t border-gray-200 pt-6 mt-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Project Details</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Timeline & Budget</h3>
               
               <div className="space-y-4 sm:space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
@@ -645,41 +620,74 @@ export default function NewProjectPage() {
             </div>
 
             <div className="border-t border-gray-200 pt-6 mt-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Assign Designer</h3>
+              <p className="text-sm text-gray-600 mb-4">Select a designer from your team to create the project design.</p>
+              
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Select Designer *
+                </label>
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                  {isLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-500"></div>
+                      <span className="ml-2 text-sm text-gray-500">Loading designers...</span>
+                    </div>
+                  ) : !employees || employees.length === 0 ? (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-gray-500">No employees found in the system.</p>
+                      <p className="text-xs text-gray-400 mt-1">Please add employees with role 'employee' first.</p>
+                    </div>
+                  ) : employees.filter(emp => emp.designation?.toLowerCase().includes('designer')).length === 0 ? (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-gray-500">No designers found.</p>
+                      <p className="text-xs text-gray-400 mt-1">Please add employees with designation containing 'designer'.</p>
+                      <p className="text-xs text-gray-400 mt-2">Total employees loaded: {employees.length}</p>
+                    </div>
+                  ) : (
+                    employees
+                      .filter(emp => emp.designation?.toLowerCase().includes('designer'))
+                      .map((employee) => (
+                        <label
+                          key={employee.id}
+                          className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-white hover:border-yellow-400 cursor-pointer transition-all duration-200 mb-2"
+                        >
+                          <input
+                            type="radio"
+                            value={employee.id}
+                            {...register('assigned_employee_id')}
+                            className="h-4 w-4 text-yellow-500 focus:ring-yellow-400 border-gray-300"
+                          />
+                          <span className="ml-3 flex-1">
+                            <span className="block text-sm font-medium text-gray-900">
+                              {employee.name}
+                            </span>
+                            {employee.designation && (
+                              <span className="block text-xs text-gray-500">
+                                {employee.designation}
+                              </span>
+                            )}
+                            {employee.email && (
+                              <span className="block text-xs text-gray-500 truncate">
+                                {employee.email}
+                              </span>
+                            )}
+                          </span>
+                        </label>
+                      ))
+                  )}
+                </div>
+                {errors.assigned_employee_id && (
+                  <p className="mt-2 text-xs text-red-600">{errors.assigned_employee_id.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 pt-6 mt-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Worker Details</h3>
+              <p className="text-sm text-gray-600 mb-4">Enter contact details for workers who will be assigned to this project.</p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Designer */}
-                <div>
-                  <label htmlFor="designer_name" className="block text-sm font-medium text-gray-700 mb-1">
-                    Designer Name *
-                  </label>
-                  <input
-                    id="designer_name"
-                    type="text"
-                    {...register('designer_name')}
-                    placeholder="Enter designer name"
-                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
-                  />
-                  {errors.designer_name && (
-                    <p className="mt-1 text-xs text-red-600">{errors.designer_name.message}</p>
-                  )}
-                </div>
-                <div>
-                  <label htmlFor="designer_phone" className="block text-sm font-medium text-gray-700 mb-1">
-                    Designer Phone *
-                  </label>
-                  <input
-                    id="designer_phone"
-                    type="tel"
-                    {...register('designer_phone')}
-                    placeholder="1234567890"
-                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
-                  />
-                  {errors.designer_phone && (
-                    <p className="mt-1 text-xs text-red-600">{errors.designer_phone.message}</p>
-                  )}
-                </div>
-
                 {/* Carpenter */}
                 <div>
                   <label htmlFor="carpenter_name" className="block text-sm font-medium text-gray-700 mb-1">
@@ -807,6 +815,70 @@ export default function NewProjectPage() {
                     <p className="mt-1 text-xs text-red-600">{errors.painter_phone.message}</p>
                   )}
                 </div>
+
+                {/* Granite */}
+                <div>
+                  <label htmlFor="granite_worker_name" className="block text-sm font-medium text-gray-700 mb-1">
+                    Granite Name
+                  </label>
+                  <input
+                    id="granite_worker_name"
+                    type="text"
+                    {...register('granite_worker_name')}
+                    placeholder="Enter granite worker name"
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                  />
+                  {errors.granite_worker_name && (
+                    <p className="mt-1 text-xs text-red-600">{errors.granite_worker_name.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="granite_worker_phone" className="block text-sm font-medium text-gray-700 mb-1">
+                    Granite Phone
+                  </label>
+                  <input
+                    id="granite_worker_phone"
+                    type="tel"
+                    {...register('granite_worker_phone')}
+                    placeholder="1234567890"
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                  />
+                  {errors.granite_worker_phone && (
+                    <p className="mt-1 text-xs text-red-600">{errors.granite_worker_phone.message}</p>
+                  )}
+                </div>
+
+                {/* Glass */}
+                <div>
+                  <label htmlFor="glass_worker_name" className="block text-sm font-medium text-gray-700 mb-1">
+                    Glass Name
+                  </label>
+                  <input
+                    id="glass_worker_name"
+                    type="text"
+                    {...register('glass_worker_name')}
+                    placeholder="Enter glass worker name"
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                  />
+                  {errors.glass_worker_name && (
+                    <p className="mt-1 text-xs text-red-600">{errors.glass_worker_name.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="glass_worker_phone" className="block text-sm font-medium text-gray-700 mb-1">
+                    Glass Phone
+                  </label>
+                  <input
+                    id="glass_worker_phone"
+                    type="tel"
+                    {...register('glass_worker_phone')}
+                    placeholder="1234567890"
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                  />
+                  {errors.glass_worker_phone && (
+                    <p className="mt-1 text-xs text-red-600">{errors.glass_worker_phone.message}</p>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -814,6 +886,31 @@ export default function NewProjectPage() {
               <h3 className="text-lg font-medium text-gray-900 mb-4">Additional Information</h3>
               
               <div className="grid grid-cols-1 gap-6">
+                <div>
+                  <label htmlFor="requirements_pdf" className="block text-sm font-medium text-gray-700 mb-1">
+                    Requirements PDF (Optional)
+                  </label>
+                  <input
+                    id="requirements_pdf"
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={handlePDFUpload}
+                    disabled={uploadingPDF}
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100 disabled:opacity-50"
+                  />
+                  {pdfFile && (
+                    <p className="mt-2 text-sm text-green-600 flex items-center">
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {pdfFile.name} ({(pdfFile.size / 1024 / 1024).toFixed(2)} MB)
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Upload project requirements document (PDF only, max 10MB)
+                  </p>
+                </div>
+
                 <div>
                   <label htmlFor="project_notes" className="block text-sm font-medium text-gray-700 mb-1">
                     Project Notes
@@ -832,24 +929,6 @@ export default function NewProjectPage() {
               </div>
             </div>
 
-            <div>
-              <label htmlFor="status" className="block text-sm font-medium text-gray-700">
-                Status
-              </label>
-              <select
-                id="status"
-                {...register('status')}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-              </select>
-              {errors.status && (
-                <p className="mt-1 text-sm text-red-600">{errors.status.message}</p>
-              )}
-            </div>
-
             <div className="flex flex-col sm:flex-row gap-3 sm:justify-end pt-6 border-t border-gray-200">
               <button
                 type="button"
@@ -860,10 +939,19 @@ export default function NewProjectPage() {
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || uploadingPDF}
+                onClick={() => console.log('Submit button clicked!')}
                 className="w-full sm:w-auto px-6 py-3 sm:py-4 bg-yellow-500 text-gray-900 rounded-xl hover:bg-yellow-600 active:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-200 font-bold text-sm sm:text-base touch-target flex items-center justify-center"
               >
-                {isSubmitting ? (
+                {uploadingPDF ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Uploading PDF...
+                  </>
+                ) : isSubmitting ? (
                   <>
                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

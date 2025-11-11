@@ -13,14 +13,19 @@ type Project = {
   title: string;
   description: string | null;
   status: string;
+  workflow_stage: string | null;
   customer_name: string;
   phone_number: string;
   alt_phone_number: string | null;
   address: string;
+  property_type: string | null;
+  apartment_name: string | null;
+  block_number: string | null;
+  flat_number: string | null;
+  floor_number: string | null;
+  area_sqft: string | null;
   start_date: string;
   estimated_completion_date: string;
-  designer_name: string;
-  designer_phone: string;
   carpenter_name: string | null;
   carpenter_phone: string | null;
   electrician_name: string | null;
@@ -29,12 +34,18 @@ type Project = {
   plumber_phone: string | null;
   painter_name: string | null;
   painter_phone: string | null;
+  granite_worker_name: string | null;
+  granite_worker_phone: string | null;
+  glass_worker_name: string | null;
+  glass_worker_phone: string | null;
   project_budget: number | null;
   project_notes: string | null;
+  requirements_pdf_url: string | null;
   assigned_employee: {
     id: string;
     name: string;
     email: string;
+    designation?: string;
   } | null;
 };
 
@@ -376,6 +387,71 @@ export default function ProjectDetailsPage() {
                   <dd className="text-sm text-gray-900 whitespace-pre-line">{project.address}</dd>
                 </div>
 
+                {/* Property Details */}
+                {(project.property_type || project.apartment_name || project.area_sqft) && (
+                  <div className="mt-6 border-t border-gray-200 pt-4">
+                    <h4 className="text-md font-semibold text-gray-900 mb-3">Property Details</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      {project.property_type && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500 mb-1">Property Type</dt>
+                          <dd className="text-sm text-gray-900 capitalize">{project.property_type.replace(/_/g, ' ')}</dd>
+                        </div>
+                      )}
+                      {project.apartment_name && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500 mb-1">Apartment/Building</dt>
+                          <dd className="text-sm text-gray-900">{project.apartment_name}</dd>
+                        </div>
+                      )}
+                      {project.area_sqft && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500 mb-1">Area</dt>
+                          <dd className="text-sm text-gray-900">{project.area_sqft} sq ft</dd>
+                        </div>
+                      )}
+                      {project.block_number && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500 mb-1">Block</dt>
+                          <dd className="text-sm text-gray-900">{project.block_number}</dd>
+                        </div>
+                      )}
+                      {project.flat_number && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500 mb-1">Flat</dt>
+                          <dd className="text-sm text-gray-900">{project.flat_number}</dd>
+                        </div>
+                      )}
+                      {project.floor_number && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500 mb-1">Floor</dt>
+                          <dd className="text-sm text-gray-900">{project.floor_number}</dd>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Requirements PDF */}
+                {project.requirements_pdf_url && (
+                  <div className="mt-4">
+                    <dt className="text-sm font-medium text-gray-500 mb-1">Requirements Document</dt>
+                    <dd className="text-sm">
+                      <a 
+                        href={project.requirements_pdf_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-blue-600 hover:text-blue-800"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        View Requirements PDF
+                      </a>
+                    </dd>
+                  </div>
+                )}
+
                 {project.project_notes && (
                   <div className="mt-4">
                     <dt className="text-sm font-medium text-gray-500 mb-1">Project Notes</dt>
@@ -388,24 +464,15 @@ export default function ProjectDetailsPage() {
               <div className="border-t border-gray-200 pt-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Team Details</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 mb-1">Designer</dt>
-                    <dd className="text-sm text-gray-900">
-                      {project.designer_name}
-                      <div className="text-gray-500 text-sm">
-                        <a href={`tel:${project.designer_phone}`} className="text-blue-600 hover:text-blue-800">
-                          {project.designer_phone}
-                        </a>
-                      </div>
-                    </dd>
-                  </div>
-                  
                   {project.assigned_employee && (
                     <div>
-                      <dt className="text-sm font-medium text-gray-500 mb-1">Assigned Employee</dt>
+                      <dt className="text-sm font-medium text-gray-500 mb-1">Assigned Designer</dt>
                       <dd className="text-sm text-gray-900">
                         {project.assigned_employee.name}
                         <div className="text-gray-500 text-sm">{project.assigned_employee.email}</div>
+                        {project.assigned_employee.designation && (
+                          <div className="text-gray-500 text-xs">{project.assigned_employee.designation}</div>
+                        )}
                       </dd>
                     </div>
                   )}
@@ -467,6 +534,38 @@ export default function ProjectDetailsPage() {
                           <div className="text-gray-500 text-sm">
                             <a href={`tel:${project.painter_phone}`} className="text-blue-600 hover:text-blue-800">
                               {project.painter_phone}
+                            </a>
+                          </div>
+                        )}
+                      </dd>
+                    </div>
+                  )}
+
+                  {project.granite_worker_name && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 mb-1">Granite Worker</dt>
+                      <dd className="text-sm text-gray-900">
+                        {project.granite_worker_name}
+                        {project.granite_worker_phone && (
+                          <div className="text-gray-500 text-sm">
+                            <a href={`tel:${project.granite_worker_phone}`} className="text-blue-600 hover:text-blue-800">
+                              {project.granite_worker_phone}
+                            </a>
+                          </div>
+                        )}
+                      </dd>
+                    </div>
+                  )}
+
+                  {project.glass_worker_name && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 mb-1">Glass Worker</dt>
+                      <dd className="text-sm text-gray-900">
+                        {project.glass_worker_name}
+                        {project.glass_worker_phone && (
+                          <div className="text-gray-500 text-sm">
+                            <a href={`tel:${project.glass_worker_phone}`} className="text-blue-600 hover:text-blue-800">
+                              {project.glass_worker_phone}
                             </a>
                           </div>
                         )}
