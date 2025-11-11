@@ -17,6 +17,13 @@ const debugLog = (...args: any[]) => {
   }
 };
 
+// Cache for session and user data to prevent excessive API calls
+let sessionCache: { session: Session | null; timestamp: number } | null = null;
+let userRoleCache: Map<string, { role: string; full_name: string; timestamp: number }> = new Map();
+const CACHE_DURATION = 60000; // 1 minute cache
+const MIN_REQUEST_INTERVAL = 1000; // Minimum 1 second between requests
+let lastRequestTime = 0;
+
 type UserWithRole = User & {
   role?: 'admin' | 'employee';
   full_name?: string;
@@ -43,79 +50,74 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  const fetchUserRole = async (userId: string) => {
+  const fetchUserRole = async (userId: string, sessionUser?: User) => {
     // First, let's verify the user ID is valid
     if (!userId) {
       if (DEBUG_ENABLED) console.error('No user ID provided to fetchUserRole');
       return null;
     }
 
+    // Check cache first
+    const cached = userRoleCache.get(userId);
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      debugLog('✅ Using cached user role for:', userId);
+      return { role: cached.role, full_name: cached.full_name };
+    }
+
     debugLog('===== fetchUserRole started =====');
     debugLog('User ID:', userId);
 
     try {
-      // Skip database query for now and go directly to auth metadata
-      // This prevents hanging on missing database tables
-      debugLog('⚡ Skipping database query, using auth metadata directly...');
+      // If we already have the user from session, use that instead of making another API call
+      let user = sessionUser;
+      
+      if (!user) {
+        // Rate limit check
+        const now = Date.now();
+        if (now - lastRequestTime < MIN_REQUEST_INTERVAL) {
+          debugLog('⏱️ Rate limiting: waiting before next request');
+          await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - (now - lastRequestTime)));
+        }
+        lastRequestTime = Date.now();
 
-      // Get user from auth metadata
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-      debugLog('Auth user check:', {
-        hasUser: !!user,
-        hasError: !!userError,
-        userEmail: user?.email
-      });
-
-      if (userError) {
-        if (DEBUG_ENABLED) console.error('❌ Error getting user from auth:', userError);
-        // Return default role even if there's an error
-        return {
-          role: 'employee',
-          full_name: 'User'
-        };
+        debugLog('⚡ Fetching user from auth...');
+        const { data: { user: fetchedUser }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError) {
+          if (DEBUG_ENABLED) console.error('❌ Error getting user from auth:', userError);
+          return { role: 'employee', full_name: 'User' };
+        }
+        
+        user = fetchedUser;
       }
 
       if (user) {
         const userRole = user.user_metadata?.role || 'employee';
+        const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
+        
         debugLog('✅ User role from auth metadata:', {
           id: user.id,
           email: user.email,
-          role: userRole,
-          metadata: user.user_metadata
+          role: userRole
         });
 
-        return {
+        // Cache the result
+        userRoleCache.set(userId, {
           role: userRole,
-          full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
-        };
+          full_name: fullName,
+          timestamp: Date.now()
+        });
+
+        return { role: userRole, full_name: fullName };
       }
 
       // Return default role if user not found
       if (DEBUG_ENABLED) console.warn(`⚠️ User with ID ${userId} not found`);
-      return {
-        role: 'employee',
-        full_name: 'User'
-      };
+      return { role: 'employee', full_name: 'User' };
 
     } catch (error) {
-      // Handle any unexpected errors
-      const errorInfo = error instanceof Error ? {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
-      } : {
-        name: 'UnknownError',
-        message: String(error)
-      };
-
-      if (DEBUG_ENABLED) console.error('💥 Unexpected error in fetchUserRole:', errorInfo);
-
-      // Return default values in case of error
-      return {
-        role: 'employee',
-        full_name: 'User'
-      };
+      if (DEBUG_ENABLED) console.error('💥 Unexpected error in fetchUserRole:', error);
+      return { role: 'employee', full_name: 'User' };
     } finally {
       debugLog('===== fetchUserRole completed =====\n');
     }
@@ -210,8 +212,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         debugLog('👤 User found, fetching role...');
-        // Fetch user role
-        const userData = await fetchUserRole(currentSession.user.id);
+        // Fetch user role - pass the session user to avoid redundant API call
+        const userData = await fetchUserRole(currentSession.user.id, currentSession.user);
 
         debugLog('📋 User role fetch result:', {
           hasData: !!userData,
@@ -279,7 +281,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (newSession?.user) {
             debugLog('👤 User signed in, fetching role...');
             try {
-              const userData = await fetchUserRole(newSession.user.id);
+              // Pass session user to avoid redundant API call
+              const userData = await fetchUserRole(newSession.user.id, newSession.user);
 
               if (userData) {
                 const userWithRole = {
@@ -405,9 +408,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
       }
 
-      debugLog('✅ Supabase login successful, getting session...');
-      // Get the session after successful sign in
-      const { data: { session } } = await supabase.auth.getSession();
+      debugLog('✅ Supabase login successful');
+      
+      // Session is already in the data response, no need to fetch again
+      const session = data.session;
 
       debugLog('📋 Post-login session check:', {
         hasSession: !!session,
@@ -435,7 +439,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       debugLog('✅ SignIn completed successfully');
       return {
-        data: { ...data, session },
+        data,
         error: null
       };
     } catch (error: any) {
