@@ -13,6 +13,10 @@ export default function DashboardPage() {
     activeProjects: 0,
     completedProjects: 0,
     upcomingDeadlines: 0,
+    totalTasks: 0,
+    todoTasks: 0,
+    inProgressTasks: 0,
+    doneTasks: 0,
   });
   const [recentProjects, setRecentProjects] = useState<any[]>([]);
   const [recentTasks, setRecentTasks] = useState<any[]>([]);
@@ -45,12 +49,13 @@ export default function DashboardPage() {
             return days <= 7 && days > 0;
           }).length;
           
-          setStats({
+          setStats(prevStats => ({
+            ...prevStats,
             totalProjects: projects.length,
             activeProjects: active,
             completedProjects: completed,
             upcomingDeadlines: upcoming,
-          });
+          }));
         }
         
         // Set recent projects from the same data (first 5 projects)
@@ -82,6 +87,21 @@ export default function DashboardPage() {
             // Ensure it's an array before slicing
             if (Array.isArray(tasksArray)) {
               setRecentTasks(tasksArray.slice(0, 5)); // Get first 5 tasks
+              
+              // Calculate task stats
+              const taskStats = {
+                totalTasks: tasksArray.length,
+                todoTasks: tasksArray.filter(t => t.status === 'todo').length,
+                inProgressTasks: tasksArray.filter(t => t.status === 'in_progress').length,
+                doneTasks: tasksArray.filter(t => t.status === 'done').length,
+              };
+              
+              // Update stats with task data
+              setStats(prevStats => ({
+                ...prevStats,
+                ...taskStats
+              }));
+              
             } else {
               console.error('Tasks array is not an array:', tasksArray);
               setRecentTasks([]); // Set empty array as fallback
@@ -176,7 +196,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4 sm:gap-6">
         <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-card border border-gray-100 hover:shadow-card-hover card-hover transition-all duration-200 animate-fade-in">
           <div className="flex items-center">
             <div className="p-3 sm:p-4 rounded-xl bg-yellow-100 text-yellow-700 shadow-sm">
@@ -226,6 +246,57 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Task Stats */}
+      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-card border border-gray-100 hover:shadow-card-hover card-hover transition-all duration-200 animate-fade-in">
+          <div className="flex items-center">
+            <div className="p-3 sm:p-4 rounded-xl bg-purple-100 text-purple-700 shadow-sm">
+              <FiCheckCircle className="h-5 w-5 sm:h-6 sm:w-6" />
+            </div>
+            <div className="ml-3 sm:ml-4 flex-1 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Total Tasks</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stats.totalTasks}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-card border border-gray-100 hover:shadow-card-hover card-hover transition-all duration-200 animate-fade-in">
+          <div className="flex items-center">
+            <div className="p-3 sm:p-4 rounded-xl bg-gray-100 text-gray-700 shadow-sm">
+              <FiClock className="h-5 w-5 sm:h-6 sm:w-6" />
+            </div>
+            <div className="ml-3 sm:ml-4 flex-1 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">To Do</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stats.todoTasks}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-card border border-gray-100 hover:shadow-card-hover card-hover transition-all duration-200 animate-fade-in">
+          <div className="flex items-center">
+            <div className="p-3 sm:p-4 rounded-xl bg-blue-100 text-blue-600 shadow-sm">
+              <FiPlay className="h-5 w-5 sm:h-6 sm:w-6" />
+            </div>
+            <div className="ml-3 sm:ml-4 flex-1 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">In Progress</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stats.inProgressTasks}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-card border border-gray-100 hover:shadow-card-hover card-hover transition-all duration-200 animate-fade-in">
+          <div className="flex items-center">
+            <div className="p-3 sm:p-4 rounded-xl bg-green-100 text-green-600 shadow-sm">
+              <FiCheck className="h-5 w-5 sm:h-6 sm:w-6" />
+            </div>
+            <div className="ml-3 sm:ml-4 flex-1 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Completed</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stats.doneTasks}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Two Column Layout: Tasks on Left, Recent Projects on Right */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Tasks - Left Column */}
@@ -241,7 +312,11 @@ export default function DashboardPage() {
           </div>
           <div className="divide-y divide-gray-100">
             {recentTasks.length > 0 ? (
-              recentTasks.map((task, index) => (
+              <>
+                <div className="px-4 py-2 bg-blue-50 text-xs text-blue-600">
+                  Debug: Found {recentTasks.length} recent tasks
+                </div>
+                {recentTasks.map((task, index) => (
                 <div
                   key={task.id}
                   className="px-4 sm:px-6 py-4 sm:py-5 hover:bg-gray-50 transition-all duration-200"
@@ -349,7 +424,8 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
-              ))
+                ))}
+              </>
             ) : (
               <div className="px-4 sm:px-6 py-8 sm:py-12 text-center text-gray-500">
                 <FiCheckCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
