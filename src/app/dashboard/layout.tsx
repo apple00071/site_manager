@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX } from 'react-icons/fi';
+import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX, FiCheckSquare } from 'react-icons/fi';
 import { supabase } from '@/lib/supabase';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 import { OptimizedNotificationBell } from '@/components/OptimizedNotificationBell';
@@ -31,6 +31,7 @@ export default function DashboardLayout({
     if (pathname === '/dashboard/settings') return 'Settings';
     if (pathname === '/dashboard/my-projects') return 'My Projects';
     if (pathname === '/dashboard/my-tasks') return 'My Tasks';
+    if (pathname === '/dashboard/tasks') return 'All Tasks';
     if (pathname.startsWith('/dashboard/projects/')) {
       if (pathname.endsWith('/edit')) return 'Edit Project';
       if (pathname.endsWith('/members')) return 'Project Members';
@@ -140,6 +141,15 @@ export default function DashboardLayout({
             >
               <FiBriefcase className="h-6 w-6 mb-1 group-hover:text-yellow-600 transition-colors" />
               <span className="text-xs text-center font-medium hidden lg:block">Projects</span>
+            </Link>
+            <Link
+              href="/dashboard/tasks"
+              className="flex flex-col items-center px-3 py-4 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-xl mx-2 touch-target"
+              onClick={() => setSidebarOpen(false)}
+              title="All Tasks"
+            >
+              <FiCheckSquare className="h-6 w-6 mb-1 group-hover:text-yellow-600 transition-colors" />
+              <span className="text-xs text-center font-medium hidden lg:block">Tasks</span>
             </Link>
             {isAdmin && (
               <Link
