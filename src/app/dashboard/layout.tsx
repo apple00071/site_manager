@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX } from 'react-icons/fi';
 import { supabase } from '@/lib/supabase';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
-import { NotificationBell } from '@/components/NotificationBell';
+import { OptimizedNotificationBell } from '@/components/OptimizedNotificationBell';
 import HydrationSafe from '@/components/HydrationSafe';
 
 export default function DashboardLayout({
@@ -199,14 +199,14 @@ export default function DashboardLayout({
 
         {/* Notification bell - floating (mobile only) */}
         <div className="lg:hidden fixed top-4 right-4 z-30">
-          <NotificationBell />
+          <OptimizedNotificationBell />
         </div>
 
         {/* Desktop header only */}
         <header className="bg-white shadow-sm border-b border-gray-200 hidden lg:block">
           <div className="px-6 py-4 flex items-center justify-between">
             <h2 className="text-2xl font-bold text-gray-900">{getPageTitle()}</h2>
-            <NotificationBell />
+            <OptimizedNotificationBell />
           </div>
         </header>
 
