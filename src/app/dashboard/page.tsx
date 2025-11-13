@@ -59,13 +59,40 @@ export default function DashboardPage() {
 
         // Fetch recent tasks
         try {
-          const tasksResponse = await fetch('/api/tasks/all');
+          const tasksResponse = await fetch('/api/tasks/all?t=' + Date.now());
           if (tasksResponse.ok) {
             const tasksData = await tasksResponse.json();
-            setRecentTasks(tasksData.slice(0, 5)); // Get first 5 tasks
+            console.log('Tasks data:', tasksData); // Debug log
+            console.log('Type of tasksData:', typeof tasksData); // Debug log
+            console.log('Is array?', Array.isArray(tasksData)); // Debug log
+            
+            // More defensive handling
+            let tasksArray = [];
+            
+            if (Array.isArray(tasksData)) {
+              tasksArray = tasksData;
+            } else if (tasksData && typeof tasksData === 'object') {
+              // Try different possible properties
+              tasksArray = tasksData.tasks || tasksData.data || tasksData.results || [];
+            }
+            
+            console.log('Final tasks array:', tasksArray); // Debug log
+            console.log('Is final array?', Array.isArray(tasksArray)); // Debug log
+            
+            // Ensure it's an array before slicing
+            if (Array.isArray(tasksArray)) {
+              setRecentTasks(tasksArray.slice(0, 5)); // Get first 5 tasks
+            } else {
+              console.error('Tasks array is not an array:', tasksArray);
+              setRecentTasks([]); // Set empty array as fallback
+            }
+          } else {
+            console.error('Tasks response not ok:', tasksResponse.status);
+            setRecentTasks([]);
           }
         } catch (error) {
           console.error('Error fetching tasks:', error);
+          setRecentTasks([]); // Set empty array on error
         }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -264,17 +291,27 @@ export default function DashboardPage() {
                         <button
                           onClick={async () => {
                             try {
-                              await fetch('/api/tasks', {
+                              const response = await fetch('/api/tasks', {
                                 method: 'PATCH',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ id: task.id, status: 'done' }),
+                                body: JSON.stringify({ 
+                                  id: task.id, 
+                                  status: 'done',
+                                  step_id: task.step?.id || null
+                                }),
                               });
-                              window.location.reload();
+                              
+                              if (response.ok) {
+                                // Refresh the dashboard data instead of full page reload
+                                window.location.reload();
+                              } else {
+                                console.error('Failed to update task status');
+                              }
                             } catch (error) {
                               console.error('Error updating task:', error);
                             }
                           }}
-                          className="text-green-600 hover:text-green-800"
+                          className="text-green-600 hover:text-green-800 p-1 rounded hover:bg-green-50"
                           title="Mark as Done"
                         >
                           <FiCheck className="h-4 w-4" />
@@ -284,17 +321,26 @@ export default function DashboardPage() {
                         <button
                           onClick={async () => {
                             try {
-                              await fetch('/api/tasks', {
+                              const response = await fetch('/api/tasks', {
                                 method: 'PATCH',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ id: task.id, status: 'in_progress' }),
+                                body: JSON.stringify({ 
+                                  id: task.id, 
+                                  status: 'in_progress',
+                                  step_id: task.step?.id || null
+                                }),
                               });
-                              window.location.reload();
+                              
+                              if (response.ok) {
+                                window.location.reload();
+                              } else {
+                                console.error('Failed to update task status');
+                              }
                             } catch (error) {
                               console.error('Error updating task:', error);
                             }
                           }}
-                          className="text-blue-600 hover:text-blue-800"
+                          className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
                           title="Start Task"
                         >
                           <FiPlay className="h-4 w-4" />

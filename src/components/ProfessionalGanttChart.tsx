@@ -89,6 +89,9 @@ export function ProfessionalGanttChart({ tasks, loading = false }: ProfessionalG
 
   const updateTaskStatus = async (taskId: string, newStatus: string) => {
     try {
+      // Find the task to get step_id
+      const task = tasks.find(t => t.id === taskId);
+      
       const response = await fetch('/api/tasks', {
         method: 'PATCH',
         headers: {
@@ -97,12 +100,17 @@ export function ProfessionalGanttChart({ tasks, loading = false }: ProfessionalG
         body: JSON.stringify({
           id: taskId,
           status: newStatus,
+          step_id: task?.step?.id || null,
         }),
       });
 
       if (response.ok) {
-        // Refresh the page or update local state
+        console.log('Task status updated successfully');
+        // Refresh the page to show updated status
         window.location.reload();
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to update task status:', errorData);
       }
     } catch (error) {
       console.error('Error updating task status:', error);
@@ -434,7 +442,7 @@ export function ProfessionalGanttChart({ tasks, loading = false }: ProfessionalG
                           {task.status !== 'done' && (
                             <button
                               onClick={() => updateTaskStatus(task.id, 'done')}
-                              className="text-green-600 hover:text-green-800"
+                              className="text-green-600 hover:text-green-800 p-1 rounded hover:bg-green-50"
                               title="Mark as Done"
                             >
                               <FiCheck className="h-4 w-4" />
@@ -443,10 +451,19 @@ export function ProfessionalGanttChart({ tasks, loading = false }: ProfessionalG
                           {task.status === 'todo' && (
                             <button
                               onClick={() => updateTaskStatus(task.id, 'in_progress')}
-                              className="text-blue-600 hover:text-blue-800"
+                              className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
                               title="Start Task"
                             >
                               <FiPlay className="h-4 w-4" />
+                            </button>
+                          )}
+                          {task.status === 'in_progress' && (
+                            <button
+                              onClick={() => updateTaskStatus(task.id, 'todo')}
+                              className="text-yellow-600 hover:text-yellow-800 p-1 rounded hover:bg-yellow-50"
+                              title="Pause Task"
+                            >
+                              <FiPause className="h-4 w-4" />
                             </button>
                           )}
                         </div>
@@ -488,7 +505,7 @@ export function ProfessionalGanttChart({ tasks, loading = false }: ProfessionalG
                             {task.status !== 'done' && (
                               <button
                                 onClick={() => updateTaskStatus(task.id, 'done')}
-                                className="text-green-600 hover:text-green-800"
+                                className="text-green-600 hover:text-green-800 p-1 rounded hover:bg-green-50"
                                 title="Mark as Done"
                               >
                                 <FiCheck className="h-3 w-3" />
@@ -497,10 +514,19 @@ export function ProfessionalGanttChart({ tasks, loading = false }: ProfessionalG
                             {task.status === 'todo' && (
                               <button
                                 onClick={() => updateTaskStatus(task.id, 'in_progress')}
-                                className="text-blue-600 hover:text-blue-800"
+                                className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
                                 title="Start Task"
                               >
                                 <FiPlay className="h-3 w-3" />
+                              </button>
+                            )}
+                            {task.status === 'in_progress' && (
+                              <button
+                                onClick={() => updateTaskStatus(task.id, 'todo')}
+                                className="text-yellow-600 hover:text-yellow-800 p-1 rounded hover:bg-yellow-50"
+                                title="Pause Task"
+                              >
+                                <FiPause className="h-3 w-3" />
                               </button>
                             )}
                           </div>
