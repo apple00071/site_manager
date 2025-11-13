@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
+import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
 
 // Force dynamic rendering - never cache inventory data
 export const dynamic = 'force-dynamic';
@@ -12,41 +10,29 @@ export const revalidate = 0;
 
 // Validation schemas - quantity is now optional
 const createInventoryItemSchema = z.object({
-  project_id: z.string().uuid(),
-  item_name: z.string().min(1),
-  quantity: z.number().positive().optional(), // Optional field
-  supplier_name: z.string().optional(),
-  date_purchased: z.string().optional(), // ISO date string
-  bill_url: z.string().optional(),
-  total_cost: z.number().nonnegative().optional(), // Manual total cost entry
+  project_id: z.string().uuid('Invalid project ID'),
+  item_name: z.string().min(1, 'Item name is required'),
+  quantity: z.number().optional(),
+  supplier_name: z.string().min(1, 'Supplier name is required'),
+  date_purchased: z.string(),
+  bill_url: z.string().url('Invalid bill URL').optional(),
+  total_cost: z.number().min(0, 'Total cost must be positive'),
 });
 
 const updateInventoryItemSchema = z.object({
-  id: z.string().uuid(),
-  item_name: z.string().min(1).optional(),
-  quantity: z.number().positive().optional(),
-  supplier_name: z.string().optional(),
+  id: z.string().uuid('Invalid item ID'),
+  item_name: z.string().min(1, 'Item name is required').optional(),
+  quantity: z.number().optional(),
+  supplier_name: z.string().min(1, 'Supplier name is required').optional(),
   date_purchased: z.string().optional(),
-  bill_url: z.string().optional(),
-  total_cost: z.number().nonnegative().optional(),
+  bill_url: z.string().url('Invalid bill URL').optional(),
+  total_cost: z.number().min(0, 'Total cost must be positive').optional(),
 });
 
+// Helper function to get current user from session
 async function getCurrentUser(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set() {},
-          remove() {},
-        },
-      }
-    );
+    const supabase = await createAuthenticatedClient();
 
     const { data: { session }, error } = await supabase.auth.getSession();
     

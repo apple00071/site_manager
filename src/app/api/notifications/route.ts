@@ -1,38 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
+import { NotificationService } from '@/lib/notificationService';
+import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
 
-// Force dynamic rendering - never cache this route
+// Force dynamic rendering and set cache control
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-
-// Helper function to create authenticated supabase client
-async function createAuthenticatedClient() {
-  const cookieStore = await cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-        set(name: string, value: string, options: any) {
-          cookieStore.set({ name, value, ...options });
-        },
-        remove(name: string, options: any) {
-          cookieStore.delete(name);
-        },
-      },
-    }
-  );
-}
 
 // GET - Fetch notifications for current user
 export async function GET(request: NextRequest) {

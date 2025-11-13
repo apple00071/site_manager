@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
+import { createAuthenticatedClient } from '@/lib/supabase-server';
 
 // Force dynamic rendering - never cache authentication
 export const dynamic = 'force-dynamic';
@@ -15,41 +14,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
     }
 
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: any) {
-            cookieStore.set({ 
-              name, 
-              value, 
-              ...options,
-              httpOnly: true,
-              secure: process.env.NODE_ENV === 'production',
-              sameSite: 'lax',
-              path: '/',
-            });
-          },
-          remove(name: string, options: any) {
-            cookieStore.set({ 
-              name, 
-              value: '', 
-              ...options,
-              httpOnly: true,
-              secure: process.env.NODE_ENV === 'production',
-              sameSite: 'lax',
-              path: '/',
-              maxAge: 0,
-            });
-          },
-        },
-      }
-    );
+    const supabase = await createAuthenticatedClient();
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 

@@ -2,11 +2,10 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase';
 
 export default function Home() {
   const router = useRouter();
-  const supabase = createClientComponentClient();
 
   useEffect(() => {
     const checkUser = async () => {
@@ -20,7 +19,7 @@ export default function Home() {
     };
 
     checkUser();
-  }, [router, supabase.auth]);
+  }, []); // Empty dependency array - only run once on mount
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-between p-24">

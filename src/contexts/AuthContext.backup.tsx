@@ -6,7 +6,6 @@ export const dynamic = 'force-dynamic';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Session, User } from '@supabase/supabase-js';
-import { getOptimizedSession, getOptimizedUserRole, setupSmartTokenRefresh, clearAuthCache } from '@/lib/optimizedAuth';
 
 // Set to false to disable all debug logs
 const DEBUG_ENABLED = false;
@@ -51,18 +50,94 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Use optimized user role fetching
-  const fetchUserRole = getOptimizedUserRole;
+  const fetchUserRole = async (userId: string, sessionUser?: User) => {
+    // First, let's verify the user ID is valid
+    if (!userId) {
+      if (DEBUG_ENABLED) console.error('No user ID provided to fetchUserRole');
+      return null;
+    }
+
+    // Check cache first
+    const cached = userRoleCache.get(userId);
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      debugLog('✅ Using cached user role for:', userId);
+      return { role: cached.role, full_name: cached.full_name };
+    }
+
+    debugLog('===== fetchUserRole started =====');
+    debugLog('User ID:', userId);
+
+    try {
+      // If we already have the user from session, use that instead of making another API call
+      let user: User | null = sessionUser || null;
+      
+      if (!user) {
+        // Rate limit check
+        const now = Date.now();
+        if (now - lastRequestTime < MIN_REQUEST_INTERVAL) {
+          debugLog('⏱️ Rate limiting: waiting before next request');
+          await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - (now - lastRequestTime)));
+        }
+        lastRequestTime = Date.now();
+
+        debugLog('⚡ Fetching user from auth...');
+        const { data: { user: fetchedUser }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError) {
+          if (DEBUG_ENABLED) console.error('❌ Error getting user from auth:', userError);
+          return { role: 'employee', full_name: 'User' };
+        }
+        
+        user = fetchedUser || null;
+      }
+
+      if (user) {
+        const userRole = user.user_metadata?.role || 'employee';
+        const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
+        
+        debugLog('✅ User role from auth metadata:', {
+          id: user.id,
+          email: user.email,
+          role: userRole
+        });
+
+        // Cache the result
+        userRoleCache.set(userId, {
+          role: userRole,
+          full_name: fullName,
+          timestamp: Date.now()
+        });
+
+        return { role: userRole, full_name: fullName };
+      }
+
+      // Return default role if user not found
+      if (DEBUG_ENABLED) console.warn(`⚠️ User with ID ${userId} not found`);
+      return { role: 'employee', full_name: 'User' };
+
+    } catch (error) {
+      if (DEBUG_ENABLED) console.error('💥 Unexpected error in fetchUserRole:', error);
+      return { role: 'employee', full_name: 'User' };
+    } finally {
+      debugLog('===== fetchUserRole completed =====\n');
+    }
+  };
 
   useEffect(() => {
     const initializeAuth = async () => {
-      debugLog('🚀 Initializing optimized authentication...');
+      debugLog('🚀 Initializing authentication...');
 
       try {
         setIsLoading(true);
 
-        // Use optimized session fetching
-        let { session: currentSession, user: currentUser, error: sessionError } = await getOptimizedSession();
+        debugLog('📡 Getting current session...');
+        // Get session directly from client-side first (faster)
+        let currentSession = null;
+        let sessionError = null;
+        
+        const { data: { session }, error } = await supabase.auth.getSession();
+        currentSession = session;
+        sessionError = error;
         
         // Only check server-side if client-side session is missing but we might be authenticated
         if (!currentSession && !sessionError) {
@@ -137,20 +212,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         debugLog('👤 User found, fetching role...');
-        // Fetch user role using optimized function
-        const userData = await fetchUserRole(currentSession.user.id);
+        // Fetch user role - pass the session user to avoid redundant API call
+        const userData = await fetchUserRole(currentSession.user.id, currentSession.user);
 
         debugLog('📋 User role fetch result:', {
           hasData: !!userData,
-          role: (userData as any)?.role,
-          fullName: (userData as any)?.full_name
+          role: userData?.role,
+          fullName: userData?.full_name
         });
 
         if (userData) {
           const userWithRole = {
             ...currentSession.user,
-            role: (userData as any).role as 'admin' | 'employee',
-            full_name: (userData as any).full_name
+            role: userData.role as 'admin' | 'employee',
+            full_name: userData.full_name
           };
 
           setUser(userWithRole);
@@ -206,14 +281,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (newSession?.user) {
             debugLog('👤 User signed in, fetching role...');
             try {
-              // Use optimized fetchUserRole function
-              const userData = await fetchUserRole(newSession.user.id);
+              // Pass session user to avoid redundant API call
+              const userData = await fetchUserRole(newSession.user.id, newSession.user);
 
               if (userData) {
                 const userWithRole = {
                   ...newSession.user,
-                  role: (userData as any).role as 'admin' | 'employee',
-                  full_name: (userData as any).full_name
+                  role: userData.role as 'admin' | 'employee',
+                  full_name: userData.full_name
                 };
 
                 setUser(userWithRole);

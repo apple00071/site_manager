@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 import { NotificationService } from '@/lib/notificationService';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
+import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
 
 // Force dynamic rendering - never cache project steps
 export const dynamic = 'force-dynamic';
@@ -12,20 +10,7 @@ export const revalidate = 0;
 // Helper function to get current user from session
 async function getCurrentUser(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set() {},
-          remove() {},
-        },
-      }
-    );
+    const supabase = await createAuthenticatedClient();
 
     const { data: { session }, error } = await supabase.auth.getSession();
     

@@ -1,26 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
-import { createNoCacheResponse } from '@/lib/apiHelpers';
+import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
 
 // Force dynamic rendering - never cache task data
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-// Create admin client with service role key to bypass RLS
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
-);
 
 // Validation schema for task creation
 const createTaskSchema = z.object({
@@ -45,21 +30,7 @@ const updateTaskSchema = z.object({
  */
 async function getCurrentUser(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set() {},
-          remove() {},
-        },
-      }
-    );
-
+    const supabase = await createAuthenticatedClient();
     const { data: { session }, error } = await supabase.auth.getSession();
 
     if (error || !session) {

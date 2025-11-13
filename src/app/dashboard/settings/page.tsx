@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase';
 
 const profileSchema = z.object({
   full_name: z.string().min(1, 'Full name is required'),
@@ -41,8 +41,6 @@ export default function SettingsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   
-  const supabase = createClientComponentClient();
-
   const {
     register,
     handleSubmit,
@@ -135,7 +133,7 @@ export default function SettingsPage() {
     };
 
     fetchUserProfile();
-  }, [user, router, reset, supabase]);
+  }, [user, router, reset]);
 
   const onSubmit = async (data: ProfileFormValues) => {
     setLoading(true);

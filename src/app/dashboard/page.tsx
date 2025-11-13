@@ -21,19 +21,16 @@ export default function DashboardPage() {
     const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        // Fetch stats
+        // Fetch stats using API route
         let projects: any[] = [];
         
-        if (isAdmin) {
-          const { data } = await supabase.from('projects').select('*');
-          projects = data || [];
-        } else if (user) {
-          // For non-admin users, get projects where they are assigned via assigned_employee_id OR designer_id
-          const { data } = await supabase
-            .from('projects')
-            .select('*')
-            .or(`assigned_employee_id.eq.${user.id},designer_id.eq.${user.id}`);
-          projects = data || [];
+        try {
+          const response = await fetch('/api/admin/projects');
+          if (response.ok) {
+            projects = await response.json();
+          }
+        } catch (error) {
+          console.error('Error fetching projects:', error);
         }
         
         if (projects) {
@@ -55,41 +52,9 @@ export default function DashboardPage() {
           });
         }
         
-        // Fetch recent projects
-        let recentData: any[] = [];
-        
-        if (isAdmin) {
-          const { data } = await supabase
-            .from('projects')
-            .select(`
-              id, 
-              title, 
-              status, 
-              estimated_completion_date,
-              customer_name
-            `)
-            .order('created_at', { ascending: false })
-            .limit(5);
-          recentData = data || [];
-        } else if (user) {
-          // For non-admin users, get projects where they are assigned via assigned_employee_id OR designer_id
-          const { data } = await supabase
-            .from('projects')
-            .select(`
-              id, 
-              title, 
-              status, 
-              estimated_completion_date,
-              customer_name
-            `)
-            .or(`assigned_employee_id.eq.${user.id},designer_id.eq.${user.id}`)
-            .order('created_at', { ascending: false })
-            .limit(5);
-          recentData = data || [];
-        }
-        if (recentData) {
-          setRecentProjects(recentData);
-        }
+        // Set recent projects from the same data (first 5 projects)
+        const recentData = projects.slice(0, 5);
+        setRecentProjects(recentData);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {

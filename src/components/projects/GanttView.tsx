@@ -24,14 +24,23 @@ export function GanttView({ projectId }: { projectId: string }) {
     const fetchSteps = async () => {
       setLoading(true);
       setError(null);
-      const { data, error } = await supabase
-        .from('project_steps')
-        .select('id,title,start_date,end_date')
-        .eq('project_id', projectId)
-        .order('start_date', { ascending: true });
-      if (error) setError('Failed to load timeline');
-      else setSteps((data as any[]) as Step[]);
-      setLoading(false);
+      
+      try {
+        // Use API route instead of direct Supabase query
+        const response = await fetch(`/api/project-steps?project_id=${projectId}`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch project steps');
+        }
+        
+        const data = await response.json();
+        setSteps(data || []);
+      } catch (err) {
+        console.error('Error fetching project steps:', err);
+        setError('Failed to load timeline');
+      } finally {
+        setLoading(false);
+      }
     };
     fetchSteps();
   }, [projectId]);

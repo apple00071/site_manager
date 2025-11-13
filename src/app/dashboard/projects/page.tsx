@@ -185,28 +185,68 @@ export default function ProjectsPage() {
                 href={`/dashboard/projects/${project.id}`}
                 className="block p-4 sm:p-5 hover:bg-gray-50 active:bg-gray-100 transition-all duration-200 touch-target"
               >
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm sm:text-base font-semibold text-gray-900 truncate leading-tight">
                       {project.title}
                     </h3>
-                    <p className="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-2 leading-relaxed">
-                      {project.description}
-                    </p>
-                    <div className="mt-3 flex flex-col xs:flex-row xs:items-center gap-2 xs:gap-4 text-xs text-gray-500">
-                      <span className="flex items-center">
-                        <span className="font-medium">Customer:</span>
-                        <span className="ml-1 truncate">{project.customer_name || 'N/A'}</span>
-                      </span>
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm">
+                      <div>
+                        <span className="text-gray-500">Customer:</span>
+                        <span className="ml-1 text-gray-900 font-medium">{project.customer_name || 'N/A'}</span>
+                      </div>
+                      {project.flat_number && (
+                        <div>
+                          <span className="text-gray-500">Flat No:</span>
+                          <span className="ml-1 text-gray-900 font-medium">{project.flat_number}</span>
+                        </div>
+                      )}
+                      {project.phone_number && (
+                        <div>
+                          <span className="text-gray-500">Phone:</span>
+                          <a href={`tel:${project.phone_number}`} className="ml-1 text-blue-600 hover:text-blue-800 font-medium">
+                            {project.phone_number}
+                          </a>
+                        </div>
+                      )}
+                      {project.property_type && (
+                        <div>
+                          <span className="text-gray-500">Type:</span>
+                          <span className="ml-1 text-gray-900 font-medium capitalize">{project.property_type.replace(/_/g, ' ')}</span>
+                        </div>
+                      )}
+                      {project.area_sqft && (
+                        <div>
+                          <span className="text-gray-500">Area:</span>
+                          <span className="ml-1 text-gray-900 font-medium">{project.area_sqft} sq ft</span>
+                        </div>
+                      )}
                       {project.estimated_completion_date && (
-                        <span className="flex items-center">
-                          <span className="font-medium">Due:</span>
-                          <span className="ml-1">{new Date(project.estimated_completion_date).toLocaleDateString()}</span>
-                        </span>
+                        <div>
+                          <span className="text-gray-500">Est. Completion:</span>
+                          <span className="ml-1 text-gray-900 font-medium">
+                            {new Date(project.estimated_completion_date).toLocaleDateString()}
+                          </span>
+                        </div>
                       )}
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-2 ml-2">
+                  <div className="flex flex-row sm:flex-col items-start sm:items-end gap-2 ml-2">
+                    {project.workflow_stage && (
+                      <span
+                        className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
+                          project.workflow_stage === 'design_completed'
+                            ? 'bg-green-100 text-green-700'
+                            : project.workflow_stage === 'design_in_progress'
+                            ? 'bg-blue-100 text-blue-700'
+                            : project.workflow_stage === 'design_pending'
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        {project.workflow_stage.replace(/_/g, ' ')}
+                      </span>
+                    )}
                     <span className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
                       project.status === 'completed'
                         ? 'bg-green-100 text-green-700'

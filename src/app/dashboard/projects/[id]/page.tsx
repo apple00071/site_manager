@@ -84,25 +84,40 @@ export default function ProjectDetailsPage() {
         setIsLoading(true);
         setError(null);
 
-        // Fetch the project - RLS policies will handle permission checks automatically
-        // Admins can view all projects
-        // Employees can view projects where they are:
-        //   1. Listed in project_members table with view permissions, OR
-        //   2. Assigned via assigned_employee_id field
-        const { data: projectData, error: projectError } = await supabase
-          .from('projects')
-          .select(`
-            *
-          `)
-          .eq('id', id)
-          .single();
-
-        if (projectError) {
-          // If RLS denies access, we'll get a specific error
-          if (projectError.code === 'PGRST116') {
+        // Fetch the project using API route for better security and consistency
+        console.log('Fetching project with ID:', id);
+        const response = await fetch(`/api/admin/projects?id=${id}`);
+        
+        console.log('Response status:', response.status);
+        console.log('Response ok:', response.ok);
+        
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error('You are not authorized to view this project');
+          }
+          if (response.status === 403) {
             throw new Error('You do not have permission to view this project');
           }
-          throw projectError;
+          
+          let errorMessage = 'Failed to fetch project';
+          try {
+            const errorData = await response.json();
+            console.log('Error response data:', errorData);
+            errorMessage = errorData.error || errorData.message || errorMessage;
+          } catch (parseError) {
+            console.log('Could not parse error response as JSON');
+          }
+          
+          throw new Error(errorMessage);
+        }
+
+        const projectsData = await response.json();
+        console.log('Project data received:', projectsData);
+        
+        const projectData = Array.isArray(projectsData) ? projectsData[0] : projectsData;
+        
+        if (!projectData) {
+          throw new Error('Project not found');
         }
 
         setProject(projectData as Project);
@@ -166,7 +181,7 @@ export default function ProjectDetailsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 safe-area-inset-bottom">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 safe-area-inset-bottom lg:pt-0">
       {/* Mobile-friendly header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-4">
         <div className="flex-1 min-w-0">

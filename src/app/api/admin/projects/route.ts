@@ -1,13 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 import { NotificationService } from '@/lib/notificationService';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
+import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
 
-// Force dynamic rendering - never cache project data
+// Optimize caching for projects API
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+export const revalidate = 300; // 5 minutes cache
 
 // Schema for project validation
 const projectSchema = z.object({
@@ -47,65 +46,35 @@ const projectSchema = z.object({
 
 // Helper function to create a server-side Supabase client
 const createServerSupabaseClient = async () => {
-  const cookieStore = await cookies();
-  
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-        set(name: string, value: string, options: any) {
-          try {
-            cookieStore.set({ 
-              name, 
-              value, 
-              ...options,
-              httpOnly: true,
-              secure: process.env.NODE_ENV === 'production',
-              sameSite: 'lax',
-              path: '/',
-            });
-          } catch (error) {
-            console.error('Error setting cookie:', error);
-          }
-        },
-        remove(name: string, options: any) {
-          try {
-            cookieStore.set({ 
-              name, 
-              value: '',
-              ...options,
-              maxAge: 0,
-              path: '/',
-            });
-          } catch (error) {
-            console.error('Error removing cookie:', error);
-          }
-        },
-      },
-    }
-  );
+  return await createAuthenticatedClient();
 };
 
 // GET handler for fetching projects
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    console.log('Fetching projects...');
+    console.log('🚀 Admin projects API called');
+    const { searchParams } = new URL(request.url);
+    const projectId = searchParams.get('id');
+    
+    console.log('📋 Request details:', {
+      url: request.url,
+      projectId,
+      method: request.method
+    });
     
     const supabase = await createServerSupabaseClient();
     
-    const { data: { user }, error: userAuthError } = await supabase.auth.getUser();
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    if (userAuthError || !user) {
-      console.error('No authenticated user:', userAuthError?.message);
+    if (sessionError || !session?.user) {
+      console.error('No authenticated session:', sessionError?.message);
       return NextResponse.json(
-        { error: { message: 'Not authenticated', code: 'UNAUTHORIZED' } },
+        { error: 'Not authenticated' },
         { status: 401 }
       );
     }
+    
+    const user = session.user;
     
     const isAdmin = (user.app_metadata?.role || user.user_metadata?.role) === 'admin';
     const userId = user.id;
@@ -135,6 +104,11 @@ export async function GET() {
         created_at,
         updated_at
       `);
+    
+    // If requesting a specific project, add ID filter
+    if (projectId) {
+      projectsQuery = projectsQuery.eq('id', projectId);
+    }
     
     // If user is not admin, only fetch projects they are assigned to
     if (!isAdmin) {
@@ -199,13 +173,21 @@ export async function GET() {
     }
     
     // Add ordering and execute the query
-    const { data: projects, error } = await projectsQuery
-      .order('created_at', { ascending: false });
+    let query = projectsQuery;
+    if (!projectId) {
+      query = query.order('created_at', { ascending: false });
+    }
+    
+    const { data: projects, error } = projectId 
+      ? await query.single()
+      : await query;
+    
+    console.log('Query result:', { projects, error, projectId });
     
     if (error) {
       console.error('Error fetching projects:', error);
       return NextResponse.json(
-        { error: { message: 'Error fetching projects', code: 'PROJECT_FETCH_ERROR' } },
+        { error: error.message || 'Error fetching projects', code: error.code || 'PROJECT_FETCH_ERROR' },
         { status: 500 }
       );
     }

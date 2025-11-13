@@ -61,26 +61,26 @@ export function WorkflowTab({ projectId }: WorkflowTabProps) {
   const fetchProjectWorkflow = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('projects')
-        .select(`
-          id,
-          workflow_stage,
-          requirements_pdf_url,
-          requirements_uploaded_at,
-          designer_id,
-          designer_assigned_at,
-          site_supervisor_id,
-          site_supervisor_assigned_at,
-          design_approved_at,
-          design_approved_by,
-          designer:users!projects_designer_id_fkey(id, full_name, email),
-          site_supervisor:users!projects_site_supervisor_id_fkey(id, full_name, email)
-        `)
-        .eq('id', projectId)
-        .single();
+      
+      // Use API route instead of direct Supabase query
+      const response = await fetch(`/api/admin/projects?id=${projectId}`);
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('You are not authorized to view this project');
+        }
+        if (response.status === 403) {
+          throw new Error('You do not have permission to view this project');
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch project');
+      }
 
-      if (error) throw error;
+      const data = await response.json();
+      
+      if (!data) {
+        throw new Error('Project not found');
+      }
       
       // Transform the data to match ProjectWorkflow type
       const transformedData: ProjectWorkflow = {
@@ -101,13 +101,14 @@ export function WorkflowTab({ projectId }: WorkflowTabProps) {
 
   const fetchEmployees = async () => {
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, full_name, email, role')
-        .eq('role', 'employee')
-        .order('full_name');
-
-      if (error) throw error;
+      // Use API route instead of direct Supabase query
+      const response = await fetch('/api/admin/users?role=employee');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch employees');
+      }
+      
+      const data = await response.json();
       setEmployees(data || []);
     } catch (error) {
       console.error('Error fetching employees:', error);

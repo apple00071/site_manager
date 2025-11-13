@@ -1,25 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-
-// Import service role key for admin operations
-import { createClient } from '@supabase/supabase-js';
 import { NotificationService } from '@/lib/notificationService';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
+import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
 
 // Force dynamic rendering - never cache user data
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
-);
 
 const createUserSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -37,6 +24,51 @@ const updateUserSchema = z.object({
   role: z.enum(['admin', 'designer', 'site_supervisor', 'employee']),
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
 });
+
+// GET handler for fetching users
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const roleFilter = searchParams.get('role');
+    
+    const supabase = await createAuthenticatedClient();
+    
+    const { data: { user }, error: userAuthError } = await supabase.auth.getUser();
+    
+    if (userAuthError || !user) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+    
+    // Check if user is admin
+    const isAdmin = (user.app_metadata?.role || user.user_metadata?.role) === 'admin';
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+    
+    // Build query
+    let query = supabaseAdmin
+      .from('users')
+      .select('id, full_name, email, role, designation, created_at')
+      .order('full_name');
+    
+    // Add role filter if provided
+    if (roleFilter) {
+      query = query.eq('role', roleFilter);
+    }
+    
+    const { data: users, error } = await query;
+    
+    if (error) {
+      console.error('Error fetching users:', error);
+      return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
+    }
+    
+    return NextResponse.json(users);
+  } catch (error) {
+    console.error('Unexpected error in GET /api/admin/users:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
 
 export async function POST(req: Request) {
   try {

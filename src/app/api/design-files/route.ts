@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
+import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
 
 // Force dynamic rendering - never cache design files
 export const dynamic = 'force-dynamic';
@@ -32,20 +30,7 @@ const addCommentSchema = z.object({
 
 async function getCurrentUser(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set() {},
-          remove() {},
-        },
-      }
-    );
+    const supabase = await createAuthenticatedClient();
 
     const { data: { session }, error } = await supabase.auth.getSession();
     

@@ -19,7 +19,7 @@ type Notification = {
   updated_at: string;
 };
 
-export function NotificationBell() {
+export function OptimizedNotificationBell() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -27,46 +27,36 @@ export function NotificationBell() {
   const [isLoading, setIsLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const [lastFetchHash, setLastFetchHash] = useState<string>(''); // Track changes
+  
   const dropdownRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const cleanupTokenRefreshRef = useRef<(() => void) | null>(null);
   const realtimeChannelRef = useRef<any>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastNotificationCount = useRef(0);
   const isActiveTab = useRef(true);
   const lastFetchTime = useRef(0);
 
-  // Early return AFTER all hooks to prevent hooks rule violation
+  // Early return AFTER all hooks
   if (!user) return null;
 
-  // Generate hash of notifications for change detection
-  const generateNotificationsHash = (notifs: Notification[]) => {
-    if (!notifs || notifs.length === 0) return 'empty';
-    // Create hash from IDs and read status to detect any changes
-    return notifs.map(n => `${n.id}:${n.is_read}`).join('|');
-  };
-
-  // Optimized fetch with caching and smart polling
-  const fetchNotifications = async (showLoading = false, forceUpdate = false) => {
+  // Smart fetch with caching and activity detection
+  const fetchNotifications = async (forceRefresh = false) => {
     if (!user) return;
 
     const now = Date.now();
     const cacheKey = `notifications_${user.id}`;
     
     // Rate limiting - don't fetch more than once per 30 seconds unless forced
-    if (!forceUpdate && (now - lastFetchTime.current) < 30000) {
+    if (!forceRefresh && (now - lastFetchTime.current) < 30000) {
       console.log('⏭️ Notification fetch rate limited');
       return;
     }
 
     try {
-      if (showLoading) setIsLoading(true);
       setError(null);
 
       // Try cache first (unless forced refresh)
-      if (!forceUpdate) {
+      if (!forceRefresh) {
         const cached = notificationCache.get<Notification[]>(cacheKey);
         if (cached) {
           console.log('✅ Using cached notifications');
@@ -77,6 +67,7 @@ export function NotificationBell() {
       }
 
       console.log('🔔 Fetching notifications from API...');
+      setIsLoading(true);
       lastFetchTime.current = now;
 
       const response = await fetch('/api/notifications?limit=20', {
@@ -105,16 +96,13 @@ export function NotificationBell() {
         }
         
         lastNotificationCount.current = newCount;
-        setRetryCount(0);
         
         console.log(`✅ Fetched ${data.length} notifications (${newCount} unread)`);
       } else if (response.status === 401) {
-        console.error('❌ Unauthorized - session may have expired');
+        console.error('❌ Unauthorized - session expired');
         setError('Session expired. Please refresh the page.');
-        // Clear notifications on auth error
         setNotifications([]);
         setUnreadCount(0);
-        setLastFetchHash('');
       } else {
         console.error('❌ Failed to fetch notifications:', response.status);
         setError('Failed to load notifications');
@@ -122,18 +110,8 @@ export function NotificationBell() {
     } catch (error) {
       console.error('💥 Error fetching notifications:', error);
       setError('Network error. Please try again.');
-
-      // Retry logic with exponential backoff
-      if (retryCount < 3) {
-        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
-        console.log(`🔄 Retrying in ${delay}ms... (attempt ${retryCount + 1}/3)`);
-        setTimeout(() => {
-          setRetryCount(prev => prev + 1);
-          fetchNotifications();
-        }, delay);
-      }
     } finally {
-      if (showLoading) setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -157,99 +135,62 @@ export function NotificationBell() {
   useEffect(() => {
     setMounted(true);
 
-    // Initialize audio context on first user interaction (required for mobile)
+    // Initialize audio context
     const initAudioContext = () => {
       if (!audioContextRef.current) {
         try {
           const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
           audioContextRef.current = new AudioContextClass();
-          console.log('🎵 Audio context initialized');
         } catch (error) {
           console.error('❌ Failed to initialize audio context:', error);
         }
       }
     };
 
-    // Listen for first user interaction to initialize audio (mobile requirement)
     document.addEventListener('click', initAudioContext, { once: true });
-    document.addEventListener('touchstart', initAudioContext, { once: true });
-
-    // Request notification permission on mount
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().then(permission => {
-        console.log('🔔 Notification permission:', permission);
-      });
-    }
-
-    // Audio context setup complete
-
     return () => {
-      // Cleanup token refresh on unmount
-      if (cleanupTokenRefreshRef.current) {
-        cleanupTokenRefreshRef.current();
-      }
-
-      // Cleanup audio context
       if (audioContextRef.current) {
         audioContextRef.current.close();
-        audioContextRef.current = null;
       }
     };
   }, []);
 
-  // Setup real-time notifications subscription + polling fallback
+  // Optimized notification system with smart polling
   useEffect(() => {
     if (!user) return;
 
-    console.log('🔌 Setting up notification system for user:', user.id);
+    console.log('🔌 Setting up optimized notification system...');
 
     // Initial fetch
     fetchNotifications(true);
 
-    // Setup real-time subscription for instant updates
-    const setupRealtimeSubscription = async () => {
+    // Setup real-time subscription (if available)
+    const setupRealtime = async () => {
       try {
-        console.log('📡 Setting up real-time subscription...');
-        console.log('📡 User ID:', user.id);
-        console.log('📡 NOTE: Using polling-only mode due to persistent Realtime issues');
-        console.log('📡 Notifications will update every 60 seconds');
-
-        // TEMPORARY: Disable postgres_changes subscription due to persistent
-        // "mismatch between server and client bindings" error
-        // This is a known Supabase Realtime issue that can occur even with
-        // correct REPLICA IDENTITY and publication settings.
-        //
-        // The app will use polling (60-second intervals) instead.
-        // This is a reliable fallback that works in all cases.
-        //
-        // To re-enable Realtime in the future, uncomment the code below
-        // and ensure:
-        // 1. REPLICA IDENTITY is FULL
-        // 2. Table is in supabase_realtime publication
-        // 3. RLS policies allow SELECT for authenticated users
-        // 4. Supabase project is on a recent version
-
-        /*
         const channel = supabase
-          .channel('notifications-all')
+          .channel('notifications-optimized')
           .on(
             'postgres_changes',
             {
               event: 'INSERT',
               schema: 'public',
               table: 'notifications',
+              filter: `user_id=eq.${user.id}`
             },
             (payload) => {
-              console.log('🔔 Notification event received:', payload);
-
+              console.log('🔔 Real-time notification received');
               const newNotification = payload.new as Notification;
-
-              if (newNotification.user_id === user.id) {
-                console.log('🔔 New notification for current user:', newNotification);
-                setNotifications(prev => [newNotification, ...prev]);
-                setUnreadCount(prev => prev + 1);
+              
+              // Update local state immediately
+              setNotifications(prev => [newNotification, ...prev]);
+              setUnreadCount(prev => prev + 1);
+              
+              // Invalidate cache
+              cacheInvalidation.invalidateNotifications();
+              
+              // Play sound
+              if (mounted && isActiveTab.current) {
                 playNotificationSound();
-                sessionStorage.setItem('last_notification_sound_id', newNotification.id);
               }
             }
           )
@@ -259,54 +200,50 @@ export function NotificationBell() {
               event: 'UPDATE',
               schema: 'public',
               table: 'notifications',
+              filter: `user_id=eq.${user.id}`
             },
             (payload) => {
+              console.log('🔄 Notification updated via real-time');
               const updatedNotification = payload.new as Notification;
-
-              if (updatedNotification.user_id === user.id) {
-                console.log('🔄 Notification updated for current user:', updatedNotification);
-                setNotifications(prev =>
-                  prev.map(n => (n.id === updatedNotification.id ? updatedNotification : n))
-                );
-                setNotifications(prev => {
-                  setUnreadCount(prev.filter(n => !n.is_read).length);
-                  return prev;
-                });
-              }
+              
+              setNotifications(prev =>
+                prev.map(n => n.id === updatedNotification.id ? updatedNotification : n)
+              );
+              
+              // Recalculate unread count
+              setNotifications(prev => {
+                const newUnreadCount = prev.filter(n => !n.is_read).length;
+                setUnreadCount(newUnreadCount);
+                return prev;
+              });
+              
+              // Invalidate cache
+              cacheInvalidation.invalidateNotifications();
             }
           )
-          .subscribe((status, err) => {
-            console.log('📡 Realtime subscription status:', status);
-
+          .subscribe((status) => {
+            console.log('📡 Realtime status:', status);
+            
             if (status === 'SUBSCRIBED') {
-              console.log('✅ Successfully subscribed to real-time notifications');
-              setError(null);
-            } else if (status === 'CHANNEL_ERROR') {
-              console.error('❌ Realtime subscription error:', status, err);
-              console.warn('⚠️ Falling back to polling only (60-second intervals).');
-            } else if (status === 'TIMED_OUT') {
-              console.error('❌ Realtime subscription timed out:', status);
-              console.warn('⚠️ Falling back to polling only (60-second intervals).');
-            } else if (status === 'CLOSED') {
-              console.log('📡 Realtime channel closed');
+              console.log('✅ Real-time notifications active');
+              // Reduce polling frequency since real-time is working
+              setupSmartPolling(5 * 60 * 1000); // 5 minutes
+            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+              console.warn('⚠️ Real-time failed, using frequent polling');
+              // Increase polling frequency as fallback
+              setupSmartPolling(2 * 60 * 1000); // 2 minutes
             }
           });
 
         realtimeChannelRef.current = channel;
-        */
-
-        // Realtime is disabled - polling will handle all updates
-        console.log('✅ Polling mode active - notifications will update every 60 seconds');
       } catch (error) {
-        console.error('💥 Error setting up realtime subscription:', error);
-        console.warn('⚠️ Realtime subscription failed. Using polling fallback only.');
-        // Don't show error to user - polling will handle it
+        console.error('💥 Real-time setup failed:', error);
+        // Fallback to polling
+        setupSmartPolling(2 * 60 * 1000);
       }
     };
 
-    setupRealtimeSubscription();
-
-    // Smart polling: Start with 5 minutes, reduce to 2 minutes if active
+    // Smart polling function
     const setupSmartPolling = (interval: number) => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
@@ -323,26 +260,20 @@ export function NotificationBell() {
       }, interval);
     };
 
-    // Start with 5-minute polling (much less frequent than 60 seconds)
-    setupSmartPolling(5 * 60 * 1000); // 5 minutes
+    setupRealtime();
 
     return () => {
       console.log('🧹 Cleaning up notification system...');
+      
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
       }
-
-      // Unsubscribe from realtime channel
+      
       if (realtimeChannelRef.current) {
         supabase.removeChannel(realtimeChannelRef.current);
-        realtimeChannelRef.current = null;
       }
     };
-  }, [user, lastFetchHash]);
-
-  // NOTE: Sound playing is now handled in fetchNotifications() when new notifications are detected
-  // This ensures sounds play immediately when notifications arrive, not on every render
+  }, [user]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -356,35 +287,24 @@ export function NotificationBell() {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
   const playNotificationSound = async () => {
     try {
-      console.log('🔊 Attempting to play notification sound...');
-
-      // Method 1: Simple and reliable - Web Audio API with proper initialization
       let audioContext = audioContextRef.current;
 
-      // Create audio context if not exists
       if (!audioContext) {
-        console.log('🎵 Creating audio context...');
         const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
         audioContext = new AudioContextClass();
         audioContextRef.current = audioContext;
       }
 
-      // Resume if suspended (required for mobile)
       if (audioContext.state === 'suspended') {
-        console.log('🔄 Resuming audio context...');
         await audioContext.resume();
       }
 
-      console.log('🎵 Audio context state:', audioContext.state);
-
-      // Create a pleasant two-tone notification sound
+      // Create pleasant notification sound
       const createBeep = (frequency: number, startTime: number, duration: number) => {
         const oscillator = audioContext!.createOscillator();
         const gainNode = audioContext!.createGain();
@@ -395,44 +315,20 @@ export function NotificationBell() {
         oscillator.frequency.value = frequency;
         oscillator.type = 'sine';
 
-        // Envelope for smooth sound
         gainNode.gain.setValueAtTime(0, startTime);
         gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.01);
         gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
 
         oscillator.start(startTime);
         oscillator.stop(startTime + duration);
-
-        return oscillator;
       };
 
-      // Play two-tone beep (ding-dong)
       const now = audioContext.currentTime;
-      createBeep(800, now, 0.15); // High tone
-      createBeep(600, now + 0.2, 0.15); // Low tone
-
-      console.log('✅ Notification sound played successfully');
-
-      // Method 2: Also show browser notification if permission granted
-      if ('Notification' in window && Notification.permission === 'granted') {
-        console.log('🔔 Showing browser notification');
-        new Notification('New notification', {
-          body: 'You have a new notification',
-          icon: '/New-logo.png',
-          badge: '/New-logo.png',
-          silent: false, // Play system sound
-          tag: 'notification-' + Date.now(), // Unique tag to allow multiple notifications
-        });
-      } else if ('Notification' in window && Notification.permission === 'default') {
-        // Request permission if not yet asked
-        Notification.requestPermission().then(permission => {
-          console.log('🔔 Notification permission:', permission);
-        });
-      }
+      createBeep(800, now, 0.15);
+      createBeep(600, now + 0.2, 0.15);
 
     } catch (error) {
       console.error('❌ Error playing notification sound:', error);
-      console.error('Error details:', error);
     }
   };
 
@@ -445,16 +341,14 @@ export function NotificationBell() {
       });
 
       if (response.ok) {
-        // Update local state immediately for instant UI feedback
-        setNotifications((prev: Notification[]) =>
-          prev.map((n: Notification) => (n.id === notificationId ? { ...n, is_read: true } : n))
+        // Update local state immediately
+        setNotifications(prev =>
+          prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
         );
-        setUnreadCount((prev: number) => Math.max(0, prev - 1));
+        setUnreadCount(prev => Math.max(0, prev - 1));
 
         // Invalidate cache
         cacheInvalidation.invalidateNotifications();
-      } else {
-        console.error('Failed to mark notification as read:', response.status);
       }
     } catch (error) {
       console.error('Error marking notification as read:', error);
@@ -471,12 +365,9 @@ export function NotificationBell() {
       });
 
       if (response.ok) {
-        // Update local state immediately for instant UI feedback
-        setNotifications((prev: Notification[]) => prev.map((n: Notification) => ({ ...n, is_read: true })));
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         setUnreadCount(0);
         cacheInvalidation.invalidateNotifications();
-      } else {
-        console.error('Failed to mark all as read:', response.status);
       }
     } catch (error) {
       console.error('Error marking all as read:', error);
@@ -492,15 +383,12 @@ export function NotificationBell() {
       });
 
       if (response.ok) {
-        // Update local state immediately for instant UI feedback
-        setNotifications((prev: Notification[]) => prev.filter((n: Notification) => n.id !== notificationId));
-        setUnreadCount((prev: number) => {
-          const notification = notifications.find((n: Notification) => n.id === notificationId);
+        setNotifications(prev => prev.filter(n => n.id !== notificationId));
+        setUnreadCount(prev => {
+          const notification = notifications.find(n => n.id === notificationId);
           return notification && !notification.is_read ? Math.max(0, prev - 1) : prev;
         });
         cacheInvalidation.invalidateNotifications();
-      } else {
-        console.error('Failed to delete notification:', response.status);
       }
     } catch (error) {
       console.error('Error deleting notification:', error);
@@ -509,22 +397,14 @@ export function NotificationBell() {
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'task_assigned':
-        return '📋';
-      case 'design_approved':
-        return '✅';
-      case 'design_rejected':
-        return '❌';
-      case 'design_uploaded':
-        return '📁';
-      case 'project_update':
-        return '📢';
-      case 'inventory_added':
-        return '📦';
-      case 'comment_added':
-        return '💬';
-      default:
-        return '🔔';
+      case 'task_assigned': return '📋';
+      case 'design_approved': return '✅';
+      case 'design_rejected': return '❌';
+      case 'design_uploaded': return '📁';
+      case 'project_update': return '📢';
+      case 'inventory_added': return '📦';
+      case 'comment_added': return '💬';
+      default: return '🔔';
     }
   };
 
@@ -536,12 +416,7 @@ export function NotificationBell() {
         className="relative p-2 text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500 rounded-full transition-colors"
         aria-label="Notifications"
       >
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -563,18 +438,16 @@ export function NotificationBell() {
         <div className="absolute right-0 mt-2 w-80 md:w-96 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-[80vh] overflow-hidden flex flex-col">
           {/* Header */}
           <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-            <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
+            <h3 className="text-sm font-semibold text-gray-900">
+              Notifications {!isActiveTab.current && '(Paused)'}
+            </h3>
             <div className="flex gap-2">
-              {/* Test Sound Button (for debugging) */}
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  playNotificationSound();
-                }}
+                onClick={() => fetchNotifications(true)}
                 className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                title="Test notification sound"
+                disabled={isLoading}
               >
-                🔊 Test
+                🔄 Refresh
               </button>
               {unreadCount > 0 && (
                 <button
@@ -678,4 +551,3 @@ export function NotificationBell() {
     </div>
   );
 }
-

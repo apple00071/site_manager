@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getRelativeTime } from '@/lib/dateUtils';
-import { notificationCache, cacheInvalidation } from '@/lib/cache';
+import { authenticatedFetch, setupTokenRefreshInterval, getAuthErrorMessage } from '@/lib/authHelpers';
 import { supabase } from '@/lib/supabase-client-helper';
 
 type Notification = {
@@ -33,10 +33,7 @@ export function NotificationBell() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const cleanupTokenRefreshRef = useRef<(() => void) | null>(null);
   const realtimeChannelRef = useRef<any>(null);
-  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastNotificationCount = useRef(0);
-  const isActiveTab = useRef(true);
-  const lastFetchTime = useRef(0);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Early return AFTER all hooks to prevent hooks rule violation
   if (!user) return null;
@@ -48,66 +45,51 @@ export function NotificationBell() {
     return notifs.map(n => `${n.id}:${n.is_read}`).join('|');
   };
 
-  // Optimized fetch with caching and smart polling
+  // Fetch notifications with auth token refresh and smart change detection
   const fetchNotifications = async (showLoading = false, forceUpdate = false) => {
     if (!user) return;
-
-    const now = Date.now();
-    const cacheKey = `notifications_${user.id}`;
-    
-    // Rate limiting - don't fetch more than once per 30 seconds unless forced
-    if (!forceUpdate && (now - lastFetchTime.current) < 30000) {
-      console.log('⏭️ Notification fetch rate limited');
-      return;
-    }
 
     try {
       if (showLoading) setIsLoading(true);
       setError(null);
 
-      // Try cache first (unless forced refresh)
-      if (!forceUpdate) {
-        const cached = notificationCache.get<Notification[]>(cacheKey);
-        if (cached) {
-          console.log('✅ Using cached notifications');
-          setNotifications(cached);
-          setUnreadCount(cached.filter(n => !n.is_read).length);
-          return;
-        }
-      }
+      console.log('🔔 Fetching notifications...');
 
-      console.log('🔔 Fetching notifications from API...');
-      lastFetchTime.current = now;
-
-      const response = await fetch('/api/notifications?limit=20', {
-        headers: {
-          'Cache-Control': 'no-cache'
-        }
-      });
+      // Use authenticatedFetch which handles token refresh automatically
+      const response = await authenticatedFetch('/api/notifications?limit=20');
 
       if (response.ok) {
-        const data: Notification[] = await response.json();
-        
-        // Cache for 2 minutes
-        notificationCache.set(cacheKey, data, 2 * 60 * 1000);
-        
-        // Detect new notifications for sound
-        const newCount = data.filter(n => !n.is_read).length;
-        const hasNewNotifications = newCount > lastNotificationCount.current;
-        
-        setNotifications(data);
-        setUnreadCount(newCount);
-        
-        // Play sound for new notifications (only if tab is active)
-        if (hasNewNotifications && mounted && isActiveTab.current) {
-          console.log(`🔔 ${newCount - lastNotificationCount.current} new notification(s)`);
-          playNotificationSound();
+        const data = await response.json();
+
+        // Smart change detection - only update if data actually changed
+        const newHash = generateNotificationsHash(data);
+        const hasChanged = newHash !== lastFetchHash;
+
+        if (hasChanged || forceUpdate) {
+          console.log(`✅ Fetched ${data.length} notifications (${data.filter((n: Notification) => !n.is_read).length} unread) - ${hasChanged ? 'CHANGED' : 'FORCED UPDATE'}`);
+
+          // Detect new notifications for sound
+          const previousIds = new Set(notifications.map(n => n.id));
+          const newNotifications = data.filter((n: Notification) => !previousIds.has(n.id));
+
+          setNotifications(data);
+          setUnreadCount(data.filter((n: Notification) => !n.is_read).length);
+          setLastFetchHash(newHash);
+          setRetryCount(0); // Reset retry count on success
+
+          // Play sound for new unread notifications
+          if (newNotifications.length > 0 && mounted) {
+            const newUnread = newNotifications.filter((n: Notification) => !n.is_read);
+            if (newUnread.length > 0) {
+              console.log(`🔔 ${newUnread.length} new unread notification(s) detected`);
+              playNotificationSound();
+              // Store the latest notification ID
+              sessionStorage.setItem('last_notification_sound_id', newUnread[0].id);
+            }
+          }
+        } else {
+          console.log('⏭️ No changes detected - skipping update');
         }
-        
-        lastNotificationCount.current = newCount;
-        setRetryCount(0);
-        
-        console.log(`✅ Fetched ${data.length} notifications (${newCount} unread)`);
       } else if (response.status === 401) {
         console.error('❌ Unauthorized - session may have expired');
         setError('Session expired. Please refresh the page.');
@@ -121,7 +103,7 @@ export function NotificationBell() {
       }
     } catch (error) {
       console.error('💥 Error fetching notifications:', error);
-      setError('Network error. Please try again.');
+      setError(getAuthErrorMessage(error));
 
       // Retry logic with exponential backoff
       if (retryCount < 3) {
@@ -136,23 +118,6 @@ export function NotificationBell() {
       if (showLoading) setIsLoading(false);
     }
   };
-
-  // Tab visibility detection to pause polling when inactive
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      isActiveTab.current = !document.hidden;
-      
-      if (isActiveTab.current) {
-        console.log('👁️ Tab became active - refreshing notifications');
-        fetchNotifications(true);
-      } else {
-        console.log('👁️ Tab became inactive - pausing polling');
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -181,7 +146,9 @@ export function NotificationBell() {
       });
     }
 
-    // Audio context setup complete
+    // Setup automatic token refresh
+    console.log('⏰ Setting up automatic token refresh...');
+    cleanupTokenRefreshRef.current = setupTokenRefreshInterval();
 
     return () => {
       // Cleanup token refresh on unmount
@@ -306,25 +273,34 @@ export function NotificationBell() {
 
     setupRealtimeSubscription();
 
-    // Smart polling: Start with 5 minutes, reduce to 2 minutes if active
-    const setupSmartPolling = (interval: number) => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
+    // Smart polling: Start with 60 seconds, but can be adjusted based on activity
+    let pollInterval = 60000; // 60 seconds default
+    let consecutiveNoChanges = 0;
 
-      pollIntervalRef.current = setInterval(() => {
-        // Only poll if tab is active
-        if (isActiveTab.current) {
-          console.log('🔄 Smart polling for notifications...');
-          fetchNotifications();
+    const smartPoll = () => {
+      console.log('🔄 Smart polling for notifications...');
+
+      // Fetch and check if there were changes
+      const previousHash = lastFetchHash;
+      fetchNotifications().then(() => {
+        // If no changes detected multiple times, slow down polling
+        if (lastFetchHash === previousHash) {
+          consecutiveNoChanges++;
+          if (consecutiveNoChanges >= 5) {
+            // After 5 minutes of no changes, reduce polling to every 2 minutes
+            pollInterval = 120000;
+            console.log('⏱️ No changes detected for 5 minutes - reducing poll frequency to 2 minutes');
+          }
         } else {
-          console.log('⏭️ Skipping poll - tab inactive');
+          // Reset to normal polling if changes detected
+          consecutiveNoChanges = 0;
+          pollInterval = 60000;
         }
-      }, interval);
+      });
     };
 
-    // Start with 5-minute polling (much less frequent than 60 seconds)
-    setupSmartPolling(5 * 60 * 1000); // 5 minutes
+    // Start polling
+    pollIntervalRef.current = setInterval(smartPoll, pollInterval) as any;
 
     return () => {
       console.log('🧹 Cleaning up notification system...');
@@ -438,7 +414,7 @@ export function NotificationBell() {
 
   const markAsRead = async (notificationId: string) => {
     try {
-      const response = await fetch('/api/notifications', {
+      const response = await authenticatedFetch('/api/notifications', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notification_id: notificationId, is_read: true }),
@@ -446,13 +422,13 @@ export function NotificationBell() {
 
       if (response.ok) {
         // Update local state immediately for instant UI feedback
-        setNotifications((prev: Notification[]) =>
-          prev.map((n: Notification) => (n.id === notificationId ? { ...n, is_read: true } : n))
+        setNotifications(prev =>
+          prev.map(n => (n.id === notificationId ? { ...n, is_read: true } : n))
         );
-        setUnreadCount((prev: number) => Math.max(0, prev - 1));
+        setUnreadCount(prev => Math.max(0, prev - 1));
 
-        // Invalidate cache
-        cacheInvalidation.invalidateNotifications();
+        // Force update hash to trigger smart polling refresh
+        setLastFetchHash(prev => prev + '-updated');
       } else {
         console.error('Failed to mark notification as read:', response.status);
       }
@@ -464,7 +440,7 @@ export function NotificationBell() {
   const markAllAsRead = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/notifications', {
+      const response = await authenticatedFetch('/api/notifications', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_read: true }),
@@ -472,9 +448,11 @@ export function NotificationBell() {
 
       if (response.ok) {
         // Update local state immediately for instant UI feedback
-        setNotifications((prev: Notification[]) => prev.map((n: Notification) => ({ ...n, is_read: true })));
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         setUnreadCount(0);
-        cacheInvalidation.invalidateNotifications();
+
+        // Force update hash to trigger smart polling refresh
+        setLastFetchHash(prev => prev + '-all-read');
       } else {
         console.error('Failed to mark all as read:', response.status);
       }
@@ -487,18 +465,20 @@ export function NotificationBell() {
 
   const deleteNotification = async (notificationId: string) => {
     try {
-      const response = await fetch(`/api/notifications?id=${notificationId}`, {
+      const response = await authenticatedFetch(`/api/notifications?id=${notificationId}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
         // Update local state immediately for instant UI feedback
-        setNotifications((prev: Notification[]) => prev.filter((n: Notification) => n.id !== notificationId));
-        setUnreadCount((prev: number) => {
-          const notification = notifications.find((n: Notification) => n.id === notificationId);
+        setNotifications(prev => prev.filter(n => n.id !== notificationId));
+        setUnreadCount(prev => {
+          const notification = notifications.find(n => n.id === notificationId);
           return notification && !notification.is_read ? Math.max(0, prev - 1) : prev;
         });
-        cacheInvalidation.invalidateNotifications();
+
+        // Force update hash to trigger smart polling refresh
+        setLastFetchHash(prev => prev + '-deleted');
       } else {
         console.error('Failed to delete notification:', response.status);
       }
