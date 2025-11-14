@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
+import { getCurrentUser, supabaseAdmin } from '@/lib/supabase-server';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
-import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
 
 // Optimize caching for projects API
 export const dynamic = 'force-dynamic';
@@ -44,11 +44,6 @@ const projectSchema = z.object({
   created_by: z.string().uuid('Invalid user ID format').optional(),
 });
 
-// Helper function to create a server-side Supabase client
-const createServerSupabaseClient = async () => {
-  return await createAuthenticatedClient();
-};
-
 // GET handler for fetching projects
 export async function GET(request: NextRequest) {
   try {
@@ -62,26 +57,22 @@ export async function GET(request: NextRequest) {
       method: request.method
     });
     
-    const supabase = await createServerSupabaseClient();
-    
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError || !session?.user) {
-      console.error('No authenticated session:', sessionError?.message);
+    // Get current user using secure authentication
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
+      console.error('Authentication failed:', authError);
       return NextResponse.json(
-        { error: 'Not authenticated' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
     
-    const user = session.user;
-    
-    const isAdmin = (user.app_metadata?.role || user.user_metadata?.role) === 'admin';
+    const isAdmin = user.role === 'admin';
     const userId = user.id;
     
     console.log(`Fetching projects for ${isAdmin ? 'admin' : 'user'}:`, user.email);
     
-    let projectsQuery = supabase
+    let projectsQuery = supabaseAdmin
       .from('projects')
       .select(`
         id, 
@@ -113,7 +104,7 @@ export async function GET(request: NextRequest) {
     // If user is not admin, only fetch projects they are assigned to
     if (!isAdmin) {
       // Get project IDs the user is a member of via project_members table
-      const { data: memberProjects, error: memberError } = await supabase
+      const { data: memberProjects, error: memberError } = await supabaseAdmin
         .from('project_members')
         .select('project_id')
         .eq('user_id', userId);
@@ -129,7 +120,7 @@ export async function GET(request: NextRequest) {
       const memberProjectIds = memberProjects?.map(p => p.project_id) || [];
 
       // Get projects directly assigned via assigned_employee_id field
-      const { data: assignedProjects, error: assignedError } = await supabase
+      const { data: assignedProjects, error: assignedError } = await supabaseAdmin
         .from('projects')
         .select('id')
         .eq('assigned_employee_id', userId);
@@ -145,7 +136,7 @@ export async function GET(request: NextRequest) {
       const assignedProjectIds = assignedProjects?.map(p => p.id) || [];
 
       // Get projects assigned via designer_id field
-      const { data: designerProjects, error: designerError } = await supabase
+      const { data: designerProjects, error: designerError } = await supabaseAdmin
         .from('projects')
         .select('id')
         .eq('designer_id', userId);
@@ -208,27 +199,18 @@ export async function POST(req: Request) {
   try {
     console.log('Creating new project...');
     
-    const supabase = await createServerSupabaseClient();
-    
-    // Get the current user's session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError || !session) {
-      console.error('No session found:', sessionError?.message);
+    // Get current user using secure authentication
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
+      console.error('Authentication failed:', authError);
       return NextResponse.json(
-        { error: { message: 'Not authenticated', code: 'UNAUTHORIZED' } },
+        { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
         { status: 401 }
       );
     }
     
     // Check if user is admin
-    const { data: userData } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', session.user.id)
-      .single();
-    
-    if (userData?.role !== 'admin') {
+    if (user.role !== 'admin') {
       return NextResponse.json(
         { error: { message: 'Not authorized', code: 'FORBIDDEN' } },
         { status: 403 }
@@ -248,8 +230,6 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    
-    const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
       return NextResponse.json(
@@ -296,7 +276,7 @@ export async function POST(req: Request) {
     };
     
     // Insert the new project
-    const { data: project, error: insertError } = await supabase
+    const { data: project, error: insertError } = await supabaseAdmin
       .from('projects')
       .insert([projectData])
       .select()
@@ -311,7 +291,7 @@ export async function POST(req: Request) {
     }
     
     // Add the current user as a project member with admin role
-    const { error: memberError } = await supabase
+    const { error: memberError } = await supabaseAdmin
       .from('project_members')
       .insert([
         {
@@ -330,7 +310,7 @@ export async function POST(req: Request) {
 
     // Add the assigned employee as a project member if they're not the current user
     if (parsed.data.assigned_employee_id !== user.id) {
-      const { error: assigneeError } = await supabase
+      const { error: assigneeError } = await supabaseAdmin
         .from('project_members')
         .insert([
           {

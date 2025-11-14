@@ -32,6 +32,36 @@ export async function createAuthenticatedClient() {
   );
 }
 
+// Secure helper function to get current authenticated user
+export async function getCurrentUser() {
+  try {
+    const supabase = await createAuthenticatedClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+
+    if (error || !user) {
+      console.error('User authentication error:', error);
+      return { user: null, error: error?.message || 'User not authenticated' };
+    }
+
+    // Get user details from database
+    const { data: userData, error: userError } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (userError || !userData) {
+      console.error('User fetch error:', userError);
+      return { user: null, error: userError?.message || 'User data not found' };
+    }
+
+    return { user: userData, error: null };
+  } catch (error: any) {
+    console.error('Error getting current user:', error);
+    return { user: null, error: error.message };
+  }
+}
+
 // Export configuration for other files
 export const supabaseConfig = {
   url: supabaseUrl,

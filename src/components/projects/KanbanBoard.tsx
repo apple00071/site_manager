@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { formatDateIST } from '@/lib/dateUtils';
+import Modal from '@/components/Modal';
 
 type StageKey = 'false_ceiling' | 'electrical_work' | 'carpenter_works' | 'painting_work' | 'deep_cleaning';
 
@@ -57,28 +58,98 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
   const fetchTasks = async () => {
     setLoading(true);
     setError(null);
+    
     try {
+      console.log('Fetching tasks for project:', projectId);
       const response = await fetch(`/api/project-steps?project_id=${projectId}`);
-      if (!response.ok) throw new Error('Failed to fetch tasks');
       
-      const data = await response.json();
-      const formattedTasks = data.map((item: any) => ({
-        id: item.id,
-        title: item.title,
-        description: item.description,
-        stage: item.stage,
-        status: item.status === 'done' ? 'completed' : 
-                item.status === 'in_progress' ? 'progress' : 'todo',
-        start_date: item.start_date,
-        end_date: item.end_date,
-        worker_name: item.worker_name || '',
-        worker_number: item.worker_number || '',
-        sort_order: item.sort_order || 0
-      }));
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const text = await response.text();
+      console.log('Raw response text:', text);
+      
+      if (!text) {
+        console.log('Empty response, setting empty tasks');
+        setTasks([]);
+        return;
+      }
+      
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseError) {
+        console.error('Failed to parse JSON:', parseError);
+        console.error('Response text was:', text);
+        setError('Invalid response from server');
+        setTasks([]);
+        return;
+      }
+      
+      console.log('Parsed data:', data);
+      console.log('Data type:', typeof data);
+      console.log('Is data an array?', Array.isArray(data));
+      
+      // Handle different response formats
+      let stepsArray = [];
+      if (data && typeof data === 'object') {
+        if (Array.isArray(data)) {
+          stepsArray = data;
+        } else if ('steps' in data && Array.isArray(data.steps)) {
+          stepsArray = data.steps;
+        } else if ('error' in data) {
+          console.error('API returned error:', data.error);
+          setError(data.error);
+          setTasks([]);
+          return;
+        } else {
+          console.error('Unknown response format:', data);
+          setTasks([]);
+          return;
+        }
+      } else {
+        console.error('Data is not an object:', data);
+        setTasks([]);
+        return;
+      }
+      
+      console.log('Final steps array:', stepsArray);
+      
+      if (stepsArray.length === 0) {
+        setTasks([]);
+        return;
+      }
+      
+      // Map the tasks with explicit error handling
+      const formattedTasks = stepsArray.map((item: any) => {
+        if (!item || typeof item !== 'object') {
+          console.error('Invalid item in array:', item);
+          return null;
+        }
+        
+        return {
+          id: item.id || '',
+          title: item.title || '',
+          description: item.description || null,
+          stage: item.stage || 'general',
+          status: (item.status === 'done' ? 'completed' : 
+                  item.status === 'in_progress' ? 'progress' : 'todo') as TaskStatus,
+          start_date: item.start_date || null,
+          end_date: item.end_date || null,
+          worker_name: item.worker_name || '',
+          worker_number: item.worker_number || '',
+          sort_order: item.sort_order || 0
+        };
+      }).filter(Boolean); // Remove any null items
+      
+      console.log('Formatted tasks:', formattedTasks);
       setTasks(formattedTasks);
-    } catch (err: any) {
-      console.error('Error fetching tasks:', err);
+      
+    } catch (error) {
+      console.error('Complete error in fetchTasks:', error);
       setError('Failed to load tasks');
+      setTasks([]);
     } finally {
       setLoading(false);
     }
@@ -96,7 +167,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
         body: JSON.stringify({
           project_id: projectId,
           title: stageLabel,
-          stage: addTaskForm.stage,
+          // Remove stage field since it doesn't exist in database
           status: 'todo',
           start_date: addTaskForm.start_date || null,
           end_date: addTaskForm.end_date || null,
@@ -275,86 +346,86 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
       </div>
 
       {/* Add Task Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-auto">
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Add New Task</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Stage *</label>
-                <select
-                  value={addTaskForm.stage}
-                  onChange={(e) => setAddTaskForm({ ...addTaskForm, stage: e.target.value as StageKey })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                >
-                  {STAGES.map(stage => (
-                    <option key={stage.key} value={stage.key}>{stage.label}</option>
-                  ))}
-                </select>
-              </div>
+      <Modal 
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="Add New Task"
+        maxWidth="md"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Stage *</label>
+            <select
+              value={addTaskForm.stage}
+              onChange={(e) => setAddTaskForm({ ...addTaskForm, stage: e.target.value as StageKey })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+            >
+              {STAGES.map(stage => (
+                <option key={stage.key} value={stage.key}>{stage.label}</option>
+              ))}
+            </select>
+          </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                  <input
-                    type="date"
-                    value={addTaskForm.start_date}
-                    onChange={(e) => setAddTaskForm({ ...addTaskForm, start_date: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                  <input
-                    type="date"
-                    value={addTaskForm.end_date}
-                    onChange={(e) => setAddTaskForm({ ...addTaskForm, end_date: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Worker Name</label>
-                <input
-                  type="text"
-                  value={addTaskForm.worker_name}
-                  onChange={(e) => setAddTaskForm({ ...addTaskForm, worker_name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  placeholder="Optional"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Worker Phone Number</label>
-                <input
-                  type="tel"
-                  value={addTaskForm.worker_number}
-                  onChange={(e) => setAddTaskForm({ ...addTaskForm, worker_number: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  placeholder="Optional"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={addTask}
-                  disabled={addTaskLoading}
-                  className="flex-1 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium rounded-lg disabled:opacity-50 transition-colors"
-                >
-                  {addTaskLoading ? 'Adding...' : 'Add Task'}
-                </button>
-              </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input
+                type="date"
+                value={addTaskForm.start_date}
+                onChange={(e) => setAddTaskForm({ ...addTaskForm, start_date: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input
+                type="date"
+                value={addTaskForm.end_date}
+                onChange={(e) => setAddTaskForm({ ...addTaskForm, end_date: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+              />
             </div>
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Worker Name</label>
+            <input
+              type="text"
+              value={addTaskForm.worker_name}
+              onChange={(e) => setAddTaskForm({ ...addTaskForm, worker_name: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+              placeholder="Optional"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Worker Phone Number</label>
+            <input
+              type="tel"
+              value={addTaskForm.worker_number}
+              onChange={(e) => setAddTaskForm({ ...addTaskForm, worker_number: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+              placeholder="Optional"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              onClick={() => setShowAddModal(false)}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={addTask}
+              disabled={addTaskLoading}
+              className="flex-1 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium rounded-lg disabled:opacity-50 transition-colors"
+            >
+              {addTaskLoading ? 'Adding...' : 'Add Task'}
+            </button>
+          </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

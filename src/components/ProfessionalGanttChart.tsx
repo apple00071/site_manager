@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { formatDateIST } from '@/lib/dateUtils';
 import { FiCalendar, FiClock, FiUser, FiFolder, FiMoreHorizontal, FiEdit, FiCheck, FiX, FiPlay, FiPause } from 'react-icons/fi';
+import Modal from './Modal';
 
 type Task = {
   id: string;
@@ -83,7 +84,11 @@ function getPriorityText(priority: string) {
   return priority.charAt(0).toUpperCase() + priority.slice(1);
 }
 
-export function ProfessionalGanttChart({ tasks, loading = false }: ProfessionalGanttChartProps) {
+export function ProfessionalGanttChart({ tasks, loading = false, onEditTask }: { 
+  tasks: Task[]; 
+  loading?: boolean; 
+  onEditTask?: (task: Task) => void; 
+}) {
   const [viewMode, setViewMode] = useState<'table' | 'gantt' | 'timeline'>('table');
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
 
@@ -314,6 +319,7 @@ export function ProfessionalGanttChart({ tasks, loading = false }: ProfessionalG
                           </button>
                         )}
                         <button
+                          onClick={() => onEditTask && onEditTask(task)}
                           className="text-gray-400 hover:text-gray-600"
                           title="Edit Task"
                         >

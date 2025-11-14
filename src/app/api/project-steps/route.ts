@@ -1,48 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { NotificationService } from '@/lib/notificationService';
-import { createNoCacheResponse } from '@/lib/apiHelpers';
-import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
+import { getCurrentUser, supabaseAdmin } from '@/lib/supabase-server';
 
 // Force dynamic rendering - never cache project steps
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// Helper function to get current user from session
-async function getCurrentUser(request: NextRequest) {
-  try {
-    const supabase = await createAuthenticatedClient();
-
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
-    if (error || !session) {
-      console.error('Session error:', error);
-      return null;
-    }
-
-    // Get user details from database
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('*')
-      .eq('id', session.user.id)
-      .single();
-
-    if (userError || !user) {
-      console.error('User fetch error:', userError);
-      return null;
-    }
-
-    return user;
-  } catch (error) {
-    console.error('Error getting current user:', error);
-    return null;
-  }
-}
-
 // GET - Fetch project steps
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser(request);
-    if (!user) {
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -58,35 +26,34 @@ export async function GET(request: NextRequest) {
       .from('project_steps')
       .select('*')
       .eq('project_id', projectId)
-      .order('stage')
-      .order('sort_order');
+      .order('created_at', { ascending: true });
 
     if (error) {
       console.error('Error fetching project steps:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to fetch project steps' }, { status: 500 });
     }
 
-    return NextResponse.json(steps);
-  } catch (error: any) {
-    console.error('Error in GET /api/project-steps:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ steps: steps || [] });
+  } catch (error) {
+    console.error('Error in project steps API:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 // POST - Create a new project step
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser(request);
-    if (!user) {
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    const { project_id, title, stage, sort_order, start_date, end_date, description } = body;
+    const { project_id, title, sort_order, start_date, end_date, description } = body;
 
-    if (!project_id || !title || !stage) {
+    if (!project_id || !title) {
       return NextResponse.json(
-        { error: 'project_id, title, and stage are required' },
+        { error: 'project_id and title are required' },
         { status: 400 }
       );
     }
@@ -98,7 +65,6 @@ export async function POST(request: NextRequest) {
         .from('project_steps')
         .select('sort_order')
         .eq('project_id', project_id)
-        .eq('stage', stage)
         .order('sort_order', { ascending: false })
         .limit(1);
 
@@ -112,7 +78,6 @@ export async function POST(request: NextRequest) {
         project_id,
         title,
         description: description || null,
-        stage,
         sort_order: finalSortOrder,
         status: 'todo',
         start_date: start_date || null,
@@ -126,30 +91,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Notify admin of new project step
-    try {
-      const { data: projectData } = await supabaseAdmin
-        .from('projects')
-        .select('created_by, title')
-        .eq('id', project_id)
-        .single();
-
-      if (projectData && projectData.created_by !== user.id) {
-        await NotificationService.createNotification({
-          userId: projectData.created_by,
-          title: 'New Project Step Added',
-          message: `${user.full_name} added step "${title}" to project "${projectData.title}"`,
-          type: 'project_update',
-          relatedId: project_id,
-          relatedType: 'project'
-        });
-        console.log('Project step notification sent to admin:', projectData.created_by);
-      }
-    } catch (notificationError) {
-      console.error('Failed to send project step notification:', notificationError);
-      // Don't fail the main operation if notification fails
-    }
-
     return NextResponse.json(step);
   } catch (error: any) {
     console.error('Error in POST /api/project-steps:', error);
@@ -160,8 +101,8 @@ export async function POST(request: NextRequest) {
 // PATCH - Update a project step
 export async function PATCH(request: NextRequest) {
   try {
-    const user = await getCurrentUser(request);
-    if (!user) {
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -185,36 +126,6 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Notify admin of step status change if status was updated
-    if (updates.status && updates.status !== 'todo') {
-      try {
-        const { data: projectData } = await supabaseAdmin
-          .from('projects')
-          .select('created_by, title')
-          .eq('id', step.project_id)
-          .single();
-
-        if (projectData && projectData.created_by !== user.id) {
-          const statusText = updates.status === 'completed' ? 'completed' : 
-                           updates.status === 'in_progress' ? 'started working on' : 
-                           `updated status of`;
-          
-          await NotificationService.createNotification({
-            userId: projectData.created_by,
-            title: 'Project Step Updated',
-            message: `${user.full_name} ${statusText} step "${step.title}" in project "${projectData.title}"`,
-            type: 'project_update',
-            relatedId: step.project_id,
-            relatedType: 'project'
-          });
-          console.log('Project step update notification sent to admin:', projectData.created_by);
-        }
-      } catch (notificationError) {
-        console.error('Failed to send project step update notification:', notificationError);
-        // Don't fail the main operation if notification fails
-      }
-    }
-
     return NextResponse.json(step);
   } catch (error: any) {
     console.error('Error in PATCH /api/project-steps:', error);
@@ -225,8 +136,8 @@ export async function PATCH(request: NextRequest) {
 // DELETE - Delete a project step
 export async function DELETE(request: NextRequest) {
   try {
-    const user = await getCurrentUser(request);
-    if (!user) {
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

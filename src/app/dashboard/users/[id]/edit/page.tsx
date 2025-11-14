@@ -16,6 +16,7 @@ const userSchema = z.object({
   full_name: z.string().min(2, 'Full name is required'),
   designation: z.string().min(2, 'Designation is required'),
   role: z.enum(['admin', 'designer', 'site_supervisor', 'employee']),
+  phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
 });
 
@@ -62,6 +63,7 @@ export default function EditUserPage() {
           full_name: data.full_name,
           designation: data.designation || '',
           role: data.role,
+          phone_number: data.phone_number || '',
         });
       } catch (error) {
         console.error('Error fetching user:', error);
@@ -90,6 +92,7 @@ export default function EditUserPage() {
           full_name: data.full_name,
           designation: data.designation,
           role: data.role,
+          phone_number: data.phone_number || '',
           password: data.password || '',
         }),
       });
@@ -197,6 +200,22 @@ export default function EditUserPage() {
                 />
                 {errors.designation && (
                   <p className="mt-1 text-sm text-red-600">{errors.designation.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="phone_number" className="block text-sm font-medium text-gray-700">
+                  Phone Number
+                </label>
+                <input
+                  id="phone_number"
+                  type="tel"
+                  {...register('phone_number')}
+                  placeholder="e.g., +91 9876543210"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                {errors.phone_number && (
+                  <p className="mt-1 text-sm text-red-600">{errors.phone_number.message}</p>
                 )}
               </div>
 

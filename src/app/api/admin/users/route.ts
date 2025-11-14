@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
-import { createNoCacheResponse } from '@/lib/apiHelpers';
 import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
 
 // Force dynamic rendering - never cache user data
@@ -14,6 +13,7 @@ const createUserSchema = z.object({
   designation: z.string().min(2, 'Designation must be at least 2 characters'),
   role: z.enum(['admin', 'designer', 'site_supervisor', 'employee']),
   password: z.string().min(6, 'Password must be at least 6 characters'),
+  phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
 });
 
 const updateUserSchema = z.object({
@@ -23,6 +23,7 @@ const updateUserSchema = z.object({
   designation: z.string().min(2, 'Designation must be at least 2 characters'),
   role: z.enum(['admin', 'designer', 'site_supervisor', 'employee']),
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
+  phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
 });
 
 // GET handler for fetching users
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
     // Build query
     let query = supabaseAdmin
       .from('users')
-      .select('id, full_name, email, role, designation, created_at')
+      .select('id, full_name, email, role, designation, phone_number, created_at')
       .order('full_name');
     
     // Add role filter if provided
@@ -82,7 +83,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { email, full_name, designation, role, password } = parsed.data;
+    const { email, full_name, designation, role, password, phone_number } = parsed.data;
 
     console.log('Creating user:', { email, full_name, role });
     console.log('Service role key exists:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -129,6 +130,7 @@ export async function POST(req: Request) {
           full_name,
           designation,
           role,
+          phone_number: phone_number || null,
         }, {
           onConflict: 'id'
         });
@@ -197,7 +199,7 @@ export async function PATCH(req: Request) {
       );
     }
 
-    const { id, email, full_name, designation, role, password } = parsed.data;
+    const { id, email, full_name, designation, role, password, phone_number } = parsed.data;
 
     console.log('Updating user:', { id, email, full_name, role });
 
@@ -209,6 +211,7 @@ export async function PATCH(req: Request) {
         full_name,
         designation,
         role,
+        phone_number: phone_number || null,
       })
       .eq('id', id);
 
@@ -245,6 +248,7 @@ export async function PATCH(req: Request) {
           full_name,
           designation,
           role,
+          phone_number: phone_number || null,
         },
       }
     );

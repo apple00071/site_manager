@@ -97,6 +97,9 @@ export default function UsersPage() {
                   <h3 className="text-sm font-medium text-gray-900 truncate">{user.full_name}</h3>
                   <p className="text-xs text-gray-500 mt-1">{user.email}</p>
                   <p className="text-xs text-gray-500 mt-1">{user.designation || 'N/A'}</p>
+                  {user.phone_number && (
+                    <p className="text-xs text-gray-500 mt-1">{user.phone_number}</p>
+                  )}
                   <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
                     <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                       user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'
@@ -145,6 +148,9 @@ export default function UsersPage() {
                   Designation
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Phone
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Role
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -166,6 +172,9 @@ export default function UsersPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{user.designation || 'N/A'}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{user.phone_number || '—'}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -195,7 +204,7 @@ export default function UsersPage() {
               ))}
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                  <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
                     No users found
                   </td>
                 </tr>

@@ -67,9 +67,6 @@ export default function DashboardPage() {
           const tasksResponse = await fetch('/api/tasks/all?t=' + Date.now());
           if (tasksResponse.ok) {
             const tasksData = await tasksResponse.json();
-            console.log('Tasks data:', tasksData); // Debug log
-            console.log('Type of tasksData:', typeof tasksData); // Debug log
-            console.log('Is array?', Array.isArray(tasksData)); // Debug log
             
             // More defensive handling
             let tasksArray = [];
@@ -81,8 +78,6 @@ export default function DashboardPage() {
               tasksArray = tasksData.tasks || tasksData.data || tasksData.results || [];
             }
             
-            console.log('Final tasks array:', tasksArray); // Debug log
-            console.log('Is final array?', Array.isArray(tasksArray)); // Debug log
             
             // Ensure it's an array before slicing
             if (Array.isArray(tasksArray)) {
@@ -312,11 +307,7 @@ export default function DashboardPage() {
           </div>
           <div className="divide-y divide-gray-100">
             {recentTasks.length > 0 ? (
-              <>
-                <div className="px-4 py-2 bg-blue-50 text-xs text-blue-600">
-                  Debug: Found {recentTasks.length} recent tasks
-                </div>
-                {recentTasks.map((task, index) => (
+                recentTasks.map((task, index) => (
                 <div
                   key={task.id}
                   className="px-4 sm:px-6 py-4 sm:py-5 hover:bg-gray-50 transition-all duration-200"
@@ -424,8 +415,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
-                ))}
-              </>
+                ))
             ) : (
               <div className="px-4 sm:px-6 py-8 sm:py-12 text-center text-gray-500">
                 <FiCheckCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
@@ -463,32 +453,70 @@ export default function DashboardPage() {
                           {project.title}
                         </h3>
                         <div className="mt-1 text-xs sm:text-sm text-gray-500">
-                          <span>{project.customer_name || 'N/A'}</span>
+                          <span className="font-medium">{project.customer_name || 'N/A'}</span>
+                        </div>
+                        <div className="mt-2 grid grid-cols-1 gap-1 text-xs text-gray-600">
+                          {project.flat_number && (
+                            <div>
+                              <span className="text-gray-500">Flat No:</span>
+                              <span className="ml-1 text-gray-900 font-medium">{project.flat_number}</span>
+                            </div>
+                          )}
                           {project.phone_number && (
-                            <>
-                              <span className="mx-1">•</span>
-                              <span>{project.phone_number}</span>
-                            </>
+                            <div>
+                              <span className="text-gray-500">Phone:</span>
+                              <a href={`tel:${project.phone_number}`} className="ml-1 text-blue-600 hover:text-blue-800 font-medium">
+                                {project.phone_number}
+                              </a>
+                            </div>
+                          )}
+                          {project.property_type && (
+                            <div>
+                              <span className="text-gray-500">Type:</span>
+                              <span className="ml-1 text-gray-900 font-medium capitalize">{project.property_type.replace(/_/g, ' ')}</span>
+                            </div>
+                          )}
+                          {project.area_sqft && (
+                            <div>
+                              <span className="text-gray-500">Area:</span>
+                              <span className="ml-1 text-gray-900 font-medium">{project.area_sqft} sq ft</span>
+                            </div>
+                          )}
+                          {project.estimated_completion_date && (
+                            <div>
+                              <span className="text-gray-500">Est. Completion:</span>
+                              <span className="ml-1 text-gray-900 font-medium">
+                                {new Date(project.estimated_completion_date).toLocaleDateString()}
+                              </span>
+                            </div>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span
-                          className={`px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
-                            project.status === 'completed'
-                              ? 'bg-green-100 text-green-700'
-                              : project.status === 'in_progress'
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-amber-100 text-amber-700'
-                          }`}
-                        >
-                          {project.status.replace('_', ' ')}
-                        </span>
-                        {project.estimated_completion_date && (
-                          <span className="text-xs text-gray-500">
-                            Due: {new Date(project.estimated_completion_date).toLocaleDateString()}
+                      <div className="flex flex-row sm:flex-col items-start sm:items-end gap-2">
+                        {project.workflow_stage && (
+                          <span
+                            className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
+                              project.workflow_stage === 'design_completed'
+                                ? 'bg-green-100 text-green-700'
+                                : project.workflow_stage === 'design_in_progress'
+                                ? 'bg-blue-100 text-blue-700'
+                                : project.workflow_stage === 'design_pending'
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-gray-100 text-gray-700'
+                            }`}
+                          >
+                            {project.workflow_stage.replace(/_/g, ' ')}
                           </span>
                         )}
+                        <span className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
+                          project.status === 'completed'
+                            ? 'bg-green-100 text-green-700'
+                            : project.status === 'in_progress'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {project.status.replace('_', ' ')}
+                        </span>
                       </div>
                     </div>
                   </div>

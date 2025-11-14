@@ -36,7 +36,10 @@ export default function TasksPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingTask, setEditingTask] = useState<any>(null);
   const [creating, setCreating] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [projects, setProjects] = useState<Array<{id: string; title: string; customer_name: string}>>([]);
   const [users, setUsers] = useState<Array<{id: string; full_name: string; email: string}>>([]);
 
@@ -116,6 +119,26 @@ export default function TasksPage() {
       const result = await response.json();
       console.log('Task created:', result);
       
+      // Send WhatsApp notification if phone number is available
+      if (result.task && result.project_phone) {
+        try {
+          await fetch('/api/whatsapp/send-task-notification', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              phoneNumber: result.project_phone,
+              taskTitle: result.task.title,
+              projectName: result.task.step?.project?.title,
+              status: result.task.status
+            }),
+          });
+        } catch (notificationError) {
+          console.error('Failed to send WhatsApp notification:', notificationError);
+        }
+      }
+      
       // Refresh tasks
       await fetchTasks();
       setShowCreateModal(false);
@@ -126,6 +149,49 @@ export default function TasksPage() {
       return { success: false, error: err.message };
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleEditTask = (task: any) => {
+    setEditingTask(task);
+    setShowEditModal(true);
+    fetchProjects();
+    fetchUsers();
+  };
+
+  const updateTask = async (formData: any) => {
+    try {
+      setUpdating(true);
+      const response = await fetch('/api/tasks/update', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: editingTask?.id,
+          ...formData,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Task update failed:', errorData);
+        throw new Error(errorData.error || 'Failed to update task');
+      }
+
+      const result = await response.json();
+      console.log('Task updated:', result);
+      
+      // Refresh tasks
+      await fetchTasks();
+      setShowEditModal(false);
+      
+      return { success: true };
+    } catch (err: any) {
+      console.error('Error updating task:', err);
+      return { success: false, error: err.message };
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -327,15 +393,30 @@ export default function TasksPage() {
       </div>
 
       {/* Professional Gantt Chart */}
-      <ProfessionalGanttChart tasks={filteredTasks} loading={loading} />
+      <ProfessionalGanttChart 
+        tasks={filteredTasks} 
+        loading={loading} 
+        onEditTask={handleEditTask}
+      />
 
       {/* Create Task Modal */}
       <Modal 
         isOpen={showCreateModal} 
         onClose={() => setShowCreateModal(false)} 
         title="Create New Task"
+        maxWidth="lg"
       >
         <CreateTaskForm />
+      </Modal>
+
+      {/* Edit Task Modal */}
+      <Modal 
+        isOpen={showEditModal} 
+        onClose={() => setShowEditModal(false)} 
+        title="Edit Task"
+        maxWidth="lg"
+      >
+        <EditTaskForm />
       </Modal>
     </div>
   );
@@ -503,6 +584,192 @@ export default function TasksPage() {
                   {creating ? 'Creating...' : 'Create Task'}
                 </button>
               </div>
+      </form>
+    );
+  }
+
+  function EditTaskForm() {
+    const [formData, setFormData] = useState({
+      project_id: editingTask?.step?.project?.id || '',
+      task_title: editingTask?.title || '',
+      task_description: '',
+      start_date: editingTask?.start_date || '',
+      estimated_completion_date: editingTask?.estimated_completion_date || '',
+      assigned_to: editingTask?.assigned_to || '',
+      priority: editingTask?.priority || 'medium' as 'low' | 'medium' | 'high' | 'urgent',
+      status: editingTask?.status || 'todo' as 'todo' | 'in_progress' | 'blocked' | 'done',
+    });
+    const [formError, setFormError] = useState('');
+
+    // Update form data when editingTask changes
+    useEffect(() => {
+      if (editingTask) {
+        setFormData({
+          project_id: editingTask?.step?.project?.id || '',
+          task_title: editingTask?.title || '',
+          task_description: '',
+          start_date: editingTask?.start_date || '',
+          estimated_completion_date: editingTask?.estimated_completion_date || '',
+          assigned_to: editingTask?.assigned_to || '',
+          priority: editingTask?.priority || 'medium' as 'low' | 'medium' | 'high' | 'urgent',
+          status: editingTask?.status || 'todo' as 'todo' | 'in_progress' | 'blocked' | 'done',
+        });
+      }
+    }, [editingTask]);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setFormError('');
+
+      if (!formData.task_title) {
+        setFormError('Task title is required');
+        return;
+      }
+
+      const result = await updateTask({
+        ...formData,
+        step_title: 'General Tasks', // Auto-generate step title
+      });
+
+      if (!result.success) {
+        setFormError(result.error || 'Failed to update task');
+      }
+    };
+
+    return (
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {formError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+            {formError}
+          </div>
+        )}
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Project <span className="text-sm text-gray-500">(Optional for daily tasks)</span>
+          </label>
+          <select
+            value={formData.project_id}
+            onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+          >
+            <option value="">Select a project</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.title} - {project.customer_name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Task Title *
+          </label>
+          <input
+            type="text"
+            value={formData.task_title}
+            onChange={(e) => setFormData({ ...formData, task_title: e.target.value })}
+            placeholder="Enter task title"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Status
+          </label>
+          <select
+            value={formData.status}
+            onChange={(e) => setFormData({ ...formData, status: e.target.value as 'todo' | 'in_progress' | 'blocked' | 'done' })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+          >
+            <option value="todo">To Do</option>
+            <option value="in_progress">In Progress</option>
+            <option value="blocked">Blocked</option>
+            <option value="done">Done</option>
+          </select>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Start Date
+            </label>
+            <input
+              type="date"
+              value={formData.start_date}
+              onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Due Date
+            </label>
+            <input
+              type="date"
+              value={formData.estimated_completion_date}
+              onChange={(e) => setFormData({ ...formData, estimated_completion_date: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Priority
+            </label>
+            <select
+              value={formData.priority}
+              onChange={(e) => setFormData({ ...formData, priority: e.target.value as 'low' | 'medium' | 'high' | 'urgent' })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Assign To
+            </label>
+            <select
+              value={formData.assigned_to}
+              onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+            >
+              <option value="">Unassigned</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="flex gap-3 pt-4">
+          <button
+            type="button"
+            onClick={() => setShowEditModal(false)}
+            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={updating}
+            className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {updating ? 'Updating...' : 'Update Task'}
+          </button>
+        </div>
       </form>
     );
   }

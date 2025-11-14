@@ -1,41 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
+import { getCurrentUser, supabaseAdmin } from '@/lib/supabase-server';
 
 // Force dynamic rendering - never cache task data
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-/**
- * Helper function to get the current authenticated user from cookies
- */
-async function getCurrentUser(request: NextRequest) {
-  try {
-    const supabase = await createAuthenticatedClient();
-    const { data: { session }, error } = await supabase.auth.getSession();
-
-    if (error || !session) {
-      console.error('Session error:', error);
-      return { user: null, error: error?.message || 'No session found' };
-    }
-
-    // Get user details from database
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('*')
-      .eq('id', session.user.id)
-      .single();
-
-    if (userError || !user) {
-      console.error('User fetch error:', userError);
-      return { user: null, error: userError?.message || 'User not found' };
-    }
-
-    return { user, error: null };
-  } catch (error: any) {
-    console.error('Error getting current user:', error);
-    return { user: null, error: error.message };
-  }
-}
 
 /**
  * GET /api/tasks/all
@@ -43,8 +11,8 @@ async function getCurrentUser(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    // Get current user
-    const { user, error: authError } = await getCurrentUser(request);
+    // Get current user using secure authentication
+    const { user, error: authError } = await getCurrentUser();
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },

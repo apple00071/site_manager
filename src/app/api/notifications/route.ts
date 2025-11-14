@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createNoCacheResponse } from '@/lib/apiHelpers';
 import { NotificationService } from '@/lib/notificationService';
-import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
+import { getCurrentUser, supabaseAdmin } from '@/lib/supabase-server';
 
 // Force dynamic rendering and set cache control
 export const dynamic = 'force-dynamic';
@@ -10,14 +9,11 @@ export const revalidate = 0;
 // GET - Fetch notifications for current user
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createAuthenticatedClient();
-    
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) {
+    // Get current user using secure authentication
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const user = session.user;
 
     // Get query parameters
     const { searchParams } = new URL(request.url);
@@ -25,7 +21,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
 
     // Build query
-    let query = supabase
+    let query = supabaseAdmin
       .from('notifications')
       .select('*')
       .eq('user_id', user.id)
@@ -40,27 +36,24 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching notifications:', error);
-      return createNoCacheResponse({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return createNoCacheResponse(notifications);
+    return NextResponse.json(notifications);
   } catch (error) {
     console.error('Error in GET /api/notifications:', error);
-    return createNoCacheResponse({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 // POST - Create a new notification (admin/system only)
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createAuthenticatedClient();
-    
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) {
+    // Get current user using secure authentication
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const user = session.user;
 
     const body = await request.json();
     const { user_id, title, message, type, related_id, related_type } = body;
@@ -98,14 +91,11 @@ export async function POST(request: NextRequest) {
 // PATCH - Mark notification(s) as read/unread
 export async function PATCH(request: NextRequest) {
   try {
-    const supabase = await createAuthenticatedClient();
-    
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) {
+    // Get current user using secure authentication
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const user = session.user;
 
     const body = await request.json();
     const { notification_id, notification_ids, is_read } = body;
@@ -114,7 +104,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'is_read field is required' }, { status: 400 });
     }
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('notifications')
       .update({ is_read })
       .eq('user_id', user.id);
@@ -137,7 +127,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, updated: data?.length || 0 });
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error in PATCH /api/notifications:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -147,14 +137,11 @@ export async function PATCH(request: NextRequest) {
 // DELETE - Delete notification(s)
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await createAuthenticatedClient();
-    
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) {
+    // Get current user using secure authentication
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const user = session.user;
 
     const { searchParams } = new URL(request.url);
     const notificationId = searchParams.get('id');
@@ -163,7 +150,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Notification ID is required' }, { status: 400 });
     }
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('notifications')
       .delete()
       .eq('id', notificationId)

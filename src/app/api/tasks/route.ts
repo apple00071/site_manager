@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
-import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
+import { getCurrentUser, supabaseAdmin } from '@/lib/supabase-server';
 
 // Force dynamic rendering - never cache task data
 export const dynamic = 'force-dynamic';
@@ -24,39 +24,6 @@ const updateTaskSchema = z.object({
   estimated_completion_date: z.string().nullable().optional(),
   status: z.enum(['todo', 'in_progress', 'blocked', 'done']).optional(),
 });
-
-/**
- * Helper function to get the current authenticated user from cookies
- */
-async function getCurrentUser(request: NextRequest) {
-  try {
-    const supabase = await createAuthenticatedClient();
-    const { data: { session }, error } = await supabase.auth.getSession();
-
-    if (error || !session) {
-      console.error('Session error:', error);
-      return { user: null, error: error?.message || 'No session found' };
-    }
-
-    // Get user details from database
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('*')
-      .eq('id', session.user.id)
-      .single();
-
-    if (userError || !user) {
-      console.error('User fetch error:', userError);
-      return { user: null, error: userError?.message || 'User not found' };
-    }
-
-    console.log('User authenticated:', user.email);
-    return { user, error: null };
-  } catch (error: any) {
-    console.error('Error getting current user:', error);
-    return { user: null, error: error.message };
-  }
-}
 
 /**
  * Helper function to check if user has access to a project
@@ -130,7 +97,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get current user
-    const { user, error: authError } = await getCurrentUser(request);
+    const { user, error: authError } = await getCurrentUser();
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -196,7 +163,7 @@ export async function POST(request: NextRequest) {
 
     // Get current user
     console.log('Getting current user...');
-    const { user, error: authError } = await getCurrentUser(request);
+    const { user, error: authError } = await getCurrentUser();
     if (authError || !user) {
       console.error('❌ Authentication failed:', authError);
       return NextResponse.json(
@@ -295,7 +262,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Get current user
-    const { user, error: authError } = await getCurrentUser(request);
+    const { user, error: authError } = await getCurrentUser();
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -413,7 +380,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Get current user
-    const { user, error: authError } = await getCurrentUser(request);
+    const { user, error: authError } = await getCurrentUser();
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },

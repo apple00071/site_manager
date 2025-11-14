@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
+import { getCurrentUser, supabaseAdmin } from '@/lib/supabase-server';
+import { sendTaskWhatsAppNotification } from '@/lib/whatsapp';
 import { NotificationService } from '@/lib/notificationService';
 
 // Force dynamic rendering
@@ -18,79 +19,6 @@ const createStandaloneTaskSchema = z.object({
   assigned_to: z.union([z.string().uuid(), z.literal(''), z.null()]).optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
 });
-
-/**
- * Helper function to get the current authenticated user
- */
-async function getCurrentUser(request: NextRequest) {
-  try {
-    const supabase = await createAuthenticatedClient();
-    const { data: { session }, error } = await supabase.auth.getSession();
-
-    if (error || !session) {
-      return { user: null, error: error?.message || 'No session found' };
-    }
-
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('*')
-      .eq('id', session.user.id)
-      .single();
-
-    if (userError || !user) {
-      return { user: null, error: userError?.message || 'User not found' };
-    }
-
-    return { user, error: null };
-  } catch (error: any) {
-    return { user: null, error: error.message };
-  }
-}
-
-/**
- * Helper function to check project access
- */
-async function checkProjectAccess(userId: string, projectId: string) {
-  // Check if user is admin
-  const { data: userData, error: userError } = await supabaseAdmin
-    .from('users')
-    .select('role')
-    .eq('id', userId)
-    .single();
-
-  if (userError) {
-    return { hasAccess: false, error: 'User not found' };
-  }
-
-  // Admins have access to all projects
-  if (userData.role === 'admin') {
-    return { hasAccess: true };
-  }
-
-  // Check if user is a project member
-  const { data: memberData, error: memberError } = await supabaseAdmin
-    .from('project_members')
-    .select('permissions')
-    .eq('project_id', projectId)
-    .eq('user_id', userId)
-    .single();
-
-  if (memberError && memberError.code !== 'PGRST116') {
-    return { hasAccess: false, error: 'Error checking project membership' };
-  }
-
-  // Check if user is assigned to the project
-  const { data: projectData } = await supabaseAdmin
-    .from('projects')
-    .select('assigned_employee_id')
-    .eq('id', projectId)
-    .single();
-
-  const hasAccess = !!memberData || projectData?.assigned_employee_id === userId;
-  const canEdit = memberData?.permissions?.edit === true || projectData?.assigned_employee_id === userId;
-  
-  return { hasAccess, canEdit };
-}
 
 /**
  * POST /api/tasks/create
@@ -113,8 +41,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get current user
-    const { user, error: authError } = await getCurrentUser(request);
+    // Get current user using secure authentication
+    const { user, error: authError } = await getCurrentUser();
     if (authError || !user) {
       console.error('Authentication failed:', authError);
       return NextResponse.json(
@@ -182,6 +110,7 @@ export async function POST(request: NextRequest) {
         priority: parsed.data.priority,
         assigned_to: assignedTo,
         created_by: user.id,
+        status: 'todo',
       })
       .select(`
         *,
@@ -191,7 +120,8 @@ export async function POST(request: NextRequest) {
           project:projects(
             id,
             title,
-            customer_name
+            customer_name,
+            phone_number
           )
         )
       `)
@@ -241,6 +171,28 @@ export async function POST(request: NextRequest) {
           relatedType: 'task'
         });
       }
+      
+      // WhatsApp: notify assigned employee (if phone available)
+      if (assignedTo) {
+        try {
+          const { data: assignedUser } = await supabaseAdmin
+            .from('users')
+            .select('phone_number, full_name')
+            .eq('id', assignedTo)
+            .single();
+
+          if (assignedUser?.phone_number) {
+            await sendTaskWhatsAppNotification(
+              assignedUser.phone_number,
+              parsed.data.task_title,
+              projectData?.title,
+              'todo'
+            );
+          }
+        } catch (waError) {
+          console.error('Failed to send WhatsApp to assigned employee:', waError);
+        }
+      }
     } catch (notificationError) {
       console.error('Failed to send notifications:', notificationError);
       // Don't fail the main operation
@@ -250,6 +202,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       task,
+      project_phone: task?.step?.project?.phone_number || null,
       message: 'Task created successfully'
     }, { status: 201 });
 
