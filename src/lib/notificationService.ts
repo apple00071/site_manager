@@ -1,22 +1,5 @@
 // Notification Service for creating and managing notifications
-import { createClient } from '@supabase/supabase-js';
-
-// Use service role client for server-side operations
-const getSupabaseServiceClient = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error('Missing Supabase environment variables');
-  }
-
-  return createClient(supabaseUrl, supabaseServiceKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-};
+import { supabaseAdmin } from '@/lib/supabase-server';
 
 export type NotificationType =
   | 'task_assigned'
@@ -42,11 +25,8 @@ export interface CreateNotificationParams {
 export class NotificationService {
   static async createNotification(params: CreateNotificationParams) {
     try {
-      // Use Supabase service role client to insert directly
-      // This works both client-side and server-side
-      const supabase = getSupabaseServiceClient();
-
-      const { data, error } = await supabase
+      // Use shared admin client
+      const { data, error } = await supabaseAdmin
         .from('notifications')
         .insert({
           user_id: params.userId,

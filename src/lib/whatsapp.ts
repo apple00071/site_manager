@@ -29,12 +29,43 @@ class WhatsAppNotificationService {
       const Ctor = mod?.default || (mod as any)?.WhatsAppAPI || (mod as any)?.WasenderAPI;
       if (!Ctor) {
         console.warn('Wasender SDK loaded but API constructor not found');
-        return false;
+        // Use direct REST API fallback
+        this.api = {
+          sendMessage: async (params: any) => {
+            const url = `https://www.wasenderapi.com/api/send-message`;
+            
+            const payload = {
+              to: `+${params.to}`,
+              text: params.message
+            };
+            
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${this.config.apiKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(`WhatsApp API error: ${response.status} ${errorText}`);
+            }
+            
+            return await response.json();
+          }
+        };
+        return true;
       }
-      this.api = new Ctor(this.config.apiKey, this.config.instanceId);
+      
+      this.api = new Ctor({
+        apiKey: this.config.apiKey,
+        instanceId: this.config.instanceId
+      });
       return true;
-    } catch (e) {
-      console.warn('Wasender SDK not available; skipping WhatsApp send. Error:', e);
+    } catch (error) {
+      console.error('Failed to initialize WhatsApp SDK:', error);
       return false;
     }
   }
@@ -82,9 +113,15 @@ class WhatsAppNotificationService {
   async sendCustomNotification(phoneNumber: string, message: string): Promise<boolean> {
     try {
       const sdkReady = await this.ensureSdk();
-      if (!sdkReady) return false;
+      if (!sdkReady) {
+        console.error('SDK not ready');
+        return false;
+      }
+      
+      const cleanPhone = phoneNumber.replace(/[^\d]/g, '');
+      
       const result = await this.api.sendMessage({
-        to: phoneNumber.replace(/[^\d]/g, ''),
+        to: cleanPhone,
         message: message,
         type: 'text'
       });

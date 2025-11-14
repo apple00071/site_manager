@@ -119,25 +119,7 @@ export default function TasksPage() {
       const result = await response.json();
       console.log('Task created:', result);
       
-      // Send WhatsApp notification if phone number is available
-      if (result.task && result.project_phone) {
-        try {
-          await fetch('/api/whatsapp/send-task-notification', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              phoneNumber: result.project_phone,
-              taskTitle: result.task.title,
-              projectName: result.task.step?.project?.title,
-              status: result.task.status
-            }),
-          });
-        } catch (notificationError) {
-          console.error('Failed to send WhatsApp notification:', notificationError);
-        }
-      }
+      
       
       // Refresh tasks
       await fetchTasks();
