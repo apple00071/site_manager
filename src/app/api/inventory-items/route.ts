@@ -9,15 +9,15 @@ import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server'
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// Validation schemas - quantity is now optional
+// Validation schemas - quantity, supplier_name, date_purchased and total_cost are now optional
 const createInventoryItemSchema = z.object({
   project_id: z.string().uuid('Invalid project ID'),
   item_name: z.string().min(1, 'Item name is required'),
   quantity: z.number().optional(),
-  supplier_name: z.string().min(1, 'Supplier name is required'),
-  date_purchased: z.string(),
+  supplier_name: z.string().min(1, 'Supplier name is required').optional(),
+  date_purchased: z.string().optional(),
   bill_url: z.string().url('Invalid bill URL').optional(),
-  total_cost: z.number().min(0, 'Total cost must be positive'),
+  total_cost: z.number().min(0, 'Total cost must be positive').optional(),
 });
 
 const updateInventoryItemSchema = z.object({
