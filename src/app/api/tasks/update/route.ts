@@ -117,11 +117,15 @@ export async function PATCH(request: NextRequest) {
           .eq('id', newAssigned)
           .single();
         if (assignedUser?.phone_number) {
+          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+          const projectId = updatedTask.step?.project?.id;
+          const link = projectId ? `${origin}/dashboard/projects/${projectId}` : `${origin}/dashboard/my-tasks`;
           await sendTaskWhatsAppNotification(
             assignedUser.phone_number,
             updatedTask.title || currentTask.title,
             updatedTask.step?.project?.title,
-            updatedTask.status
+            updatedTask.status,
+            link
           );
         }
       } else if (statusChanged && (updatedTask.assigned_to || prevAssigned)) {
@@ -134,11 +138,15 @@ export async function PATCH(request: NextRequest) {
             .eq('id', targetUserId)
             .single();
           if (assignedUser?.phone_number) {
+            const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            const projectId = updatedTask.step?.project?.id;
+            const link = projectId ? `${origin}/dashboard/projects/${projectId}` : `${origin}/dashboard/my-tasks`;
             await sendTaskWhatsAppNotification(
               assignedUser.phone_number,
               updatedTask.title || currentTask.title,
               updatedTask.step?.project?.title,
-              updatedTask.status
+              updatedTask.status,
+              link
             );
           }
         }

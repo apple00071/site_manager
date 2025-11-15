@@ -129,6 +129,8 @@ export async function POST(
         });
 
         try {
+          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+          const link = `${origin}/dashboard/projects/${item.project.id}`;
           const { data: adminUser } = await supabaseAdmin
             .from('users')
             .select('phone_number')
@@ -137,7 +139,7 @@ export async function POST(
           if (adminUser?.phone_number) {
             await sendCustomWhatsAppNotification(
               adminUser.phone_number,
-              `♻️ Bill Resubmitted\n\n${user.full_name} resubmitted the bill for "${item.item_name}" in project "${item.project.title}"`
+              `♻️ Bill Resubmitted\n\n${user.full_name} resubmitted the bill for "${item.item_name}" in project "${item.project.title}"\n\nOpen: ${link}`
             );
           }
         } catch (_) {}

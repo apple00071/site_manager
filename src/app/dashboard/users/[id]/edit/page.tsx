@@ -13,7 +13,10 @@ import BackButton from '@/components/BackButton';
 
 const userSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
-  username: z.string().min(3, 'Username is required'),
+  username: z
+    .string()
+    .min(3, 'Username must be at least 3 characters')
+    .regex(/^[a-zA-Z0-9_.-]+$/, 'Only letters, numbers, underscore, dot and hyphen allowed'),
   full_name: z.string().min(2, 'Full name is required'),
   designation: z.string().min(2, 'Designation is required'),
   role: z.enum(['admin', 'designer', 'site_supervisor', 'employee']),

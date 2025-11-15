@@ -70,11 +70,11 @@ class WhatsAppNotificationService {
     }
   }
 
-  async sendTaskNotification(phoneNumber: string, taskTitle: string, projectName?: string, status?: string): Promise<boolean> {
+  async sendTaskNotification(phoneNumber: string, taskTitle: string, projectName?: string, status?: string, link?: string): Promise<boolean> {
     try {
       const sdkReady = await this.ensureSdk();
       if (!sdkReady) return false;
-      const message = this.formatTaskMessage(taskTitle, projectName, status);
+      const message = this.formatTaskMessage(taskTitle, projectName, status, link);
       
       const result = await this.api.sendMessage({
         to: phoneNumber.replace(/[^\d]/g, ''), // Remove non-numeric characters
@@ -134,7 +134,7 @@ class WhatsAppNotificationService {
     }
   }
 
-  private formatTaskMessage(taskTitle: string, projectName?: string, status?: string): string {
+  private formatTaskMessage(taskTitle: string, projectName?: string, status?: string, link?: string): string {
     let message = `📋 *Task Update*\n\n`;
     message += `*Task:* ${taskTitle}\n`;
     
@@ -148,6 +148,9 @@ class WhatsAppNotificationService {
     }
     
     message += `\n🔗 Login to your dashboard for more details.`;
+    if (link) {
+      message += `\n\nOpen: ${link}`;
+    }
     
     return message;
   }
@@ -235,7 +238,8 @@ export async function sendTaskWhatsAppNotification(
   phoneNumber: string, 
   taskTitle: string, 
   projectName?: string, 
-  status?: string
+  status?: string,
+  link?: string
 ): Promise<boolean> {
   const service = getWhatsAppService();
   if (!service) {
@@ -243,7 +247,7 @@ export async function sendTaskWhatsAppNotification(
     return false;
   }
   
-  return await service.sendTaskNotification(phoneNumber, taskTitle, projectName, status);
+  return await service.sendTaskNotification(phoneNumber, taskTitle, projectName, status, link);
 }
 
 export async function sendProjectWhatsAppNotification(

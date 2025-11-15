@@ -94,9 +94,11 @@ export async function POST(req: Request) {
               .eq('id', user_id)
               .single();
             if (member?.phone_number) {
+              const origin = (req as Request).headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+              const link = `${origin}/dashboard/projects/${project_id}`;
               await sendCustomWhatsAppNotification(
                 member.phone_number,
-                `👋 You were added to project "${projectData.title}" with new permissions.`
+                `👋 You were added to project "${projectData.title}" with new permissions.\n\nOpen: ${link}`
               );
             }
           } catch (_) {}
@@ -119,9 +121,11 @@ export async function POST(req: Request) {
                 .eq('id', projectData.created_by)
                 .single();
               if (adminUser?.phone_number) {
+                const origin = (req as Request).headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+                const link = `${origin}/dashboard/projects/${project_id}`;
                 await sendCustomWhatsAppNotification(
                   adminUser.phone_number,
-                  `👥 Project Member Updated\n\n${userData.full_name} was added/updated in project "${projectData.title}"`
+                  `👥 Project Member Updated\n\n${userData.full_name} was added/updated in project "${projectData.title}"\n\nOpen: ${link}`
                 );
               }
             } catch (_) {}

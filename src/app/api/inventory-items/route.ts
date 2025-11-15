@@ -175,6 +175,8 @@ export async function POST(request: NextRequest) {
         console.log('Inventory notification sent to admin:', projectData.created_by);
 
         try {
+          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+          const link = `${origin}/dashboard/projects/${project_id}`;
           const { data: adminUser } = await supabaseAdmin
             .from('users')
             .select('phone_number')
@@ -183,7 +185,7 @@ export async function POST(request: NextRequest) {
           if (adminUser?.phone_number) {
             await sendCustomWhatsAppNotification(
               adminUser.phone_number,
-              `📦 Inventory Added\n\n${user.full_name} added "${item_name}"${quantityText} to project "${projectData.title}"`
+              `📦 Inventory Added\n\n${user.full_name} added "${item_name}"${quantityText} to project "${projectData.title}"\n\nOpen: ${link}`
             );
           }
         } catch (_) {}

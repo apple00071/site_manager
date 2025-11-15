@@ -119,9 +119,11 @@ export async function POST(
             .eq('id', item.created_by_user.id)
             .single();
           if (uploader?.phone_number) {
+            const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            const link = `${origin}/dashboard/projects/${item.project.id}`;
             await sendCustomWhatsAppNotification(
               uploader.phone_number,
-              `✅ Bill Approved\n\nYour bill for "${item.item_name}" in project "${item.project.title}" has been approved.`
+              `✅ Bill Approved\n\nYour bill for "${item.item_name}" in project "${item.project.title}" has been approved.\n\nOpen: ${link}`
             );
           }
         } catch (_) {}

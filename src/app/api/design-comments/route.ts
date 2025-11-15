@@ -160,7 +160,9 @@ export async function POST(request: NextRequest) {
               .select('id, phone_number')
               .in('id', recipientIds);
 
-            const message = `💬 New comment on design "${designFile.file_name}" in project "${project?.title || ''}" by ${user.full_name}`;
+            const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            const link = `${origin}/dashboard/projects/${designFile.project_id}`;
+            const message = `💬 New comment on design "${designFile.file_name}" in project "${project?.title || ''}" by ${user.full_name}\n\nOpen: ${link}`;
             await Promise.all(
               (recipients || [])
                 .filter(r => !!r.phone_number)

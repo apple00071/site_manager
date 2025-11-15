@@ -365,18 +365,23 @@ export async function PATCH(request: NextRequest) {
         if (assignedUser?.phone_number) {
           const { data: stepData } = await supabaseAdmin
             .from('project_steps')
-            .select('project:projects(title)')
+            .select('project_id, project:projects(id, title)')
             .eq('id', existingTask.step_id)
             .single();
           const stepDataAny: any = stepData;
-          const projectName = Array.isArray(stepDataAny?.project)
-            ? stepDataAny?.project?.[0]?.title
-            : stepDataAny?.project?.title;
+          const projectObj = Array.isArray(stepDataAny?.project)
+            ? stepDataAny?.project?.[0]
+            : stepDataAny?.project;
+          const projectName = projectObj?.title;
+          const projectId = projectObj?.id || stepDataAny?.project_id;
+          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+          const link = projectId ? `${origin}/dashboard/projects/${projectId}` : `${origin}/dashboard/my-tasks`;
           await sendTaskWhatsAppNotification(
             assignedUser.phone_number,
             task.title || existingTask.title,
             projectName,
-            task.status
+            task.status,
+            link
           );
         }
       }

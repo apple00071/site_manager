@@ -148,9 +148,11 @@ export async function POST(
           .eq('id', project.designer.id)
           .single();
         if (des?.phone_number) {
+          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+          const link = `${origin}/dashboard/projects/${projectId}`;
           await sendCustomWhatsAppNotification(
             des.phone_number,
-            `🚫 Design Rejected\n\nYour design for project "${project.title}" was rejected. Reason: ${rejection_reason}`
+            `🚫 Design Rejected\n\nYour design for project "${project.title}" was rejected. Reason: ${rejection_reason}\n\nOpen: ${link}`
           );
         }
       } catch (waErr) {

@@ -156,9 +156,11 @@ export async function POST(
           .eq('id', site_supervisor_id)
           .single();
         if (sup?.phone_number) {
+          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+          const link = `${origin}/dashboard/projects/${projectId}`;
           await sendCustomWhatsAppNotification(
             sup.phone_number,
-            `🏢 Project Assigned\n\nYou have been assigned as site supervisor for project "${project.title}"`
+            `🏢 Project Assigned\n\nYou have been assigned as site supervisor for project "${project.title}"\n\nOpen: ${link}`
           );
         }
       } catch (waErr) {
@@ -202,9 +204,11 @@ export async function POST(
           .eq('id', project.designer.id)
           .single();
         if (des?.phone_number) {
+          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+          const link = `${origin}/dashboard/projects/${projectId}`;
           await sendCustomWhatsAppNotification(
             des.phone_number,
-            `✅ Design Approved\n\nYour design for project "${project.title}" has been approved.`
+            `✅ Design Approved\n\nYour design for project "${project.title}" has been approved.\n\nOpen: ${link}`
           );
         }
       } catch (waErr) {

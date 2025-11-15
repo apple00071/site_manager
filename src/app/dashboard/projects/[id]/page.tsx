@@ -1,6 +1,7 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
@@ -52,6 +53,8 @@ type Project = {
 export default function ProjectDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   const { user, isAdmin, isLoading: authLoading } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -69,6 +72,16 @@ export default function ProjectDetailsPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Initialize active tab from ?tab= query param if present
+  useEffect(() => {
+    const tab = searchParams?.get('tab');
+    if (!tab) return;
+    const validTabs = ['details', 'workflow', 'board', 'updates', 'inventory', 'designs'] as const;
+    if (validTabs.includes(tab as any)) {
+      setActiveTab(tab as typeof validTabs[number]);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (authLoading) return;

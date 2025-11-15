@@ -166,6 +166,8 @@ export async function POST(request: NextRequest) {
         console.log('Design upload notification sent to admin:', projectData.created_by);
 
         try {
+          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+          const link = `${origin}/dashboard/projects/${project_id}`;
           const { data: adminUser } = await supabaseAdmin
             .from('users')
             .select('phone_number')
@@ -174,7 +176,7 @@ export async function POST(request: NextRequest) {
           if (adminUser?.phone_number) {
             await sendCustomWhatsAppNotification(
               adminUser.phone_number,
-              `🖼️ New Design Uploaded\n\n${user.full_name} uploaded "${file_name}" for project "${projectData.title}"`
+              `🖼️ New Design Uploaded\n\n${user.full_name} uploaded "${file_name}" for project "${projectData.title}"\n\nOpen: ${link}`
             );
           }
         } catch (_) {}
@@ -278,6 +280,8 @@ export async function PATCH(request: NextRequest) {
         console.log('Design approval notification sent to employee:', design.uploaded_by_user.id);
 
         try {
+          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+          const link = `${origin}/dashboard/projects/${design.project_id}`;
           const { data: uploader } = await supabaseAdmin
             .from('users')
             .select('phone_number')
@@ -286,7 +290,7 @@ export async function PATCH(request: NextRequest) {
           if (uploader?.phone_number) {
             await sendCustomWhatsAppNotification(
               uploader.phone_number,
-              message
+              `${message}\n\nOpen: ${link}`
             );
           }
         } catch (_) {}

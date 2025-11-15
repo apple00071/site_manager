@@ -349,9 +349,11 @@ export async function POST(req: Request) {
             .eq('id', parsed.data.assigned_employee_id)
             .single();
           if (employee?.phone_number) {
+            const origin = (req as Request).headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            const link = `${origin}/dashboard/projects/${project.id}`;
             await sendCustomWhatsAppNotification(
               employee.phone_number,
-              `🆕 New Project Assigned\n\nYou have been assigned to project "${parsed.data.title}" for customer ${parsed.data.customer_name}`
+              `🆕 New Project Assigned\n\nYou have been assigned to project "${parsed.data.title}" for customer ${parsed.data.customer_name}\n\nOpen: ${link}`
             );
           }
         } catch (_) {}

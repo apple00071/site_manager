@@ -151,6 +151,8 @@ export async function POST(request: NextRequest) {
         console.log('Project update notification sent to admin:', projectData.created_by);
 
         try {
+          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+          const link = `${origin}/dashboard/projects/${project_id}`;
           const { data: adminUser } = await supabaseAdmin
             .from('users')
             .select('phone_number')
@@ -159,7 +161,7 @@ export async function POST(request: NextRequest) {
           if (adminUser?.phone_number) {
             await sendCustomWhatsAppNotification(
               adminUser.phone_number,
-              `📣 Project Update\n\n${user.full_name} added an update to project "${projectData.title}"`
+              `📣 Project Update\n\n${user.full_name} added an update to project "${projectData.title}"\n\nOpen: ${link}`
             );
           }
         } catch (_) {}
@@ -225,6 +227,35 @@ export async function PATCH(request: NextRequest) {
     if (error) {
       console.error('Error updating project update:', error);
       return NextResponse.json({ error: 'Failed to update' }, { status: 500 });
+    }
+
+    // WhatsApp notify admin when a project update is modified
+    try {
+      if (update?.project_id) {
+        const { data: projectData } = await supabaseAdmin
+          .from('projects')
+          .select('created_by, title')
+          .eq('id', update.project_id)
+          .single();
+
+        if (projectData && projectData.created_by !== user.id) {
+          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+          const link = `${origin}/dashboard/projects/${update.project_id}`;
+          const { data: adminUser } = await supabaseAdmin
+            .from('users')
+            .select('phone_number')
+            .eq('id', projectData.created_by)
+            .single();
+          if (adminUser?.phone_number) {
+            await sendCustomWhatsAppNotification(
+              adminUser.phone_number,
+              `✏️ Project Update Edited\n\n${user.full_name} edited an update in project "${projectData.title}"\n\nOpen: ${link}`
+            );
+          }
+        }
+      }
+    } catch (waErr) {
+      console.error('Failed to send WhatsApp for update edit:', waErr);
     }
 
     return NextResponse.json({ update });

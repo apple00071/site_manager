@@ -182,11 +182,14 @@ export async function POST(request: NextRequest) {
             .single();
 
           if (assignedUser?.phone_number) {
+            const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            const link = projectId ? `${origin}/dashboard/projects/${projectId}` : `${origin}/dashboard/my-tasks`;
             await sendTaskWhatsAppNotification(
               assignedUser.phone_number,
               parsed.data.task_title,
               projectData?.title,
-              'todo'
+              'todo',
+              link
             );
           }
         } catch (waError) {
