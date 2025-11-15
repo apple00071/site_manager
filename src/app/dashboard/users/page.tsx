@@ -80,7 +80,7 @@ export default function UsersPage() {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <h1 className="text-xl lg:text-2xl font-bold text-gray-900">User Management</h1>
         <Link
-          href="/dashboard/users/new"
+          href="/admin/users/new"
           className="px-4 py-2 bg-indigo-600 text-white rounded-md flex items-center justify-center hover:bg-indigo-700 transition-colors"
         >
           <FiPlus className="mr-2 h-4 w-4" /> Add User

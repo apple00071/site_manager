@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { NotificationService } from '@/lib/notificationService';
+import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -126,6 +127,20 @@ export async function POST(
           relatedId: itemId,
           relatedType: 'inventory_item',
         });
+
+        try {
+          const { data: adminUser } = await supabaseAdmin
+            .from('users')
+            .select('phone_number')
+            .eq('id', item.project.created_by)
+            .single();
+          if (adminUser?.phone_number) {
+            await sendCustomWhatsAppNotification(
+              adminUser.phone_number,
+              `♻️ Bill Resubmitted\n\n${user.full_name} resubmitted the bill for "${item.item_name}" in project "${item.project.title}"`
+            );
+          }
+        } catch (_) {}
       } catch (notificationError) {
         // Log but don't fail the request if notification fails
         console.error('Failed to create notification:', notificationError);

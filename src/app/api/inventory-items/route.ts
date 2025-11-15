@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
+import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
 import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
 
@@ -172,6 +173,20 @@ export async function POST(request: NextRequest) {
           relatedType: 'project'
         });
         console.log('Inventory notification sent to admin:', projectData.created_by);
+
+        try {
+          const { data: adminUser } = await supabaseAdmin
+            .from('users')
+            .select('phone_number')
+            .eq('id', projectData.created_by)
+            .single();
+          if (adminUser?.phone_number) {
+            await sendCustomWhatsAppNotification(
+              adminUser.phone_number,
+              `📦 Inventory Added\n\n${user.full_name} added "${item_name}"${quantityText} to project "${projectData.title}"`
+            );
+          }
+        } catch (_) {}
       }
     } catch (notificationError) {
       console.error('Failed to send inventory notification:', notificationError);

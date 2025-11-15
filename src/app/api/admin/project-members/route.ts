@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { handleApiError, sanitizeErrorMessage } from '@/lib/errorHandler';
 import { NotificationService } from '@/lib/notificationService';
+import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
+
 import { createNoCacheResponse } from '@/lib/apiHelpers';
 
 // Force dynamic rendering - never cache project member data
@@ -85,6 +87,20 @@ export async function POST(req: Request) {
             relatedType: 'project'
           });
 
+          try {
+            const { data: member } = await supabaseAdmin
+              .from('users')
+              .select('phone_number')
+              .eq('id', user_id)
+              .single();
+            if (member?.phone_number) {
+              await sendCustomWhatsAppNotification(
+                member.phone_number,
+                `👋 You were added to project "${projectData.title}" with new permissions.`
+              );
+            }
+          } catch (_) {}
+
           // Notify admin if they're not the one making the change
           if (projectData.created_by !== user_id) {
             await NotificationService.createNotification({
@@ -95,6 +111,20 @@ export async function POST(req: Request) {
               relatedId: project_id,
               relatedType: 'project'
             });
+
+            try {
+              const { data: adminUser } = await supabaseAdmin
+                .from('users')
+                .select('phone_number')
+                .eq('id', projectData.created_by)
+                .single();
+              if (adminUser?.phone_number) {
+                await sendCustomWhatsAppNotification(
+                  adminUser.phone_number,
+                  `👥 Project Member Updated\n\n${userData.full_name} was added/updated in project "${projectData.title}"`
+                );
+              }
+            } catch (_) {}
           }
 
           console.log('Project member notifications sent');

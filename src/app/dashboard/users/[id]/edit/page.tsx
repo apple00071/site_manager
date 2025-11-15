@@ -13,6 +13,7 @@ import BackButton from '@/components/BackButton';
 
 const userSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
+  username: z.string().min(3, 'Username is required'),
   full_name: z.string().min(2, 'Full name is required'),
   designation: z.string().min(2, 'Designation is required'),
   role: z.enum(['admin', 'designer', 'site_supervisor', 'employee']),
@@ -60,6 +61,7 @@ export default function EditUserPage() {
         setUser(data);
         reset({
           email: data.email,
+          username: data.username || '',
           full_name: data.full_name,
           designation: data.designation || '',
           role: data.role,
@@ -89,6 +91,7 @@ export default function EditUserPage() {
         body: JSON.stringify({
           id: userId,
           email: data.email,
+          username: data.username,
           full_name: data.full_name,
           designation: data.designation,
           role: data.role,
@@ -169,6 +172,21 @@ export default function EditUserPage() {
                 />
                 {errors.email && (
                   <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                  Username
+                </label>
+                <input
+                  id="username"
+                  type="text"
+                  {...register('username')}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                {errors.username && (
+                  <p className="mt-1 text-sm text-red-600">{errors.username.message}</p>
                 )}
               </div>
 

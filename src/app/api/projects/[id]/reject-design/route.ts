@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { NotificationService } from '@/lib/notificationService';
+import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -139,6 +140,21 @@ export async function POST(
         relatedId: projectId,
         relatedType: 'project',
       });
+
+      try {
+        const { data: des } = await supabaseAdmin
+          .from('users')
+          .select('phone_number')
+          .eq('id', project.designer.id)
+          .single();
+        if (des?.phone_number) {
+          await sendCustomWhatsAppNotification(
+            des.phone_number,
+            `🚫 Design Rejected\n\nYour design for project "${project.title}" was rejected. Reason: ${rejection_reason}`
+          );
+        }
+      } catch (waErr) {
+      }
     }
 
     return NextResponse.json({

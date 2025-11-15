@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
@@ -141,9 +142,34 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // Send all notifications
         await Promise.all(notifications);
         console.log('Comment notifications sent for design:', design_file_id);
+
+        try {
+          const recipientIds: string[] = [];
+          if (designFile.uploaded_by && designFile.uploaded_by !== user.id) {
+            recipientIds.push(designFile.uploaded_by);
+          }
+          if (project?.created_by && project.created_by !== user.id && project.created_by !== designFile.uploaded_by) {
+            recipientIds.push(project.created_by);
+          }
+
+          if (recipientIds.length > 0) {
+            const { data: recipients } = await supabaseAdmin
+              .from('users')
+              .select('id, phone_number')
+              .in('id', recipientIds);
+
+            const message = `💬 New comment on design "${designFile.file_name}" in project "${project?.title || ''}" by ${user.full_name}`;
+            await Promise.all(
+              (recipients || [])
+                .filter(r => !!r.phone_number)
+                .map(r => sendCustomWhatsAppNotification(r.phone_number as unknown as string, message))
+            );
+          }
+        } catch (waError) {
+          console.error('Failed to send WhatsApp notifications for comment:', waError);
+        }
       }
     } catch (notificationError) {
       console.error('Failed to send comment notifications:', notificationError);

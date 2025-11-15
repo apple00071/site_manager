@@ -8,13 +8,13 @@ import { supabase } from '@/lib/supabase';
 
 // Form validation schema
 const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
+  identifier: z.string().min(3, 'Please enter username or email'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
 export default function AdminLogin() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -22,22 +22,23 @@ export default function AdminLogin() {
 
   const validateForm = () => {
     try {
-      loginSchema.parse({ email, password });
+      loginSchema.parse({ identifier, password });
+
       setErrors({});
       return true;
     } catch (error) {
       if (error instanceof z.ZodError) {
         const formattedErrors = error.format();
         const newErrors: { email?: string; password?: string } = {};
-        
-        if (formattedErrors.email?._errors?.length) {
-          newErrors.email = formattedErrors.email._errors[0];
+
+        if (formattedErrors.identifier?._errors?.length) {
+          newErrors.email = formattedErrors.identifier._errors[0];
         }
-        
+
         if (formattedErrors.password?._errors?.length) {
           newErrors.password = formattedErrors.password._errors[0];
         }
-        
+
         setErrors(newErrors);
       }
       return false;
@@ -47,20 +48,37 @@ export default function AdminLogin() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
-    
+
     if (!validateForm()) return;
-    
+
     setIsLoading(true);
-    
+
     try {
+      // Resolve username -> email if needed
+      let emailToUse = identifier;
+      if (!identifier.includes('@')) {
+        try {
+          const resp = await fetch('/api/auth/resolve-identifier', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier }),
+          });
+          const json = await resp.json();
+          if (!resp.ok) throw new Error(json?.error || 'Failed to resolve username');
+          emailToUse = json.email;
+        } catch (e: any) {
+          throw new Error(e?.message || 'Could not resolve username');
+        }
+      }
+
       // Authenticate with Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: emailToUse,
         password,
       });
-      
+
       if (error) throw error;
-      
+
       if (data.user) {
         // Check if user is admin
         const { data: userData, error: userError } = await supabase
@@ -68,17 +86,17 @@ export default function AdminLogin() {
           .select('role')
           .eq('id', data.user.id)
           .maybeSingle();
-        
+
         if (userError) throw userError;
-        
+
         if (!userData) {
           throw new Error('User profile not found. Please contact an admin.');
         }
-        
+
         if (userData.role !== 'admin') {
           throw new Error('Access denied. Admin privileges required.');
         }
-        
+
         // Redirect to admin dashboard
         router.push('/admin/dashboard');
       }
@@ -126,21 +144,21 @@ export default function AdminLogin() {
               </div>
             </div>
           )}
-          
+
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                Email address
+              <label htmlFor="identifier" className="block text-sm font-semibold text-gray-700 mb-2">
+                Username or Email
               </label>
               <div>
                 <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
+                  id="identifier"
+                  name="identifier"
+                  type="text"
+                  autoComplete="username"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   className={`appearance-none block w-full px-4 py-3 border ${
                     errors.email ? 'border-red-300' : 'border-gray-300'
                   } rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all sm:text-sm`}

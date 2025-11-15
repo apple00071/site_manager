@@ -9,6 +9,7 @@ import { useAdminAuth } from '@/contexts/AdminAuthContext';
 
 const userSchema = z.object({
   full_name: z.string().min(2, 'Full name is required'),
+  username: z.string().min(3, 'Username is required'),
   email: z.string().email('Valid email is required'),
   role: z.enum(['admin', 'employee']),
   password: z.string().min(8, 'Password must be at least 8 characters'),
@@ -39,6 +40,7 @@ export default function NewAdminUserPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: values.email,
+          username: values.username,
           full_name: values.full_name,
           role: values.role,
           password: values.password,
@@ -82,6 +84,12 @@ export default function NewAdminUserPage() {
             <label htmlFor="full_name" className="block text-sm font-medium text-gray-700">Full Name</label>
             <input id="full_name" type="text" {...register('full_name')} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
             {errors.full_name && <p className="mt-1 text-sm text-red-600">{errors.full_name.message}</p>}
+          </div>
+
+          <div>
+            <label htmlFor="username" className="block text-sm font-medium text-gray-700">Username</label>
+            <input id="username" type="text" {...register('username')} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+            {errors.username && <p className="mt-1 text-sm text-red-600">{errors.username.message}</p>}
           </div>
 
           <div>

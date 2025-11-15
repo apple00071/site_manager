@@ -259,3 +259,15 @@ export async function sendProjectWhatsAppNotification(
   
   return await service.sendProjectUpdateNotification(phoneNumber, projectName, updateType);
 }
+
+export async function sendCustomWhatsAppNotification(
+  phoneNumber: string,
+  message: string
+): Promise<boolean> {
+  const service = getWhatsAppService();
+  if (!service) {
+    console.warn('WhatsApp service not available');
+    return false;
+  }
+  return await service.sendCustomNotification(phoneNumber, message);
+}

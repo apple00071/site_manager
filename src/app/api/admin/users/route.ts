@@ -9,8 +9,9 @@ export const revalidate = 0;
 
 const createUserSchema = z.object({
   email: z.string().email('Invalid email address'),
+  username: z.string().min(3, 'Username must be at least 3 characters').regex(/^[a-zA-Z0-9_\.\-]+$/, 'Only letters, numbers, underscore, dot and hyphen allowed'),
   full_name: z.string().min(2, 'Full name must be at least 2 characters'),
-  designation: z.string().min(2, 'Designation must be at least 2 characters'),
+  designation: z.string().min(2, 'Designation must be at least 2 characters').optional().or(z.literal('')),
   role: z.enum(['admin', 'designer', 'site_supervisor', 'employee']),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
@@ -19,6 +20,7 @@ const createUserSchema = z.object({
 const updateUserSchema = z.object({
   id: z.string().uuid('Invalid user ID'),
   email: z.string().email('Invalid email address'),
+  username: z.string().min(3, 'Username must be at least 3 characters').regex(/^[a-zA-Z0-9_\.\-]+$/, 'Only letters, numbers, underscore, dot and hyphen allowed'),
   full_name: z.string().min(2, 'Full name must be at least 2 characters'),
   designation: z.string().min(2, 'Designation must be at least 2 characters'),
   role: z.enum(['admin', 'designer', 'site_supervisor', 'employee']),
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest) {
     // Build query
     let query = supabaseAdmin
       .from('users')
-      .select('id, full_name, email, role, designation, phone_number, created_at')
+      .select('*')
       .order('full_name');
     
     // Add role filter if provided
@@ -83,7 +85,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { email, full_name, designation, role, password, phone_number } = parsed.data;
+    const { email, username, full_name, designation, role, password, phone_number } = parsed.data;
 
     console.log('Creating user:', { email, full_name, role });
     console.log('Service role key exists:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -99,6 +101,7 @@ export async function POST(req: Request) {
           full_name,
           designation,
           role,
+          username,
         },
       });
 
@@ -121,17 +124,25 @@ export async function POST(req: Request) {
 
       console.log('Auth user created successfully:', authData.user.id);
 
-      // Insert into users table with admin client to bypass RLS
+      let hasUsername = true;
+      try {
+        const { error: unameErr } = await supabaseAdmin.from('users').select('username').limit(1);
+        if (unameErr) hasUsername = false;
+      } catch (_) { hasUsername = false; }
+
+      const profile: any = {
+        id: authData.user.id,
+        email,
+        full_name,
+        designation,
+        role,
+        phone_number: phone_number || null,
+      };
+      if (hasUsername) profile.username = username;
+
       const { error: profileError } = await supabaseAdmin
         .from('users')
-        .upsert({
-          id: authData.user.id,
-          email,
-          full_name,
-          designation,
-          role,
-          phone_number: phone_number || null,
-        }, {
+        .upsert(profile, {
           onConflict: 'id'
         });
 
@@ -199,20 +210,29 @@ export async function PATCH(req: Request) {
       );
     }
 
-    const { id, email, full_name, designation, role, password, phone_number } = parsed.data;
+    const { id, email, username, full_name, designation, role, password, phone_number } = parsed.data;
 
     console.log('Updating user:', { id, email, full_name, role });
 
     // Update user profile in database
+    let hasUsername = true;
+    try {
+      const { error: unameErr } = await supabaseAdmin.from('users').select('username').limit(1);
+      if (unameErr) hasUsername = false;
+    } catch (_) { hasUsername = false; }
+
+    const profileUpdate: any = {
+      email,
+      full_name,
+      designation,
+      role,
+      phone_number: phone_number || null,
+    };
+    if (hasUsername) profileUpdate.username = username;
+
     const { error: profileError } = await supabaseAdmin
       .from('users')
-      .update({
-        email,
-        full_name,
-        designation,
-        role,
-        phone_number: phone_number || null,
-      })
+      .update(profileUpdate)
       .eq('id', id);
 
     if (profileError) {
@@ -249,6 +269,7 @@ export async function PATCH(req: Request) {
           designation,
           role,
           phone_number: phone_number || null,
+          username,
         },
       }
     );

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
+import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 import { getCurrentUser, supabaseAdmin } from '@/lib/supabase-server';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
 
@@ -340,6 +341,20 @@ export async function POST(req: Request) {
           relatedType: 'project'
         });
         console.log('Assignment notification sent to employee:', parsed.data.assigned_employee_id);
+
+        try {
+          const { data: employee } = await supabaseAdmin
+            .from('users')
+            .select('phone_number')
+            .eq('id', parsed.data.assigned_employee_id)
+            .single();
+          if (employee?.phone_number) {
+            await sendCustomWhatsAppNotification(
+              employee.phone_number,
+              `🆕 New Project Assigned\n\nYou have been assigned to project "${parsed.data.title}" for customer ${parsed.data.customer_name}`
+            );
+          }
+        } catch (_) {}
       } catch (notificationError) {
         console.error('Failed to send assignment notification:', notificationError);
         // Don't fail the main operation if notification fails

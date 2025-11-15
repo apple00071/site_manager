@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
+import { sendTaskWhatsAppNotification } from '@/lib/whatsapp';
 import { getCurrentUser, supabaseAdmin } from '@/lib/supabase-server';
 
 // Force dynamic rendering - never cache task data
@@ -273,7 +274,7 @@ export async function PATCH(request: NextRequest) {
     // Get the task to find its step_id
     const { data: existingTask, error: fetchError } = await supabaseAdmin
       .from('project_step_tasks')
-      .select('step_id')
+      .select('step_id, assigned_to, title, status')
       .eq('id', parsed.data.id)
       .single();
 
@@ -351,6 +352,36 @@ export async function PATCH(request: NextRequest) {
         console.error('Failed to send task update notification:', notificationError);
         // Don't fail the main operation if notification fails
       }
+    }
+
+    // WhatsApp to assigned user on status change
+    try {
+      if (parsed.data.status && existingTask.assigned_to) {
+        const { data: assignedUser } = await supabaseAdmin
+          .from('users')
+          .select('phone_number')
+          .eq('id', existingTask.assigned_to)
+          .single();
+        if (assignedUser?.phone_number) {
+          const { data: stepData } = await supabaseAdmin
+            .from('project_steps')
+            .select('project:projects(title)')
+            .eq('id', existingTask.step_id)
+            .single();
+          const stepDataAny: any = stepData;
+          const projectName = Array.isArray(stepDataAny?.project)
+            ? stepDataAny?.project?.[0]?.title
+            : stepDataAny?.project?.title;
+          await sendTaskWhatsAppNotification(
+            assignedUser.phone_number,
+            task.title || existingTask.title,
+            projectName,
+            task.status
+          );
+        }
+      }
+    } catch (waError) {
+      console.error('Failed to send WhatsApp on task status change:', waError);
     }
 
     return NextResponse.json({ task }, { status: 200 });

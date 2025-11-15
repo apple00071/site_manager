@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { NotificationService } from '@/lib/notificationService';
+import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -126,6 +127,20 @@ export async function POST(
       relatedId: projectId,
       relatedType: 'project',
     });
+
+    try {
+      const { data: designerUser } = await supabaseAdmin
+        .from('users')
+        .select('phone_number')
+        .eq('id', designer_id)
+        .single();
+      if (designerUser?.phone_number) {
+        await sendCustomWhatsAppNotification(
+          designerUser.phone_number,
+          `📝 Project Assigned\n\nYou have been assigned to design project: ${project.title}`
+        );
+      }
+    } catch (_) {}
 
     return NextResponse.json({
       success: true,

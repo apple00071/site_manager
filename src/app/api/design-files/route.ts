@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
+import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
 import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
 
@@ -163,6 +164,20 @@ export async function POST(request: NextRequest) {
           relatedType: 'design_file'
         });
         console.log('Design upload notification sent to admin:', projectData.created_by);
+
+        try {
+          const { data: adminUser } = await supabaseAdmin
+            .from('users')
+            .select('phone_number')
+            .eq('id', projectData.created_by)
+            .single();
+          if (adminUser?.phone_number) {
+            await sendCustomWhatsAppNotification(
+              adminUser.phone_number,
+              `🖼️ New Design Uploaded\n\n${user.full_name} uploaded "${file_name}" for project "${projectData.title}"`
+            );
+          }
+        } catch (_) {}
       }
     } catch (notificationError) {
       console.error('Failed to send design upload notification:', notificationError);
@@ -261,6 +276,20 @@ export async function PATCH(request: NextRequest) {
           relatedType: 'design_file'
         });
         console.log('Design approval notification sent to employee:', design.uploaded_by_user.id);
+
+        try {
+          const { data: uploader } = await supabaseAdmin
+            .from('users')
+            .select('phone_number')
+            .eq('id', design.uploaded_by_user.id)
+            .single();
+          if (uploader?.phone_number) {
+            await sendCustomWhatsAppNotification(
+              uploader.phone_number,
+              message
+            );
+          }
+        } catch (_) {}
       }
     } catch (notificationError) {
       console.error('Failed to send design approval notification:', notificationError);

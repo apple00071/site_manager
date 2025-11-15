@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { NotificationService } from '@/lib/notificationService';
+import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -110,6 +111,20 @@ export async function POST(
           relatedId: itemId,
           relatedType: 'inventory_item',
         });
+
+        try {
+          const { data: uploader } = await supabaseAdmin
+            .from('users')
+            .select('phone_number')
+            .eq('id', item.created_by_user.id)
+            .single();
+          if (uploader?.phone_number) {
+            await sendCustomWhatsAppNotification(
+              uploader.phone_number,
+              `✅ Bill Approved\n\nYour bill for "${item.item_name}" in project "${item.project.title}" has been approved.`
+            );
+          }
+        } catch (_) {}
       } catch (notificationError) {
         // Log but don't fail the request if notification fails
         console.error('Failed to create notification:', notificationError);

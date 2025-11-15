@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { supabase } from '@/lib/supabase';
 
 const LoginSchema = z.object({
-  email: z.string().email('Enter a valid email'),
+  identifier: z.string().min(3, 'Enter username or email'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
@@ -28,10 +28,12 @@ export default function LoginPage() {
     setLoading(true);
     setServerError(null);
     try {
+      const isEmail = values.identifier.includes('@');
+      const payload: any = isEmail ? { email: values.identifier, password: values.password } : { username: values.identifier, password: values.password };
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -74,22 +76,21 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 sm:space-y-6">
           <div>
-            <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+            <label htmlFor="identifier" className="block text-sm font-semibold text-gray-700 mb-2">Username or Email</label>
             <input
-              id="email"
-              type="email"
-              {...register('email')}
+              id="identifier"
+              type="text"
+              {...register('identifier')}
               className="w-full rounded-xl border border-gray-300 px-4 py-3 sm:py-4 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white touch-target"
-              placeholder="you@example.com"
-              aria-invalid={!!errors.email || undefined}
-              aria-describedby={errors.email ? 'email-error' : undefined}
-              autoComplete="email"
-              inputMode="email"
+              placeholder="yourusername or you@example.com"
+              aria-invalid={!!errors.identifier || undefined}
+              aria-describedby={errors.identifier ? 'identifier-error' : undefined}
+              autoComplete="username"
             />
-            {errors.email && (
-              <p id="email-error" className="mt-2 text-xs sm:text-sm text-red-600 flex items-center">
+            {errors.identifier && (
+              <p id="identifier-error" className="mt-2 text-xs sm:text-sm text-red-600 flex items-center">
                 <span className="inline-block w-1 h-1 bg-red-600 rounded-full mr-2"></span>
-                {errors.email.message}
+                {errors.identifier.message}
               </p>
             )}
           </div>

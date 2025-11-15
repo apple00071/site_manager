@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { NotificationService } from '@/lib/notificationService';
+import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -147,6 +148,21 @@ export async function POST(
         relatedId: projectId,
         relatedType: 'project',
       });
+
+      try {
+        const { data: sup } = await supabaseAdmin
+          .from('users')
+          .select('phone_number')
+          .eq('id', site_supervisor_id)
+          .single();
+        if (sup?.phone_number) {
+          await sendCustomWhatsAppNotification(
+            sup.phone_number,
+            `🏢 Project Assigned\n\nYou have been assigned as site supervisor for project "${project.title}"`
+          );
+        }
+      } catch (waErr) {
+      }
     }
 
     const { data: updatedProject, error: updateError } = await supabaseAdmin
@@ -178,6 +194,21 @@ export async function POST(
         relatedId: projectId,
         relatedType: 'project',
       });
+
+      try {
+        const { data: des } = await supabaseAdmin
+          .from('users')
+          .select('phone_number')
+          .eq('id', project.designer.id)
+          .single();
+        if (des?.phone_number) {
+          await sendCustomWhatsAppNotification(
+            des.phone_number,
+            `✅ Design Approved\n\nYour design for project "${project.title}" has been approved.`
+          );
+        }
+      } catch (waErr) {
+      }
     }
 
     return NextResponse.json({
