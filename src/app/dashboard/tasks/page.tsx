@@ -24,6 +24,10 @@ type Task = {
       status: string;
     };
   } | null;
+  assigned_user?: {
+    id: string;
+    full_name: string;
+  } | null;
 };
 
 export default function TasksPage() {

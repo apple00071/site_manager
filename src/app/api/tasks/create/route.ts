@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getCurrentUser, supabaseAdmin } from '@/lib/supabase-server';
+import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 import { sendTaskWhatsAppNotification } from '@/lib/whatsapp';
 import { NotificationService } from '@/lib/notificationService';
 
@@ -41,8 +41,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get current user using secure authentication
-    const { user, error: authError } = await getCurrentUser();
+    // Get current user using lightweight authentication
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       console.error('Authentication failed:', authError);
       return NextResponse.json(
@@ -51,8 +51,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const userId = user.id;
+    const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
+    const userFullName =
+      user.user_metadata?.full_name ||
+      user.app_metadata?.full_name ||
+      user.email?.split('@')[0] ||
+      'User';
+
     // Simplified access check - allow all authenticated users to create tasks
-    console.log('User creating task:', user.email, 'Role:', user.role);
+    console.log('User creating task:', user.email, 'Role:', userRole);
 
     // Convert empty strings to null for proper handling
     const projectId = parsed.data.project_id === '' ? null : parsed.data.project_id;
@@ -80,7 +88,7 @@ export async function POST(request: NextRequest) {
             project_id: projectId,
             title: parsed.data.step_title,
             description: `Step created for task: ${parsed.data.task_title}`,
-            created_by: user.id,
+            created_by: userId,
           })
           .select('id')
           .single();
@@ -149,7 +157,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Notify assigned user if different from creator
-      if (assignedTo && typeof assignedTo === 'string' && assignedTo !== user.id) {
+      if (assignedTo && typeof assignedTo === 'string' && assignedTo !== userId) {
         await NotificationService.createNotification({
           userId: assignedTo,
           title: 'Task Assigned',
@@ -161,11 +169,11 @@ export async function POST(request: NextRequest) {
       }
 
       // Notify project admin if user is not admin
-      if (user.role !== 'admin' && projectData && projectData.created_by !== user.id) {
+      if (userRole !== 'admin' && projectData && projectData.created_by !== userId) {
         await NotificationService.createNotification({
           userId: projectData.created_by,
           title: 'New Task Created',
-          message: `${user.full_name} created task "${parsed.data.task_title}" in project "${projectData.title}"`,
+          message: `${userFullName} created task "${parsed.data.task_title}" in project "${projectData.title}"`,
           type: 'project_update',
           relatedId: task.id,
           relatedType: 'task'

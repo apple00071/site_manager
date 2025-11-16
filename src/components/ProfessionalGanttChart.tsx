@@ -23,6 +23,10 @@ type Task = {
       status: string;
     };
   } | null;
+  assigned_user?: {
+    id: string;
+    full_name: string;
+  } | null;
 };
 
 type ProfessionalGanttChartProps = {
@@ -283,7 +287,12 @@ export function ProfessionalGanttChart({ tasks, loading = false, onEditTask }: {
                       {task.step && task.step.project ? (
                         <div>
                           <div className="font-medium">{task.step.project.title}</div>
-                          <div className="text-gray-500">{task.step.project.customer_name}</div>
+                          <div className="text-gray-700">
+                            {task.assigned_user?.full_name || 'Unassigned'}
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {task.step.project.customer_name}
+                          </div>
                         </div>
                       ) : (
                         <span className="italic text-gray-500">Daily Task</span>

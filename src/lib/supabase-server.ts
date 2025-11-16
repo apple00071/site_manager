@@ -32,22 +32,38 @@ export async function createAuthenticatedClient() {
   );
 }
 
-// Secure helper function to get current authenticated user
-export async function getCurrentUser() {
+// Lightweight helper to get the authenticated user without hitting the users table
+export async function getAuthUser() {
   try {
     const supabase = await createAuthenticatedClient();
     const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error || !user) {
       console.error('User authentication error:', error);
-      return { user: null, error: error?.message || 'User not authenticated' };
+      return { user: null, supabase: null, error: error?.message || 'User not authenticated' };
+    }
+
+    return { user, supabase, error: null };
+  } catch (error: any) {
+    console.error('Error getting auth user:', error);
+    return { user: null, supabase: null, error: error.message };
+  }
+}
+
+// Secure helper function to get current authenticated user with full profile from the users table
+export async function getCurrentUser() {
+  try {
+    const { user: authUser, error: authError } = await getAuthUser();
+
+    if (authError || !authUser) {
+      return { user: null, error: authError || 'User not authenticated' };
     }
 
     // Get user details from database
     const { data: userData, error: userError } = await supabaseAdmin
       .from('users')
       .select('*')
-      .eq('id', user.id)
+      .eq('id', authUser.id)
       .single();
 
     if (userError || !userData) {

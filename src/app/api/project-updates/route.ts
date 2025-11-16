@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
 import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
-import { createNoCacheResponse } from '@/lib/apiHelpers';
-import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
+import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 
 // Force dynamic rendering - never cache project updates
 export const dynamic = 'force-dynamic';
@@ -24,40 +23,10 @@ const updateUpdateSchema = z.object({
   photos: z.array(z.string()).optional(),
 });
 
-async function getCurrentUser(request: NextRequest) {
-  try {
-    const supabase = await createAuthenticatedClient();
-
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
-    if (error || !session) {
-      console.error('Session error:', error);
-      return { user: null, error: error?.message || 'No session found' };
-    }
-
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('*')
-      .eq('id', session.user.id)
-      .single();
-
-    if (userError || !user) {
-      console.error('User fetch error:', userError);
-      return { user: null, error: userError?.message || 'User not found' };
-    }
-
-    console.log('User authenticated:', user.email);
-    return { user, error: null };
-  } catch (error: any) {
-    console.error('Error getting current user:', error);
-    return { user: null, error: error.message };
-  }
-}
-
 // GET - Fetch project updates
 export async function GET(request: NextRequest) {
   try {
-    const { user, error: authError } = await getCurrentUser(request);
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -94,10 +63,17 @@ export async function GET(request: NextRequest) {
 // POST - Create new project update
 export async function POST(request: NextRequest) {
   try {
-    const { user, error: authError } = await getCurrentUser(request);
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const userId = user.id;
+    const userFullName =
+      user.user_metadata?.full_name ||
+      user.app_metadata?.full_name ||
+      user.email?.split('@')[0] ||
+      'User';
 
     const body = await request.json();
     const parsed = createUpdateSchema.safeParse(body);
@@ -115,7 +91,7 @@ export async function POST(request: NextRequest) {
       .from('project_updates')
       .insert({
         project_id,
-        user_id: user.id,
+        user_id: userId,
         update_date,
         description,
         photos,
@@ -139,11 +115,11 @@ export async function POST(request: NextRequest) {
         .eq('id', project_id)
         .single();
 
-      if (projectData && projectData.created_by !== user.id) {
+      if (projectData && projectData.created_by !== userId) {
         await NotificationService.createNotification({
           userId: projectData.created_by,
           title: 'Project Update Added',
-          message: `${user.full_name} added an update to project "${projectData.title}"`,
+          message: `${userFullName} added an update to project "${projectData.title}"`,
           type: 'project_update',
           relatedId: project_id,
           relatedType: 'project'
@@ -161,7 +137,7 @@ export async function POST(request: NextRequest) {
           if (adminUser?.phone_number) {
             await sendCustomWhatsAppNotification(
               adminUser.phone_number,
-              `📣 Project Update\n\n${user.full_name} added an update to project "${projectData.title}"\n\nOpen: ${link}`
+              `📣 Project Update\n\n${userFullName} added an update to project "${projectData.title}"\n\nOpen: ${link}`
             );
           }
         } catch (_) {}
@@ -181,10 +157,18 @@ export async function POST(request: NextRequest) {
 // PATCH - Update existing project update
 export async function PATCH(request: NextRequest) {
   try {
-    const { user, error: authError } = await getCurrentUser(request);
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const userId = user.id;
+    const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
+    const userFullName =
+      user.user_metadata?.full_name ||
+      user.app_metadata?.full_name ||
+      user.email?.split('@')[0] ||
+      'User';
 
     const body = await request.json();
     const parsed = updateUpdateSchema.safeParse(body);
@@ -210,7 +194,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Only allow update if user is the creator or is an admin
-    if (existingUpdate.user_id !== user.id && user.role !== 'admin') {
+    if (existingUpdate.user_id !== userId && userRole !== 'admin') {
       return NextResponse.json({ error: 'Forbidden: You can only edit your own updates' }, { status: 403 });
     }
 
@@ -238,7 +222,7 @@ export async function PATCH(request: NextRequest) {
           .eq('id', update.project_id)
           .single();
 
-        if (projectData && projectData.created_by !== user.id) {
+        if (projectData && projectData.created_by !== userId) {
           const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
           const link = `${origin}/dashboard/projects/${update.project_id}`;
           const { data: adminUser } = await supabaseAdmin
@@ -249,7 +233,7 @@ export async function PATCH(request: NextRequest) {
           if (adminUser?.phone_number) {
             await sendCustomWhatsAppNotification(
               adminUser.phone_number,
-              `✏️ Project Update Edited\n\n${user.full_name} edited an update in project "${projectData.title}"\n\nOpen: ${link}`
+              `✏️ Project Update Edited\n\n${userFullName} edited an update in project "${projectData.title}"\n\nOpen: ${link}`
             );
           }
         }
@@ -268,10 +252,13 @@ export async function PATCH(request: NextRequest) {
 // DELETE - Delete project update
 export async function DELETE(request: NextRequest) {
   try {
-    const { user, error: authError } = await getCurrentUser(request);
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const userId = user.id;
+    const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -292,7 +279,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Only allow deletion if user is the creator or is an admin
-    if (existingUpdate.user_id !== user.id && user.role !== 'admin') {
+    if (existingUpdate.user_id !== userId && userRole !== 'admin') {
       return NextResponse.json({ error: 'Forbidden: You can only delete your own updates' }, { status: 403 });
     }
 

@@ -1,54 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { NotificationService } from '@/lib/notificationService';
 import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
+import { getAuthUser } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-/**
- * Helper to get current authenticated user
- */
-async function getCurrentUser(request: NextRequest) {
-  const cookieStore = await cookies();
-  
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
-          });
-        },
-      },
-    }
-  );
-
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-  
-  if (sessionError || !session?.user) {
-    return { user: null, error: 'Unauthorized' };
-  }
-
-  const { data: userData, error: userError } = await supabaseAdmin
-    .from('users')
-    .select('*')
-    .eq('id', session.user.id)
-    .single();
-
-  if (userError || !userData) {
-    return { user: null, error: 'User not found' };
-  }
-
-  return { user: userData, error: null };
-}
 
 /**
  * POST /api/inventory-items/[id]/reject-bill
@@ -59,13 +16,15 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { user, error: authError } = await getCurrentUser(request);
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
+
     // Only admins can reject bills
-    if (user.role !== 'admin') {
+    if (userRole !== 'admin') {
       return NextResponse.json({ error: 'Only admins can reject bills' }, { status: 403 });
     }
 

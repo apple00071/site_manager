@@ -1,54 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { NotificationService } from '@/lib/notificationService';
 import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
+import { getAuthUser } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-/**
- * Helper to get current authenticated user
- */
-async function getCurrentUser(request: NextRequest) {
-  const cookieStore = await cookies();
-  
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
-          });
-        },
-      },
-    }
-  );
-
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-  
-  if (sessionError || !session?.user) {
-    return { user: null, error: 'Unauthorized' };
-  }
-
-  const { data: userData, error: userError } = await supabaseAdmin
-    .from('users')
-    .select('*')
-    .eq('id', session.user.id)
-    .single();
-
-  if (userError || !userData) {
-    return { user: null, error: 'User not found' };
-  }
-
-  return { user: userData, error: null };
-}
 
 /**
  * POST /api/inventory-items/[id]/resubmit-bill
@@ -59,10 +16,18 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { user, error: authError } = await getCurrentUser(request);
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const userId = user.id;
+    const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
+    const userFullName =
+      user.user_metadata?.full_name ||
+      user.app_metadata?.full_name ||
+      user.email?.split('@')[0] ||
+      'User';
 
     const { id: itemId } = await params;
     const body = await request.json();
@@ -89,7 +54,7 @@ export async function POST(
     }
 
     // Check if user owns this item or is admin
-    if (item.created_by !== user.id && user.role !== 'admin') {
+    if (item.created_by !== userId && userRole !== 'admin') {
       return NextResponse.json({ error: 'Forbidden: You can only resubmit your own bills' }, { status: 403 });
     }
 
@@ -123,7 +88,7 @@ export async function POST(
           userId: item.project.created_by,
           type: 'inventory_added',
           title: 'Bill Resubmitted',
-          message: `${user.full_name} resubmitted the bill for "${item.item_name}" in project "${item.project.title}"`,
+          message: `${userFullName} resubmitted the bill for "${item.item_name}" in project "${item.project.title}"`,
           relatedId: itemId,
           relatedType: 'inventory_item',
         });
@@ -139,7 +104,7 @@ export async function POST(
           if (adminUser?.phone_number) {
             await sendCustomWhatsAppNotification(
               adminUser.phone_number,
-              `♻️ Bill Resubmitted\n\n${user.full_name} resubmitted the bill for "${item.item_name}" in project "${item.project.title}"\n\nOpen: ${link}`
+              `♻️ Bill Resubmitted\n\n${userFullName} resubmitted the bill for "${item.item_name}" in project "${item.project.title}"\n\nOpen: ${link}`
             );
           }
         } catch (_) {}

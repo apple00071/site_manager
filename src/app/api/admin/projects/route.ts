@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
 import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
-import { getCurrentUser, supabaseAdmin } from '@/lib/supabase-server';
+import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
 
 // Optimize caching for projects API
@@ -58,8 +58,8 @@ export async function GET(request: NextRequest) {
       method: request.method
     });
     
-    // Get current user using secure authentication
-    const { user, error: authError } = await getCurrentUser();
+    // Get current user using lightweight authentication
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       console.error('Authentication failed:', authError);
       return NextResponse.json(
@@ -68,8 +68,9 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    const isAdmin = user.role === 'admin';
     const userId = user.id;
+    const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
+    const isAdmin = userRole === 'admin';
     
     console.log(`Fetching projects for ${isAdmin ? 'admin' : 'user'}:`, user.email);
     
@@ -200,8 +201,8 @@ export async function POST(req: Request) {
   try {
     console.log('Creating new project...');
     
-    // Get current user using secure authentication
-    const { user, error: authError } = await getCurrentUser();
+    // Get current user using lightweight authentication
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       console.error('Authentication failed:', authError);
       return NextResponse.json(
@@ -210,8 +211,11 @@ export async function POST(req: Request) {
       );
     }
     
+    const userId = user.id;
+    const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
+
     // Check if user is admin
-    if (user.role !== 'admin') {
+    if (userRole !== 'admin') {
       return NextResponse.json(
         { error: { message: 'Not authorized', code: 'FORBIDDEN' } },
         { status: 403 }
@@ -272,8 +276,8 @@ export async function POST(req: Request) {
       project_budget: parsed.data.project_budget ? parseFloat(parsed.data.project_budget) : null,
       requirements_pdf_url: parsed.data.requirements_pdf_url || null,
       project_notes: parsed.data.project_notes || null,
-      created_by: user.id,
-      updated_by: user.id,
+      created_by: userId,
+      updated_by: userId,
     };
     
     // Insert the new project
@@ -297,9 +301,9 @@ export async function POST(req: Request) {
       .insert([
         {
           project_id: project.id,
-          user_id: user.id,
+          user_id: userId,
           role: 'admin',
-          created_by: user.id,
+          created_by: userId,
         },
       ]);
       

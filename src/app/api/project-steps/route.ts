@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { NotificationService } from '@/lib/notificationService';
-import { getCurrentUser, supabaseAdmin } from '@/lib/supabase-server';
+import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 
 // Force dynamic rendering - never cache project steps
 export const dynamic = 'force-dynamic';
@@ -9,7 +9,7 @@ export const revalidate = 0;
 // GET - Fetch project steps
 export async function GET(request: NextRequest) {
   try {
-    const { user, error: authError } = await getCurrentUser();
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 // POST - Create a new project step
 export async function POST(request: NextRequest) {
   try {
-    const { user, error: authError } = await getCurrentUser();
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
 // PATCH - Update a project step
 export async function PATCH(request: NextRequest) {
   try {
-    const { user, error: authError } = await getCurrentUser();
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -136,7 +136,7 @@ export async function PATCH(request: NextRequest) {
 // DELETE - Delete a project step
 export async function DELETE(request: NextRequest) {
   try {
-    const { user, error: authError } = await getCurrentUser();
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

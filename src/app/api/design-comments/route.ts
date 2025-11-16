@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
+import { getAuthUser } from '@/lib/supabase-server';
 
 // Force dynamic rendering - never cache design comments
 export const dynamic = 'force-dynamic';
@@ -16,55 +15,20 @@ const addCommentSchema = z.object({
   comment: z.string().min(1),
 });
 
-async function getCurrentUser(request: NextRequest) {
-  try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set() {},
-          remove() {},
-        },
-      }
-    );
-
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
-    if (error || !session) {
-      console.error('Session error:', error);
-      return { user: null, error: error?.message || 'No session found' };
-    }
-
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('*')
-      .eq('id', session.user.id)
-      .single();
-
-    if (userError || !user) {
-      console.error('User fetch error:', userError);
-      return { user: null, error: userError?.message || 'User not found' };
-    }
-
-    return { user, error: null };
-  } catch (error: any) {
-    console.error('Error getting current user:', error);
-    return { user: null, error: error.message };
-  }
-}
-
 // POST - Add comment to design file
 export async function POST(request: NextRequest) {
   try {
-    const { user, error: authError } = await getCurrentUser(request);
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const userId = user.id;
+    const userFullName =
+      user.user_metadata?.full_name ||
+      user.app_metadata?.full_name ||
+      user.email?.split('@')[0] ||
+      'User';
 
     const body = await request.json();
     const parsed = addCommentSchema.safeParse(body);
@@ -82,7 +46,7 @@ export async function POST(request: NextRequest) {
       .from('design_comments')
       .insert({
         design_file_id,
-        user_id: user.id,
+        user_id: userId,
         comment,
       })
       .select(`
@@ -114,12 +78,12 @@ export async function POST(request: NextRequest) {
         const notifications = [];
         
         // Notify the design uploader if commenter is not the uploader
-        if (designFile.uploaded_by !== user.id) {
+        if (designFile.uploaded_by !== userId) {
           notifications.push(
             NotificationService.createNotification({
               userId: designFile.uploaded_by,
               title: 'New Comment on Your Design',
-              message: `${user.full_name} commented on your design "${designFile.file_name}"`,
+              message: `${userFullName} commented on your design "${designFile.file_name}"`,
               type: 'comment_added',
               relatedId: design_file_id,
               relatedType: 'design_file'
@@ -129,12 +93,12 @@ export async function POST(request: NextRequest) {
 
         // Notify project admin if commenter is not the admin
         const project = Array.isArray(designFile.project) ? designFile.project[0] : designFile.project;
-        if (project?.created_by && project.created_by !== user.id && project.created_by !== designFile.uploaded_by) {
+        if (project?.created_by && project.created_by !== userId && project.created_by !== designFile.uploaded_by) {
           notifications.push(
             NotificationService.createNotification({
               userId: project.created_by,
               title: 'New Comment on Project Design',
-              message: `${user.full_name} commented on design "${designFile.file_name}" in project "${project.title}"`,
+              message: `${userFullName} commented on design "${designFile.file_name}" in project "${project.title}"`,
               type: 'comment_added',
               relatedId: design_file_id,
               relatedType: 'design_file'
@@ -147,10 +111,10 @@ export async function POST(request: NextRequest) {
 
         try {
           const recipientIds: string[] = [];
-          if (designFile.uploaded_by && designFile.uploaded_by !== user.id) {
+          if (designFile.uploaded_by && designFile.uploaded_by !== userId) {
             recipientIds.push(designFile.uploaded_by);
           }
-          if (project?.created_by && project.created_by !== user.id && project.created_by !== designFile.uploaded_by) {
+          if (project?.created_by && project.created_by !== userId && project.created_by !== designFile.uploaded_by) {
             recipientIds.push(project.created_by);
           }
 
@@ -162,7 +126,7 @@ export async function POST(request: NextRequest) {
 
             const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
             const link = `${origin}/dashboard/projects/${designFile.project_id}`;
-            const message = `💬 New comment on design "${designFile.file_name}" in project "${project?.title || ''}" by ${user.full_name}\n\nOpen: ${link}`;
+            const message = `💬 New comment on design "${designFile.file_name}" in project "${project?.title || ''}" by ${userFullName}\n\nOpen: ${link}`;
             await Promise.all(
               (recipients || [])
                 .filter(r => !!r.phone_number)

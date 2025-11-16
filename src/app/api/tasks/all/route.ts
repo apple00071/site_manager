@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser, supabaseAdmin } from '@/lib/supabase-server';
+import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 
 // Force dynamic rendering - never cache task data
 export const dynamic = 'force-dynamic';
@@ -11,8 +11,8 @@ export const revalidate = 0;
  */
 export async function GET(request: NextRequest) {
   try {
-    // Get current user using secure authentication
-    const { user, error: authError } = await getCurrentUser();
+    // Get current user using lightweight authentication
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -20,9 +20,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const userId = user.id;
+    const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
+
     let tasksQuery;
 
-    if (user.role === 'admin') {
+    if (userRole === 'admin') {
       // Admin can see all tasks
       tasksQuery = supabaseAdmin
         .from('project_step_tasks')
@@ -37,6 +40,10 @@ export async function GET(request: NextRequest) {
               customer_name,
               status
             )
+          ),
+          assigned_user:users!project_step_tasks_assigned_to_fkey(
+            id,
+            full_name
           )
         `)
         .order('created_at', { ascending: false });
@@ -47,7 +54,7 @@ export async function GET(request: NextRequest) {
       const { data: memberProjects, error: memberError } = await supabaseAdmin
         .from('project_members')
         .select('project_id')
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       if (memberError) {
         console.error('Error fetching member projects:', memberError);
@@ -61,7 +68,7 @@ export async function GET(request: NextRequest) {
       const { data: assignedProjects, error: assignedError } = await supabaseAdmin
         .from('projects')
         .select('id')
-        .eq('assigned_employee_id', user.id);
+        .eq('assigned_employee_id', userId);
 
       if (assignedError) {
         console.error('Error fetching assigned projects:', assignedError);
@@ -115,6 +122,10 @@ export async function GET(request: NextRequest) {
               customer_name,
               status
             )
+          ),
+          assigned_user:users!project_step_tasks_assigned_to_fkey(
+            id,
+            full_name
           )
         `)
         .in('step_id', stepIds)

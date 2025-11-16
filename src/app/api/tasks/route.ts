@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
 import { sendTaskWhatsAppNotification } from '@/lib/whatsapp';
-import { getCurrentUser, supabaseAdmin } from '@/lib/supabase-server';
+import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 
 // Force dynamic rendering - never cache task data
 export const dynamic = 'force-dynamic';
@@ -29,7 +29,7 @@ const updateTaskSchema = z.object({
 /**
  * Helper function to check if user has access to a project
  */
-async function checkProjectAccess(userId: string, stepId: string) {
+async function checkProjectAccess(userId: string, stepId: string, userRole: string) {
   // Get the project_id from the step
   const { data: step, error: stepError } = await supabaseAdmin
     .from('project_steps')
@@ -41,19 +41,8 @@ async function checkProjectAccess(userId: string, stepId: string) {
     return { hasAccess: false, error: 'Step not found' };
   }
 
-  // Check if user is admin
-  const { data: userData, error: userError } = await supabaseAdmin
-    .from('users')
-    .select('role')
-    .eq('id', userId)
-    .single();
-
-  if (userError) {
-    return { hasAccess: false, error: 'User not found' };
-  }
-
   // Admins have access to all projects
-  if (userData.role === 'admin') {
+  if (userRole === 'admin') {
     return { hasAccess: true, projectId: step.project_id };
   }
 
@@ -98,7 +87,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get current user
-    const { user, error: authError } = await getCurrentUser();
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -106,8 +95,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const userId = user.id;
+    const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
+
     // Check access
-    const { hasAccess, error: accessError } = await checkProjectAccess(user.id, stepId);
+    const { hasAccess, error: accessError } = await checkProjectAccess(userId, stepId, userRole);
     if (!hasAccess) {
       return NextResponse.json(
         { error: accessError || 'Access denied' },
@@ -164,7 +156,7 @@ export async function POST(request: NextRequest) {
 
     // Get current user
     console.log('Getting current user...');
-    const { user, error: authError } = await getCurrentUser();
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       console.error('❌ Authentication failed:', authError);
       return NextResponse.json(
@@ -173,10 +165,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const userId = user.id;
+    const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
+    const userFullName =
+      user.user_metadata?.full_name ||
+      user.app_metadata?.full_name ||
+      user.email?.split('@')[0] ||
+      'User';
+
     console.log('Creating task for user:', user.email, 'step_id:', parsed.data.step_id);
 
     // Check access
-    const { hasAccess, error: accessError } = await checkProjectAccess(user.id, parsed.data.step_id);
+    const { hasAccess, error: accessError } = await checkProjectAccess(userId, parsed.data.step_id, userRole);
     if (!hasAccess) {
       console.error('Access denied:', accessError);
       return NextResponse.json(
@@ -218,11 +218,11 @@ export async function POST(request: NextRequest) {
         .single();
 
       const project = Array.isArray(stepData?.project) ? stepData.project[0] : stepData?.project;
-      if (stepData && project && project.created_by !== user.id) {
+      if (stepData && project && project.created_by !== userId) {
         await NotificationService.createNotification({
           userId: project.created_by,
           title: 'New Task Created',
-          message: `${user.full_name} created task "${parsed.data.title}" in step "${stepData.title}" for project "${project.title}"`,
+          message: `${userFullName} created task "${parsed.data.title}" in step "${stepData.title}" for project "${project.title}"`,
           type: 'task_assigned',
           relatedId: task.step_id,
           relatedType: 'project_step'
@@ -244,7 +244,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
 /**
  * PATCH /api/tasks
  * Update an existing task
@@ -263,13 +262,21 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Get current user
-    const { user, error: authError } = await getCurrentUser();
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
+
+    const userId = user.id;
+    const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
+    const userFullName =
+      user.user_metadata?.full_name ||
+      user.app_metadata?.full_name ||
+      user.email?.split('@')[0] ||
+      'User';
 
     // Get the task to find its step_id
     const { data: existingTask, error: fetchError } = await supabaseAdmin
@@ -286,7 +293,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Check access
-    const { hasAccess, error: accessError } = await checkProjectAccess(user.id, existingTask.step_id);
+    const { hasAccess, error: accessError } = await checkProjectAccess(userId, existingTask.step_id, userRole);
     if (!hasAccess) {
       return NextResponse.json(
         { error: accessError || 'Access denied' },
@@ -332,7 +339,7 @@ export async function PATCH(request: NextRequest) {
           .single();
 
         const project = Array.isArray(stepData?.project) ? stepData.project[0] : stepData?.project;
-        if (project && project.created_by !== user.id) {
+        if (project && project.created_by !== userId) {
           const statusText = parsed.data.status === 'done' ? 'completed' : 
                            parsed.data.status === 'in_progress' ? 'started working on' : 
                            parsed.data.status === 'blocked' ? 'marked as blocked' : 
@@ -341,7 +348,7 @@ export async function PATCH(request: NextRequest) {
           await NotificationService.createNotification({
             userId: project.created_by,
             title: 'Task Status Updated',
-            message: `${user.full_name} ${statusText} task "${task.title}" in project "${project.title}"`,
+            message: `${userFullName} ${statusText} task "${task.title}" in project "${project.title}"`,
             type: 'project_update',
             relatedId: task.step_id,
             relatedType: 'project_step'
@@ -398,11 +405,10 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
-
-/**
- * DELETE /api/tasks?id=xxx
- * Delete a task
- */
+  /**
+   * DELETE /api/tasks?id=xxx
+   * Delete a task
+   */
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -416,13 +422,16 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Get current user
-    const { user, error: authError } = await getCurrentUser();
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
+
+    const userId = user.id;
+    const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
 
     // Get the task to find its step_id
     const { data: existingTask, error: fetchError } = await supabaseAdmin
@@ -439,7 +448,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Check access
-    const { hasAccess, error: accessError } = await checkProjectAccess(user.id, existingTask.step_id);
+    const { hasAccess, error: accessError } = await checkProjectAccess(userId, existingTask.step_id, userRole);
     if (!hasAccess) {
       return NextResponse.json(
         { error: accessError || 'Access denied' },

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { NotificationService } from '@/lib/notificationService';
-import { getCurrentUser, supabaseAdmin } from '@/lib/supabase-server';
+import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 
 // Force dynamic rendering and set cache control
 export const dynamic = 'force-dynamic';
@@ -9,8 +8,8 @@ export const revalidate = 0;
 // GET - Fetch notifications for current user
 export async function GET(request: NextRequest) {
   try {
-    // Get current user using secure authentication
-    const { user, error: authError } = await getCurrentUser();
+    // Get current user using lightweight authentication
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -49,8 +48,8 @@ export async function GET(request: NextRequest) {
 // POST - Create a new notification (admin/system only)
 export async function POST(request: NextRequest) {
   try {
-    // Get current user using secure authentication
-    const { user, error: authError } = await getCurrentUser();
+    // Get current user using lightweight authentication
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -91,8 +90,8 @@ export async function POST(request: NextRequest) {
 // PATCH - Mark notification(s) as read/unread
 export async function PATCH(request: NextRequest) {
   try {
-    // Get current user using secure authentication
-    const { user, error: authError } = await getCurrentUser();
+    // Get current user using lightweight authentication
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -137,8 +136,8 @@ export async function PATCH(request: NextRequest) {
 // DELETE - Delete notification(s)
 export async function DELETE(request: NextRequest) {
   try {
-    // Get current user using secure authentication
-    const { user, error: authError } = await getCurrentUser();
+    // Get current user using lightweight authentication
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

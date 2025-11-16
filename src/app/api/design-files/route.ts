@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
 import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
-import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
+import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 
 // Force dynamic rendering - never cache design files
 export const dynamic = 'force-dynamic';
@@ -29,40 +29,10 @@ const addCommentSchema = z.object({
   comment: z.string().min(1),
 });
 
-async function getCurrentUser(request: NextRequest) {
-  try {
-    const supabase = await createAuthenticatedClient();
-
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
-    if (error || !session) {
-      console.error('Session error:', error);
-      return { user: null, error: error?.message || 'No session found' };
-    }
-
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('*')
-      .eq('id', session.user.id)
-      .single();
-
-    if (userError || !user) {
-      console.error('User fetch error:', userError);
-      return { user: null, error: userError?.message || 'User not found' };
-    }
-
-    console.log('User authenticated:', user.email);
-    return { user, error: null };
-  } catch (error: any) {
-    console.error('Error getting current user:', error);
-    return { user: null, error: error.message };
-  }
-}
-
 // GET - Fetch design files
 export async function GET(request: NextRequest) {
   try {
-    const { user, error: authError } = await getCurrentUser(request);
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -106,10 +76,17 @@ export async function GET(request: NextRequest) {
 // POST - Create new design file
 export async function POST(request: NextRequest) {
   try {
-    const { user, error: authError } = await getCurrentUser(request);
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const userId = user.id;
+    const userFullName =
+      user.user_metadata?.full_name ||
+      user.app_metadata?.full_name ||
+      user.email?.split('@')[0] ||
+      'User';
 
     const body = await request.json();
     const parsed = createDesignFileSchema.safeParse(body);
@@ -131,7 +108,7 @@ export async function POST(request: NextRequest) {
         file_url,
         file_type,
         version_number,
-        uploaded_by: user.id,
+        uploaded_by: userId,
         approval_status: 'pending',
       })
       .select(`
@@ -154,11 +131,11 @@ export async function POST(request: NextRequest) {
         .eq('id', project_id)
         .single();
 
-      if (projectData && projectData.created_by !== user.id) {
+      if (projectData && projectData.created_by !== userId) {
         await NotificationService.createNotification({
           userId: projectData.created_by,
           title: 'New Design Uploaded',
-          message: `${user.full_name} uploaded "${file_name}" for project "${projectData.title}"`,
+          message: `${userFullName} uploaded "${file_name}" for project "${projectData.title}"`,
           type: 'design_uploaded',
           relatedId: design.id,
           relatedType: 'design_file'
@@ -176,7 +153,7 @@ export async function POST(request: NextRequest) {
           if (adminUser?.phone_number) {
             await sendCustomWhatsAppNotification(
               adminUser.phone_number,
-              `🖼️ New Design Uploaded\n\n${user.full_name} uploaded "${file_name}" for project "${projectData.title}"\n\nOpen: ${link}`
+              `🖼️ New Design Uploaded\n\n${userFullName} uploaded "${file_name}" for project "${projectData.title}"\n\nOpen: ${link}`
             );
           }
         } catch (_) {}
@@ -196,13 +173,14 @@ export async function POST(request: NextRequest) {
 // PATCH - Update design approval status (admin only)
 export async function PATCH(request: NextRequest) {
   try {
-    const { user, error: authError } = await getCurrentUser(request);
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Check if user is admin
-    if (user.role !== 'admin') {
+    const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
+    if (userRole !== 'admin') {
       return NextResponse.json({ error: 'Only admins can approve designs' }, { status: 403 });
     }
 
@@ -310,10 +288,13 @@ export async function PATCH(request: NextRequest) {
 // DELETE - Delete design file
 export async function DELETE(request: NextRequest) {
   try {
-    const { user, error: authError } = await getCurrentUser(request);
+    const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const userId = user.id;
+    const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -334,7 +315,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Only allow deletion if user is the creator or is an admin
-    if (existingDesign.uploaded_by !== user.id && user.role !== 'admin') {
+    if (existingDesign.uploaded_by !== userId && userRole !== 'admin') {
       return NextResponse.json({ error: 'Forbidden: You can only delete your own designs' }, { status: 403 });
     }
 
