@@ -27,7 +27,6 @@ export default function DashboardLayout({
     if (pathname === '/dashboard') return 'Dashboard';
     if (pathname === '/dashboard/projects') return 'Projects';
     if (pathname === '/dashboard/users') return 'User Management';
-    if (pathname === '/dashboard/clients') return 'Client Management';
     if (pathname === '/dashboard/settings') return 'Settings';
     if (pathname === '/dashboard/my-projects') return 'My Projects';
     if (pathname === '/dashboard/my-tasks') return 'My Tasks';
@@ -41,14 +40,9 @@ export default function DashboardLayout({
       if (pathname.endsWith('/edit')) return 'Edit User';
       return 'User Details';
     }
-    if (pathname.startsWith('/dashboard/clients/')) {
-      if (pathname.endsWith('/edit')) return 'Edit Client';
-      return 'Client Details';
-    }
     if (pathname.endsWith('/new')) {
       if (pathname.includes('/projects/')) return 'New Project';
       if (pathname.includes('/users/')) return 'New User';
-      if (pathname.includes('/clients/')) return 'New Client';
     }
     return 'Dashboard';
   };

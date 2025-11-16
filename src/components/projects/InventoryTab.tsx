@@ -365,20 +365,22 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
         <div>
           <h3 className="text-base sm:text-lg font-medium leading-6 text-gray-900">Inventory</h3>
         </div>
-        <button
-          onClick={() => {
-            setEditingItem(null);
-            resetForm();
-            setShowForm(!showForm);
-          }}
-          className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 text-sm font-bold w-full sm:w-auto"
-        >
-          {showForm ? 'Cancel' : '+ Add Item'}
-        </button>
+        {!showForm && (
+          <button
+            onClick={() => {
+              setEditingItem(null);
+              resetForm();
+              setShowForm(true);
+            }}
+            className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 text-sm font-bold w-full sm:w-auto"
+          >
+            + Add Item
+          </button>
+        )}
       </div>
 
       {showForm && (
-        <div className="mb-4 md:mb-6 p-3 md:p-4 border border-gray-200 rounded-lg bg-gray-50">
+        <div className="mb-4 md:mb-6 p-4 md:p-5 rounded-xl bg-gray-50 border border-gray-100 shadow-sm">
           <h4 className="text-sm font-medium text-gray-900 mb-3">{editingItem ? 'Edit Item' : 'New Item'}</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -387,7 +389,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 type="text"
                 value={form.item_name}
                 onChange={(e) => setForm(prev => ({ ...prev, item_name: e.target.value }))}
-                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all"
                 placeholder="e.g., Cement, Paint, Tiles"
               />
             </div>
@@ -397,7 +399,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 type="text"
                 value={form.supplier_name}
                 onChange={(e) => setForm(prev => ({ ...prev, supplier_name: e.target.value }))}
-                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all"
                 placeholder="Optional"
               />
             </div>
@@ -409,7 +411,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 min="0.01"
                 value={form.quantity}
                 onChange={(e) => setForm(prev => ({ ...prev, quantity: e.target.value }))}
-                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all"
                 placeholder="Optional"
               />
             </div>
@@ -419,7 +421,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 type="date"
                 value={form.date_purchased}
                 onChange={(e) => setForm(prev => ({ ...prev, date_purchased: e.target.value }))}
-                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all"
               />
             </div>
             <div className="sm:col-span-2">
@@ -429,7 +431,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 accept="image/*,application/pdf"
                 onChange={handleBillUpload}
                 disabled={uploadingBill}
-                className="w-full border rounded-md px-3 py-2 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100 transition-all"
               />
               {uploadingBill && <p className="text-xs text-gray-500 mt-1">Uploading...</p>}
               {form.bill_url && (
@@ -578,7 +580,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
           {/* Mobile Card View - hidden on desktop */}
           <div className="md:hidden space-y-3">
             {items.map((item) => (
-              <div key={item.id} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+              <div key={item.id} className="border border-gray-100 rounded-xl p-3 bg-gray-50 shadow-sm">
                 <div className="flex justify-between items-start mb-2">
                   <h4 className="text-sm font-medium text-gray-900">{item.item_name}</h4>
                 </div>

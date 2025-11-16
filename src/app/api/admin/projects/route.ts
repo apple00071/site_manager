@@ -82,6 +82,7 @@ export async function GET(request: NextRequest) {
         description,
         status, 
         workflow_stage,
+        start_date,
         estimated_completion_date,
         customer_name,
         phone_number,
@@ -93,9 +94,30 @@ export async function GET(request: NextRequest) {
         property_type,
         area_sqft,
         floor_number,
+        requirements_pdf_url,
         assigned_employee_id,
+        carpenter_name,
+        carpenter_phone,
+        electrician_name,
+        electrician_phone,
+        plumber_name,
+        plumber_phone,
+        painter_name,
+        painter_phone,
+        granite_worker_name,
+        granite_worker_phone,
+        glass_worker_name,
+        glass_worker_phone,
+        project_budget,
+        project_notes,
         created_at,
-        updated_at
+        updated_at,
+        assigned_employee:assigned_employee_id(
+          id,
+          email,
+          name:full_name,
+          designation
+        )
       `);
     
     // If requesting a specific project, add ID filter

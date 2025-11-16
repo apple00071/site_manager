@@ -178,13 +178,20 @@ export default function NewProjectPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.type !== 'application/pdf') {
-      setError('Please upload a PDF file');
+    const allowedTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      setError('Please upload a PDF or image file (JPG, PNG, or WebP)');
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) { // 10MB limit
-      setError('PDF file size must be less than 10MB');
+      setError('File size must be less than 10MB');
       return;
     }
 
@@ -215,7 +222,7 @@ export default function NewProjectPage() {
           console.log('Uploading PDF to storage:', filePath);
           
           const { error: uploadError } = await supabase.storage
-            .from('project-files')
+            .from('project-requirements')
             .upload(filePath, pdfFile);
 
           if (uploadError) {
@@ -224,7 +231,7 @@ export default function NewProjectPage() {
           }
 
           const { data: { publicUrl } } = supabase.storage
-            .from('project-files')
+            .from('project-requirements')
             .getPublicUrl(filePath);
 
           pdfUrl = publicUrl;
@@ -888,12 +895,12 @@ export default function NewProjectPage() {
               <div className="grid grid-cols-1 gap-6">
                 <div>
                   <label htmlFor="requirements_pdf" className="block text-sm font-medium text-gray-700 mb-1">
-                    Requirements PDF (Optional)
+                    Requirements File (PDF or Image, Optional)
                   </label>
                   <input
                     id="requirements_pdf"
                     type="file"
-                    accept=".pdf,application/pdf"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
                     onChange={handlePDFUpload}
                     disabled={uploadingPDF}
                     className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100 disabled:opacity-50"
@@ -907,7 +914,7 @@ export default function NewProjectPage() {
                     </p>
                   )}
                   <p className="mt-1 text-xs text-gray-500">
-                    Upload project requirements document (PDF only, max 10MB)
+                    Upload project requirements document (PDF or JPG/PNG/WebP image, max 10MB)
                   </p>
                 </div>
 

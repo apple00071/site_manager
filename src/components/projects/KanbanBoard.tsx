@@ -175,8 +175,25 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
           worker_number: addTaskForm.worker_number || null,
         }),
       });
-
-      if (!response.ok) throw new Error('Failed to add task');
+      if (!response.ok) {
+        let errorBody: any = null;
+        try {
+          const text = await response.text();
+          try {
+            errorBody = JSON.parse(text);
+          } catch {
+            errorBody = text;
+          }
+        } catch {
+          // ignore parse errors
+        }
+        console.error('Add task failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorBody,
+        });
+        throw new Error('Failed to add task');
+      }
       
       await fetchTasks();
       setShowAddModal(false);

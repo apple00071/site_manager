@@ -11,7 +11,6 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalProjects: 0,
-    totalClients: 0,
   });
   const [recentUsers, setRecentUsers] = useState<any[]>([]);
   const [dashboardLoading, setDashboardLoading] = useState(true);
@@ -32,11 +31,9 @@ export default function AdminDashboard() {
         const [
           { count: userCount, error: userError },
           { count: projectCount, error: projectError },
-          { count: clientCount, error: clientError },
         ] = await Promise.all([
           supabase.from('users').select('*', { count: 'exact', head: true }),
           supabase.from('projects').select('*', { count: 'exact', head: true }),
-          supabase.from('clients').select('*', { count: 'exact', head: true }),
         ]);
 
         // Get recent users
@@ -46,11 +43,10 @@ export default function AdminDashboard() {
           .order('created_at', { ascending: false })
           .limit(5);
 
-        if (!userError && !projectError && !clientError && !recentError) {
+        if (!userError && !projectError && !recentError) {
           setStats({
             totalUsers: userCount || 0,
             totalProjects: projectCount || 0,
-            totalClients: clientCount || 0,
           });
           setRecentUsers(recent || []);
         }
@@ -168,33 +164,6 @@ export default function AdminDashboard() {
                 <div className="text-sm">
                   <a href="/dashboard/projects" className="font-semibold text-yellow-600 hover:text-yellow-700 transition-colors">
                     View all projects →
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
-              <div className="px-4 py-5 sm:p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0 bg-gray-900 rounded-lg p-3">
-                    <svg className="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-600 truncate">Total Clients</dt>
-                      <dd className="flex items-baseline">
-                        <div className="text-2xl font-bold text-gray-900">{stats.totalClients}</div>
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gray-50 px-4 py-4 sm:px-6">
-                <div className="text-sm">
-                  <a href="/admin/clients" className="font-semibold text-yellow-600 hover:text-yellow-700 transition-colors">
-                    View all clients →
                   </a>
                 </div>
               </div>

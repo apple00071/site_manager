@@ -36,10 +36,7 @@ export default function MyProjectsPage() {
         // Fetch full project details
         const { data: projectsData, error: projectsError } = await supabase
           .from('projects')
-          .select(`
-            *,
-            clients(id, name)
-          `)
+          .select('*')
           .in('id', projectIds)
           .order('deadline', { ascending: true });
 
@@ -109,7 +106,7 @@ export default function MyProjectsPage() {
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-gray-500 truncate">
-                    Client: {project.clients?.name || 'N/A'}
+                    Customer: {project.customer_name || 'N/A'}
                   </p>
                   <div className="mt-4 flex items-center text-sm text-gray-500">
                     <FiClock className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />

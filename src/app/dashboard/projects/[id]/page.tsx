@@ -83,6 +83,62 @@ export default function ProjectDetailsPage() {
     }
   }, [searchParams]);
 
+  // Function to fetch project data
+  const fetchProject = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Fetch the project using API route for better security and consistency
+      console.log('Fetching project with ID:', id);
+      const response = await fetch(`/api/admin/projects?id=${id}`, {
+        // Add cache control to ensure we get fresh data
+        cache: 'no-store',
+        next: { tags: [`project-${id}`] }
+      });
+      
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('You are not authorized to view this project');
+        }
+        if (response.status === 403) {
+          throw new Error('You do not have permission to view this project');
+        }
+        
+        let errorMessage = 'Failed to fetch project';
+        try {
+          const errorData = await response.json();
+          console.log('Error response data:', errorData);
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (parseError) {
+          console.log('Could not parse error response as JSON');
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      const projectsData = await response.json();
+      console.log('Project data received:', projectsData);
+      
+      const projectData = Array.isArray(projectsData) ? projectsData[0] : projectsData;
+      
+      if (!projectData) {
+        throw new Error('Project not found');
+      }
+
+      setProject(projectData as Project);
+    } catch (err: any) {
+      console.error('Error fetching project:', err);
+      setError(err.message || 'Failed to load project');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Initial fetch
   useEffect(() => {
     if (authLoading) return;
     
@@ -92,58 +148,35 @@ export default function ProjectDetailsPage() {
       return;
     }
 
-    const fetchProject = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
+    fetchProject();
+  }, [id, user, isAdmin, authLoading, router]);
 
-        // Fetch the project using API route for better security and consistency
-        console.log('Fetching project with ID:', id);
-        const response = await fetch(`/api/admin/projects?id=${id}`);
-        
-        console.log('Response status:', response.status);
-        console.log('Response ok:', response.ok);
-        
-        if (!response.ok) {
-          if (response.status === 401) {
-            throw new Error('You are not authorized to view this project');
-          }
-          if (response.status === 403) {
-            throw new Error('You do not have permission to view this project');
-          }
-          
-          let errorMessage = 'Failed to fetch project';
-          try {
-            const errorData = await response.json();
-            console.log('Error response data:', errorData);
-            errorMessage = errorData.error || errorData.message || errorMessage;
-          } catch (parseError) {
-            console.log('Could not parse error response as JSON');
-          }
-          
-          throw new Error(errorMessage);
-        }
-
-        const projectsData = await response.json();
-        console.log('Project data received:', projectsData);
-        
-        const projectData = Array.isArray(projectsData) ? projectsData[0] : projectsData;
-        
-        if (!projectData) {
-          throw new Error('Project not found');
-        }
-
-        setProject(projectData as Project);
-      } catch (err: any) {
-        console.error('Error fetching project:', err);
-        setError(err.message || 'Failed to load project');
-      } finally {
-        setIsLoading(false);
+  // Set up event listener for page focus to refresh data
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Page is visible, refreshing project data...');
+        fetchProject();
       }
     };
 
-    fetchProject();
-  }, [id, user, isAdmin, authLoading, router]);
+    // Listen for visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Also refresh when the route changes (e.g., coming back from edit)
+    const handleRouteChange = () => {
+      console.log('Route changed, refreshing project data...');
+      fetchProject();
+    };
+    
+    window.addEventListener('popstate', handleRouteChange);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('popstate', handleRouteChange);
+    };
+  }, [id]);
 
   if (authLoading) {
     return (

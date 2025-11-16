@@ -119,8 +119,20 @@ export function WorkflowTab({ projectId }: WorkflowTabProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.type !== 'application/pdf') {
-      alert('Please upload a PDF file');
+    const allowedTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      alert('Please upload a PDF or image file (JPG, PNG, or WebP)');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      alert('File size must be less than 10MB');
       return;
     }
 
@@ -151,13 +163,13 @@ export function WorkflowTab({ projectId }: WorkflowTabProps) {
         const filePath = `requirements/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
-          .from('project-files')
+          .from('project-requirements')
           .upload(filePath, pdfFile);
 
         if (uploadError) throw uploadError;
 
         const { data: { publicUrl } } = supabase.storage
-          .from('project-files')
+          .from('project-requirements')
           .getPublicUrl(filePath);
 
         pdfUrl = publicUrl;
@@ -285,11 +297,11 @@ export function WorkflowTab({ projectId }: WorkflowTabProps) {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Upload Requirements PDF *
+                  Upload Requirements File (PDF or Image) *
                 </label>
                 <input
                   type="file"
-                  accept="application/pdf"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
                   onChange={handlePDFUpload}
                   disabled={uploadingPDF}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"

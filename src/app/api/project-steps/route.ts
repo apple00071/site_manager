@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { project_id, title, sort_order, start_date, end_date, description } = body;
+    const { project_id, title, start_date, end_date, description } = body;
 
     if (!project_id || !title) {
       return NextResponse.json(
@@ -58,30 +58,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get the next sort_order if not provided
-    let finalSortOrder = sort_order;
-    if (finalSortOrder === undefined) {
-      const { data: maxData } = await supabaseAdmin
-        .from('project_steps')
-        .select('sort_order')
-        .eq('project_id', project_id)
-        .order('sort_order', { ascending: false })
-        .limit(1);
-
-      finalSortOrder = (maxData?.[0]?.sort_order ?? -1) + 1;
-    }
-
-    // Insert the new step
+    // Insert the new step using only known-safe columns
     const { data: step, error } = await supabaseAdmin
       .from('project_steps')
       .insert({
         project_id,
         title,
         description: description || null,
-        sort_order: finalSortOrder,
-        status: 'todo',
-        start_date: start_date || null,
-        end_date: end_date || null,
+        created_by: user.id,
       })
       .select('*')
       .single();

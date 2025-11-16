@@ -37,10 +37,7 @@ export default function MyTasksPage() {
         // Fetch full project details
         const { data: projectsData, error: projectsError } = await supabase
           .from('projects')
-          .select(`
-            *,
-            clients(id, name)
-          `)
+          .select('*')
           .in('id', projectIds)
           .not('status', 'eq', 'completed')
           .order('deadline', { ascending: true });
@@ -114,7 +111,7 @@ export default function MyTasksPage() {
                       {project.title}
                     </Link>
                     <p className="text-sm text-gray-500">
-                      Client: {project.clients?.name || 'N/A'}
+                      Customer: {project.customer_name || 'N/A'}
                     </p>
                     <div className="mt-2 flex items-center text-sm text-gray-500">
                       {project.deadline ? (

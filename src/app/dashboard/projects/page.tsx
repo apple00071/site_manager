@@ -2,8 +2,8 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 import { FiPlus, FiEdit2, FiTrash2, FiEye } from 'react-icons/fi';
 
 export default function ProjectsPage() {
@@ -32,32 +32,15 @@ export default function ProjectsPage() {
         }
         
         const projectsData = await response.json();
-        
+
         // If no projects and not admin, show empty state
         if (!Array.isArray(projectsData) || (projectsData.length === 0 && !isAdmin)) {
           setProjects([]);
           return;
         }
-        
-        let projectsWithClient = projectsData;
-        const clientIds = [...new Set(projectsData.map((p: any) => p.client_id).filter(Boolean))];
-        
-        if (clientIds.length > 0) {
-          const { data: clientsData, error: clientsError } = await supabase
-            .from('clients')
-            .select('id, name')
-            .in('id', clientIds);
-          
-          if (!clientsError && clientsData) {
-            const nameById = new Map(clientsData.map((c: any) => [c.id, c.name]));
-            projectsWithClient = projectsData.map((p: any) => ({
-              ...p,
-              client_name: nameById.get(p.client_id) || 'N/A',
-            }));
-          }
-        }
-        
-        setProjects(projectsWithClient);
+
+        // Directly use projects returned from the API without joining to a separate clients table
+        setProjects(projectsData);
       } catch (error) {
         console.error('Error fetching projects:', error);
       } finally {

@@ -121,7 +121,7 @@ export default function EditUserPage() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-600"></div>
       </div>
     );
   }
@@ -130,7 +130,7 @@ export default function EditUserPage() {
     return (
       <div className="text-center py-8">
         <p className="text-gray-500">User not found</p>
-        <Link href="/dashboard/users" className="text-indigo-600 hover:text-indigo-900">
+        <Link href="/dashboard/users" className="text-yellow-600 hover:text-yellow-700">
           Back to Users
         </Link>
       </div>
@@ -171,7 +171,7 @@ export default function EditUserPage() {
                   id="email"
                   type="email"
                   {...register('email')}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                 />
                 {errors.email && (
                   <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
@@ -186,7 +186,7 @@ export default function EditUserPage() {
                   id="username"
                   type="text"
                   {...register('username')}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                 />
                 {errors.username && (
                   <p className="mt-1 text-sm text-red-600">{errors.username.message}</p>
@@ -201,7 +201,7 @@ export default function EditUserPage() {
                   id="full_name"
                   type="text"
                   {...register('full_name')}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                 />
                 {errors.full_name && (
                   <p className="mt-1 text-sm text-red-600">{errors.full_name.message}</p>
@@ -217,7 +217,7 @@ export default function EditUserPage() {
                   type="text"
                   {...register('designation')}
                   placeholder="e.g., Interior Designer, Project Manager"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                 />
                 {errors.designation && (
                   <p className="mt-1 text-sm text-red-600">{errors.designation.message}</p>
@@ -233,7 +233,7 @@ export default function EditUserPage() {
                   type="tel"
                   {...register('phone_number')}
                   placeholder="e.g., +91 9876543210"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                 />
                 {errors.phone_number && (
                   <p className="mt-1 text-sm text-red-600">{errors.phone_number.message}</p>
@@ -247,7 +247,7 @@ export default function EditUserPage() {
                 <select
                   id="role"
                   {...register('role')}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                 >
                   <option value="employee">Employee</option>
                   <option value="designer">Designer</option>
@@ -268,7 +268,7 @@ export default function EditUserPage() {
                   type="password"
                   {...register('password')}
                   placeholder="Enter new password (optional)"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                 />
                 {errors.password && (
                   <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
@@ -286,7 +286,7 @@ export default function EditUserPage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-colors"
+                className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-colors"
               >
                 <FiSave className="mr-2 h-4 w-4" />
                 {saving ? 'Saving...' : 'Save Changes'}

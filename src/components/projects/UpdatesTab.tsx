@@ -166,16 +166,18 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     <div className="bg-white shadow overflow-hidden sm:rounded-lg p-3 sm:p-4 md:p-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 md:mb-6">
         <h3 className="text-base sm:text-lg font-medium leading-6 text-gray-900">Project Updates</h3>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 text-sm font-bold w-full sm:w-auto"
-        >
-          {showForm ? 'Cancel' : '+ Add Update'}
-        </button>
+        {!showForm && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 text-sm font-bold w-full sm:w-auto"
+          >
+            + Add Update
+          </button>
+        )}
       </div>
 
       {showForm && (
-        <div className="mb-4 md:mb-6 p-3 md:p-4 border border-gray-200 rounded-lg bg-gray-50">
+        <div className="mb-4 md:mb-6 p-4 md:p-5 rounded-xl bg-gray-50 border border-gray-100 shadow-sm">
           <h4 className="text-sm font-medium text-gray-900 mb-3">New Update</h4>
           <div className="space-y-3">
             <div>
@@ -184,7 +186,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                 type="date"
                 value={form.update_date}
                 onChange={(e) => setForm(prev => ({ ...prev, update_date: e.target.value }))}
-                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
               />
             </div>
             <div>
@@ -194,7 +196,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                 onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
                 rows={4}
                 placeholder="What was done today?"
-                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
               />
             </div>
             <div>
@@ -205,7 +207,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                 multiple
                 onChange={handlePhotoUpload}
                 disabled={uploadingPhotos}
-                className="w-full border rounded-md px-3 py-2 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"
               />
               {uploadingPhotos && (
                 <p className="text-xs text-gray-500 mt-1">Uploading photos...</p>
@@ -262,7 +264,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                 {/* Date circle - removed, was duplicate */}
 
                 {/* Content */}
-                <div className="flex-1 bg-gray-50 rounded-lg p-3 md:p-4 border border-gray-200">
+                <div className="flex-1 bg-gray-50 rounded-xl p-3 md:p-4 border border-gray-100 shadow-sm">
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-2 mb-2">
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-900">{formatDateReadable(update.update_date)}</p>

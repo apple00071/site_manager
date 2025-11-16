@@ -55,6 +55,8 @@ export default function EditProjectPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [requirementsFile, setRequirementsFile] = useState<File | null>(null);
+  const [uploadingRequirements, setUploadingRequirements] = useState(false);
 
   const {
     register,
@@ -137,6 +139,39 @@ export default function EditProjectPage() {
   const onSubmit = async (data: ProjectFormValues) => {
     setSaving(true);
     try {
+      let requirementsUrl = project?.requirements_pdf_url || null;
+
+      if (requirementsFile) {
+        try {
+          setUploadingRequirements(true);
+          const fileExt = requirementsFile.name.split('.').pop();
+          const fileName = `${projectId}-requirements-${Date.now()}.${fileExt}`;
+          const filePath = `requirements/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('project-requirements')
+            .upload(filePath, requirementsFile);
+
+          if (uploadError) {
+            throw uploadError;
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('project-requirements')
+            .getPublicUrl(filePath);
+
+          requirementsUrl = publicUrl;
+        } catch (uploadError: any) {
+          console.error('Error uploading requirements file:', uploadError);
+          alert('Failed to upload requirements file. Please try again.');
+          setUploadingRequirements(false);
+          setSaving(false);
+          return;
+        } finally {
+          setUploadingRequirements(false);
+        }
+      }
+
       const { error } = await supabase
         .from('projects')
         .update({
@@ -162,12 +197,16 @@ export default function EditProjectPage() {
           painter_phone: data.painter_phone || null,
           project_budget: data.project_budget ? parseFloat(data.project_budget) : null,
           project_notes: data.project_notes || null,
+          requirements_pdf_url: requirementsUrl,
         })
         .eq('id', projectId);
 
       if (error) throw error;
       
-      router.push('/dashboard/projects');
+      // Force a refresh of the project data before redirecting
+      router.refresh();
+      // Redirect to the project details page instead of the projects list
+      router.push(`/dashboard/projects/${projectId}`);
     } catch (error) {
       console.error('Error updating project:', error);
       alert('Failed to update project. Please try again.');
@@ -179,7 +218,7 @@ export default function EditProjectPage() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-600"></div>
       </div>
     );
   }
@@ -188,7 +227,7 @@ export default function EditProjectPage() {
     return (
       <div className="text-center py-8">
         <p className="text-gray-500">Project not found</p>
-        <Link href="/dashboard/projects" className="text-indigo-600 hover:text-indigo-900">
+        <Link href="/dashboard/projects" className="text-yellow-600 hover:text-yellow-700">
           Back to Projects
         </Link>
       </div>
@@ -234,7 +273,7 @@ export default function EditProjectPage() {
                     type="text"
                     {...register('title')}
                     placeholder="Enter project title"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                   />
                   {errors.title && (
                     <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
@@ -250,7 +289,7 @@ export default function EditProjectPage() {
                     rows={3}
                     {...register('description')}
                     placeholder="Enter project description"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                   />
                   {errors.description && (
                     <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
@@ -264,7 +303,7 @@ export default function EditProjectPage() {
                   <select
                     id="status"
                     {...register('status')}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                   >
                     <option value="pending">Pending</option>
                     <option value="in_progress">In Progress</option>
@@ -287,13 +326,13 @@ export default function EditProjectPage() {
                         employees.map((employee) => (
                           <label
                             key={employee.id}
-                            className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-white hover:border-indigo-500 cursor-pointer transition-all duration-200"
+                            className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-white hover:border-yellow-500 cursor-pointer transition-all duration-200"
                           >
                             <input
                               type="radio"
                               value={employee.id}
                               {...register('assigned_employee_id')}
-                              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                              className="h-4 w-4 text-yellow-500 focus:ring-yellow-500 border-gray-300"
                             />
                             <span className="ml-3 flex-1">
                               <span className="block text-sm font-medium text-gray-900">
@@ -331,7 +370,7 @@ export default function EditProjectPage() {
                     type="text"
                     {...register('customer_name')}
                     placeholder="Enter customer name"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                   />
                   {errors.customer_name && (
                     <p className="mt-1 text-sm text-red-600">{errors.customer_name.message}</p>
@@ -347,7 +386,7 @@ export default function EditProjectPage() {
                     type="tel"
                     {...register('phone_number')}
                     placeholder="Enter phone number"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                   />
                   {errors.phone_number && (
                     <p className="mt-1 text-sm text-red-600">{errors.phone_number.message}</p>
@@ -363,7 +402,7 @@ export default function EditProjectPage() {
                     type="tel"
                     {...register('alt_phone_number')}
                     placeholder="Enter alternative phone number"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                   />
                   {errors.alt_phone_number && (
                     <p className="mt-1 text-sm text-red-600">{errors.alt_phone_number.message}</p>
@@ -379,7 +418,7 @@ export default function EditProjectPage() {
                     rows={3}
                     {...register('address')}
                     placeholder="Enter complete address"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                   />
                   {errors.address && (
                     <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
@@ -401,7 +440,7 @@ export default function EditProjectPage() {
                     id="start_date"
                     type="date"
                     {...register('start_date')}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                   />
                   {errors.start_date && (
                     <p className="mt-1 text-sm text-red-600">{errors.start_date.message}</p>
@@ -416,7 +455,7 @@ export default function EditProjectPage() {
                     id="estimated_completion_date"
                     type="date"
                     {...register('estimated_completion_date')}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                   />
                   {errors.estimated_completion_date && (
                     <p className="mt-1 text-sm text-red-600">{errors.estimated_completion_date.message}</p>
@@ -433,10 +472,63 @@ export default function EditProjectPage() {
                     step="0.01"
                     {...register('project_budget')}
                     placeholder="Enter project budget in ₹"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                   />
                   {errors.project_budget && (
                     <p className="mt-1 text-sm text-red-600">{errors.project_budget.message}</p>
+                  )}
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Requirements Document
+                  </label>
+                  {project.requirements_pdf_url && (
+                    <div className="mb-2">
+                      <a
+                        href={project.requirements_pdf_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-sm text-yellow-600 hover:text-yellow-700 hover:underline"
+                      >
+                        View current requirements file
+                      </a>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+                    onChange={(e: any) => {
+                      const file = e.target.files?.[0];
+                      if (!file) {
+                        setRequirementsFile(null);
+                        return;
+                      }
+
+                      const allowedTypes = [
+                        'application/pdf',
+                        'image/jpeg',
+                        'image/png',
+                        'image/webp',
+                      ];
+
+                      if (!allowedTypes.includes(file.type)) {
+                        alert('Please upload a PDF or image file (JPG, PNG, or WebP)');
+                        return;
+                      }
+
+                      if (file.size > 10 * 1024 * 1024) {
+                        alert('File size must be less than 10MB');
+                        return;
+                      }
+
+                      setRequirementsFile(file);
+                    }}
+                    disabled={uploadingRequirements}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"
+                  />
+                  {requirementsFile && (
+                    <p className="mt-1 text-xs text-gray-600">Selected: {requirementsFile.name}</p>
                   )}
                 </div>
               </div>
@@ -456,7 +548,7 @@ export default function EditProjectPage() {
                     type="text"
                     {...register('designer_name')}
                     placeholder="Enter designer name"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                   />
                   {errors.designer_name && (
                     <p className="mt-1 text-sm text-red-600">{errors.designer_name.message}</p>
@@ -472,7 +564,7 @@ export default function EditProjectPage() {
                     type="tel"
                     {...register('designer_phone')}
                     placeholder="Enter designer phone"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                   />
                   {errors.designer_phone && (
                     <p className="mt-1 text-sm text-red-600">{errors.designer_phone.message}</p>
@@ -488,7 +580,7 @@ export default function EditProjectPage() {
                     type="text"
                     {...register('carpenter_name')}
                     placeholder="Enter carpenter name"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                   />
                   {errors.carpenter_name && (
                     <p className="mt-1 text-sm text-red-600">{errors.carpenter_name.message}</p>
@@ -504,7 +596,7 @@ export default function EditProjectPage() {
                     type="tel"
                     {...register('carpenter_phone')}
                     placeholder="Enter carpenter phone"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                   />
                   {errors.carpenter_phone && (
                     <p className="mt-1 text-sm text-red-600">{errors.carpenter_phone.message}</p>
@@ -520,7 +612,7 @@ export default function EditProjectPage() {
                     type="text"
                     {...register('electrician_name')}
                     placeholder="Enter electrician name"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                   />
                   {errors.electrician_name && (
                     <p className="mt-1 text-sm text-red-600">{errors.electrician_name.message}</p>
@@ -536,7 +628,7 @@ export default function EditProjectPage() {
                     type="tel"
                     {...register('electrician_phone')}
                     placeholder="Enter electrician phone"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                   />
                   {errors.electrician_phone && (
                     <p className="mt-1 text-sm text-red-600">{errors.electrician_phone.message}</p>
@@ -552,7 +644,7 @@ export default function EditProjectPage() {
                     type="text"
                     {...register('plumber_name')}
                     placeholder="Enter plumber name"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                   />
                   {errors.plumber_name && (
                     <p className="mt-1 text-sm text-red-600">{errors.plumber_name.message}</p>
@@ -568,7 +660,7 @@ export default function EditProjectPage() {
                     type="tel"
                     {...register('plumber_phone')}
                     placeholder="Enter plumber phone"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                   />
                   {errors.plumber_phone && (
                     <p className="mt-1 text-sm text-red-600">{errors.plumber_phone.message}</p>
@@ -584,7 +676,7 @@ export default function EditProjectPage() {
                     type="text"
                     {...register('painter_name')}
                     placeholder="Enter painter name"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                   />
                   {errors.painter_name && (
                     <p className="mt-1 text-sm text-red-600">{errors.painter_name.message}</p>
@@ -600,7 +692,7 @@ export default function EditProjectPage() {
                     type="tel"
                     {...register('painter_phone')}
                     placeholder="Enter painter phone"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                   />
                   {errors.painter_phone && (
                     <p className="mt-1 text-sm text-red-600">{errors.painter_phone.message}</p>
@@ -622,7 +714,7 @@ export default function EditProjectPage() {
                   rows={4}
                   {...register('project_notes')}
                   placeholder="Enter any additional notes or comments"
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                 />
                 {errors.project_notes && (
                   <p className="mt-1 text-sm text-red-600">{errors.project_notes.message}</p>
@@ -639,8 +731,8 @@ export default function EditProjectPage() {
               </Link>
               <button
                 type="submit"
-                disabled={saving}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-colors"
+                disabled={saving || uploadingRequirements}
+                className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-colors"
               >
                 <FiSave className="mr-2 h-4 w-4" />
                 {saving ? 'Saving...' : 'Save Changes'}

@@ -231,7 +231,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
       </div>
 
       {showUploadForm && (
-        <div className="mb-4 md:mb-6 p-3 md:p-4 border border-gray-200 rounded-lg bg-gray-50">
+        <div className="mb-4 md:mb-6 p-4 md:p-5 rounded-xl bg-gray-50 border border-gray-100 shadow-sm">
           <h4 className="text-sm font-medium text-gray-900 mb-3">Upload New Design</h4>
           <div className="space-y-3">
             <div>
@@ -281,7 +281,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
           designs.map((design) => (
             <div
               key={design.id}
-              className={`border rounded-lg p-3 md:p-4 ${design.is_current_approved ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}
+              className={`rounded-xl p-3 md:p-4 shadow-sm border ${design.is_current_approved ? 'border-green-500 bg-green-50' : 'border-gray-100 bg-white'}`}
             >
               <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
                 {/* Preview */}
