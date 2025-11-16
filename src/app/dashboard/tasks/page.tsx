@@ -261,34 +261,14 @@ export default function TasksPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      {/* Page Header */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">All Tasks</h1>
-            <p className="text-sm text-gray-600 mt-1">
-              View and manage tasks across all your projects
-            </p>
-          </div>
-          
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
-            >
-              <FiPlus className="h-4 w-4 mr-2" />
-              Create Task
-            </button>
-            <button
-              onClick={fetchTasks}
-              disabled={loading}
-              className="inline-flex items-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <FiRefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-          </div>
-        </div>
+      <div className="flex justify-end">
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="px-4 sm:px-5 py-2.5 bg-yellow-500 text-gray-900 rounded-xl flex items-center justify-center hover:bg-yellow-600 active:bg-yellow-700 transition-all duration-200 shadow-sm font-bold text-sm sm:text-base touch-target"
+        >
+          <FiPlus className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+          <span className="whitespace-nowrap">Create Task</span>
+        </button>
       </div>
 
       {/* Status Overview */}
@@ -408,6 +388,15 @@ export default function TasksPage() {
   );
 
   function CreateTaskForm() {
+    const TASK_TEMPLATES = [
+      { value: 'site_visit', label: 'Site Visit' },
+      { value: 'client_meeting', label: 'Client Meeting' },
+      { value: 'design_review', label: 'Design Review' },
+      { value: 'material_purchase', label: 'Material Purchase' },
+      { value: 'follow_up_call', label: 'Follow-up Call' },
+      { value: 'other', label: 'Others' },
+    ];
+
     const [formData, setFormData] = useState({
       project_id: '',
       task_title: '',
@@ -418,6 +407,25 @@ export default function TasksPage() {
       priority: 'medium',
     });
     const [formError, setFormError] = useState('');
+    const [taskTemplate, setTaskTemplate] = useState('');
+
+    const handleTemplateChange = (value: string) => {
+      setTaskTemplate(value);
+
+      if (value && value !== 'other') {
+        const template = TASK_TEMPLATES.find(t => t.value === value);
+        setFormData(prev => ({
+          ...prev,
+          task_title: template ? template.label : '',
+        }));
+        setFormError('');
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          task_title: '',
+        }));
+      }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -469,14 +477,27 @@ export default function TasksPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Task Title *
                 </label>
-                <input
-                  type="text"
-                  value={formData.task_title}
-                  onChange={(e) => setFormData({ ...formData, task_title: e.target.value })}
-                  placeholder="Enter task title"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                  required
-                />
+                <select
+                  value={taskTemplate}
+                  onChange={(e) => handleTemplateChange(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 mb-2"
+                >
+                  <option value="">Select a task</option>
+                  {TASK_TEMPLATES.map((template) => (
+                    <option key={template.value} value={template.value}>
+                      {template.label}
+                    </option>
+                  ))}
+                </select>
+                {taskTemplate === 'other' && (
+                  <input
+                    type="text"
+                    value={formData.task_title}
+                    onChange={(e) => setFormData({ ...formData, task_title: e.target.value })}
+                    placeholder="Enter task title"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                  />
+                )}
               </div>
 
               <div>
@@ -565,7 +586,7 @@ export default function TasksPage() {
                 <button
                   type="submit"
                   disabled={creating}
-                  className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="flex-1 px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 active:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
                 >
                   {creating ? 'Creating...' : 'Create Task'}
                 </button>
@@ -575,6 +596,15 @@ export default function TasksPage() {
   }
 
   function EditTaskForm() {
+    const TASK_TEMPLATES = [
+      { value: 'site_visit', label: 'Site Visit' },
+      { value: 'client_meeting', label: 'Client Meeting' },
+      { value: 'design_review', label: 'Design Review' },
+      { value: 'material_purchase', label: 'Material Purchase' },
+      { value: 'follow_up_call', label: 'Follow-up Call' },
+      { value: 'other', label: 'Others' },
+    ];
+
     const [formData, setFormData] = useState({
       project_id: editingTask?.step?.project?.id || '',
       task_title: editingTask?.title || '',
@@ -586,11 +616,12 @@ export default function TasksPage() {
       status: editingTask?.status || 'todo' as 'todo' | 'in_progress' | 'blocked' | 'done',
     });
     const [formError, setFormError] = useState('');
+    const [taskTemplate, setTaskTemplate] = useState('');
 
     // Update form data when editingTask changes
     useEffect(() => {
       if (editingTask) {
-        setFormData({
+        const updatedData = {
           project_id: editingTask?.step?.project?.id || '',
           task_title: editingTask?.title || '',
           task_description: '',
@@ -599,9 +630,31 @@ export default function TasksPage() {
           assigned_to: editingTask?.assigned_to || '',
           priority: editingTask?.priority || 'medium' as 'low' | 'medium' | 'high' | 'urgent',
           status: editingTask?.status || 'todo' as 'todo' | 'in_progress' | 'blocked' | 'done',
-        });
+        };
+        setFormData(updatedData);
+
+        const match = TASK_TEMPLATES.find(t => t.label === (editingTask?.title || ''));
+        setTaskTemplate(match ? match.value : 'other');
       }
     }, [editingTask]);
+
+    const handleTemplateChange = (value: string) => {
+      setTaskTemplate(value);
+
+      if (value && value !== 'other') {
+        const template = TASK_TEMPLATES.find(t => t.value === value);
+        setFormData(prev => ({
+          ...prev,
+          task_title: template ? template.label : '',
+        }));
+        setFormError('');
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          task_title: '',
+        }));
+      }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -652,14 +705,27 @@ export default function TasksPage() {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Task Title *
           </label>
-          <input
-            type="text"
-            value={formData.task_title}
-            onChange={(e) => setFormData({ ...formData, task_title: e.target.value })}
-            placeholder="Enter task title"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-            required
-          />
+          <select
+            value={taskTemplate}
+            onChange={(e) => handleTemplateChange(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 mb-2"
+          >
+            <option value="">Select a task</option>
+            {TASK_TEMPLATES.map((template) => (
+              <option key={template.value} value={template.value}>
+                {template.label}
+              </option>
+            ))}
+          </select>
+          {taskTemplate === 'other' && (
+            <input
+              type="text"
+              value={formData.task_title}
+              onChange={(e) => setFormData({ ...formData, task_title: e.target.value })}
+              placeholder="Enter task title"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+            />
+          )}
         </div>
 
         <div>
@@ -751,7 +817,7 @@ export default function TasksPage() {
           <button
             type="submit"
             disabled={updating}
-            className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 active:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
           >
             {updating ? 'Updating...' : 'Update Task'}
           </button>

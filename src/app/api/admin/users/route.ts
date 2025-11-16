@@ -44,9 +44,6 @@ export async function GET(request: NextRequest) {
     
     // Check if user is admin
     const isAdmin = (user.app_metadata?.role || user.user_metadata?.role) === 'admin';
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
     
     // Build query
     let query = supabaseAdmin
