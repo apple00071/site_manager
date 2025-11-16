@@ -940,7 +940,7 @@ export default function NewProjectPage() {
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="w-full sm:w-auto px-6 py-3 sm:py-4 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 transition-all duration-200 font-semibold text-sm sm:text-base touch-target"
+                className="w-full sm:w-auto px-6 py-3 sm:py-4 text-gray-700 rounded-xl bg-gray-100 hover:bg-gray-200 active:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 transition-all duration-200 font-semibold text-sm sm:text-base touch-target"
               >
                 Cancel
               </button>

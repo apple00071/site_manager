@@ -429,7 +429,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
           <div className="flex gap-3 pt-4">
             <button
               onClick={() => setShowAddModal(false)}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex-1 px-4 py-2 text-gray-700 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
             >
               Cancel
             </button>

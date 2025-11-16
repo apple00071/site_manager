@@ -232,7 +232,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
               <button
                 onClick={() => setShowForm(false)}
                 disabled={saving}
-                className="px-4 py-2 border rounded-md text-sm hover:bg-gray-50 w-full sm:w-auto"
+                className="px-4 py-2 rounded-md text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 w-full sm:w-auto"
               >
                 Cancel
               </button>

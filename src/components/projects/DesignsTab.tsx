@@ -257,7 +257,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
               <button
                 onClick={() => setShowUploadForm(false)}
                 disabled={uploading}
-                className="px-4 py-2 border rounded-md text-sm hover:bg-gray-50 w-full sm:w-auto"
+                className="px-4 py-2 rounded-md text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 w-full sm:w-auto"
               >
                 Cancel
               </button>
@@ -411,7 +411,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
               <button
                 onClick={() => setShowApprovalModal(false)}
                 disabled={processing}
-                className="px-4 py-2 border rounded-md text-sm hover:bg-gray-50 w-full sm:w-auto"
+                className="px-4 py-2 rounded-md text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 w-full sm:w-auto"
               >
                 Cancel
               </button>

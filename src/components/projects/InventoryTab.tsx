@@ -452,7 +452,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 resetForm();
               }}
               disabled={saving}
-              className="px-4 py-2 border rounded-md text-sm hover:bg-gray-50 w-full sm:w-auto"
+              className="px-4 py-2 rounded-md text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 w-full sm:w-auto"
             >
               Cancel
             </button>
@@ -715,7 +715,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                   setRejectionReason('');
                 }}
                 disabled={processingApproval}
-                className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                className="flex-1 px-4 py-2 text-sm rounded-lg text-gray-700 bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -773,7 +773,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                   setForm(prev => ({ ...prev, bill_url: '' }));
                 }}
                 disabled={processingApproval || uploadingBill}
-                className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                className="flex-1 px-4 py-2 text-sm rounded-lg text-gray-700 bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
               >
                 Cancel
               </button>
