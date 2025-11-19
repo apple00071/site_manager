@@ -2,20 +2,26 @@ import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
-// Supabase configuration with fallbacks for development
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://uswdtcmemgfqlkzmfkxs.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzd2R0Y21lbWdmcWxrem1ma3hzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEzMzc4NTgsImV4cCI6MjA3NjkxMzg1OH0.KcOcDTGYC7x8ZNSjNhpAE_y4LNq_j3Fz_c6t0Fi63wc';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzd2R0Y21lbWdmcWxrem1ma3hzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTMzNzg1OCwiZXhwIjoyMDc2OTEzODU4fQ.4k5EGYhCQ1V3WvxjIHCfoPdRnw7CBhWIiSmkhqRJNKA';
+// Supabase configuration - require environment variables (no hard-coded keys)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+  throw new Error(
+    'Missing Supabase environment variables. Please set NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY.'
+  );
+}
 
 // Admin client for server-side operations
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+export const supabaseAdmin = createClient(supabaseUrl as string, supabaseServiceKey as string);
 
 // Helper function to create authenticated server client
 export async function createAuthenticatedClient() {
   const cookieStore = await cookies();
   return createServerClient(
-    supabaseUrl,
-    supabaseAnonKey,
+    supabaseUrl as string,
+    supabaseAnonKey as string,
     {
       cookies: {
         get(name: string) {
@@ -80,7 +86,7 @@ export async function getCurrentUser() {
 
 // Export configuration for other files
 export const supabaseConfig = {
-  url: supabaseUrl,
-  anonKey: supabaseAnonKey,
-  serviceKey: supabaseServiceKey
+  url: supabaseUrl as string,
+  anonKey: supabaseAnonKey as string,
+  serviceKey: supabaseServiceKey as string
 };

@@ -1,8 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Get environment variables with fallback for development
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://uswdtcmemgfqlkzmfkxs.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzd2R0Y21lbWdmcWxrem1ma3hzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEzMzc4NTgsImV4cCI6MjA3NjkxMzg1OH0.KcOcDTGYC7x8ZNSjNhpAE_y4LNq_j3Fz_c6t0Fi63wc';
+// Get environment variables (no hard-coded keys)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Missing Supabase environment variables. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.'
+  );
+}
 
 console.log('🔧 Supabase configuration ready');
 
@@ -57,7 +63,7 @@ const customStorage = {
 };
 
 // Create and export the Supabase client with enhanced error handling
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient(supabaseUrl as string, supabaseAnonKey as string, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
