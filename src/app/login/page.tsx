@@ -18,6 +18,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginFormValues>({
     resolver: zodResolver(LoginSchema),
@@ -97,16 +98,25 @@ export default function LoginPage() {
 
           <div>
             <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
-            <input
-              id="password"
-              type="password"
-              {...register('password')}
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 sm:py-4 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white touch-target"
-              placeholder="••••••••"
-              aria-invalid={!!errors.password || undefined}
-              aria-describedby={errors.password ? 'password-error' : undefined}
-              autoComplete="current-password"
-            />
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                {...register('password')}
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 sm:py-4 pr-12 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white touch-target"
+                placeholder="••••••••"
+                aria-invalid={!!errors.password || undefined}
+                aria-describedby={errors.password ? 'password-error' : undefined}
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(prev => !prev)}
+                className="absolute inset-y-0 right-3 flex items-center text-xs sm:text-sm text-gray-500"
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
             {errors.password && (
               <p id="password-error" className="mt-2 text-xs sm:text-sm text-red-600 flex items-center">
                 <span className="inline-block w-1 h-1 bg-red-600 rounded-full mr-2"></span>

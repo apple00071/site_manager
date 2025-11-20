@@ -52,13 +52,19 @@ export default function UsersPage() {
   const handleDeleteUser = async (userId: string) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
-        const { error } = await supabase
-          .from('users')
-          .delete()
-          .eq('id', userId);
+        const response = await fetch('/api/admin/users', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ id: userId }),
+        });
 
-        if (error) throw error;
-        
+        if (!response.ok) {
+          const result = await response.json().catch(() => ({}));
+          throw new Error(result.error || 'Failed to delete user');
+        }
+
         // Remove from local state
         setUsers(users.filter(u => u.id !== userId));
       } catch (error) {
@@ -80,7 +86,7 @@ export default function UsersPage() {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <h1 className="text-xl lg:text-2xl font-bold text-gray-900">User Management</h1>
         <Link
-          href="/admin/users/new"
+          href="/dashboard/users/new"
           className="px-4 py-2 bg-indigo-600 text-white rounded-md flex items-center justify-center hover:bg-indigo-700 transition-colors"
         >
           <FiPlus className="mr-2 h-4 w-4" /> Add User

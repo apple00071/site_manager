@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import crypto from 'crypto';
 import { NotificationService } from '@/lib/notificationService';
 import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
+import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 
 // Force dynamic rendering - never cache user data
 export const dynamic = 'force-dynamic';
@@ -13,9 +15,14 @@ const createUserSchema = z.object({
   full_name: z.string().min(2, 'Full name must be at least 2 characters'),
   designation: z.string().min(2, 'Designation must be at least 2 characters').optional().or(z.literal('')),
   role: z.enum(['admin', 'designer', 'site_supervisor', 'employee']),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
 });
+
+function generateTemporaryPassword(): string {
+  const raw = crypto.randomBytes(12).toString('base64').replace(/[^a-zA-Z0-9]/g, '');
+  return raw.slice(0, 10);
+}
 
 const updateUserSchema = z.object({
   id: z.string().uuid('Invalid user ID'),
@@ -84,6 +91,11 @@ export async function POST(req: Request) {
 
     const { email, username, full_name, designation, role, password, phone_number } = parsed.data;
 
+    const finalPassword =
+      password && password.trim() !== ''
+        ? password
+        : generateTemporaryPassword();
+
     console.log('Creating user:', { email, full_name, role });
     console.log('Service role key exists:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
     console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
@@ -92,7 +104,7 @@ export async function POST(req: Request) {
     try {
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email,
-        password,
+        password: finalPassword,
         email_confirm: true,
         user_metadata: {
           full_name,
@@ -167,6 +179,25 @@ export async function POST(req: Request) {
       } catch (notificationError) {
         console.error('Failed to send welcome notification:', notificationError);
         // Don't fail the main operation if notification fails
+      }
+
+      // Send WhatsApp welcome message if phone number is available
+      if (phone_number && phone_number.trim() !== '') {
+        try {
+          const origin =
+            req.headers.get('origin') ||
+            process.env.NEXT_PUBLIC_SITE_URL ||
+            process.env.NEXT_PUBLIC_APP_URL ||
+            'http://localhost:3000';
+
+          const loginLink = `${origin}/login`;
+
+          const whatsappMessage = `Welcome ${full_name}! Your account has been created successfully. Please find your temporary login details below:\n\nUsername: ${username}\nTemporary password: ${finalPassword}\nLogin link: ${loginLink}\n\nPlease log in and change your password from the Settings page.`;
+
+          await sendCustomWhatsAppNotification(phone_number, whatsappMessage);
+        } catch (whatsAppError) {
+          console.error('Failed to send WhatsApp welcome message:', whatsAppError);
+        }
       }
 
       return NextResponse.json(
@@ -287,6 +318,80 @@ export async function PATCH(req: Request) {
     );
   } catch (err: any) {
     console.error('Unexpected error in PATCH handler:', err);
+    return NextResponse.json(
+      { error: 'An unexpected error occurred', details: err.message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const body = await req.json().catch(() => null);
+    const id = body?.id as string | undefined;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'User ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const supabase = await createAuthenticatedClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Not authenticated' },
+        { status: 401 }
+      );
+    }
+
+    const isAdmin = (user.app_metadata?.role || user.user_metadata?.role) === 'admin';
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: 'Forbidden' },
+        { status: 403 }
+      );
+    }
+
+    console.log('Deleting user:', { id });
+
+    // Delete from Supabase Auth
+    const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(id);
+    if (authDeleteError) {
+      console.error('Error deleting auth user:', authDeleteError);
+      return NextResponse.json(
+        { error: authDeleteError.message || 'Failed to delete auth user' },
+        { status: 500 }
+      );
+    }
+
+    // Delete profile row from users table
+    const { error: profileError } = await supabaseAdmin
+      .from('users')
+      .delete()
+      .eq('id', id);
+
+    if (profileError) {
+      console.error('Error deleting user profile:', profileError);
+      return NextResponse.json(
+        { error: profileError.message || 'Failed to delete user profile' },
+        { status: 500 }
+      );
+    }
+
+    console.log('User deleted successfully:', id);
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'User deleted successfully',
+      },
+      { status: 200 }
+    );
+  } catch (err: any) {
+    console.error('Unexpected error in DELETE handler:', err);
     return NextResponse.json(
       { error: 'An unexpected error occurred', details: err.message },
       { status: 500 }

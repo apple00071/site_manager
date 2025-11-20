@@ -19,6 +19,7 @@ export default function AdminLogin() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const validateForm = () => {
     try {
@@ -173,19 +174,26 @@ export default function AdminLogin() {
               <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
                 Password
               </label>
-              <div>
+              <div className="relative">
                 <input
                   id="password"
                   name="password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`appearance-none block w-full px-4 py-3 border ${
+                  className={`appearance-none block w-full px-4 py-3 pr-12 border ${
                     errors.password ? 'border-red-300' : 'border-gray-300'
                   } rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all sm:text-sm`}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  className="absolute inset-y-0 right-3 flex items-center text-xs text-gray-500"
+                >
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
                 {errors.password && (
                   <p className="mt-2 text-sm text-red-600">{errors.password}</p>
                 )}

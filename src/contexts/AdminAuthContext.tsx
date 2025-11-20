@@ -3,7 +3,8 @@
 // Force dynamic rendering to avoid build-time context issues
 export const dynamic = 'force-dynamic';
 
-import { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
+
 import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
@@ -30,15 +31,66 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Memoize the context value to prevent unnecessary re-renders
-  const contextValue = useMemo(() => ({
+  async function signIn(email: string, password: string) {
+    console.log('🔐 AdminAuthContext signIn called');
+    console.log('Email:', email);
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    console.log('📋 Admin signIn response:', {
+      hasData: !!data,
+      hasUser: !!data?.user,
+      hasError: !!error,
+      errorMessage: error?.message
+    });
+
+    if (error) {
+      console.error('❌ Admin login failed:', error);
+      throw error;
+    }
+
+    if (data.user) {
+      console.log('👤 Admin login successful, checking role from metadata...');
+      // Check if user is admin using auth metadata
+      const userRole = data.user.user_metadata?.role || 'employee';
+
+      console.log('📋 Admin role check from metadata:', {
+        role: userRole,
+        isAdmin: userRole === 'admin'
+      });
+
+      if (userRole !== 'admin') {
+        console.error('❌ Access denied - not admin:', userRole);
+        throw new Error('Access denied. Admin privileges required.');
+      }
+
+      console.log('✅ Admin authentication successful');
+      // Set user and session
+      setUser(data.user);
+      setSession(data.session);
+      setIsAdmin(true);
+    }
+  };
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+    setIsAdmin(false);
+    router.push('/admin/login');
+  };
+
+  const contextValue: AdminAuthContextType = {
     user,
     session,
     isLoading,
     isAdmin,
     signIn,
     signOut,
-  }), [user, session, isLoading, isAdmin]);
+  };
 
   useEffect(() => {
     // Only run on client-side
@@ -132,58 +184,6 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       subscription?.unsubscribe();
     };
   }, [router, pathname]);
-
-  const signIn = async (email: string, password: string) => {
-    console.log('🔐 AdminAuthContext signIn called');
-    console.log('Email:', email);
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    console.log('📋 Admin signIn response:', {
-      hasData: !!data,
-      hasUser: !!data?.user,
-      hasError: !!error,
-      errorMessage: error?.message
-    });
-
-    if (error) {
-      console.error('❌ Admin login failed:', error);
-      throw error;
-    }
-
-    if (data.user) {
-      console.log('👤 Admin login successful, checking role from metadata...');
-      // Check if user is admin using auth metadata
-      const userRole = data.user.user_metadata?.role || 'employee';
-
-      console.log('📋 Admin role check from metadata:', {
-        role: userRole,
-        isAdmin: userRole === 'admin'
-      });
-
-      if (userRole !== 'admin') {
-        console.error('❌ Access denied - not admin:', userRole);
-        throw new Error('Access denied. Admin privileges required.');
-      }
-
-      console.log('✅ Admin authentication successful');
-      // Set user and session
-      setUser(data.user);
-      setSession(data.session);
-      setIsAdmin(true);
-    }
-  };
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setIsAdmin(false);
-    router.push('/admin/login');
-  };
 
   return (
     <AdminAuthContext.Provider value={contextValue}>

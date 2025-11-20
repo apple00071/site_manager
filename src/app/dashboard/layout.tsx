@@ -156,17 +156,15 @@ export default function DashboardLayout({
                 <span className="text-xs text-center font-medium hidden lg:block">Users</span>
               </Link>
             )}
-            {isAdmin && (
-              <Link
-                href="/dashboard/settings"
-                className="flex flex-col items-center px-3 py-4 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-xl mx-2 touch-target"
-                onClick={() => setSidebarOpen(false)}
-                title="Settings"
-              >
-                <FiSettings className="h-6 w-6 mb-1 group-hover:text-yellow-600 transition-colors" />
-                <span className="text-xs text-center font-medium hidden lg:block">Settings</span>
-              </Link>
-            )}
+            <Link
+              href="/dashboard/settings"
+              className="flex flex-col items-center px-3 py-4 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-xl mx-2 touch-target"
+              onClick={() => setSidebarOpen(false)}
+              title="Settings"
+            >
+              <FiSettings className="h-6 w-6 mb-1 group-hover:text-yellow-600 transition-colors" />
+              <span className="text-xs text-center font-medium hidden lg:block">Settings</span>
+            </Link>
           </div>
         </nav>
 

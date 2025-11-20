@@ -40,7 +40,10 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
-  
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const {
     register,
     handleSubmit,
@@ -256,13 +259,20 @@ export default function SettingsPage() {
                     <label htmlFor="current_password" className="block text-sm font-medium text-gray-700">
                       Current Password
                     </label>
-                    <div className="mt-1">
+                    <div className="mt-1 relative">
                       <input
                         id="current_password"
-                        type="password"
+                        type={showCurrentPassword ? 'text' : 'password'}
                         {...register('current_password')}
-                        className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md pr-12"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(prev => !prev)}
+                        className="absolute inset-y-0 right-3 flex items-center text-xs text-gray-500"
+                      >
+                        {showCurrentPassword ? 'Hide' : 'Show'}
+                      </button>
                       {errors.current_password && (
                         <p className="mt-1 text-sm text-red-600">{errors.current_password.message}</p>
                       )}
@@ -273,13 +283,20 @@ export default function SettingsPage() {
                     <label htmlFor="new_password" className="block text-sm font-medium text-gray-700">
                       New Password
                     </label>
-                    <div className="mt-1">
+                    <div className="mt-1 relative">
                       <input
                         id="new_password"
-                        type="password"
+                        type={showNewPassword ? 'text' : 'password'}
                         {...register('new_password')}
-                        className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md pr-12"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(prev => !prev)}
+                        className="absolute inset-y-0 right-3 flex items-center text-xs text-gray-500"
+                      >
+                        {showNewPassword ? 'Hide' : 'Show'}
+                      </button>
                       {errors.new_password && (
                         <p className="mt-1 text-sm text-red-600">{errors.new_password.message}</p>
                       )}
@@ -290,13 +307,20 @@ export default function SettingsPage() {
                     <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700">
                       Confirm New Password
                     </label>
-                    <div className="mt-1">
+                    <div className="mt-1 relative">
                       <input
                         id="confirm_password"
-                        type="password"
+                        type={showConfirmPassword ? 'text' : 'password'}
                         {...register('confirm_password')}
-                        className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md pr-12"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(prev => !prev)}
+                        className="absolute inset-y-0 right-3 flex items-center text-xs text-gray-500"
+                      >
+                        {showConfirmPassword ? 'Hide' : 'Show'}
+                      </button>
                       {errors.confirm_password && (
                         <p className="mt-1 text-sm text-red-600">{errors.confirm_password.message}</p>
                       )}

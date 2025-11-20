@@ -100,7 +100,7 @@ export default function AdminDashboard() {
           {/* Quick Actions */}
           <div className="mt-6 flex flex-wrap gap-3">
             <a
-              href="/admin/users/new"
+              href="/dashboard/users/new"
               className="px-5 py-2.5 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 transition-colors shadow-sm font-bold"
             >
               Create New User

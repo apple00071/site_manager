@@ -6,14 +6,17 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { supabase } from '@/lib/supabase';
 
 const userSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
   full_name: z.string().min(2, 'Full name is required'),
-  designation: z.string().min(2, 'Designation is required'),
+  username: z
+    .string()
+    .min(3, 'Username must be at least 3 characters')
+    .regex(/^[a-zA-Z0-9_.-]+$/, 'Only letters, numbers, underscore, dot and hyphen allowed'),
+  email: z.string().email('Please enter a valid email address'),
+  designation: z.string().min(2, 'Designation is required').optional().or(z.literal('')),
   role: z.enum(['admin', 'designer', 'site_supervisor', 'employee']),
+  phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
@@ -54,10 +57,11 @@ export default function NewUserPage() {
         },
         body: JSON.stringify({
           email: data.email,
+          username: data.username,
           full_name: data.full_name,
           designation: data.designation,
           role: data.role,
-          password: data.password,
+          phone_number: data.phone_number || '',
         }),
       });
 
@@ -106,6 +110,21 @@ export default function NewUserPage() {
             </div>
 
             <div>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                Username
+              </label>
+              <input
+                id="username"
+                type="text"
+                {...register('username')}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              />
+              {errors.username && (
+                <p className="mt-1 text-sm text-red-600">{errors.username.message}</p>
+              )}
+            </div>
+
+            <div>
               <label htmlFor="designation" className="block text-sm font-medium text-gray-700">
                 Designation
               </label>
@@ -122,6 +141,22 @@ export default function NewUserPage() {
             </div>
 
             <div>
+              <label htmlFor="phone_number" className="block text-sm font-medium text-gray-700">
+                Phone Number
+              </label>
+              <input
+                id="phone_number"
+                type="tel"
+                {...register('phone_number')}
+                placeholder="e.g., +91 9876543210"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              />
+              {errors.phone_number && (
+                <p className="mt-1 text-sm text-red-600">{errors.phone_number.message}</p>
+              )}
+            </div>
+
+            <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email Address
               </label>
@@ -133,21 +168,6 @@ export default function NewUserPage() {
               />
               {errors.email && (
                 <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                {...register('password')}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              {errors.password && (
-                <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
               )}
             </div>
 

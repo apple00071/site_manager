@@ -272,6 +272,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/auth/session', {
+          cache: 'no-cache',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+          },
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+
+        if (!data.authenticated || !data.user || data.user.id !== user.id) {
+          await signOut();
+          if (typeof window !== 'undefined') {
+            window.location.replace('/login');
+          }
+        }
+      } catch (error) {
+        // Ignore background check errors
+      }
+    };
+
+    const intervalId = setInterval(checkSession, 60000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [user]);
+
   const signIn = async (email: string, password: string) => {
     debugLog('🔐 AuthContext signIn called');
     debugLog('Email:', email);

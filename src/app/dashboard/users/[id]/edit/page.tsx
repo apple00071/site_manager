@@ -35,6 +35,7 @@ export default function EditUserPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -263,13 +264,22 @@ export default function EditUserPage() {
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                   New Password (leave blank to keep current password)
                 </label>
-                <input
-                  id="password"
-                  type="password"
-                  {...register('password')}
-                  placeholder="Enter new password (optional)"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
-                />
+                <div className="mt-1 relative">
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    {...register('password')}
+                    placeholder="Enter new password (optional)"
+                    className="block w-full px-3 py-2 pr-12 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(prev => !prev)}
+                    className="absolute inset-y-0 right-3 flex items-center text-xs text-gray-500"
+                  >
+                    {showPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
                 {errors.password && (
                   <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
                 )}

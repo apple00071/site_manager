@@ -151,12 +151,13 @@ export default function NewProjectPage() {
         
         console.log('Employees loaded:', employeesData?.length, employeesData);
         
-        // Map to the expected format with 'name' field
+        // Map to the expected format with 'name' field and include role for logic
         const mappedEmployees = (employeesData || []).map(u => ({
           id: u.id,
           name: u.full_name,
           email: u.email,
-          designation: u.designation
+          designation: u.designation,
+          role: u.role,
         }));
         
         console.log('Mapped employees:', mappedEmployees);
@@ -642,18 +643,18 @@ export default function NewProjectPage() {
                     </div>
                   ) : !employees || employees.length === 0 ? (
                     <div className="text-center py-4">
-                      <p className="text-sm text-gray-500">No employees found in the system.</p>
-                      <p className="text-xs text-gray-400 mt-1">Please add employees with role 'employee' first.</p>
+                      <p className="text-sm text-gray-500">No team members found in the system.</p>
+                      <p className="text-xs text-gray-400 mt-1">Please add users with the appropriate roles first.</p>
                     </div>
-                  ) : employees.filter(emp => emp.designation?.toLowerCase().includes('designer')).length === 0 ? (
+                  ) : employees.filter(emp => emp.role === 'designer').length === 0 ? (
                     <div className="text-center py-4">
                       <p className="text-sm text-gray-500">No designers found.</p>
-                      <p className="text-xs text-gray-400 mt-1">Please add employees with designation containing 'designer'.</p>
-                      <p className="text-xs text-gray-400 mt-2">Total employees loaded: {employees.length}</p>
+                      <p className="text-xs text-gray-400 mt-1">Please add users with role 'designer' in User Management.</p>
+                      <p className="text-xs text-gray-400 mt-2">Total team members loaded: {employees.length}</p>
                     </div>
                   ) : (
                     employees
-                      .filter(emp => emp.designation?.toLowerCase().includes('designer'))
+                      .filter(emp => emp.role === 'designer')
                       .map((employee) => (
                         <label
                           key={employee.id}
