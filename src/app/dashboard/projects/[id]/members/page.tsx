@@ -11,7 +11,7 @@ export default function ProjectMembersPage() {
   
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Project Members</h1>
+      <h1 className="text-2xl font-bold mb-6 lg:hidden">Project Members</h1>
       <p className="text-gray-600">Project ID: {projectId}</p>
       <p className="mt-4">Members functionality will be implemented here.</p>
     </div>

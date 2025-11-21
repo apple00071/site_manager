@@ -107,7 +107,7 @@ export default function AdminDashboard() {
             </a>
             <a
               href="/dashboard/projects/new"
-              className="px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm font-medium"
+              className="px-5 py-2.5 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 transition-colors shadow-sm font-bold"
             >
               Create New Project
             </a>

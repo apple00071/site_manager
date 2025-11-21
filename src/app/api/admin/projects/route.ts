@@ -45,6 +45,34 @@ const projectSchema = z.object({
   created_by: z.string().uuid('Invalid user ID format').optional(),
 });
 
+function parseBudget(value: string | null | undefined): number | null {
+  if (!value) return null;
+
+  const raw = value.toString().trim();
+  if (!raw) return null;
+
+  // Normalize: remove commas and uppercase for suffix handling
+  let normalized = raw.toUpperCase().replace(/,/g, '');
+
+  // Handle formats like "15L" (15 lakhs)
+  const lakhMatch = normalized.match(/^([0-9]+(?:\.[0-9]+)?)L$/);
+  if (lakhMatch) {
+    const num = parseFloat(lakhMatch[1]);
+    if (isNaN(num)) return null;
+    return num * 100000;
+  }
+
+  // Handle plain numbers like "1500000" or "1500000.50"
+  if (!/^[0-9]+(?:\.[0-9]+)?$/.test(normalized)) {
+    return null;
+  }
+
+  const num = parseFloat(normalized);
+  if (isNaN(num)) return null;
+
+  return num;
+}
+
 // GET handler for fetching projects
 export async function GET(request: NextRequest) {
   try {
@@ -206,8 +234,22 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    let responseData: any = projects;
+
+    if (!isAdmin && projects) {
+      if (Array.isArray(projects)) {
+        responseData = projects.map((p: any) => {
+          const { project_budget, ...rest } = p;
+          return rest;
+        });
+      } else {
+        const { project_budget, ...rest } = projects as any;
+        responseData = rest;
+      }
+    }
     
-    return NextResponse.json(projects);
+    return NextResponse.json(responseData);
     
   } catch (error) {
     console.error('Unexpected error in GET /api/admin/projects:', error);
@@ -265,6 +307,14 @@ export async function POST(req: Request) {
       );
     }
     
+    const budget = parseBudget(parsed.data.project_budget);
+    if (parsed.data.project_budget && budget === null) {
+      return NextResponse.json(
+        { error: { message: 'Invalid project budget format. Please use values like 1500000, 15,00,000, or 15L.' } },
+        { status: 400 }
+      );
+    }
+
     // Prepare project data with all fields
     const projectData = {
       title: parsed.data.title,
@@ -295,7 +345,7 @@ export async function POST(req: Request) {
       granite_worker_phone: parsed.data.granite_worker_phone || null,
       glass_worker_name: parsed.data.glass_worker_name || null,
       glass_worker_phone: parsed.data.glass_worker_phone || null,
-      project_budget: parsed.data.project_budget ? parseFloat(parsed.data.project_budget) : null,
+      project_budget: budget,
       requirements_pdf_url: parsed.data.requirements_pdf_url || null,
       project_notes: parsed.data.project_notes || null,
       created_by: userId,

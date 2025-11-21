@@ -200,7 +200,7 @@ export default function SettingsPage() {
 
   return (
     <div className="py-10">
-      <header>
+      <header className="lg:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-3xl font-bold leading-tight text-gray-900">Settings</h1>
         </div>
@@ -339,7 +339,7 @@ export default function SettingsPage() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                      className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-gray-900 bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
                     >
                       {loading ? 'Saving...' : 'Save Changes'}
                     </button>

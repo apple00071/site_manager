@@ -434,7 +434,7 @@ export default function ProjectDetailsPage() {
                       <dt className="text-sm font-medium text-gray-500 mb-1">Estimated Completion</dt>
                       <dd className="text-sm text-gray-900">{new Date(project.estimated_completion_date).toLocaleDateString()}</dd>
                     </div>
-                    {project.project_budget && (
+                    {isAdmin && project.project_budget != null && (
                       <div>
                         <dt className="text-sm font-medium text-gray-500 mb-1">Project Budget</dt>
                         <dd className="text-sm text-gray-900">₹{project.project_budget.toLocaleString()}</dd>

@@ -87,6 +87,7 @@ export default function MyTasksPage() {
 
   return (
     <div className="space-y-6">
+
       {error && (
         <div className="bg-red-50 border-l-4 border-red-500 p-4">
           <p className="text-red-700">{error}</p>
@@ -94,7 +95,7 @@ export default function MyTasksPage() {
       )}
 
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">My Tasks</h1>
+        <h1 className="text-2xl font-bold text-gray-900 lg:hidden">My Tasks</h1>
       </div>
 
       {projects.length > 0 ? (
@@ -136,7 +137,7 @@ export default function MyTasksPage() {
                       {project.status !== 'in_progress' && (
                         <button
                           onClick={() => handleUpdateStatus(project.id, 'in_progress')}
-                          className="px-3 py-1 text-xs rounded-full bg-blue-100 text-blue-800 hover:bg-blue-200"
+                          className="px-3 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
                         >
                           Mark In Progress
                         </button>
@@ -144,7 +145,7 @@ export default function MyTasksPage() {
                       {project.status !== 'completed' && (
                         <button
                           onClick={() => handleUpdateStatus(project.id, 'completed')}
-                          className="px-3 py-1 text-xs rounded-full bg-green-100 text-green-800 hover:bg-green-200 flex items-center"
+                          className="px-3 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 hover:bg-yellow-200 flex items-center"
                         >
                           <FiCheckCircle className="mr-1" /> Mark Complete
                         </button>

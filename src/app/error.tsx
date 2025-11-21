@@ -22,7 +22,7 @@ export default function Error({
         <div className="space-x-4">
           <button
             onClick={reset}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-yellow-500 text-gray-900 rounded hover:bg-yellow-600 transition-colors"
           >
             Try again
           </button>

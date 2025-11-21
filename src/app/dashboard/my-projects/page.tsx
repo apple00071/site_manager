@@ -80,7 +80,7 @@ export default function MyProjectsPage() {
       )}
 
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">My Projects</h1>
+        <h1 className="text-2xl font-bold text-gray-900 lg:hidden">My Projects</h1>
       </div>
 
       {projects.length > 0 ? (

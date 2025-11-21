@@ -328,7 +328,7 @@ export default function NewProjectPage() {
     <div className="space-y-4 sm:space-y-6 safe-area-inset-bottom">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Create New Project</h1>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 lg:hidden">Create New Project</h1>
           <p className="text-sm sm:text-base text-gray-600 mt-1">Add a new interior design project with complete details</p>
         </div>
       </div>
@@ -607,12 +607,10 @@ export default function NewProjectPage() {
                     </label>
                     <input
                       id="project_budget"
-                      type="number"
-                      step="0.01"
+                      type="text"
                       {...register('project_budget')}
-                      placeholder="Enter project budget in ₹"
+                      placeholder="Enter project budget (e.g., 1500000, 15,00,000, or 15L)"
                       className="block w-full px-4 py-3 sm:py-4 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white touch-target"
-                      inputMode="decimal"
                     />
                     {errors.project_budget && (
                       <p className="mt-2 text-xs sm:text-sm text-red-600 flex items-center">
