@@ -488,8 +488,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateUserEmail = async (email: string) => {
-    const { error } = await supabase.auth.updateUser({ email });
-    if (error) throw error;
+    const response = await fetch('/api/auth/update-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || 'Failed to update email');
+    }
   };
 
   const value = {

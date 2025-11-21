@@ -14,7 +14,7 @@ const createUserSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').regex(/^[a-zA-Z0-9_\.\-]+$/, 'Only letters, numbers, underscore, dot and hyphen allowed'),
   full_name: z.string().min(2, 'Full name must be at least 2 characters'),
   designation: z.string().min(2, 'Designation must be at least 2 characters').optional().or(z.literal('')),
-  role: z.enum(['admin', 'designer', 'site_supervisor', 'employee']),
+  role: z.enum(['admin', 'employee']),
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
 });
@@ -30,7 +30,7 @@ const updateUserSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').regex(/^[a-zA-Z0-9_\.\-]+$/, 'Only letters, numbers, underscore, dot and hyphen allowed'),
   full_name: z.string().min(2, 'Full name must be at least 2 characters'),
   designation: z.string().min(2, 'Designation must be at least 2 characters').optional().or(z.literal('')),
-  role: z.enum(['admin', 'designer', 'site_supervisor', 'employee']),
+  role: z.enum(['admin', 'employee']),
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
 });

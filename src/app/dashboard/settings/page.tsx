@@ -161,17 +161,25 @@ export default function SettingsPage() {
 
       // Update password if provided
       if (data.current_password && data.new_password) {
-        const { error: passwordError } = await supabase.auth.updateUser({
-          password: data.new_password,
+        const response = await fetch('/api/auth/change-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ new_password: data.new_password }),
         });
 
-        if (passwordError) throw passwordError;
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload.error || 'Failed to update password');
+        }
       }
 
       setMessage({
         type: 'success',
         text: 'Profile updated successfully',
       });
+
+      // Redirect back to dashboard after successful update
+      router.push('/dashboard');
     } catch (error: any) {
       setMessage({
         type: 'error',

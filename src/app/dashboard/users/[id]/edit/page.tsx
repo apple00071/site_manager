@@ -19,7 +19,7 @@ const userSchema = z.object({
     .regex(/^[a-zA-Z0-9_.-]+$/, 'Only letters, numbers, underscore, dot and hyphen allowed'),
   full_name: z.string().min(2, 'Full name is required'),
   designation: z.string().min(2, 'Designation is required'),
-  role: z.enum(['admin', 'designer', 'site_supervisor', 'employee']),
+  role: z.enum(['admin', 'employee']),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
 });
@@ -68,7 +68,7 @@ export default function EditUserPage() {
           username: data.username || '',
           full_name: data.full_name,
           designation: data.designation || '',
-          role: data.role,
+          role: data.role === 'admin' ? 'admin' : 'employee',
           phone_number: data.phone_number || '',
         });
       } catch (error) {
@@ -251,8 +251,6 @@ export default function EditUserPage() {
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                 >
                   <option value="employee">Employee</option>
-                  <option value="designer">Designer</option>
-                  <option value="site_supervisor">Site Supervisor</option>
                   <option value="admin">Admin</option>
                 </select>
                 {errors.role && (

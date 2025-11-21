@@ -136,12 +136,11 @@ export default function NewProjectPage() {
       try {
         setIsLoading(true);
         
-        // Fetch employees from users table
+        // Fetch team members from users table (all roles)
         console.log('Fetching employees...');
         const { data: employeesData, error: employeesError } = await supabase
           .from('users')
           .select('id, full_name, email, designation, role')
-          .eq('role', 'employee')
           .order('full_name', { ascending: true });
 
         if (employeesError) {
@@ -644,17 +643,17 @@ export default function NewProjectPage() {
                   ) : !employees || employees.length === 0 ? (
                     <div className="text-center py-4">
                       <p className="text-sm text-gray-500">No team members found in the system.</p>
-                      <p className="text-xs text-gray-400 mt-1">Please add users with the appropriate roles first.</p>
+                      <p className="text-xs text-gray-400 mt-1">Please add team members and set their designations (e.g., 'Designer') first in User Management.</p>
                     </div>
-                  ) : employees.filter(emp => emp.role === 'designer').length === 0 ? (
+                  ) : employees.filter(emp => emp.designation && emp.designation.toLowerCase().includes('designer')).length === 0 ? (
                     <div className="text-center py-4">
                       <p className="text-sm text-gray-500">No designers found.</p>
-                      <p className="text-xs text-gray-400 mt-1">Please add users with role 'designer' in User Management.</p>
+                      <p className="text-xs text-gray-400 mt-1">Please add users whose designation contains 'designer' in User Management.</p>
                       <p className="text-xs text-gray-400 mt-2">Total team members loaded: {employees.length}</p>
                     </div>
                   ) : (
                     employees
-                      .filter(emp => emp.role === 'designer')
+                      .filter(emp => emp.designation && emp.designation.toLowerCase().includes('designer'))
                       .map((employee) => (
                         <label
                           key={employee.id}

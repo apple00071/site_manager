@@ -15,7 +15,7 @@ const userSchema = z.object({
     .regex(/^[a-zA-Z0-9_.-]+$/, 'Only letters, numbers, underscore, dot and hyphen allowed'),
   email: z.string().email('Please enter a valid email address'),
   designation: z.string().min(2, 'Designation is required').optional().or(z.literal('')),
-  role: z.enum(['admin', 'designer', 'site_supervisor', 'employee']),
+  role: z.enum(['admin', 'employee']),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
 });
 
@@ -181,8 +181,6 @@ export default function NewUserPage() {
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               >
                 <option value="employee">Employee</option>
-                <option value="designer">Designer</option>
-                <option value="site_supervisor">Site Supervisor</option>
                 <option value="admin">Admin</option>
               </select>
               {errors.role && (

@@ -23,6 +23,10 @@ export const metadata: Metadata = {
       { url: '/icon-192x192.png', sizes: '192x192', type: 'image/png' },
     ],
   },
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export const viewport = {
