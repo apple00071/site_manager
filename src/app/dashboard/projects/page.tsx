@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { FiPlus, FiEdit2, FiTrash2, FiEye } from 'react-icons/fi';
+import { formatDateIST } from '@/lib/dateUtils';
 
 export default function ProjectsPage() {
   const { user, isAdmin } = useAuth();
@@ -208,7 +209,7 @@ export default function ProjectsPage() {
                         <div>
                           <span className="text-gray-500">Est. Completion:</span>
                           <span className="ml-1 text-gray-900 font-medium">
-                            {new Date(project.estimated_completion_date).toLocaleDateString()}
+                            {formatDateIST(project.estimated_completion_date)}
                           </span>
                         </div>
                       )}
@@ -344,7 +345,7 @@ export default function ProjectsPage() {
                   </span>
                 </td>
                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                  {project.estimated_completion_date ? new Date(project.estimated_completion_date).toLocaleDateString() : '-'}
+                  {project.estimated_completion_date ? formatDateIST(project.estimated_completion_date) : '-'}
                 </td>
                 <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <Link

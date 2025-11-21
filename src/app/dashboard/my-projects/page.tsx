@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { FiFileText, FiClock } from 'react-icons/fi';
+import { formatDateIST } from '@/lib/dateUtils';
 
 export default function MyProjectsPage() {
   const { user } = useAuth();
@@ -112,7 +113,7 @@ export default function MyProjectsPage() {
                     <FiClock className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
                     <p>
                       {project.deadline 
-                        ? `Due: ${new Date(project.deadline).toLocaleDateString()}`
+                        ? `Due: ${formatDateIST(project.deadline)}`
                         : 'No deadline'}
                     </p>
                   </div>

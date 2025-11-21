@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { FiPlus, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import Link from 'next/link';
+import { formatDateIST } from '@/lib/dateUtils';
 
 export default function UsersPage() {
   const { user, isAdmin } = useAuth();
@@ -112,7 +113,7 @@ export default function UsersPage() {
                     }`}>
                       {user.role}
                     </span>
-                    <span>{new Date(user.created_at).toLocaleDateString()}</span>
+                    <span>{formatDateIST(user.created_at)}</span>
                   </div>
                 </div>
                 <div className="flex space-x-1 ml-4">
@@ -190,7 +191,7 @@ export default function UsersPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(user.created_at).toLocaleDateString()}
+                    {formatDateIST(user.created_at)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <Link

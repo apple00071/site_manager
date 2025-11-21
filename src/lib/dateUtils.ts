@@ -48,28 +48,22 @@ export function formatDateTimeIST(dateString: string | Date): string {
 }
 
 /**
- * Format date in a more readable format (e.g., "2 Nov, 2025")
+ * Format date in a more readable format.
+ * For consistency, this uses the same DD/MM/YYYY IST format as formatDateIST.
  * @param dateString - ISO date string or Date object
- * @returns Formatted date string
+ * @returns Formatted date string (e.g., "25/12/2024")
  */
 export function formatDateReadable(dateString: string | Date): string {
-  const date = new Date(dateString);
-  
-  return date.toLocaleDateString('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatDateIST(dateString);
 }
 
 /**
- * Format date and time in readable format
+ * Format date and time in readable format using DD/MM/YYYY and 12-hour IST time
  * @param dateString - ISO date string or Date object
- * @returns Formatted string (e.g., "2 Nov, 2025 at 2:30 PM")
+ * @returns Formatted string (e.g., "25/12/2024, 2:30 PM")
  */
 export function formatDateTimeReadable(dateString: string | Date): string {
-  return `${formatDateReadable(dateString)} at ${formatTimeIST(dateString)}`;
+  return formatDateTimeIST(dateString);
 }
 
 /**

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatDateIST } from '@/lib/dateUtils';
 
 // Page runs as a client component to use interactive tabs/boards
 
@@ -428,11 +429,11 @@ export default function ProjectDetailsPage() {
                   <div className="space-y-4">
                     <div>
                       <dt className="text-sm font-medium text-gray-500 mb-1">Start Date</dt>
-                      <dd className="text-sm text-gray-900">{new Date(project.start_date).toLocaleDateString()}</dd>
+                      <dd className="text-sm text-gray-900">{formatDateIST(project.start_date)}</dd>
                     </div>
                     <div>
                       <dt className="text-sm font-medium text-gray-500 mb-1">Estimated Completion</dt>
-                      <dd className="text-sm text-gray-900">{new Date(project.estimated_completion_date).toLocaleDateString()}</dd>
+                      <dd className="text-sm text-gray-900">{formatDateIST(project.estimated_completion_date)}</dd>
                     </div>
                     {isAdmin && project.project_budget != null && (
                       <div>

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { supabase } from '@/lib/supabase';
+import { formatDateIST } from '@/lib/dateUtils';
 
 export default function AdminDashboard() {
   const { user, isAdmin, signOut, isLoading } = useAdminAuth();
@@ -204,7 +205,7 @@ export default function AdminDashboard() {
                         </svg>
                         <p>
                           Joined on{' '}
-                          {new Date(user.created_at).toLocaleDateString()}
+                          {formatDateIST(user.created_at)}
                         </p>
                       </div>
                     </div>

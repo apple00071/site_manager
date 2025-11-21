@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { FiPlus, FiClock, FiCheckCircle, FiAlertCircle, FiBriefcase, FiCheck, FiPlay, FiPause } from 'react-icons/fi';
+import { formatDateIST } from '@/lib/dateUtils';
 
 export default function DashboardPage() {
   const { user, isAdmin } = useAuth();
@@ -486,7 +487,7 @@ export default function DashboardPage() {
                             <div>
                               <span className="text-gray-500">Est. Completion:</span>
                               <span className="ml-1 text-gray-900 font-medium">
-                                {new Date(project.estimated_completion_date).toLocaleDateString()}
+                                {formatDateIST(project.estimated_completion_date)}
                               </span>
                             </div>
                           )}

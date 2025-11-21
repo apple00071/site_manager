@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { FiCheckCircle, FiClock, FiAlertCircle } from 'react-icons/fi';
+import { formatDateIST } from '@/lib/dateUtils';
 
 export default function MyTasksPage() {
   const { user } = useAuth();
@@ -119,7 +120,8 @@ export default function MyTasksPage() {
                         <>
                           <FiClock className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
                           <p>
-                            Due: {new Date(project.deadline).toLocaleDateString()}
+                            Due: {formatDateIST(project.deadline)}
+
                             {new Date(project.deadline) < new Date() && (
                               <span className="ml-2 text-red-600 font-medium flex items-center">
                                 <FiAlertCircle className="mr-1" /> Overdue
