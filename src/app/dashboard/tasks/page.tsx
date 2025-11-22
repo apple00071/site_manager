@@ -1,39 +1,79 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Calendar, dateFnsLocalizer, Views, View, SlotInfo } from 'react-big-calendar';
+import { format, parse, startOfWeek, getDay, addDays } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
-import ProfessionalGanttChart from '@/components/ProfessionalGanttChart';
-import { FiRefreshCw, FiFilter, FiSearch, FiPlus } from 'react-icons/fi';
+import { toISTISOString, formatDateTimeIST, getTodayDateString } from '@/lib/dateUtils';
+import { FiRefreshCw, FiSearch, FiPlus } from 'react-icons/fi';
 import Modal from '@/components/Modal';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
 
-type Task = {
+type CalendarTask = {
   id: string;
   title: string;
-  start_date: string | null;
-  estimated_completion_date: string | null;
+  description: string | null;
+  start_at: string;
+  end_at: string;
   status: 'todo' | 'in_progress' | 'blocked' | 'done';
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  created_at: string;
-  step: {
-    id: string;
-    title: string;
-    project: {
-      id: string;
-      title: string;
-      customer_name: string;
-      status: string;
-    };
-  } | null;
-  assigned_user?: {
-    id: string;
-    full_name: string;
-  } | null;
+  assigned_to: string | null;
+  project_id: string | null;
+  created_by: string;
+};
+
+type CalendarTaskEvent = {
+  id: string;
+  title: string;
+  start: Date;
+  end: Date;
+  resource: CalendarTask;
+};
+
+const locales: Record<string, any> = {};
+
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek: (date: Date) => startOfWeek(date, { weekStartsOn: 0 }),
+  getDay,
+  locales,
+});
+
+const TIME_OPTIONS = (() => {
+  const options: { value: string; label: string }[] = [];
+  for (let hour = 0; hour < 24; hour += 1) {
+    for (const minute of [0, 30]) {
+      const valueHour = hour.toString().padStart(2, '0');
+      const valueMinute = minute === 0 ? '00' : '30';
+      const value = `${valueHour}:${valueMinute}`;
+      const period = hour < 12 ? 'AM' : 'PM';
+      const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+      const labelMinute = valueMinute;
+      const label = `${displayHour}:${labelMinute} ${period}`;
+      options.push({ value, label });
+    }
+  }
+  return options;
+})();
+
+const CalendarEvent = ({ event }: { event: any }) => {
+  return (
+    <div>
+      <div className="text-xs font-semibold truncate">{event.title}</div>
+      {event?.resource?.description && (
+        <div className="text-[10px] leading-tight truncate">
+          {event.resource.description}
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default function TasksPage() {
   const { user } = useAuth();
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<CalendarTask[]>([]);
+  const [filteredTasks, setFilteredTasks] = useState<CalendarTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -46,13 +86,15 @@ export default function TasksPage() {
   const [updating, setUpdating] = useState(false);
   const [projects, setProjects] = useState<Array<{id: string; title: string; customer_name: string}>>([]);
   const [users, setUsers] = useState<Array<{id: string; full_name: string; email: string}>>([]);
+  const [calendarView, setCalendarView] = useState<string>(Views.WEEK as string);
+  const [calendarDate, setCalendarDate] = useState<Date>(new Date());
 
   const fetchTasks = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const response = await fetch('/api/tasks/all', {
+      const response = await fetch('/api/calendar-tasks', {
         cache: 'no-cache',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -60,11 +102,13 @@ export default function TasksPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch tasks');
+        const errorData = await response.json();
+        console.error('Calendar tasks fetch failed:', errorData);
+        throw new Error(errorData.error || 'Failed to fetch tasks');
       }
 
       const data = await response.json();
-      setTasks(data.tasks || []);
+      setTasks((data.tasks || []) as CalendarTask[]);
     } catch (err) {
       console.error('Error fetching tasks:', err);
       setError('Failed to load tasks. Please try again.');
@@ -106,12 +150,25 @@ export default function TasksPage() {
   const createTask = async (formData: any) => {
     try {
       setCreating(true);
-      const response = await fetch('/api/tasks/create', {
+      const { task_title, task_description, date, start_time, end_time, project_id, assigned_to, priority } = formData;
+
+      const start = new Date(`${date}T${start_time}:00`);
+      const end = new Date(`${date}T${end_time}:00`);
+
+      const response = await fetch('/api/calendar-tasks', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          title: task_title,
+          description: task_description || '',
+          start_at: toISTISOString(start),
+          end_at: toISTISOString(end),
+          project_id: project_id || null,
+          assigned_to: assigned_to || null,
+          priority,
+        }),
       });
 
       if (!response.ok) {
@@ -122,9 +179,7 @@ export default function TasksPage() {
 
       const result = await response.json();
       console.log('Task created:', result);
-      
-      
-      
+
       // Refresh tasks
       await fetchTasks();
       setShowCreateModal(false);
@@ -132,6 +187,9 @@ export default function TasksPage() {
       return { success: true };
     } catch (err: any) {
       console.error('Error creating task:', err);
+      if (typeof window !== 'undefined' && err?.message) {
+        window.alert(err.message);
+      }
       return { success: false, error: err.message };
     } finally {
       setCreating(false);
@@ -148,14 +206,26 @@ export default function TasksPage() {
   const updateTask = async (formData: any) => {
     try {
       setUpdating(true);
-      const response = await fetch('/api/tasks/update', {
+      const { task_title, task_description, date, start_time, end_time, project_id, assigned_to, priority, status } = formData;
+
+      const start = new Date(`${date}T${start_time}:00`);
+      const end = new Date(`${date}T${end_time}:00`);
+
+      const response = await fetch('/api/calendar-tasks', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           id: editingTask?.id,
-          ...formData,
+          title: task_title,
+          description: task_description || '',
+          start_at: toISTISOString(start),
+          end_at: toISTISOString(end),
+          project_id: project_id || null,
+          assigned_to: assigned_to || null,
+          priority,
+          status,
         }),
       });
 
@@ -175,6 +245,9 @@ export default function TasksPage() {
       return { success: true };
     } catch (err: any) {
       console.error('Error updating task:', err);
+      if (typeof window !== 'undefined' && err?.message) {
+        window.alert(err.message);
+      }
       return { success: false, error: err.message };
     } finally {
       setUpdating(false);
@@ -196,9 +269,7 @@ export default function TasksPage() {
       const search = searchTerm.toLowerCase();
       filtered = filtered.filter(task => 
         task.title.toLowerCase().includes(search) ||
-        (task.step && task.step.title.toLowerCase().includes(search)) ||
-        (task.step && task.step.project && task.step.project.title.toLowerCase().includes(search)) ||
-        (task.step && task.step.project && task.step.project.customer_name.toLowerCase().includes(search))
+        (task.description && task.description.toLowerCase().includes(search))
       );
     }
 
@@ -209,25 +280,16 @@ export default function TasksPage() {
 
     // Project filter
     if (projectFilter !== 'all') {
-      filtered = filtered.filter(task => 
-        task.step && task.step.project && task.step.project.id === projectFilter
-      );
+      filtered = filtered.filter(task => task.project_id === projectFilter);
     }
 
     setFilteredTasks(filtered);
   }, [tasks, searchTerm, statusFilter, projectFilter]);
 
-  // Get unique projects for filter dropdown
-  const uniqueProjects = tasks.reduce((acc, task) => {
-    // Handle tasks that might not have a step or project (daily tasks)
-    if (task.step && task.step.project) {
-      const project = task.step.project;
-      if (!acc.find(p => p.id === project.id)) {
-        acc.push(project);
-      }
-    }
-    return acc;
-  }, [] as Array<{ id: string; title: string; customer_name: string }>);
+  // Get unique projects for filter dropdown based on tasks that reference a project_id
+  const uniqueProjects = projects.filter(project =>
+    tasks.some(task => task.project_id === project.id)
+  );
 
   const getStatusCounts = () => {
     return {
@@ -240,6 +302,33 @@ export default function TasksPage() {
   };
 
   const statusCounts = getStatusCounts();
+
+  const events: CalendarTaskEvent[] = filteredTasks.map((task) => ({
+    id: task.id,
+    title: task.title,
+    start: new Date(task.start_at),
+    end: new Date(task.end_at),
+    resource: task,
+  }));
+
+  const eventStyleGetter = (event: CalendarTaskEvent) => {
+    let backgroundColor = '#9CA3AF';
+    if (event.resource.status === 'in_progress') backgroundColor = '#3B82F6';
+    else if (event.resource.status === 'blocked') backgroundColor = '#EF4444';
+    else if (event.resource.status === 'done') backgroundColor = '#10B981';
+
+    return {
+      style: {
+        backgroundColor,
+        borderRadius: '6px',
+        color: '#ffffff',
+        border: 'none',
+        display: 'block',
+        padding: '2px 4px',
+        fontSize: '0.75rem',
+      },
+    };
+  };
 
   if (error) {
     return (
@@ -264,7 +353,7 @@ export default function TasksPage() {
       <div className="flex justify-end">
         <button
           onClick={() => setShowCreateModal(true)}
-          className="px-4 sm:px-5 py-2.5 bg-yellow-500 text-gray-900 rounded-xl flex items-center justify-center hover:bg-yellow-600 active:bg-yellow-700 transition-all duration-200 shadow-sm font-bold text-sm sm:text-base touch-target"
+          className="px-4 sm:px-5 py-2.5 bg-yellow-500 text-gray-900 rounded-xl flex items-center justify-center hover:bg-yellow-600 active:bg-yellow-700 transition-colors font-bold text-sm sm:text-base touch-target"
         >
           <FiPlus className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
           <span className="whitespace-nowrap">Create Task</span>
@@ -359,11 +448,55 @@ export default function TasksPage() {
       </div>
 
       {/* Professional Gantt Chart */}
-      <ProfessionalGanttChart 
-        tasks={filteredTasks} 
-        loading={loading} 
-        onEditTask={handleEditTask}
-      />
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2 sm:p-4 h-[600px] sm:h-[700px]">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <button
+              className={`px-3 py-1 text-xs sm:text-sm rounded-full border ${calendarView === Views.DAY ? 'bg-yellow-500 text-gray-900 border-yellow-500' : 'bg-white text-gray-700 border-gray-200'}`}
+              onClick={() => setCalendarView(Views.DAY)}
+            >
+              Day
+            </button>
+            <button
+              className={`px-3 py-1 text-xs sm:text-sm rounded-full border ${calendarView === Views.WEEK ? 'bg-yellow-500 text-gray-900 border-yellow-500' : 'bg-white text-gray-700 border-gray-200'}`}
+              onClick={() => setCalendarView(Views.WEEK)}
+            >
+              Week
+            </button>
+            <button
+              className={`px-3 py-1 text-xs sm:text-sm rounded-full border ${calendarView === Views.MONTH ? 'bg-yellow-500 text-gray-900 border-yellow-500' : 'bg-white text-gray-700 border-gray-200'}`}
+              onClick={() => setCalendarView(Views.MONTH)}
+            >
+              Month
+            </button>
+          </div>
+          <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
+            <button
+              className="px-2 py-1 border border-gray-200 rounded-lg hover:bg-gray-50"
+              onClick={() => setCalendarDate(new Date())}
+            >
+              Today
+            </button>
+          </div>
+        </div>
+        <div className="h-full">
+          <Calendar
+            localizer={localizer}
+            events={events}
+            startAccessor="start"
+            endAccessor="end"
+            view={calendarView}
+            date={calendarDate}
+            onView={setCalendarView}
+            onNavigate={setCalendarDate}
+            selectable
+            onSelectEvent={(event: any) => handleEditTask(event.resource)}
+            style={{ height: '100%' }}
+            components={{ event: CalendarEvent }}
+            popup
+          />
+        </div>
+      </div>
 
       {/* Create Task Modal */}
       <Modal 
@@ -401,8 +534,9 @@ export default function TasksPage() {
       project_id: '',
       task_title: '',
       task_description: '',
-      start_date: '',
-      estimated_completion_date: '',
+      date: getTodayDateString(),
+      start_time: '10:00',
+      end_time: '11:00',
       assigned_to: '',
       priority: 'medium',
     });
@@ -516,27 +650,49 @@ export default function TasksPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Start Date
+                    Date
                   </label>
                   <input
                     type="date"
-                    value={formData.start_date}
-                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Due Date
+                    Start Time
                   </label>
-                  <input
-                    type="date"
-                    value={formData.estimated_completion_date}
-                    onChange={(e) => setFormData({ ...formData, estimated_completion_date: e.target.value })}
+                  <select
+                    value={formData.start_time}
+                    onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                  />
+                  >
+                    {TIME_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  End Time
+                </label>
+                <select
+                  value={formData.end_time}
+                  onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                >
+                  {TIME_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -606,14 +762,15 @@ export default function TasksPage() {
     ];
 
     const [formData, setFormData] = useState({
-      project_id: editingTask?.step?.project?.id || '',
+      project_id: editingTask?.project_id || '',
       task_title: editingTask?.title || '',
-      task_description: '',
-      start_date: editingTask?.start_date || '',
-      estimated_completion_date: editingTask?.estimated_completion_date || '',
+      task_description: editingTask?.description || '',
+      date: editingTask ? new Date(editingTask.start_at).toISOString().slice(0, 10) : getTodayDateString(),
+      start_time: editingTask ? new Date(editingTask.start_at).toTimeString().slice(0, 5) : '10:00',
+      end_time: editingTask ? new Date(editingTask.end_at).toTimeString().slice(0, 5) : '11:00',
       assigned_to: editingTask?.assigned_to || '',
-      priority: editingTask?.priority || 'medium' as 'low' | 'medium' | 'high' | 'urgent',
-      status: editingTask?.status || 'todo' as 'todo' | 'in_progress' | 'blocked' | 'done',
+      priority: (editingTask?.priority || 'medium') as 'low' | 'medium' | 'high' | 'urgent',
+      status: (editingTask?.status || 'todo') as 'todo' | 'in_progress' | 'blocked' | 'done',
     });
     const [formError, setFormError] = useState('');
     const [taskTemplate, setTaskTemplate] = useState('');
@@ -622,14 +779,15 @@ export default function TasksPage() {
     useEffect(() => {
       if (editingTask) {
         const updatedData = {
-          project_id: editingTask?.step?.project?.id || '',
+          project_id: editingTask?.project_id || '',
           task_title: editingTask?.title || '',
-          task_description: '',
-          start_date: editingTask?.start_date || '',
-          estimated_completion_date: editingTask?.estimated_completion_date || '',
+          task_description: editingTask?.description || '',
+          date: new Date(editingTask.start_at).toISOString().slice(0, 10),
+          start_time: new Date(editingTask.start_at).toTimeString().slice(0, 5),
+          end_time: new Date(editingTask.end_at).toTimeString().slice(0, 5),
           assigned_to: editingTask?.assigned_to || '',
-          priority: editingTask?.priority || 'medium' as 'low' | 'medium' | 'high' | 'urgent',
-          status: editingTask?.status || 'todo' as 'todo' | 'in_progress' | 'blocked' | 'done',
+          priority: (editingTask?.priority || 'medium') as 'low' | 'medium' | 'high' | 'urgent',
+          status: (editingTask?.status || 'todo') as 'todo' | 'in_progress' | 'blocked' | 'done',
         };
         setFormData(updatedData);
 
@@ -747,27 +905,49 @@ export default function TasksPage() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Start Date
+              Date
             </label>
             <input
               type="date"
-              value={formData.start_date}
-              onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+              value={formData.date}
+              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Due Date
+              Start Time
             </label>
-            <input
-              type="date"
-              value={formData.estimated_completion_date}
-              onChange={(e) => setFormData({ ...formData, estimated_completion_date: e.target.value })}
+            <select
+              value={formData.start_time}
+              onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-            />
+            >
+              {TIME_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            End Time
+          </label>
+          <select
+            value={formData.end_time}
+            onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+          >
+            {TIME_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="grid grid-cols-2 gap-4">

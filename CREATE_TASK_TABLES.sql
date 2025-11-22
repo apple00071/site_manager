@@ -39,6 +39,28 @@ CREATE TABLE IF NOT EXISTS project_step_tasks (
   CONSTRAINT check_task_status CHECK (status IN ('todo', 'in_progress', 'blocked', 'done'))
 );
 
+-- Generic calendar tasks table (not tied to project steps)
+CREATE TABLE IF NOT EXISTS tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  start_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  end_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'todo',
+  priority VARCHAR(50) NOT NULL DEFAULT 'medium',
+  assigned_to UUID REFERENCES users(id) ON DELETE SET NULL,
+  project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
+  created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  CONSTRAINT check_calendar_task_status CHECK (status IN ('todo', 'in_progress', 'blocked', 'done')),
+  CONSTRAINT check_calendar_task_priority CHECK (priority IN ('low', 'medium', 'high', 'urgent'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_tasks_start_at ON tasks(start_at);
+CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_project_steps_project_id ON project_steps(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_steps_status ON project_steps(status);
