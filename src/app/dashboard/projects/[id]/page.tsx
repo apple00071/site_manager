@@ -250,7 +250,7 @@ export default function ProjectDetailsPage() {
 
       {/* Mobile Tab Widget - Floating Action Button */}
       {mounted && (
-        <div className="lg:hidden fixed bottom-6 right-6 z-50">
+        <div className="lg:hidden fixed right-6 bottom-24 z-50">
         <div className="relative">
           <button
             onClick={() => setShowTabWidget(!showTabWidget)}
