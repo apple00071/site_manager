@@ -86,7 +86,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -188,8 +188,9 @@ export default function DashboardLayout({
         </div>
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+      {/* Main content - allow natural page scroll (no overflow-hidden here) */}
+      <div className="flex-1 flex flex-col bg-gray-50">
+
         {/* Mobile menu button - floating */}
         <button
           onClick={() => setSidebarOpen(true)}
@@ -212,8 +213,8 @@ export default function DashboardLayout({
           </div>
         </header>
 
-        {/* Main content area with appropriate padding */}
-        <main className="flex-1 bg-gray-50">
+        {/* Main content area with appropriate padding and vertical scroll */}
+        <main className="flex-1 overflow-y-auto bg-gray-50">
           <div className="p-4 sm:p-6 lg:p-8 pt-24 lg:pt-0">
             {children}
           </div>
