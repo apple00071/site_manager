@@ -14,6 +14,7 @@ const createUpdateSchema = z.object({
   update_date: z.string(), // ISO date string
   description: z.string().min(1),
   photos: z.array(z.string()).optional().default([]),
+  audio_url: z.string().optional().nullable(),
 });
 
 const updateUpdateSchema = z.object({
@@ -21,6 +22,7 @@ const updateUpdateSchema = z.object({
   update_date: z.string().optional(),
   description: z.string().min(1).optional(),
   photos: z.array(z.string()).optional(),
+  audio_url: z.string().optional().nullable(),
 });
 
 // GET - Fetch project updates
@@ -85,7 +87,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { project_id, update_date, description, photos } = parsed.data;
+    const { project_id, update_date, description, photos, audio_url } = parsed.data;
 
     const { data: update, error } = await supabaseAdmin
       .from('project_updates')
@@ -95,6 +97,7 @@ export async function POST(request: NextRequest) {
         update_date,
         description,
         photos,
+        audio_url,
       })
       .select(`
         *,
