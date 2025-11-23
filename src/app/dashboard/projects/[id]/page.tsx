@@ -228,7 +228,8 @@ export default function ProjectDetailsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 safe-area-inset-bottom lg:pt-0">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 safe-area-inset-bottom lg:pt-0 h-full flex flex-col min-h-0 overflow-hidden">
+
       {/* Mobile-friendly header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-4">
         <div className="flex-1 min-w-0">
@@ -337,7 +338,8 @@ export default function ProjectDetailsPage() {
       )}
 
       {/* Desktop Tabs */}
-      <div className="rounded-xl">
+      <div className="rounded-xl flex flex-col min-h-0">
+
         <div className="hidden lg:block border-b border-gray-200 bg-white rounded-xl shadow-card">
           <nav className="flex" aria-label="Tabs">
             <button
@@ -394,7 +396,8 @@ export default function ProjectDetailsPage() {
         </div>
 
         {/* Tab Content */}
-        <div className="pt-4 sm:pt-6">
+        <div className="pt-4 sm:pt-6 flex-1 min-h-0 overflow-hidden">
+
           {activeTab === 'details' && (
             <div className="space-y-6">
               {/* Project Information */}

@@ -97,6 +97,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
   const audioChunksRef = useRef<Blob[]>([]);
   const audioBlobRef = useRef<Blob | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const messagesListRef = useRef<HTMLDivElement | null>(null);
   const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
   const [uploadingAudio, setUploadingAudio] = useState(false);
   
@@ -110,6 +111,21 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     fetchUpdates();
     fetchStages();
   }, [projectId]);
+
+  useEffect(() => {
+    const el = messagesListRef.current;
+    if (!el) return;
+    const toBottom = () => {
+      el.scrollTop = el.scrollHeight;
+    };
+    toBottom();
+    const raf = requestAnimationFrame(toBottom);
+    const t = setTimeout(toBottom, 100);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t);
+    };
+  }, [updates]);
 
   const fetchUpdates = async () => {
     try {
@@ -444,30 +460,30 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     );
   }
 
-  // Render updates blended into the parent Updates tab card. Only the messages list has its own
-  // internal scroll; the tab/header container from the parent page remains the outer card.
+  // Render Updates content as a normal flow section with extra bottom padding so the
+  // fixed composer does not cover the last messages. Scrolling is done by the main page.
   return (
-    <div className="space-y-4 sm:space-y-6">
-
-      {updates.length > 0 && (
-        <div className="mb-4 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm text-gray-600 gap-1">
-          <div>
-            Updates this week:{' '}
-            <span className="font-semibold text-gray-800">{updatesThisWeek}</span>
-          </div>
-          {lastUpdate && (
+    <>
+      <div className="flex flex-col min-h-0 h-full bg-transparent overflow-hidden">
+        {updates.length > 0 && (
+          <div className="mb-4 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm text-gray-600 gap-1">
             <div>
-              Last update:{' '}
-              <span className="font-semibold text-gray-800">
-                {formatDateTimeReadable(lastUpdate.created_at)}
-              </span>
+              Updates this week:{' '}
+              <span className="font-semibold text-gray-800">{updatesThisWeek}</span>
             </div>
-          )}
-        </div>
-      )}
+            {lastUpdate && (
+              <div>
+                Last update:{' '}
+                <span className="font-semibold text-gray-800">
+                  {formatDateTimeReadable(lastUpdate.created_at)}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
-      {/* Timeline / messages list - rely on main page scroll, no internal overflow */}
-      <div className="mt-2 space-y-4 md:space-y-6 pb-24 pr-1">
+        {/* Timeline / messages list - internal scroll within the Updates tab */}
+        <div ref={messagesListRef} className="flex-1 min-h-0 mt-2 pr-1 overflow-y-auto space-y-4 md:space-y-6">
         {groupedUpdates.length === 0 ? (
           <p className="text-sm text-gray-500 text-center py-8">No updates yet. Add your first update!</p>
         ) : (
@@ -543,9 +559,8 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
           ))
         )}
       </div>
-
-      {/* Composer - sticks to bottom of the viewport while respecting the content column */}
-      <div className="sticky bottom-0 mt-4 md:mt-6 pt-3 md:pt-4 border-t border-gray-200 bg-white z-10">
+      {/* Composer inside Updates tab container */}
+        <div className="border-t border-gray-200 bg-white px-4 sm:px-6 lg:px-8 pt-3 pb-3">
         <h4 className="text-sm font-medium text-gray-900 mb-2">Send an update</h4>
         <div className="space-y-3">
           <div className="flex flex-col md:flex-row md:items-center md:gap-2">
@@ -662,9 +677,10 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
           )}
         </div>
       </div>
+      </div>
 
-      {/* Enhanced Image Modal with Navigation */}
-      <ImageModal
+        {/* Enhanced Image Modal with Navigation */}
+        <ImageModal
         images={currentImages}
         currentIndex={selectedImageIndex}
         isOpen={!!selectedImage}
@@ -678,7 +694,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
           setSelectedImage(currentImages[index]);
         }}
       />
-    </div>
+    </>
   );
 }
 
