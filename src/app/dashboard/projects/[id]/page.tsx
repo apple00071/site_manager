@@ -337,8 +337,8 @@ export default function ProjectDetailsPage() {
       )}
 
       {/* Desktop Tabs */}
-      <div className="bg-white rounded-xl shadow-card border border-gray-100 overflow-hidden">
-        <div className="hidden lg:block border-b border-gray-200">
+      <div className="rounded-xl">
+        <div className="hidden lg:block border-b border-gray-200 bg-white rounded-xl shadow-card">
           <nav className="flex" aria-label="Tabs">
             <button
               className={`flex-1 py-4 px-6 text-sm font-semibold text-center border-b-2 transition-all duration-200 ${
@@ -394,7 +394,7 @@ export default function ProjectDetailsPage() {
         </div>
 
         {/* Tab Content */}
-        <div className="p-4 sm:p-6">
+        <div className="pt-4 sm:pt-6">
           {activeTab === 'details' && (
             <div className="space-y-6">
               {/* Project Information */}

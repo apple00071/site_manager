@@ -93,10 +93,10 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [currentImages, setCurrentImages] = useState<string[]>([]);
-  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const mediaRecorderRef = useRef<any>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioBlobRef = useRef<Blob | null>(null);
+  const messagesListRef = useRef<HTMLDivElement | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
   const [uploadingAudio, setUploadingAudio] = useState(false);
@@ -437,19 +437,10 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
 
   const lastUpdate = updates.length > 0 ? updates[updates.length - 1] : null;
 
-  // Scroll to bottom of the messages list when the tab opens
   useEffect(() => {
-    if (!messagesContainerRef.current) return;
-    const container = messagesContainerRef.current;
+    const container = messagesListRef.current;
+    if (!container) return;
     container.scrollTop = container.scrollHeight;
-  }, []);
-
-  // After new updates arrive (e.g. after sending), scroll messages to bottom smoothly
-  useEffect(() => {
-    if (!messagesContainerRef.current) return;
-    if (updates.length === 0) return;
-    const container = messagesContainerRef.current;
-    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
   }, [updates.length]);
 
   if (loading) {
@@ -460,8 +451,10 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     );
   }
 
+  // Render updates in a chat-style card with its own scroll area and composer at the bottom
+  // On small screens give the card a bit more height so more recent messages are visible
   return (
-    <div className="bg-white shadow overflow-hidden sm:rounded-lg p-3 sm:p-4 md:p-6 flex flex-col h-[70vh]">
+    <div className="bg-white shadow overflow-hidden sm:rounded-lg p-3 sm:p-4 md:p-6 flex flex-col h-[80vh] md:h-[70vh]">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 md:mb-6">
         <h3 className="text-base sm:text-lg font-medium leading-6 text-gray-900">Project Updates</h3>
       </div>
@@ -483,9 +476,9 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         </div>
       )}
 
-      {/* Timeline / messages list */}
+      {/* Timeline / messages list with its own vertical scroll */}
       <div
-        ref={messagesContainerRef}
+        ref={messagesListRef}
         className="mt-2 space-y-4 md:space-y-6 flex-1 overflow-y-auto pr-1"
       >
         {groupedUpdates.length === 0 ? (
@@ -564,30 +557,40 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         )}
       </div>
 
-      {/* Composer */}
-      <div className="mt-4 md:mt-6 pt-3 md:pt-4 border-t border-gray-200">
+      {/* Composer at the bottom of the Updates section (no sticky/fixed, so it respects layout and sidebar) */}
+      <div className="mt-4 md:mt-6 pt-3 md:pt-4 border-t border-gray-200 bg-white">
         <h4 className="text-sm font-medium text-gray-900 mb-2">Send an update</h4>
         <div className="space-y-3">
-          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5">
-            <select
-              className="text-xs sm:text-sm rounded-md border border-gray-200 bg-white px-2 py-1 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500"
-              value={selectedStageId}
-              onChange={(e) => setSelectedStageId(e.target.value)}
-            >
-              <option value="all">All stages</option>
-              {stages.map((stage) => (
-                <option key={stage.id} value={stage.id}>
-                  {stage.title}
-                </option>
-              ))}
-            </select>
-            <input
-              type="text"
-              value={form.description}
-              onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Write update for this project..."
-              className="flex-1 bg-transparent border-none text-sm focus:outline-none focus:ring-0 px-1"
-            />
+          <div className="flex flex-col md:flex-row md:items-center md:gap-2">
+            {/* Row 1: stage selector (full width on mobile) */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 md:w-40 md:flex-shrink-0">
+              <select
+                className="w-full text-xs sm:text-sm rounded-md border border-gray-200 bg-white px-2 py-1 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500"
+                value={selectedStageId}
+                onChange={(e) => setSelectedStageId(e.target.value)}
+              >
+                <option value="all">All stages</option>
+                {stages.map((stage) => (
+                  <option key={stage.id} value={stage.id}>
+                    {stage.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Row 2: full-width text field */}
+            <div className="mt-2 md:mt-0 flex-1 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5">
+              <input
+                type="text"
+                value={form.description}
+                onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Write update for this project..."
+                className="w-full bg-transparent border-none text-sm focus:outline-none focus:ring-0 px-1"
+              />
+            </div>
+
+            {/* Row 3: actions (attach, mic, send) */}
+            <div className="mt-2 md:mt-0 flex items-center justify-end gap-2 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 md:bg-transparent md:border-none md:px-0 md:py-0">
             <label className="flex items-center justify-center w-9 h-9 rounded-md border border-gray-300 bg-white cursor-pointer hover:bg-gray-100">
               <span className="sr-only">Attach photos</span>
               <svg
@@ -635,6 +638,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
             >
               {saving ? 'Sending...' : 'Send'}
             </button>
+            </div>
           </div>
           {isRecording && (
             <p className="text-xs text-red-500">Recording...</p>
