@@ -213,8 +213,8 @@ export default function DashboardLayout({
           </div>
         </header>
 
-        {/* Main content area with appropriate padding and vertical scroll */}
-        <main className="flex-1 overflow-y-auto bg-gray-50">
+        {/* Main content area with appropriate padding; page itself handles scrolling */}
+        <main className="flex-1 bg-gray-50">
           <div className="p-4 sm:p-6 lg:p-8 pt-24 lg:pt-0">
             {children}
           </div>

@@ -96,7 +96,6 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
   const mediaRecorderRef = useRef<any>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioBlobRef = useRef<Blob | null>(null);
-  const messagesListRef = useRef<HTMLDivElement | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
   const [uploadingAudio, setUploadingAudio] = useState(false);
@@ -437,12 +436,6 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
 
   const lastUpdate = updates.length > 0 ? updates[updates.length - 1] : null;
 
-  useEffect(() => {
-    const container = messagesListRef.current;
-    if (!container) return;
-    container.scrollTop = container.scrollHeight;
-  }, [updates.length]);
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -451,13 +444,10 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     );
   }
 
-  // Render updates in a chat-style card with its own scroll area and composer at the bottom
-  // On small screens give the card a bit more height so more recent messages are visible
+  // Render updates blended into the parent Updates tab card. Only the messages list has its own
+  // internal scroll; the tab/header container from the parent page remains the outer card.
   return (
-    <div className="bg-white shadow overflow-hidden sm:rounded-lg p-3 sm:p-4 md:p-6 flex flex-col h-[80vh] md:h-[70vh]">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 md:mb-6">
-        <h3 className="text-base sm:text-lg font-medium leading-6 text-gray-900">Project Updates</h3>
-      </div>
+    <div className="space-y-4 sm:space-y-6">
 
       {updates.length > 0 && (
         <div className="mb-4 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm text-gray-600 gap-1">
@@ -476,11 +466,8 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         </div>
       )}
 
-      {/* Timeline / messages list with its own vertical scroll */}
-      <div
-        ref={messagesListRef}
-        className="mt-2 space-y-4 md:space-y-6 flex-1 overflow-y-auto pr-1"
-      >
+      {/* Timeline / messages list - rely on main page scroll, no internal overflow */}
+      <div className="mt-2 space-y-4 md:space-y-6 pb-24 pr-1">
         {groupedUpdates.length === 0 ? (
           <p className="text-sm text-gray-500 text-center py-8">No updates yet. Add your first update!</p>
         ) : (
@@ -557,8 +544,8 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         )}
       </div>
 
-      {/* Composer at the bottom of the Updates section (no sticky/fixed, so it respects layout and sidebar) */}
-      <div className="mt-4 md:mt-6 pt-3 md:pt-4 border-t border-gray-200 bg-white">
+      {/* Composer - sticks to bottom of the viewport while respecting the content column */}
+      <div className="sticky bottom-0 mt-4 md:mt-6 pt-3 md:pt-4 border-t border-gray-200 bg-white z-10">
         <h4 className="text-sm font-medium text-gray-900 mb-2">Send an update</h4>
         <div className="space-y-3">
           <div className="flex flex-col md:flex-row md:items-center md:gap-2">
