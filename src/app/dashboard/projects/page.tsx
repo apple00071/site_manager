@@ -307,20 +307,20 @@ export default function ProjectsPage() {
           </thead>
           <tbody className="bg-white divide-y divide-gray-100">
             {projects.map((project) => (
-              <tr key={project.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-4 py-4">
+              <tr key={project.id} className="hover:bg-gray-50 transition-colors cursor-pointer group">
+                <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-4 py-4">
                   <div className="text-sm font-semibold text-gray-900">{project.title}</div>
                 </td>
-                <td className="px-4 py-4 whitespace-nowrap">
+                <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-4 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-900">{project.customer_name || 'N/A'}</div>
                 </td>
-                <td className="px-4 py-4 whitespace-nowrap">
+                <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-4 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-900">{project.flat_number || '-'}</div>
                 </td>
-                <td className="px-4 py-4 whitespace-nowrap">
+                <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-4 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-900">{project.phone_number || '-'}</div>
                 </td>
-                <td className="px-4 py-4 whitespace-nowrap">
+                <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-4 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
                     project.workflow_stage === 'design_completed'
                       ? 'bg-green-100 text-green-700'
@@ -333,7 +333,7 @@ export default function ProjectsPage() {
                     {project.workflow_stage ? project.workflow_stage.replace(/_/g, ' ') : 'Not Started'}
                   </span>
                 </td>
-                <td className="px-4 py-4 whitespace-nowrap">
+                <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-4 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
                     project.status === 'completed'
                       ? 'bg-green-100 text-green-700'
@@ -344,32 +344,41 @@ export default function ProjectsPage() {
                     {project.status ? project.status.replace(/_/g, ' ') : 'Pending'}
                   </span>
                 </td>
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
                   {project.estimated_completion_date ? formatDateIST(project.estimated_completion_date) : '-'}
                 </td>
                 <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <Link
-                    href={`/dashboard/projects/${project.id}`}
-                    className="text-yellow-600 hover:text-yellow-700 mr-4 inline-flex items-center"
-                  >
-                    <FiEye className="h-4 w-4" />
-                  </Link>
-                  {isAdmin && (
-                    <>
-                      <Link
-                        href={`/dashboard/projects/${project.id}/edit`}
-                        className="text-yellow-600 hover:text-yellow-700 mr-4 inline-flex items-center"
-                      >
-                        <FiEdit2 className="h-4 w-4" />
-                      </Link>
-                      <button
-                        onClick={() => handleDeleteProject(project.id)}
-                        className="text-red-600 hover:text-red-700 inline-flex items-centers"
-                      >
-                        <FiTrash2 className="h-4 w-4" />
-                      </button>
-                    </>
-                  )}
+                  <div className="flex items-center justify-end gap-2">
+                    <Link
+                      href={`/dashboard/projects/${project.id}`}
+                      className="text-yellow-600 hover:text-yellow-700 inline-flex items-center p-1 rounded hover:bg-yellow-50 transition-colors"
+                      title="View project"
+                    >
+                      <FiEye className="h-4 w-4" />
+                    </Link>
+                    {isAdmin && (
+                      <>
+                        <Link
+                          href={`/dashboard/projects/${project.id}/edit`}
+                          className="text-yellow-600 hover:text-yellow-700 inline-flex items-center p-1 rounded hover:bg-yellow-50 transition-colors"
+                          title="Edit project"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <FiEdit2 className="h-4 w-4" />
+                        </Link>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteProject(project.id);
+                          }}
+                          className="text-red-600 hover:text-red-700 inline-flex items-center p-1 rounded hover:bg-red-50 transition-colors"
+                          title="Delete project"
+                        >
+                          <FiTrash2 className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

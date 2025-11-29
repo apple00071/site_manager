@@ -23,6 +23,11 @@ type ProjectUpdate = {
   };
 };
 
+type ProjectStage = {
+  id: string;
+  title: string;
+};
+
 type UpdatesTabProps = {
   projectId: string;
 };
@@ -88,19 +93,19 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
-  const [stages, setStages] = useState<{ id: string; title: string }[]>([]);
-  const [selectedStageId, setSelectedStageId] = useState<string>('all');
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [selectedStageId, setSelectedStageId] = useState('all');
+  const [stages, setStages] = useState<ProjectStage[]>([]);
+  const [showAll, setShowAll] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [currentImages, setCurrentImages] = useState<string[]>([]);
   const mediaRecorderRef = useRef<any>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioBlobRef = useRef<Blob | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const messagesListRef = useRef<HTMLDivElement | null>(null);
   const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
-  const [uploadingAudio, setUploadingAudio] = useState(false);
-  
+  const updatesListRef = useRef<HTMLDivElement | null>(null);
   const [form, setForm] = useState({
     update_date: getTodayDateString(),
     description: '',
@@ -113,7 +118,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
   }, [projectId]);
 
   useEffect(() => {
-    const el = messagesListRef.current;
+    const el = updatesListRef.current;
     if (!el) return;
     const toBottom = () => {
       el.scrollTop = el.scrollHeight;
@@ -131,17 +136,14 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     try {
       setLoading(true);
       const response = await fetch(`/api/project-updates?project_id=${projectId}`);
-      
-      if (!response.ok) {
-        console.error('Failed to fetch updates');
-        return;
-      }
-
+      if (!response.ok) throw new Error('Failed to fetch updates');
       const { updates: fetchedUpdates } = await response.json();
-      // Sort oldest -> newest so the latest messages are at the bottom like WhatsApp
+      
+      // Sort newest -> oldest for latest first display
       const sortedUpdates = (fetchedUpdates || []).slice().sort((a: any, b: any) =>
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
+      
       setUpdates(sortedUpdates);
     } catch (error) {
       console.error('Error fetching updates:', error);
@@ -245,7 +247,35 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         return;
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Check if mediaDevices.getUserMedia is available
+      if (!navigator.mediaDevices.getUserMedia) {
+        alert('Audio recording is not supported in this browser. Please try a different browser like Chrome or Firefox.');
+        return;
+      }
+
+      // Request microphone access with better error handling
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          } 
+        });
+      } catch (error: any) {
+        if (error.name === 'NotAllowedError') {
+          alert('Microphone access was denied. Please allow microphone access to record voice notes.');
+        } else if (error.name === 'NotFoundError') {
+          alert('No microphone found. Please connect a microphone and try again.');
+        } else if (error.name === 'NotReadableError') {
+          alert('Microphone is being used by another application. Please close other apps using the microphone and try again.');
+        } else {
+          alert('Unable to access microphone: ' + error.message);
+        }
+        return;
+      }
+
       const MediaRecorderConstructor = (window as any).MediaRecorder;
 
       if (!MediaRecorderConstructor) {
@@ -380,7 +410,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
       }
 
       const { update } = await response.json();
-      // Append new update at the end so it appears at the bottom of the chat
+      // Append new update to the list
       setUpdates(prev => [...prev, update]);
       setForm({
         update_date: getTodayDateString(),
@@ -460,227 +490,217 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     );
   }
 
-  // Render Updates content as a normal flow section with extra bottom padding so the
-  // fixed composer does not cover the last messages. Scrolling is done by the main page.
+  // Render Updates content with composer at top and messages below
   return (
     <>
-      <div className="flex flex-col min-h-0 h-full bg-transparent overflow-hidden">
-        {updates.length > 0 && (
-          <div className="mb-4 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm text-gray-600 gap-1">
-            <div>
-              Updates this week:{' '}
-              <span className="font-semibold text-gray-800">{updatesThisWeek}</span>
+      <div className="flex flex-col min-h-0 h-full bg-white overflow-hidden">
+        {/* Add Update Section - Now at the top */}
+        <div className="border-t border-gray-200 bg-gray-50 p-4 order-2">
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              {/* Stage selector */}
+              <div className="flex-1 sm:flex-none sm:w-48">
+                <select
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                  value={selectedStageId}
+                  onChange={(e) => setSelectedStageId(e.target.value)}
+                >
+                  <option value="all">All stages</option>
+                  {stages.map((stage) => (
+                    <option key={stage.id} value={stage.id}>
+                      {stage.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            {lastUpdate && (
-              <div>
-                Last update:{' '}
-                <span className="font-semibold text-gray-800">
-                  {formatDateTimeReadable(lastUpdate.created_at)}
-                </span>
+
+            {/* Description field */}
+            <div>
+              <textarea
+                value={form.description}
+                onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="What's the progress on this project?"
+                rows={3}
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 resize-none"
+              />
+            </div>
+
+            {/* Media upload and actions */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {/* Photo upload */}
+                <label className="flex items-center justify-center w-10 h-10 rounded-lg border border-gray-300 bg-white cursor-pointer hover:bg-gray-50 transition-colors">
+                  <svg
+                    className="w-5 h-5 text-gray-700"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handlePhotoUpload}
+                    disabled={uploadingPhotos}
+                    className="hidden"
+                  />
+                </label>
+                
+                {/* Voice recording */}
+                <button
+                  type="button"
+                  onClick={isRecording ? stopRecording : startRecording}
+                  disabled={saving || uploadingAudio || isRecording}
+                  aria-label={isRecording ? 'Stop recording' : 'Record voice'}
+                  className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                >
+                  <svg
+                    className={`w-5 h-5 ${isRecording ? 'text-red-500' : 'text-gray-700'}`}
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 14a3 3 0 0 0 3-3V7a3 3 0 0 0-6 0v4a3 3 0 0 0 3 3z" />
+                    <path d="M7 11a1 1 0 1 0-2 0 7 7 0 0 0 6 6.93V20H9a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2h-2v-2.07A7 7 0 0 0 19 11a1 1 0 1 0-2 0 5 5 0 0 1-10 0z" />
+                  </svg>
+                </button>
+              </div>
+              
+              <button
+                onClick={handleSubmit}
+                disabled={saving || uploadingPhotos || uploadingAudio || isRecording}
+                className="px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-semibold disabled:opacity-50 transition-colors"
+              >
+                {saving ? 'Posting...' : 'Post Update'}
+              </button>
+            </div>
+            
+            {/* Status indicators */}
+            {isRecording && (
+              <div className="flex items-center gap-2 text-sm text-red-500">
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                Recording voice note...
+              </div>
+            )}
+            
+            {uploadingPhotos && (
+              <p className="text-sm text-gray-500">Uploading photos...</p>
+            )}
+            
+            {/* Photo previews */}
+            {form.photos.length > 0 && (
+              <div className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm text-gray-700">{form.photos.length} photo(s) selected</span>
+                </div>
+                <button
+                  onClick={() => setForm(prev => ({ ...prev, photos: [] }))}
+                  className="text-red-500 hover:text-red-700 text-sm"
+                >
+                  Clear
+                </button>
               </div>
             )}
           </div>
-        )}
+        </div>
 
-        {/* Timeline / messages list - internal scroll within the Updates tab */}
-        <div ref={messagesListRef} className="flex-1 min-h-0 mt-2 pr-1 overflow-y-auto space-y-4 md:space-y-6">
-        {groupedUpdates.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-8">No updates yet. Add your first update!</p>
-        ) : (
-          groupedUpdates.map((group) => (
-            <div key={group.label}>
-              <div className="mb-2 flex items-center gap-2">
-                <div className="h-px flex-1 bg-gray-200" />
-                <span className="text-xs font-medium text-gray-500 whitespace-nowrap">{group.label}</span>
-                <div className="h-px flex-1 bg-gray-200" />
-              </div>
-              <div className="space-y-3">
-                {group.items.map((update) => {
-                  const isOwnUpdate = user && update.user.id === user.id;
-                  return (
-                    <div
-                      key={update.id}
-                      className={`flex md:gap-4 ${isOwnUpdate ? 'justify-end' : ''}`}
-                    >
-                      {!isOwnUpdate && (
-                        <div className="flex-shrink-0 mr-2">
-                          <div className="w-8 h-8 rounded-full bg-yellow-100 text-yellow-800 flex items-center justify-center text-xs font-bold">
-                            {update.user.full_name?.charAt(0).toUpperCase()}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className={`flex-1 flex ${isOwnUpdate ? 'justify-end' : ''}`}>
+        {/* Updates Feed - Now below the composer */}
+        <div ref={updatesListRef} className="flex-1 min-h-0 overflow-y-auto order-3">
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500"></div>
+            </div>
+          ) : updates.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-gray-400 text-4xl mb-4">📝</div>
+              <p className="text-gray-500">No updates yet. Add your first update!</p>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-6">
+                {(showAll ? groupedUpdates : groupedUpdates.slice(0, 2)).map((group) => (
+                  <div key={group.label}>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">{group.label}</h3>
+                    <div className="space-y-4">
+                      {group.items.map((update: ProjectUpdate) => (
                         <div
-                          className={`inline-block max-w-full rounded-xl p-3 md:p-4 border shadow-sm ${
-                            isOwnUpdate
-                              ? 'bg-yellow-50 border-yellow-100 text-right'
-                              : 'bg-gray-50 border-gray-100'
-                          }`}
+                          key={update.id}
+                          className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
                         >
-                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-2 mb-2">
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900">{update.user.full_name}</p>
-                              <p className="text-xs text-gray-500">{formatTimeIST(update.created_at)}</p>
+                          <div className="flex items-start gap-3 mb-3">
+                            <div className="w-10 h-10 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                              {update.user.full_name?.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-gray-900">{update.user.full_name}</h4>
+                              <p className="text-sm text-gray-500">{formatDateTimeReadable(update.created_at)}</p>
                             </div>
                           </div>
-                          <p className="text-sm text-gray-700 whitespace-pre-wrap">{update.description}</p>
+                          
+                          <div className="text-gray-700 mb-3 whitespace-pre-wrap">{update.description}</div>
 
-                          {/* Photos - responsive grid */}
+                          {/* Photos Grid */}
                           {update.photos && update.photos.length > 0 && (
-                            <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                              {update.photos.map((photo, photoIndex) => (
-                                <img
-                                  key={photoIndex}
-                                  src={photo}
-                                  alt={`Update photo ${photoIndex + 1}`}
-                                  className="w-full h-20 sm:h-24 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
-                                  onClick={() => {
-                                    setCurrentImages(update.photos);
-                                    setSelectedImageIndex(photoIndex);
-                                    setSelectedImage(photo);
-                                  }}
-                                />
-                              ))}
+                            <div className="mb-3">
+                              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-0.5">
+                                {update.photos.map((photo: string, photoIndex: number) => (
+                                  <div
+                                    key={photoIndex}
+                                    className="aspect-square rounded-sm overflow-hidden cursor-pointer border border-gray-200"
+                                    onClick={() => {
+                                      setCurrentImages(update.photos);
+                                      setSelectedImageIndex(photoIndex);
+                                      setSelectedImage(photo);
+                                    }}
+                                  >
+                                    <img
+                                      src={photo}
+                                      alt={`Update photo ${photoIndex + 1}`}
+                                      className="w-full h-full object-cover hover:opacity-90 transition-opacity"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           )}
+                          
+                          {/* Voice Note */}
                           {update.audio_url && (
-                            <div className="mt-3">
+                            <div className="mb-3">
                               <VoiceNotePlayer src={update.audio_url} />
                             </div>
                           )}
                         </div>
-                      </div>
+                      ))}
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-      {/* Composer inside Updates tab container */}
-        <div className="border-t border-gray-200 bg-white px-4 sm:px-6 lg:px-8 pt-3 pb-3">
-        <h4 className="text-sm font-medium text-gray-900 mb-2">Send an update</h4>
-        <div className="space-y-3">
-          <div className="flex flex-col md:flex-row md:items-center md:gap-2">
-            {/* Row 1: stage selector (full width on mobile) */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 md:w-40 md:flex-shrink-0">
-              <select
-                className="w-full text-xs sm:text-sm rounded-md border border-gray-200 bg-white px-2 py-1 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500"
-                value={selectedStageId}
-                onChange={(e) => setSelectedStageId(e.target.value)}
-              >
-                <option value="all">All stages</option>
-                {stages.map((stage) => (
-                  <option key={stage.id} value={stage.id}>
-                    {stage.title}
-                  </option>
+                  </div>
                 ))}
-              </select>
-            </div>
-
-            {/* Row 2: full-width text field */}
-            <div className="mt-2 md:mt-0 flex-1 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5">
-              <input
-                type="text"
-                value={form.description}
-                onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Write update for this project..."
-                className="w-full bg-transparent border-none text-sm focus:outline-none focus:ring-0 px-1"
-              />
-            </div>
-
-            {/* Row 3: actions (attach, mic, send) */}
-            <div className="mt-2 md:mt-0 flex items-center justify-end gap-2 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 md:bg-transparent md:border-none md:px-0 md:py-0">
-            <label className="flex items-center justify-center w-9 h-9 rounded-md border border-gray-300 bg-white cursor-pointer hover:bg-gray-100">
-              <span className="sr-only">Attach photos</span>
-              <svg
-                className="w-4 h-4 text-gray-600"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M21.44 11.05 12.36 20.13a5 5 0 0 1-7.07-7.07l8.49-8.49a3.5 3.5 0 0 1 4.95 4.95L10.64 17.66a2 2 0 0 1-2.83-2.83l7.07-7.07" />
-              </svg>
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handlePhotoUpload}
-                disabled={uploadingPhotos}
-                className="hidden"
-              />
-            </label>
-            <button
-              type="button"
-              onClick={isRecording ? stopRecording : startRecording}
-              disabled={saving || uploadingAudio}
-              aria-label={isRecording ? 'Stop recording' : 'Record voice'}
-              className="w-9 h-9 rounded-md border border-gray-300 flex items-center justify-center bg-white hover:bg-gray-100 disabled:opacity-50"
-            >
-              <svg
-                className={`w-4 h-4 ${isRecording ? 'text-red-500' : 'text-gray-700'}`}
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path d="M12 14a3 3 0 0 0 3-3V7a3 3 0 0 0-6 0v4a3 3 0 0 0 3 3z" />
-                <path d="M7 11a1 1 0 1 0-2 0 7 7 0 0 0 6 6.93V20H9a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2h-2v-2.07A7 7 0 0 0 19 11a1 1 0 1 0-2 0 5 5 0 0 1-10 0z" />
-              </svg>
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={saving || uploadingPhotos || uploadingAudio || isRecording}
-              className="px-4 py-1.5 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 text-sm font-semibold disabled:opacity-50"
-            >
-              {saving ? 'Sending...' : 'Send'}
-            </button>
-            </div>
-          </div>
-          {isRecording && (
-            <p className="text-xs text-red-500">Recording...</p>
-          )}
-          {uploadingPhotos && (
-            <p className="text-xs text-gray-500">Uploading photos...</p>
-          )}
-          {audioPreviewUrl && (
-            <div className="mt-1 flex items-center gap-3">
-              <audio controls src={audioPreviewUrl} className="w-full sm:w-auto" />
-              <button
-                type="button"
-                onClick={clearAudio}
-                className="px-2 py-1 text-xs text-red-600 border border-red-200 rounded-md hover:bg-red-50"
-              >
-                Remove audio
-              </button>
-            </div>
-          )}
-          {form.photos.length > 0 && (
-            <div className="mt-1 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {form.photos.map((photo, index) => (
-                <div key={index} className="relative">
-                  <img src={photo} alt={`Upload ${index + 1}`} className="w-full h-20 object-cover rounded" />
+              </div>
+              
+              {/* Show More/Less Button */}
+              {groupedUpdates.length > 2 && (
+                <div className="text-center py-4">
                   <button
-                    onClick={() => removePhoto(index)}
-                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold shadow-md hover:bg-red-600"
+                    onClick={() => setShowAll(!showAll)}
+                    className="px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-semibold transition-colors"
                   >
-                    ×
+                    {showAll ? 'Show Less' : `Show More (${groupedUpdates.length - 2} more groups)`}
                   </button>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
       </div>
-      </div>
 
-        {/* Enhanced Image Modal with Navigation */}
-        <ImageModal
+      {/* Enhanced Image Modal with Navigation */}
+      <ImageModal
         images={currentImages}
         currentIndex={selectedImageIndex}
         isOpen={!!selectedImage}
@@ -697,4 +717,6 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     </>
   );
 }
+
+export default UpdatesTab;
 

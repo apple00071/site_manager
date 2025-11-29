@@ -97,17 +97,17 @@ export default function DashboardLayout({
 
       {/* Sidebar */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-20 sm:w-24 lg:w-20 bg-white text-gray-900 shadow-xl border-r border-gray-200 transform transition-all duration-300 ease-in-out
+        fixed inset-y-0 left-0 z-50 w-14 hover:w-32 sm:w-16 hover:sm:w-36 lg:w-14 hover:lg:w-32 bg-white text-gray-900 shadow-lg border-r border-gray-200 transform transition-all duration-300 ease-in-out group
         lg:translate-x-0 lg:static lg:inset-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Logo at top */}
-        <div className="p-3 lg:p-4 border-b border-gray-200">
+        <div className="p-2 lg:p-3">
           <div className="flex items-center justify-center">
             <img 
-              src="/New-logo.png" 
+              src="/icon.png" 
               alt="Apple Interiors" 
-              className="h-8 w-8 lg:h-10 lg:w-10"
+              className="h-6 w-6 lg:h-7 lg:w-7"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
               }}
@@ -116,80 +116,80 @@ export default function DashboardLayout({
         </div>
         
         {/* Navigation */}
-        <nav className="flex-1 py-4">
-          <div className="space-y-2">
+        <nav className="flex-1 py-3">
+          <div className="space-y-1">
             <Link
               href="/dashboard"
-              className="flex flex-col items-center px-3 py-4 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-xl mx-2 touch-target"
+              className="flex items-center px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
               onClick={() => setSidebarOpen(false)}
               title="Dashboard"
             >
-              <FiHome className="h-6 w-6 mb-1 group-hover:text-yellow-600 transition-colors" />
-              <span className="text-xs text-center font-medium hidden lg:block">Dashboard</span>
+              <FiHome className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
+              <span className="ml-3 text-xs font-medium hidden group-hover:block whitespace-nowrap">Dashboard</span>
             </Link>
             <Link
               href="/dashboard/projects"
-              className="flex flex-col items-center px-3 py-4 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-xl mx-2 touch-target"
+              className="flex items-center px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
               onClick={() => setSidebarOpen(false)}
               title="Projects"
             >
-              <FiBriefcase className="h-6 w-6 mb-1 group-hover:text-yellow-600 transition-colors" />
-              <span className="text-xs text-center font-medium hidden lg:block">Projects</span>
+              <FiBriefcase className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
+              <span className="ml-3 text-xs font-medium hidden group-hover:block whitespace-nowrap">Projects</span>
             </Link>
             <Link
               href="/dashboard/tasks"
-              className="flex flex-col items-center px-3 py-4 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-xl mx-2 touch-target"
+              className="flex items-center px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
               onClick={() => setSidebarOpen(false)}
               title="All Tasks"
             >
-              <FiCheckSquare className="h-6 w-6 mb-1 group-hover:text-yellow-600 transition-colors" />
-              <span className="text-xs text-center font-medium hidden lg:block">Tasks</span>
+              <FiCheckSquare className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
+              <span className="ml-3 text-xs font-medium hidden group-hover:block whitespace-nowrap">Tasks</span>
             </Link>
             {isAdmin && (
               <Link
                 href="/dashboard/users"
-                className="flex flex-col items-center px-3 py-4 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-xl mx-2 touch-target"
+                className="flex items-center px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
                 onClick={() => setSidebarOpen(false)}
                 title="Users"
               >
-                <FiUsers className="h-6 w-6 mb-1 group-hover:text-yellow-600 transition-colors" />
-                <span className="text-xs text-center font-medium hidden lg:block">Users</span>
+                <FiUsers className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
+                <span className="ml-3 text-xs font-medium hidden group-hover:block whitespace-nowrap">Users</span>
               </Link>
             )}
             <Link
               href="/dashboard/settings"
-              className="flex flex-col items-center px-3 py-4 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-xl mx-2 touch-target"
+              className="flex items-center px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
               onClick={() => setSidebarOpen(false)}
               title="Settings"
             >
-              <FiSettings className="h-6 w-6 mb-1 group-hover:text-yellow-600 transition-colors" />
-              <span className="text-xs text-center font-medium hidden lg:block">Settings</span>
+              <FiSettings className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
+              <span className="ml-3 text-xs font-medium hidden group-hover:block whitespace-nowrap">Settings</span>
             </Link>
           </div>
         </nav>
 
         {/* User section at bottom */}
-        <div className="border-t border-gray-200 p-3">
-          <div className="flex flex-col items-center space-y-2">
-            <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center shadow-sm">
+        <div className="border-t border-gray-200 p-2">
+          <div className="flex flex-col items-center space-y-1">
+            <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center shadow-sm">
               <span className="text-gray-900 text-xs font-bold">
                 {(user.full_name || user.email || 'U').charAt(0).toUpperCase()}
               </span>
             </div>
             <button
               onClick={handleSignOut}
-              className="flex flex-col items-center px-2 py-2 text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors group"
+              className="flex items-center px-1 py-2 text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors group"
               title="Sign out"
             >
-              <FiLogOut className="h-4 w-4 mb-1 group-hover:text-red-600" />
-              <span className="text-xs text-center hidden lg:block">Sign out</span>
+              <FiLogOut className="h-4 w-4 min-w-[16px] group-hover:text-red-600" />
+              <span className="ml-3 text-xs font-medium hidden group-hover:block whitespace-nowrap">Sign out</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* Main content - allow natural page scroll (no overflow-hidden here) */}
-      <div className="flex-1 flex flex-col bg-gray-50">
+      <div className="flex-1 flex flex-col bg-white">
 
         {/* Mobile menu button - floating */}
         <button
@@ -206,16 +206,16 @@ export default function DashboardLayout({
         </div>
 
         {/* Desktop header only */}
-        <header className="bg-white shadow-sm border-b border-gray-200 hidden lg:block">
-          <div className="px-6 py-4 flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-gray-900">{getPageTitle()}</h2>
+        <header className="bg-white shadow-sm border-b border-gray-200 hidden lg:block h-14">
+          <div className="px-6 py-4 flex items-center justify-between h-full">
+            <h2 className="text-lg font-bold text-gray-900">{getPageTitle()}</h2>
             <OptimizedNotificationBell />
           </div>
         </header>
 
         {/* Main content area with appropriate padding; page itself handles scrolling */}
-        <main className="flex-1 bg-gray-50">
-          <div className="p-4 sm:p-6 lg:p-8 pt-24 lg:pt-0 h-full flex flex-col min-h-0">
+        <main className="flex-1 bg-white">
+          <div className="p-4 sm:p-6 lg:p-8 pt-24 lg:pt-6 h-full flex flex-col min-h-0">
             {children}
           </div>
         </main>

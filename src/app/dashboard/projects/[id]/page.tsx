@@ -337,67 +337,98 @@ export default function ProjectDetailsPage() {
       </div>
       )}
 
-      {/* Desktop Tabs */}
-      <div className="rounded-xl flex flex-col min-h-0">
-
-        <div className="hidden lg:block border-b border-gray-200 bg-white rounded-xl shadow-card">
-          <nav className="flex" aria-label="Tabs">
+      {/* Desktop FAB Navigation */}
+      {mounted && (
+        <div className="fixed right-6 bottom-6 z-50 hidden lg:block">
+          <div className="relative">
             <button
-              className={`flex-1 py-4 px-6 text-sm font-semibold text-center border-b-2 transition-all duration-200 ${
-                activeTab === 'details' 
-                  ? 'border-yellow-500 text-yellow-600 bg-yellow-50' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
-              onClick={() => setActiveTab('details')}
+              onClick={() => setShowTabWidget(!showTabWidget)}
+              className="w-14 h-14 bg-yellow-500 hover:bg-yellow-600 text-gray-900 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 touch-target"
+              aria-label="Navigation menu"
             >
-              📋 Project Details
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
             </button>
-            <button
-              className={`flex-1 py-4 px-6 text-sm font-semibold text-center border-b-2 transition-all duration-200 ${
-                activeTab === 'board' 
-                  ? 'border-yellow-500 text-yellow-600 bg-yellow-50' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
-              onClick={() => setActiveTab('board')}
-            >
-              📊 Stage Board
-            </button>
-            <button
-              className={`flex-1 py-4 px-6 text-sm font-semibold text-center border-b-2 transition-all duration-200 ${
-                activeTab === 'updates' 
-                  ? 'border-yellow-500 text-yellow-600 bg-yellow-50' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
-              onClick={() => setActiveTab('updates')}
-            >
-              📝 Updates
-            </button>
-            <button
-              className={`flex-1 py-4 px-6 text-sm font-semibold text-center border-b-2 transition-all duration-200 ${
-                activeTab === 'inventory' 
-                  ? 'border-yellow-500 text-yellow-600 bg-yellow-50' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
-              onClick={() => setActiveTab('inventory')}
-            >
-              📦 Inventory
-            </button>
-            <button
-              className={`flex-1 py-4 px-6 text-sm font-semibold text-center border-b-2 transition-all duration-200 ${
-                activeTab === 'designs' 
-                  ? 'border-yellow-500 text-yellow-600 bg-yellow-50' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
-              onClick={() => setActiveTab('designs')}
-            >
-              🎨 Designs
-            </button>
-          </nav>
+            
+            {showTabWidget && (
+              <div className="absolute bottom-16 right-0 bg-white rounded-2xl shadow-xl border border-gray-200 p-2 min-w-48">
+                <div className="space-y-1">
+                  <button
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                      activeTab === 'details' 
+                        ? 'bg-yellow-100 text-yellow-700' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                    onClick={() => {
+                      setActiveTab('details');
+                      setShowTabWidget(false);
+                    }}
+                  >
+                    📋 Project Details
+                  </button>
+                                    <button
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                      activeTab === 'board' 
+                        ? 'bg-yellow-100 text-yellow-700' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                    onClick={() => {
+                      setActiveTab('board');
+                      setShowTabWidget(false);
+                    }}
+                  >
+                    📊 Stage Board
+                  </button>
+                  <button
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                      activeTab === 'updates' 
+                        ? 'bg-yellow-100 text-yellow-700' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                    onClick={() => {
+                      setActiveTab('updates');
+                      setShowTabWidget(false);
+                    }}
+                  >
+                    📝 Updates
+                  </button>
+                  <button
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                      activeTab === 'inventory' 
+                        ? 'bg-yellow-100 text-yellow-700' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                    onClick={() => {
+                      setActiveTab('inventory');
+                      setShowTabWidget(false);
+                    }}
+                  >
+                    📦 Inventory
+                  </button>
+                  <button
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                      activeTab === 'designs' 
+                        ? 'bg-yellow-100 text-yellow-700' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                    onClick={() => {
+                      setActiveTab('designs');
+                      setShowTabWidget(false);
+                    }}
+                  >
+                    🎨 Designs
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
+      )}
 
-        {/* Tab Content */}
-        <div className="pt-4 sm:pt-6 flex-1 min-h-0 overflow-hidden">
-
+      {/* Tab Content */}
+      <div className="pt-4 sm:pt-6 flex-1 min-h-0 overflow-hidden">
+        <div className="h-full overflow-y-auto">
           {activeTab === 'details' && (
             <div className="space-y-6">
               {/* Project Information */}
@@ -646,7 +677,7 @@ export default function ProjectDetailsPage() {
             <KanbanBoard projectId={project.id} />
           )}
 
-          {activeTab === 'updates' && (
+          {activeTab === 'updates' && user && (
             <UpdatesTab projectId={project.id} />
           )}
 
