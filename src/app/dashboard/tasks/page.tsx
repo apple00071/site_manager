@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Calendar, dateFnsLocalizer, Views, View, SlotInfo } from 'react-big-calendar';
+import { Calendar, dateFnsLocalizer, Views, SlotInfo } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, addDays } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { toISTISOString, formatDateTimeIST, getTodayDateString } from '@/lib/dateUtils';
@@ -311,6 +311,44 @@ export default function TasksPage() {
     resource: task,
   }));
 
+  // Mobile-specific calendar settings
+  useEffect(() => {
+    // Set default view to day on mobile for better UX
+    if (typeof window !== 'undefined' && window.innerWidth < 640) {
+      setCalendarView(Views.DAY);
+    }
+  }, []);
+
+  const handleNavigate = (newDate: Date) => {
+    setCalendarDate(newDate);
+  };
+
+  const handleViewChange = (newView: string) => {
+    setCalendarView(newView);
+  };
+
+  const handleSelectEvent = (event: any) => {
+    // Better touch handling for mobile
+    if (event.resource) {
+      handleEditTask(event.resource);
+    }
+  };
+
+  const handleSelectSlot = (slotInfo: any) => {
+    // Mobile-friendly slot selection
+    if (typeof window !== 'undefined' && window.innerWidth >= 640) {
+      // Only allow slot selection on desktop/tablet
+      const { start, end } = slotInfo;
+      setFormData({
+        ...formData,
+        date: format(start, 'yyyy-MM-dd'),
+        start_time: format(start, 'HH:mm'),
+        end_time: format(end, 'HH:mm'),
+      });
+      setShowCreateModal(true);
+    }
+  };
+
   const eventStyleGetter = (event: CalendarTaskEvent) => {
     let backgroundColor = '#9CA3AF';
     if (event.resource.status === 'in_progress') backgroundColor = '#3B82F6';
@@ -329,6 +367,48 @@ export default function TasksPage() {
       },
     };
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex justify-end">
+          <div className="w-32 h-10 bg-gray-200 rounded-xl animate-pulse"></div>
+        </div>
+        
+        {/* Status Overview Skeleton */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="bg-gray-100 rounded-lg p-4 animate-pulse">
+              <div className="h-8 bg-gray-300 rounded mb-2"></div>
+              <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Filters Skeleton */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+            <div className="sm:w-48 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+            <div className="sm:w-64 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+          </div>
+        </div>
+
+        {/* Calendar Skeleton */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2 sm:p-4 min-h-[500px] sm:h-[600px] lg:h-[700px]">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex gap-2">
+              <div className="w-12 h-8 bg-gray-200 rounded-full animate-pulse"></div>
+              <div className="w-12 h-8 bg-gray-200 rounded-full animate-pulse"></div>
+              <div className="w-12 h-8 bg-gray-200 rounded-full animate-pulse"></div>
+            </div>
+            <div className="w-16 h-8 bg-gray-200 rounded-lg animate-pulse"></div>
+          </div>
+          <div className="h-full min-h-[400px] sm:min-h-[500px] bg-gray-50 rounded-lg animate-pulse"></div>
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (
@@ -349,94 +429,100 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="w-full px-1 sm:px-2 md:px-4 lg:px-6 xl:px-8 space-y-2 sm:space-y-3 md:space-y-4 lg:space-y-6">
       <div className="flex justify-end">
         <button
           onClick={() => setShowCreateModal(true)}
-          className="px-4 sm:px-5 py-2.5 bg-yellow-500 text-gray-900 rounded-xl flex items-center justify-center hover:bg-yellow-600 active:bg-yellow-700 transition-colors font-bold text-sm sm:text-base touch-target"
+          className="px-2 sm:px-3 md:px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg sm:rounded-xl flex items-center justify-center hover:bg-yellow-600 active:bg-yellow-700 transition-colors font-semibold text-xs sm:text-sm touch-target min-h-[44px] min-w-[44px]"
         >
-          <FiPlus className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-          <span className="whitespace-nowrap">Create Task</span>
+          <FiPlus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+          <span className="hidden sm:inline whitespace-nowrap">Create</span>
+          <span className="sm:hidden">+</span>
         </button>
       </div>
 
       {/* Status Overview */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1 sm:gap-2 lg:gap-4">
         {[
-          { key: 'all', label: 'Total', color: 'bg-gray-100 text-gray-900' },
-          { key: 'todo', label: 'To Do', color: 'bg-gray-100 text-gray-700' },
-          { key: 'in_progress', label: 'In Progress', color: 'bg-blue-100 text-blue-700' },
+          { key: 'all', label: 'All', color: 'bg-gray-100 text-gray-900' },
+          { key: 'todo', label: 'Todo', color: 'bg-gray-100 text-gray-700' },
+          { key: 'in_progress', label: 'Progress', color: 'bg-blue-100 text-blue-700' },
           { key: 'blocked', label: 'Blocked', color: 'bg-red-100 text-red-700' },
           { key: 'done', label: 'Done', color: 'bg-green-100 text-green-700' },
         ].map(({ key, label, color }) => (
-          <div key={key} className={`rounded-lg p-4 ${color}`}>
-            <div className="text-2xl font-bold">{statusCounts[key as keyof typeof statusCounts]}</div>
-            <div className="text-sm font-medium">{label}</div>
+          <div key={key} className={`rounded-lg p-2 sm:p-3 lg:p-4 ${color} min-h-[60px] sm:min-h-[70px] lg:min-h-[80px] flex flex-col justify-center items-center text-center`}>
+            <div className="text-sm sm:text-base lg:text-xl font-bold">{statusCounts[key as keyof typeof statusCounts]}</div>
+            <div className="text-xs sm:text-xs lg:text-sm font-medium mt-1">{label}</div>
           </div>
         ))}
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-        <div className="flex flex-col sm:flex-row gap-4">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2 sm:p-3 lg:p-4">
+        <div className="flex flex-col gap-2 sm:gap-3 lg:gap-4">
           {/* Search */}
-          <div className="flex-1">
+          <div className="w-full">
             <div className="relative">
-              <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <FiSearch className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search tasks, projects, or customers..."
+                placeholder="Search tasks..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                className="w-full pl-7 sm:pl-10 pr-2 sm:pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 text-sm"
               />
             </div>
           </div>
 
-          {/* Status Filter */}
-          <div className="sm:w-48">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-            >
-              <option value="all">All Status</option>
-              <option value="todo">To Do</option>
-              <option value="in_progress">In Progress</option>
-              <option value="blocked">Blocked</option>
-              <option value="done">Done</option>
-            </select>
-          </div>
+          {/* Filter Row */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+            {/* Status Filter */}
+            <div className="w-full sm:w-32">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 text-sm"
+              >
+                <option value="all">All Status</option>
+                <option value="todo">Todo</option>
+                <option value="in_progress">Progress</option>
+                <option value="blocked">Blocked</option>
+                <option value="done">Done</option>
+              </select>
+            </div>
 
-          {/* Project Filter */}
-          <div className="sm:w-64">
-            <select
-              value={projectFilter}
-              onChange={(e) => setProjectFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-            >
-              <option value="all">All Projects</option>
-              {uniqueProjects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.title} - {project.customer_name}
-                </option>
-              ))}
-            </select>
-          </div>
+            {/* Project Filter */}
+            <div className="w-full sm:w-40">
+              <select
+                value={projectFilter}
+                onChange={(e) => setProjectFilter(e.target.value)}
+                className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 text-sm"
+              >
+                <option value="all">All Projects</option>
+                {uniqueProjects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.title}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Clear Filters */}
-          {(searchTerm || statusFilter !== 'all' || projectFilter !== 'all') && (
-            <button
-              onClick={() => {
-                setSearchTerm('');
-                setStatusFilter('all');
-                setProjectFilter('all');
-              }}
-              className="px-4 py-2 text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Clear
-            </button>
-          )}
+            {/* Clear Filters */}
+            {(searchTerm || statusFilter !== 'all' || projectFilter !== 'all') && (
+              <div className="w-full sm:w-auto">
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setStatusFilter('all');
+                    setProjectFilter('all');
+                  }}
+                  className="w-full px-3 sm:px-4 py-2 text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm whitespace-nowrap min-h-[44px]"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Filter Results Info */}
@@ -448,53 +534,65 @@ export default function TasksPage() {
       </div>
 
       {/* Professional Gantt Chart */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2 sm:p-4 h-[600px] sm:h-[700px]">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-1 sm:p-2 lg:p-4 min-h-[250px] sm:min-h-[350px] lg:min-h-[500px] overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+          <div className="flex flex-wrap items-center gap-1 sm:gap-2">
             <button
-              className={`px-3 py-1 text-xs sm:text-sm rounded-full border ${calendarView === Views.DAY ? 'bg-yellow-500 text-gray-900 border-yellow-500' : 'bg-white text-gray-700 border-gray-200'}`}
+              className={`px-1 sm:px-2 py-1 text-xs sm:text-sm rounded-full border ${calendarView === Views.DAY ? 'bg-yellow-500 text-gray-900 border-yellow-500' : 'bg-white text-gray-700 border-gray-200'}`}
               onClick={() => setCalendarView(Views.DAY)}
             >
-              Day
+              <span className="hidden sm:inline">Day</span>
+              <span className="sm:hidden">D</span>
             </button>
             <button
-              className={`px-3 py-1 text-xs sm:text-sm rounded-full border ${calendarView === Views.WEEK ? 'bg-yellow-500 text-gray-900 border-yellow-500' : 'bg-white text-gray-700 border-gray-200'}`}
+              className={`px-1 sm:px-2 py-1 text-xs sm:text-sm rounded-full border ${calendarView === Views.WEEK ? 'bg-yellow-500 text-gray-900 border-yellow-500' : 'bg-white text-gray-700 border-gray-200'}`}
               onClick={() => setCalendarView(Views.WEEK)}
             >
-              Week
+              <span className="hidden sm:inline">Week</span>
+              <span className="sm:hidden">W</span>
             </button>
             <button
-              className={`px-3 py-1 text-xs sm:text-sm rounded-full border ${calendarView === Views.MONTH ? 'bg-yellow-500 text-gray-900 border-yellow-500' : 'bg-white text-gray-700 border-gray-200'}`}
+              className={`px-1 sm:px-2 py-1 text-xs sm:text-sm rounded-full border ${calendarView === Views.MONTH ? 'bg-yellow-500 text-gray-900 border-yellow-500' : 'bg-white text-gray-700 border-gray-200'}`}
               onClick={() => setCalendarView(Views.MONTH)}
             >
-              Month
+              <span className="hidden sm:inline">Month</span>
+              <span className="sm:hidden">M</span>
             </button>
           </div>
           <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
             <button
-              className="px-2 py-1 border border-gray-200 rounded-lg hover:bg-gray-50"
+              className="px-1 sm:px-2 py-1 border border-gray-200 rounded-lg hover:bg-gray-50 text-xs sm:text-sm"
               onClick={() => setCalendarDate(new Date())}
             >
-              Today
+              <span className="hidden sm:inline">Today</span>
+              <span className="sm:hidden">Now</span>
             </button>
           </div>
         </div>
-        <div className="h-full">
-          <Calendar
-            localizer={localizer}
-            events={events}
-            startAccessor="start"
-            endAccessor="end"
-            view={calendarView}
-            date={calendarDate}
-            onView={setCalendarView}
-            onNavigate={setCalendarDate}
-            selectable
-            onSelectEvent={(event: any) => handleEditTask(event.resource)}
-            style={{ height: '100%' }}
-            components={{ event: CalendarEvent }}
-            popup
-          />
+        <div className="h-full min-h-[200px] sm:min-h-[300px] lg:min-h-[450px] overflow-x-auto">
+          <div className="min-w-[280px] sm:min-w-full">
+            <Calendar
+              localizer={localizer}
+              events={events}
+              startAccessor="start"
+              endAccessor="end"
+              view={calendarView}
+              date={calendarDate}
+              onView={handleViewChange}
+              onNavigate={handleNavigate}
+              selectable
+              onSelectEvent={handleSelectEvent}
+              onSelectSlot={handleSelectSlot}
+              style={{ height: '100%', minHeight: '200px', minWidth: '280px' }}
+              components={{ event: CalendarEvent }}
+              popup
+              messages={{
+                showMore: (count: number) => `+${count} more`,
+                noEvents: 'No tasks scheduled',
+              }}
+              toolbar={false}
+            />
+          </div>
         </div>
       </div>
 
@@ -553,12 +651,8 @@ export default function TasksPage() {
           task_title: template ? template.label : '',
         }));
         setFormError('');
-      } else {
-        setFormData(prev => ({
-          ...prev,
-          task_title: '',
-        }));
       }
+      // Don't clear the title when 'other' is selected - let user keep what they typed
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -611,19 +705,19 @@ export default function TasksPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Task Title *
                 </label>
-                <select
-                  value={taskTemplate}
-                  onChange={(e) => handleTemplateChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 mb-2"
-                >
-                  <option value="">Select a task</option>
-                  {TASK_TEMPLATES.map((template) => (
-                    <option key={template.value} value={template.value}>
-                      {template.label}
-                    </option>
-                  ))}
-                </select>
-                {taskTemplate === 'other' && (
+                <div className="space-y-2">
+                  <select
+                    value={taskTemplate}
+                    onChange={(e) => handleTemplateChange(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                  >
+                    <option value="">Choose a template or enter custom...</option>
+                    {TASK_TEMPLATES.map((template) => (
+                      <option key={template.value} value={template.value}>
+                        {template.label}
+                      </option>
+                    ))}
+                  </select>
                   <input
                     type="text"
                     value={formData.task_title}
@@ -631,7 +725,10 @@ export default function TasksPage() {
                     placeholder="Enter task title"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                   />
-                )}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {taskTemplate ? 'Template selected - you can customize the title above' : 'Select a template or enter a custom task title'}
+                </p>
               </div>
 
               <div>
@@ -806,12 +903,8 @@ export default function TasksPage() {
           task_title: template ? template.label : '',
         }));
         setFormError('');
-      } else {
-        setFormData(prev => ({
-          ...prev,
-          task_title: '',
-        }));
       }
+      // Don't clear the title when 'other' is selected - let user keep what they typed
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -863,19 +956,19 @@ export default function TasksPage() {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Task Title *
           </label>
-          <select
-            value={taskTemplate}
-            onChange={(e) => handleTemplateChange(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 mb-2"
-          >
-            <option value="">Select a task</option>
-            {TASK_TEMPLATES.map((template) => (
-              <option key={template.value} value={template.value}>
-                {template.label}
-              </option>
-            ))}
-          </select>
-          {taskTemplate === 'other' && (
+          <div className="space-y-2">
+            <select
+              value={taskTemplate}
+              onChange={(e) => handleTemplateChange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+            >
+              <option value="">Choose a template or enter custom...</option>
+              {TASK_TEMPLATES.map((template) => (
+                <option key={template.value} value={template.value}>
+                  {template.label}
+                </option>
+              ))}
+            </select>
             <input
               type="text"
               value={formData.task_title}
@@ -883,7 +976,10 @@ export default function TasksPage() {
               placeholder="Enter task title"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
             />
-          )}
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            {taskTemplate ? 'Template selected - you can customize the title above' : 'Select a template or enter a custom task title'}
+          </p>
         </div>
 
         <div>
