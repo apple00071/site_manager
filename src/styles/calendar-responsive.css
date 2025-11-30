@@ -1,0 +1,146 @@
+/* Calendar Responsive Styles */
+.calendar-responsive-container {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 180px);
+}
+
+/* Month view responsive grid */
+.calendar-responsive-container .rbc-month-view,
+.calendar-responsive-container .rbc-month-row,
+.calendar-responsive-container .rbc-month-header,
+.calendar-responsive-container .rbc-month-body {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+}
+
+@media (min-width: 640px) {
+  .calendar-responsive-container .rbc-month-view,
+  .calendar-responsive-container .rbc-month-row,
+  .calendar-responsive-container .rbc-month-header,
+  .calendar-responsive-container .rbc-month-body {
+    grid-template-columns: repeat(7, 1fr) !important;
+  }
+}
+
+/* Week view horizontal scrolling */
+.calendar-responsive-container .rbc-agenda-view,
+.calendar-responsive-container .rbc-time-view,
+.calendar-responsive-container .rbc-week-view {
+  overflow-x: auto !important;
+  white-space: nowrap !important;
+  scroll-snap-type: x mandatory !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.calendar-responsive-container .rbc-agenda-view table,
+.calendar-responsive-container .rbc-time-view table,
+.calendar-responsive-container .rbc-week-view table {
+  min-width: 600px !important;
+}
+
+@media (min-width: 640px) {
+  .calendar-responsive-container .rbc-agenda-view table,
+  .calendar-responsive-container .rbc-time-view table,
+  .calendar-responsive-container .rbc-week-view table {
+    min-width: 100% !important;
+  }
+}
+
+/* Day view auto-resizing cells */
+.calendar-responsive-container .rbc-day-view .rbc-time-slot,
+.calendar-responsive-container .rbc-time-view .rbc-time-slot {
+  min-height: 40px !important;
+  min-width: 60px !important;
+}
+
+@media (min-width: 640px) {
+  .calendar-responsive-container .rbc-day-view .rbc-time-slot,
+  .calendar-responsive-container .rbc-time-view .rbc-time-slot {
+    min-height: 60px !important;
+    min-width: 80px !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .calendar-responsive-container .rbc-day-view .rbc-time-slot,
+  .calendar-responsive-container .rbc-time-view .rbc-time-slot {
+    min-height: 80px !important;
+    min-width: 100px !important;
+  }
+}
+
+/* Remove overflow hidden from parent wrappers */
+.calendar-responsive-container * {
+  overflow: visible !important;
+}
+
+.calendar-responsive-container .rbc-calendar {
+  overflow: visible !important;
+}
+
+/* Mobile-specific optimizations */
+@media (max-width: 639px) {
+  .calendar-responsive-container .rbc-header {
+    font-size: 10px !important;
+    padding: 2px 4px !important;
+  }
+  
+  .calendar-responsive-container .rbc-event {
+    font-size: 9px !important;
+    padding: 1px 2px !important;
+  }
+  
+  .calendar-responsive-container .rbc-toolbar {
+    padding: 2px !important;
+  }
+  
+  .calendar-responsive-container .rbc-btn-group {
+    gap: 1px !important;
+  }
+  
+  .calendar-responsive-container .rbc-btn-group button {
+    padding: 2px 4px !important;
+    font-size: 10px !important;
+  }
+}
+
+/* iPhone SE specific optimizations */
+@media (max-width: 375px) {
+  .calendar-responsive-container .rbc-header {
+    font-size: 9px !important;
+    padding: 1px 2px !important;
+  }
+  
+  .calendar-responsive-container .rbc-event {
+    font-size: 8px !important;
+    padding: 1px !important;
+  }
+}
+
+/* iPhone 12 specific optimizations */
+@media (max-width: 390px) {
+  .calendar-responsive-container .rbc-header {
+    font-size: 10px !important;
+    padding: 2px 3px !important;
+  }
+  
+  .calendar-responsive-container .rbc-event {
+    font-size: 9px !important;
+    padding: 1px 2px !important;
+  }
+}
+
+/* Samsung A32 specific optimizations */
+@media (max-width: 720px) {
+  .calendar-responsive-container .rbc-header {
+    font-size: 11px !important;
+    padding: 3px 5px !important;
+  }
+  
+  .calendar-responsive-container .rbc-event {
+    font-size: 10px !important;
+    padding: 2px 4px !important;
+  }
+}
