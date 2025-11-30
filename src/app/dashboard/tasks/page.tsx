@@ -334,21 +334,6 @@ export default function TasksPage() {
     }
   };
 
-  const handleSelectSlot = (slotInfo: any) => {
-    // Mobile-friendly slot selection
-    if (typeof window !== 'undefined' && window.innerWidth >= 640) {
-      // Only allow slot selection on desktop/tablet
-      const { start, end } = slotInfo;
-      setFormData({
-        ...formData,
-        date: format(start, 'yyyy-MM-dd'),
-        start_time: format(start, 'HH:mm'),
-        end_time: format(end, 'HH:mm'),
-      });
-      setShowCreateModal(true);
-    }
-  };
-
   const eventStyleGetter = (event: CalendarTaskEvent) => {
     let backgroundColor = '#9CA3AF';
     if (event.resource.status === 'in_progress') backgroundColor = '#3B82F6';
@@ -429,14 +414,14 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="w-full px-1 sm:px-2 md:px-4 lg:px-6 xl:px-8 space-y-2 sm:space-y-3 md:space-y-4 lg:space-y-6">
-      <div className="flex justify-end">
+    <div className="w-full px-1 sm:px-2 md:px-4 lg:px-6 xl:px-8 space-y-1 sm:space-y-2 md:space-y-4 lg:space-y-6 overflow-x-hidden">
+      <div className="flex justify-end mb-1">
         <button
           onClick={() => setShowCreateModal(true)}
-          className="px-2 sm:px-3 md:px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg sm:rounded-xl flex items-center justify-center hover:bg-yellow-600 active:bg-yellow-700 transition-colors font-semibold text-xs sm:text-sm touch-target min-h-[44px] min-w-[44px]"
+          className="px-2 py-1.5 bg-yellow-500 text-gray-900 rounded flex items-center justify-center hover:bg-yellow-600 active:bg-yellow-700 transition-colors font-semibold text-xs touch-target min-h-[36px] min-w-[36px]"
         >
-          <FiPlus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-          <span className="hidden sm:inline whitespace-nowrap">Create</span>
+          <FiPlus className="mr-1 h-3 w-3" />
+          <span className="hidden sm:inline">New</span>
           <span className="sm:hidden">+</span>
         </button>
       </div>
@@ -450,38 +435,38 @@ export default function TasksPage() {
           { key: 'blocked', label: 'Blocked', color: 'bg-red-100 text-red-700' },
           { key: 'done', label: 'Done', color: 'bg-green-100 text-green-700' },
         ].map(({ key, label, color }) => (
-          <div key={key} className={`rounded-lg p-2 sm:p-3 lg:p-4 ${color} min-h-[60px] sm:min-h-[70px] lg:min-h-[80px] flex flex-col justify-center items-center text-center`}>
-            <div className="text-sm sm:text-base lg:text-xl font-bold">{statusCounts[key as keyof typeof statusCounts]}</div>
-            <div className="text-xs sm:text-xs lg:text-sm font-medium mt-1">{label}</div>
+          <div key={key} className={`rounded-md p-1.5 sm:p-2 lg:p-4 ${color} min-h-[45px] sm:min-h-[55px] lg:min-h-[80px] flex flex-col justify-center items-center text-center`}>
+            <div className="text-xs sm:text-sm lg:text-xl font-bold">{statusCounts[key as keyof typeof statusCounts]}</div>
+            <div className="text-[10px] sm:text-xs lg:text-sm font-medium mt-0.5">{label}</div>
           </div>
         ))}
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2 sm:p-3 lg:p-4">
-        <div className="flex flex-col gap-2 sm:gap-3 lg:gap-4">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-1.5 sm:p-2 lg:p-4">
+        <div className="flex flex-col gap-1.5 sm:gap-2 lg:gap-4">
           {/* Search */}
           <div className="w-full">
             <div className="relative">
-              <FiSearch className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
+              <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search tasks..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-7 sm:pl-10 pr-2 sm:pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 text-sm"
+                className="w-full pl-6 pr-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 text-xs sm:text-sm"
               />
             </div>
           </div>
 
           {/* Filter Row */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+          <div className="flex flex-col gap-1.5 sm:flex-row sm:gap-2">
             {/* Status Filter */}
-            <div className="w-full sm:w-32">
+            <div className="w-full sm:w-28">
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 text-sm"
+                className="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 text-xs sm:text-sm"
               >
                 <option value="all">All Status</option>
                 <option value="todo">Todo</option>
@@ -492,11 +477,11 @@ export default function TasksPage() {
             </div>
 
             {/* Project Filter */}
-            <div className="w-full sm:w-40">
+            <div className="w-full sm:w-32">
               <select
                 value={projectFilter}
                 onChange={(e) => setProjectFilter(e.target.value)}
-                className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 text-sm"
+                className="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 text-xs sm:text-sm"
               >
                 <option value="all">All Projects</option>
                 {uniqueProjects.map((project) => (
@@ -516,7 +501,7 @@ export default function TasksPage() {
                     setStatusFilter('all');
                     setProjectFilter('all');
                   }}
-                  className="w-full px-3 sm:px-4 py-2 text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm whitespace-nowrap min-h-[44px]"
+                  className="w-full px-2 py-1.5 text-gray-600 hover:text-gray-900 border border-gray-300 rounded hover:bg-gray-50 transition-colors text-xs sm:text-sm whitespace-nowrap min-h-[32px]"
                 >
                   Clear
                 </button>
@@ -534,34 +519,34 @@ export default function TasksPage() {
       </div>
 
       {/* Professional Gantt Chart */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-1 sm:p-2 lg:p-4 min-h-[250px] sm:min-h-[350px] lg:min-h-[500px] overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-1 sm:p-1.5 lg:p-4 min-h-[180px] sm:min-h-[250px] lg:min-h-[500px] overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
           <div className="flex flex-wrap items-center gap-1 sm:gap-2">
             <button
-              className={`px-1 sm:px-2 py-1 text-xs sm:text-sm rounded-full border ${calendarView === Views.DAY ? 'bg-yellow-500 text-gray-900 border-yellow-500' : 'bg-white text-gray-700 border-gray-200'}`}
+              className={`px-1 py-0.5 text-xs rounded-full border ${calendarView === Views.DAY ? 'bg-yellow-500 text-gray-900 border-yellow-500' : 'bg-white text-gray-700 border-gray-200'}`}
               onClick={() => setCalendarView(Views.DAY)}
             >
               <span className="hidden sm:inline">Day</span>
               <span className="sm:hidden">D</span>
             </button>
             <button
-              className={`px-1 sm:px-2 py-1 text-xs sm:text-sm rounded-full border ${calendarView === Views.WEEK ? 'bg-yellow-500 text-gray-900 border-yellow-500' : 'bg-white text-gray-700 border-gray-200'}`}
+              className={`px-1 py-0.5 text-xs rounded-full border ${calendarView === Views.WEEK ? 'bg-yellow-500 text-gray-900 border-yellow-500' : 'bg-white text-gray-700 border-gray-200'}`}
               onClick={() => setCalendarView(Views.WEEK)}
             >
               <span className="hidden sm:inline">Week</span>
               <span className="sm:hidden">W</span>
             </button>
             <button
-              className={`px-1 sm:px-2 py-1 text-xs sm:text-sm rounded-full border ${calendarView === Views.MONTH ? 'bg-yellow-500 text-gray-900 border-yellow-500' : 'bg-white text-gray-700 border-gray-200'}`}
+              className={`px-1 py-0.5 text-xs rounded-full border ${calendarView === Views.MONTH ? 'bg-yellow-500 text-gray-900 border-yellow-500' : 'bg-white text-gray-700 border-gray-200'}`}
               onClick={() => setCalendarView(Views.MONTH)}
             >
               <span className="hidden sm:inline">Month</span>
               <span className="sm:hidden">M</span>
             </button>
           </div>
-          <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
+          <div className="flex items-center gap-1 text-xs text-gray-600">
             <button
-              className="px-1 sm:px-2 py-1 border border-gray-200 rounded-lg hover:bg-gray-50 text-xs sm:text-sm"
+              className="px-1 py-0.5 border border-gray-200 rounded hover:bg-gray-50 text-xs"
               onClick={() => setCalendarDate(new Date())}
             >
               <span className="hidden sm:inline">Today</span>
@@ -569,8 +554,8 @@ export default function TasksPage() {
             </button>
           </div>
         </div>
-        <div className="h-full min-h-[200px] sm:min-h-[300px] lg:min-h-[450px] overflow-x-auto">
-          <div className="min-w-[280px] sm:min-w-full">
+        <div className="h-full min-h-[150px] sm:min-h-[220px] lg:min-h-[450px] overflow-hidden">
+          <div className="w-full h-full">
             <Calendar
               localizer={localizer}
               events={events}
@@ -582,8 +567,7 @@ export default function TasksPage() {
               onNavigate={handleNavigate}
               selectable
               onSelectEvent={handleSelectEvent}
-              onSelectSlot={handleSelectSlot}
-              style={{ height: '100%', minHeight: '200px', minWidth: '280px' }}
+              style={{ height: '100%', minHeight: '150px', width: '100%' }}
               components={{ event: CalendarEvent }}
               popup
               messages={{
