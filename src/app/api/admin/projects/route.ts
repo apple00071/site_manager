@@ -169,7 +169,8 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const memberProjectIds = memberProjects?.map(p => p.project_id) || [];
+      interface ProjectMember { project_id: string; }
+      const memberProjectIds = memberProjects?.map((p: ProjectMember) => p.project_id) || [];
 
       // Get projects directly assigned via assigned_employee_id field
       const { data: assignedProjects, error: assignedError } = await supabaseAdmin
@@ -185,7 +186,8 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const assignedProjectIds = assignedProjects?.map(p => p.id) || [];
+      interface AssignedProject { id: string; }
+      const assignedProjectIds = assignedProjects?.map((p: AssignedProject) => p.id) || [];
 
       // Get projects assigned via designer_id field
       const { data: designerProjects, error: designerError } = await supabaseAdmin
@@ -201,7 +203,8 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const designerProjectIds = designerProjects?.map(p => p.id) || [];
+      interface DesignerProject { id: string; }
+      const designerProjectIds = designerProjects?.map((p: DesignerProject) => p.id) || [];
 
       // Combine all lists (remove duplicates)
       const allProjectIds = [...new Set([...memberProjectIds, ...assignedProjectIds, ...designerProjectIds])];

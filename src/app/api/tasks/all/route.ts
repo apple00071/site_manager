@@ -70,17 +70,19 @@ export async function GET(request: NextRequest) {
         .select('id')
         .eq('assigned_employee_id', userId);
 
-      if (assignedError) {
-        console.error('Error fetching assigned projects:', assignedError);
+      if (memberError) {
+        console.error('Error fetching member projects:', memberError);
         return NextResponse.json(
-          { error: 'Error fetching assigned projects' },
+          { error: 'Error fetching accessible projects' },
           { status: 500 }
         );
       }
 
       // Combine project IDs
-      const memberProjectIds = memberProjects?.map(p => p.project_id) || [];
-      const assignedProjectIds = assignedProjects?.map(p => p.id) || [];
+      interface ProjectMember { project_id: string; }
+      const memberProjectIds = memberProjects?.map((p: ProjectMember) => p.project_id) || [];
+      interface AssignedProject { id: string; }
+      const assignedProjectIds = assignedProjects?.map((p: AssignedProject) => p.id) || [];
       const allProjectIds = [...new Set([...memberProjectIds, ...assignedProjectIds])];
 
       if (allProjectIds.length === 0) {
@@ -102,7 +104,8 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const stepIds = accessibleSteps?.map(s => s.id) || [];
+      interface AccessibleStep { id: string; }
+      const stepIds = accessibleSteps?.map((s: AccessibleStep) => s.id) || [];
 
       if (stepIds.length === 0) {
         return NextResponse.json({ tasks: [] }, { status: 200 });
