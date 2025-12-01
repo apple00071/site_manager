@@ -70,11 +70,13 @@ export function OptimizedNotificationBell() {
       setIsLoading(true);
       lastFetchTime.current = now;
 
+      console.log('Initiating fetch for notifications...');
       const response = await fetch('/api/notifications?limit=20', {
         headers: {
           'Cache-Control': 'no-cache'
         }
       });
+      console.log('Fetch response received:', response.status, response.ok);
 
       if (response.ok) {
         const data: Notification[] = await response.json();
@@ -118,6 +120,7 @@ export function OptimizedNotificationBell() {
   // Tab visibility detection to pause polling when inactive
   useEffect(() => {
     const handleVisibilityChange = () => {
+      console.log('handleVisibilityChange triggered. document.hidden:', document.hidden);
       isActiveTab.current = !document.hidden;
       
       if (isActiveTab.current) {
@@ -159,7 +162,7 @@ export function OptimizedNotificationBell() {
   useEffect(() => {
     if (!user) return;
 
-    console.log('🔌 Setting up optimized notification system...');
+    console.log('🔌 Setting up optimized notification system. User ID:', user.id);
 
     // Initial fetch
     fetchNotifications(true);

@@ -83,8 +83,6 @@ export default function TasksPage() {
       rangeEnd.setDate(0);
       rangeEnd.setHours(23, 59, 59, 999);
 
-      console.log('Fetching tasks for range:', rangeStart.toISOString(), 'to', rangeEnd.toISOString());
-
       const params = new URLSearchParams();
       params.set('start', rangeStart.toISOString());
       params.set('end', rangeEnd.toISOString());
@@ -93,7 +91,6 @@ export default function TasksPage() {
       const res = await fetch(`/api/calendar-tasks?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch tasks');
       const json = await res.json();
-      console.log('Fetched tasks:', json.tasks);
       setTasks((json.tasks || []) as CalendarTask[]);
     } catch (e: any) {
       setError(e.message || 'Failed to load tasks');
@@ -113,7 +110,6 @@ export default function TasksPage() {
 
   const events = useMemo(() => {
     const base = tasks.filter(t => (filterStatus === 'all' ? true : t.status === filterStatus));
-    console.log('Processed events for calendar:', base);
     return base.map(t => ({
       id: t.id,
       title: t.title,
@@ -128,7 +124,6 @@ export default function TasksPage() {
     const task: CalendarTask = event.resource;
     const overdue = isOverdue(task);
     const highPriority = task.priority === 'high' || task.priority === 'urgent';
-    console.log('Rendering event:', event.title, task);
     return (
       <div className={`flex items-center gap-1 ${overdue ? 'text-red-700' : highPriority ? 'text-yellow-700' : 'text-gray-900'}`}>
         {task.status === 'done' && <FiCheck className="h-3 w-3 text-green-600" />}

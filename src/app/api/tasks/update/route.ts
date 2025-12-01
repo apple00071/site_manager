@@ -119,7 +119,7 @@ export async function PATCH(request: NextRequest) {
         if (assignedUser?.phone_number) {
           const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
           const projectId = updatedTask.step?.project?.id;
-          const link = projectId ? `${origin}/dashboard/projects/${projectId}` : `${origin}/dashboard/my-tasks`;
+          const link = projectId ? `${origin}/dashboard/projects/${projectId}` : `${origin}/dashboard/tasks`;
           await sendTaskWhatsAppNotification(
             assignedUser.phone_number,
             updatedTask.title || currentTask.title,
@@ -140,7 +140,7 @@ export async function PATCH(request: NextRequest) {
           if (assignedUser?.phone_number) {
             const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
             const projectId = updatedTask.step?.project?.id;
-            const link = projectId ? `${origin}/dashboard/projects/${projectId}` : `${origin}/dashboard/my-tasks`;
+            const link = projectId ? `${origin}/dashboard/projects/${projectId}` : `${origin}/dashboard/tasks`;
             await sendTaskWhatsAppNotification(
               assignedUser.phone_number,
               updatedTask.title || currentTask.title,
