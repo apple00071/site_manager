@@ -6,7 +6,8 @@
   border: none;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  min-height: 360px;
+  height: auto;
 }
 
 /* Toolbar - Month/Year Header and Navigation */
@@ -87,7 +88,7 @@
 
 .rbc-month-row {
   border-bottom: 1px solid #e5e7eb;
-  min-height: 120px; /* Ensure enough height for cells */
+  min-height: 64px;
 }
 
 .rbc-month-row:last-child {
@@ -256,6 +257,4 @@
 }
 
 /* Custom Event Component (if needed for more complex styling) */
-.rbc-event-custom {
-  /* Add custom styles here */
-}
+

@@ -113,16 +113,47 @@ export default function TasksPage() {
 
   const events = useMemo(() => {
     const base = tasks.filter(t => (filterStatus === 'all' ? true : t.status === filterStatus));
-    console.log('Processed events for calendar:', base);
-    return base.map(t => ({
-      id: t.id,
-      title: t.title,
-      start: new Date(t.start_at),
-      end: new Date(t.end_at),
-      resource: t,
-      allDay: false,
-    }));
+    const mapped = base.map(t => {
+      const start = new Date(t.start_at);
+      const endCandidate = new Date(t.end_at);
+      const invalid = Number.isNaN(start.getTime()) || Number.isNaN(endCandidate.getTime());
+      const end = invalid || endCandidate.getTime() <= start.getTime()
+        ? new Date(start.getTime() + 60 * 60 * 1000)
+        : endCandidate;
+      return {
+        id: t.id,
+        title: t.title,
+        start,
+        end,
+        resource: t,
+        allDay: false,
+      };
+    }).filter(e => !Number.isNaN((e.start as Date).getTime()) && !Number.isNaN((e.end as Date).getTime()));
+    console.log('Processed events for calendar:', mapped);
+    return mapped;
   }, [tasks, filterStatus]);
+
+  const eventsByDay = useMemo(() => {
+    const m = new Map<string, number>();
+    events.forEach(e => {
+      const key = format(e.start as Date, 'yyyy-MM-dd');
+      m.set(key, (m.get(key) || 0) + 1);
+    });
+    return m;
+  }, [events]);
+
+  const maxEventsPerDay = useMemo(() => {
+    let max = 0;
+    eventsByDay.forEach((count) => { if (count > max) max = count; });
+    return max;
+  }, [eventsByDay]);
+
+  const calendarMinHeight = useMemo(() => {
+    const base = 320;
+    const perEvent = 24;
+    const computed = base + Math.min(maxEventsPerDay, 8) * perEvent;
+    return Math.max(300, Math.min(700, computed));
+  }, [maxEventsPerDay]);
 
   const EventComp = ({ event }: any) => {
     const task: CalendarTask = event.resource;
@@ -142,29 +173,116 @@ export default function TasksPage() {
   const [form, setForm] = useState({
     title: '',
     description: '',
-    start_at: '',
-    end_at: '',
+    project_id: '' as string,
+    start_date_picker: '',
+    start_hour: '10',
+    start_minute: '00',
+    start_ampm: 'AM',
+    end_hour: '11',
+    end_minute: '00',
+    end_ampm: 'AM',
+    end_date_picker: '',
     assigned_to: '' as string,
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
-    notifyAssignee: true,
   });
 
+
+
+  const titleSuggestions = [
+    'Site Visit',
+    'Client Meeting',
+    'Material Delivery',
+    'Electrical Fitting',
+    'Carpentry Work',
+    'Painting',
+    'Granite Installation',
+    'Glass Fitting',
+    'Final Cleanup',
+  ];
+
+  const [projects, setProjects] = useState<{ id: string; title: string }[]>([]);
+
+  function formatISTDate(d: Date) {
+    return new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata' }).format(d);
+  }
+  function formatISTTime(d: Date) {
+    return new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }).format(d);
+  }
+  function parseISTToISO(dateStr: string, timeStr: string) {
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return null;
+    const [dd, mm, yyyy] = parts.map(p => parseInt(p, 10));
+    if (!dd || !mm || !yyyy) return null;
+    const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return null;
+    let hour = parseInt(match[1], 10);
+    const minute = parseInt(match[2], 10);
+    const ampm = match[3].toUpperCase();
+    if (ampm === 'PM' && hour !== 12) hour += 12;
+    if (ampm === 'AM' && hour === 12) hour = 0;
+    const ms = Date.UTC(yyyy, mm - 1, dd, hour, minute);
+    const offsetMs = 5.5 * 60 * 60 * 1000; // IST offset
+    return new Date(ms - offsetMs).toISOString();
+  }
+
+  function partsToTimeString(h: string, m: string, ap: string) {
+    const hh = h.padStart(2, '0');
+    const mm = m.padStart(2, '0');
+    return `${hh}:${mm} ${ap}`;
+  }
+
+  function toDDMMYYYYFromPicker(yyyyMmDd: string) {
+    const [y, m, d] = yyyyMmDd.split('-');
+    if (!y || !m || !d) return '';
+    return `${d}/${m}/${y}`;
+  }
+
   const openCreateAt = (dateArg: Date) => {
-    const startISO = new Date(dateArg);
-    const endISO = new Date(dateArg);
-    endISO.setHours(endISO.getHours() + 1);
-    setForm(prev => ({ ...prev, start_at: startISO.toISOString(), end_at: endISO.toISOString() }));
+    const start = new Date(dateArg);
+    const end = new Date(dateArg);
+    end.setHours(end.getHours() + 1);
+
+    const startHour = format(start, 'hh');
+    const startMinute = format(start, 'mm');
+    const startAmPm = format(start, 'a');
+
+    const endHour = format(end, 'hh');
+    const endMinute = format(end, 'mm');
+    const endAmPm = format(end, 'a');
+
+    setForm(prev => ({
+      ...prev,
+      start_date_picker: format(start, 'yyyy-MM-dd'),
+      start_hour: startHour,
+      start_minute: startMinute,
+      start_ampm: startAmPm,
+      end_hour: endHour,
+      end_minute: endMinute,
+      end_ampm: endAmPm,
+      end_date_picker: format(end, 'yyyy-MM-dd'),
+    }));
     setModalOpen(true);
   };
 
   const createTask = async () => {
     try {
+      const dateForCalc = toDDMMYYYYFromPicker(form.start_date_picker);
+      const startTimeForCalc = partsToTimeString(form.start_hour, form.start_minute, form.start_ampm);
+      const endDateForCalc = toDDMMYYYYFromPicker(form.end_date_picker) || dateForCalc;
+      const endTimeForCalc = partsToTimeString(form.end_hour, form.end_minute, form.end_ampm);
+      const startIso = parseISTToISO(dateForCalc, startTimeForCalc);
+      const endIso = parseISTToISO(endDateForCalc, endTimeForCalc);
+      if (!form.title.trim()) throw new Error('Title is required');
+      if (!startIso || !endIso) throw new Error('Invalid date or time');
+      if (new Date(endIso).getTime() <= new Date(startIso).getTime()) throw new Error('End time must be after start time');
+
       const payload: any = {
         title: form.title,
         description: form.description || undefined,
-        start_at: form.start_at,
-        end_at: form.end_at,
-        assigned_to: form.assigned_to || null,
+        start_at: startIso,
+        end_at: endIso,
+        assigned_to: form.project_id ? (form.assigned_to || null) : null,
+        project_id: form.project_id || null,
         priority: form.priority,
         status: 'todo',
       };
@@ -178,12 +296,166 @@ export default function TasksPage() {
         throw new Error(err.error || 'Failed to create task');
       }
       setModalOpen(false);
-      setForm({ title: '', description: '', start_at: '', end_at: '', assigned_to: '', priority: 'medium', notifyAssignee: true });
+      setForm({
+        title: '',
+        description: '',
+        project_id: '',
+        start_date_picker: '',
+        start_hour: '10',
+        start_minute: '00',
+        start_ampm: 'AM',
+        end_hour: '11',
+        end_minute: '00',
+        end_ampm: 'AM',
+        end_date_picker: '',
+        assigned_to: '',
+        priority: 'medium'
+      });
       fetchTasks();
     } catch (e: any) {
       setError(e.message || 'Failed to create task');
     }
   };
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const { supabase } = await import('@/lib/supabase');
+        const { data, error } = await supabase
+          .from('projects')
+          .select('id,title,status')
+          .neq('status', 'completed')
+          .order('title', { ascending: true })
+          .limit(100);
+        if (!error && Array.isArray(data)) {
+          setProjects(data.map(p => ({ id: p.id as string, title: (p as any).title as string })));
+        }
+      } catch {}
+    };
+    fetchProjects();
+  }, []);
+
+  const modal = (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-5">
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">Create Task</h2>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Title *</label>
+            <input list="task-title-templates" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-required="true" />
+            <datalist id="task-title-templates">
+              {titleSuggestions.map((s, i) => (
+                <option key={i} value={s} />
+              ))}
+            </datalist>
+            <label className="block text-xs text-gray-600 mb-1 mt-2">Quick Select:</label>
+            <div className="flex flex-wrap gap-2 mt-2" aria-label="Common title templates">
+              {titleSuggestions.slice(0,5).map((s, i) => (
+                <button key={i} type="button" className="px-2 py-1 text-sm bg-yellow-500 text-gray-900 rounded" onClick={() => setForm({ ...form, title: s })}>{s}</button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Description</label>
+            <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Project (optional)</label>
+            <select value={form.project_id} onChange={e => setForm({ ...form, project_id: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md">
+              <option value="">No Project</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.title}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Start Date</label>
+                <input type="date" value={form.start_date_picker} onChange={e => setForm({ ...form, start_date_picker: e.target.value, end_date_picker: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-label="Calendar start date picker" />
+
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Start Time</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <select value={form.start_hour} onChange={e => setForm({ ...form, start_hour: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-label="Start hour">
+                    {[...Array(12)].map((_, i) => {
+                      const hour = (i + 1).toString().padStart(2, '0');
+                      return <option key={hour} value={hour}>{hour}</option>;
+                    })}
+                  </select>
+                  <select value={form.start_minute} onChange={e => setForm({ ...form, start_minute: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-label="Start minute">
+                    {[...Array(60)].map((_, i) => {
+                      const minute = i.toString().padStart(2, '0');
+                      return <option key={minute} value={minute}>{minute}</option>;
+                    })}
+                  </select>
+                  <select value={form.start_ampm} onChange={e => setForm({ ...form, start_ampm: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-label="AM or PM">
+                    <option value="AM">AM</option>
+                    <option value="PM">PM</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">End Date</label>
+                <input type="date" value={form.end_date_picker} onChange={e => setForm({ ...form, end_date_picker: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-label="Calendar end date picker" />
+
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">End Time</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <select value={form.end_hour} onChange={e => setForm({ ...form, end_hour: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-label="End hour">
+                    {[...Array(12)].map((_, i) => {
+                      const hour = (i + 1).toString().padStart(2, '0');
+                      return <option key={hour} value={hour}>{hour}</option>;
+                    })}
+                  </select>
+                  <select value={form.end_minute} onChange={e => setForm({ ...form, end_minute: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-label="End minute">
+                    {[...Array(60)].map((_, i) => {
+                      const minute = i.toString().padStart(2, '0');
+                      return <option key={minute} value={minute}>{minute}</option>;
+                    })}
+                  </select>
+                  <select value={form.end_ampm} onChange={e => setForm({ ...form, end_ampm: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-label="AM or PM">
+                    <option value="AM">AM</option>
+                    <option value="PM">PM</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Priority</label>
+                <select value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value as 'low' | 'medium' | 'high' | 'urgent' })} className="w-full px-3 py-2 border border-gray-300 rounded-md">
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Assign to</label>
+                <select value={form.assigned_to} onChange={e => setForm({ ...form, assigned_to: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md">
+                  <option value="">Unassigned</option>
+                  {assignees.map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-gray-700 rounded-md bg-gray-100 hover:bg-gray-200">Cancel</button>
+              <button onClick={createTask} className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 font-medium">Create Task</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-4">
@@ -197,7 +469,7 @@ export default function TasksPage() {
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+      <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm" role="region" aria-label="Tasks calendar" aria-live="polite">
         <div className="flex flex-wrap items-center gap-3 mb-3">
           <div className="inline-flex items-center gap-2">
             <FiFilter className="h-4 w-4 text-gray-600" />
@@ -220,7 +492,7 @@ export default function TasksPage() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-gray-200">
+        <div className="rounded-lg border border-gray-200" style={{ minHeight: calendarMinHeight }}>
           <Calendar
             localizer={localizer}
             events={events}
@@ -232,7 +504,21 @@ export default function TasksPage() {
             onNavigate={(d: Date) => setDate(d)}
             selectable
             onSelectSlot={(slotInfo: any) => openCreateAt(slotInfo.start)}
-            components={{ event: EventComp }}
+            components={{
+              event: EventComp,
+              month: {
+                dateHeader: ({ label, date }: any) => {
+                  const key = format(date as Date, 'yyyy-MM-dd');
+                  const count = eventsByDay.get(key) || 0;
+                  return (
+                    <div className="flex items-center justify-end pr-2 gap-1" aria-label={`Date ${label}${count ? `, ${count} tasks` : ''}`}>
+                      <span>{label}</span>
+                      {count > 0 && <span className="inline-block w-2 h-2 rounded-full bg-yellow-500" />}
+                    </div>
+                  );
+                },
+              },
+            }}
             popup
             messages={{ showMore: (count: number) => `+${count} more`, noEvents: loading ? 'Loading…' : 'No tasks' }}
           />
@@ -243,61 +529,7 @@ export default function TasksPage() {
         <div className="bg-red-50 border-l-4 border-red-500 p-3 text-sm text-red-700 rounded">{error}</div>
       )}
 
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-5">
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">Create Task</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Title *</label>
-                <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Description</label>
-                <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">Start</label>
-                  <input type="datetime-local" value={form.start_at ? new Date(form.start_at).toISOString().slice(0,16) : ''} onChange={e => setForm({ ...form, start_at: new Date(e.target.value).toISOString() })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">End / Deadline</label>
-                  <input type="datetime-local" value={form.end_at ? new Date(form.end_at).toISOString().slice(0,16) : ''} onChange={e => setForm({ ...form, end_at: new Date(e.target.value).toISOString() })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">Priority</label>
-                  <select value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value as any })} className="w-full px-3 py-2 border border-gray-300 rounded-md">
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">Assign to</label>
-                  <select value={form.assigned_to} onChange={e => setForm({ ...form, assigned_to: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md">
-                    <option value="">Unassigned</option>
-                    {assignees.map(a => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <input type="checkbox" checked={form.notifyAssignee} onChange={e => setForm({ ...form, notifyAssignee: e.target.checked })} />
-                <span className="text-sm text-gray-700">Notify assignee on creation</span>
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-gray-700 rounded-md bg-gray-100 hover:bg-gray-200">Cancel</button>
-                <button onClick={createTask} className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 font-medium">Create Task</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {modalOpen && modal}
     </div>
   );
 }

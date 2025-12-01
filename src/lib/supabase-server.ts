@@ -7,17 +7,32 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+const isDev = process.env.NODE_ENV !== 'production';
+
+const missingServerEnvMessage =
+  'Missing Supabase environment variables. Please set NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY.';
+
 if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
-  throw new Error(
-    'Missing Supabase environment variables. Please set NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY.'
-  );
+  if (isDev) {
+    console.warn(missingServerEnvMessage);
+  } else {
+    throw new Error(missingServerEnvMessage);
+  }
 }
 
 // Admin client for server-side operations
-export const supabaseAdmin = createClient(supabaseUrl as string, supabaseServiceKey as string);
+export const supabaseAdmin = supabaseUrl && supabaseServiceKey
+  ? createClient(supabaseUrl as string, supabaseServiceKey as string)
+  : (null as any);
 
 // Helper function to create authenticated server client
 export async function createAuthenticatedClient() {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    const error = new Error(missingServerEnvMessage);
+    console.warn(error.message);
+    throw error;
+  }
+
   const cookieStore = await cookies();
   return createServerClient(
     supabaseUrl as string,
