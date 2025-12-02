@@ -128,20 +128,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     fetchStages();
   }, [projectId]);
 
-  useEffect(() => {
-    const el = updatesListRef.current;
-    if (!el) return;
-    const toBottom = () => {
-      el.scrollTop = el.scrollHeight;
-    };
-    toBottom();
-    const raf = requestAnimationFrame(toBottom);
-    const t = setTimeout(toBottom, 100);
-    return () => {
-      cancelAnimationFrame(raf);
-      clearTimeout(t);
-    };
-  }, [updates]);
+  // Removed auto-scrolling to prevent jumping to bottom
 
   const fetchUpdates = async () => {
     try {
@@ -155,7 +142,18 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
       
-      setUpdates(sortedUpdates);
+      // Always ensure newest updates are at the top
+      setUpdates(prev => {
+        // If no existing updates or the first update is the same as the first new one, just return the new ones
+        if (prev.length === 0 || (prev[0] && sortedUpdates[0] && prev[0].id === sortedUpdates[0].id)) {
+          return sortedUpdates;
+        }
+        // Otherwise merge and sort
+        const merged = [...prev, ...sortedUpdates];
+        return merged
+          .filter((v, i, a) => a.findIndex(t => t.id === v.id) === i) // Remove duplicates
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      });
     } catch (error) {
       console.error('Error fetching updates:', error);
     } finally {
@@ -570,8 +568,8 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
       }
 
       const { update } = await response.json();
-      // Append new update to the list
-      setUpdates(prev => [...prev, update]);
+      // Add new update to the top of the list
+      setUpdates(prev => [update, ...prev]);
       setForm({
         update_date: getTodayDateString(),
         description: '',
