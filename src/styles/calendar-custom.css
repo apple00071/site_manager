@@ -8,6 +8,57 @@
   flex-direction: column;
   min-height: 360px;
   height: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .rbc-month-view .rbc-event-content {
+    display: none;
+  }
+  
+  .rbc-event {
+    font-size: 0.65rem !important;
+    padding: 0.05rem 0.15rem !important;
+    margin: 0.5px 0.5px !important;
+    min-height: 16px !important;
+  }
+  
+  .rbc-month-row {
+    min-height: 70px !important;
+  }
+  
+  .rbc-date-cell {
+    padding: 2px 4px;
+    height: 28px;
+  }
+  
+  .rbc-date-cell-content {
+    min-width: 24px;
+    height: 24px;
+    font-size: 0.75rem;
+  }
+  
+  .rbc-header {
+    padding: 0.5rem 0.25rem;
+    font-size: 0.7rem;
+  }
+  
+  .rbc-toolbar {
+    padding: 0.5rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .rbc-toolbar .rbc-toolbar-label {
+    font-size: 1rem;
+    margin: 0.25rem 0;
+  }
+  
+  .rbc-toolbar button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
 }
 
 /* Toolbar - Month/Year Header and Navigation */
@@ -29,7 +80,7 @@
 .rbc-toolbar button {
   background-color: #f3f4f6; /* Light gray background */
   color: #374151; /* Dark gray text */
-  border: 1px solid #d1d5db; /* Gray border */
+  border: 1px solid #d1d5db; /* Reset and base styles */
   padding: 0.5rem 1rem;
   border-radius: 0.375rem; /* md rounded */
   font-size: 0.875rem; /* text-sm */
@@ -55,73 +106,180 @@
   color: #111827; /* Darker text for label */
 }
 
-/* Month View Specifics */
+/* ============================================
+   MONTH VIEW STYLES
+   ============================================ */
+
+/* Base Month View Container */
 .rbc-month-view {
-  border: none;
-  background-color: #fff;
-  border-radius: 0 0 0.5rem 0.5rem;
+  flex: 1;
+  min-height: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
   overflow: hidden;
+  background: white;
+}
+
+/* Month Header - Days of Week */
+.rbc-month-header {
+  display: flex;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .rbc-header {
-  background-color: #f9fafb; /* Lighter gray for day headers */
-  color: #6b7280; /* Medium gray text */
-  font-size: 0.75rem; /* text-xs */
-  font-weight: 600; /* semibold */
   padding: 0.75rem 0.5rem;
-  border-bottom: 1px solid #e5e7eb;
-  border-left: 1px solid #e5e7eb;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #4b5563;
   text-align: center;
+  flex: 1 0 0%;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-left: 1px solid #e5e7eb;
 }
 
 .rbc-header:first-child {
   border-left: none;
 }
 
-.rbc-row-content {
-  border-left: 1px solid #e5e7eb;
-}
-
-.rbc-row-content .rbc-row-bg .rbc-day-bg {
-  border-left: 1px solid #e5e7eb;
-}
-
+/* Month Rows - Each week */
 .rbc-month-row {
+  display: flex;
+  min-height: 80px;
+  position: relative;
   border-bottom: 1px solid #e5e7eb;
-  min-height: 64px;
 }
 
 .rbc-month-row:last-child {
   border-bottom: none;
 }
 
-.rbc-date-cell {
-  padding: 0.5rem;
-  text-align: right;
-  font-size: 0.875rem; /* text-sm */
-  color: #1f2937; /* Dark gray for dates */
-  border-left: 1px solid #e5e7eb;
-}
-
-.rbc-date-cell.rbc-now {
-  background-color: #eff6ff; /* Light blue for current day background */
-}
-
-.rbc-date-cell.rbc-current > em {
-  background-color: #4f46e5; /* Indigo 600 for current day circle */
-  color: #fff;
-  border-radius: 9999px; /* full rounded */
-  width: 2rem;
-  height: 2rem;
+/* Day Backgrounds */
+.rbc-row-bg {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-left: auto; /* Align to right */
-  margin-right: 0.25rem;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Individual Day Cell */
+.rbc-day-bg {
+  flex: 1;
+  border-left: 1px solid #e5e7eb;
+  min-height: 100%;
+  position: relative;
+}
+
+.rbc-day-bg:first-child {
+  border-left: none;
 }
 
 .rbc-off-range-bg {
-  background-color: #f9fafb; /* Lighter background for days outside current month */
+  background: #f9fafb;
+}
+
+.rbc-today {
+  background-color: #f0f9ff;
+}
+
+/* Date Cell Styling */
+.rbc-date-cell {
+  position: relative;
+  height: 36px;
+  padding: 4px 8px;
+  text-align: right;
+  z-index: 2;
+}
+
+.rbc-date-cell-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  line-height: 1;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #1f2937;
+  background: white;
+  padding: 0 2px;
+}
+
+/* Current Day Highlight */
+.rbc-now .rbc-date-cell-content {
+  background-color: #4f46e5;
+  color: white;
+  font-weight: 600;
+}
+
+/* Off-range days */
+.rbc-off-range .rbc-date-cell-content {
+  color: #9ca3af;
+  opacity: 0.6;
+}
+
+/* Events Container */
+.rbc-row-content {
+  position: relative;
+  z-index: 1;
+  min-height: calc(100% - 30px);
+  overflow: hidden;
+  margin: 0;
+  padding: 0 1px 1px;
+  font-size: 0.7rem;
+}
+
+/* Events */
+.rbc-event {
+  background-color: #4f46e5;
+  border: none;
+  border-radius: 0.2rem;
+  color: white;
+  padding: 0.1rem 0.25rem;
+  margin: 1px 1px;
+  line-height: 1.1;
+  font-size: 0.7rem;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 18px;
+  display: flex;
+  align-items: center;
+  text-overflow: ellipsis;
+}
+
+/* Hover States */
+.rbc-day-bg:hover {
+  background-color: #f3f4f6;
+}
+
+.rbc-now .rbc-day-bg:hover {
+  background-color: #e0f2fe;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .rbc-month-row {
+    min-height: 100px;
+  }
+  
+  .rbc-date-cell > a {
+    width: 24px;
+    height: 24px;
+    font-size: 0.75rem;
+  }
+  
+  .rbc-row-content {
+    margin-top: 36px;
+    min-height: calc(100% - 36px);
+  }
 }
 
 .rbc-off-range .rbc-date-cell {

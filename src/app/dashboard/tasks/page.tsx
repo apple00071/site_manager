@@ -7,7 +7,7 @@ import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import '@/styles/calendar-custom.css';
-import { FiCheck, FiFilter, FiPlus, FiUser, FiAlertTriangle, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { FiCheck, FiFilter, FiPlus, FiUser, FiAlertTriangle, FiChevronLeft, FiChevronRight, FiUserX } from 'react-icons/fi';
 
 type CalendarViewType = 'month' | 'week' | 'work_week' | 'day' | 'agenda';
 
@@ -20,7 +20,11 @@ type CalendarTask = {
   status: 'todo' | 'in_progress' | 'blocked' | 'done';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   assigned_to?: string | null;
+  assigned_to_id?: string | null;
   project_id?: string | null;
+  created_at?: string;
+  created_by?: string;
+  updated_at?: string;
 };
 
 const locales = { 'en-US': enUS };
@@ -75,17 +79,97 @@ export default function TasksPage() {
   }, [filterAssignee, filterStatus]);
 
   const fetchAssignees = async () => {
+    console.log('Starting to fetch assignees...');
     try {
-      // Try to fetch minimal user list; fall back to current user
       const { supabase } = await import('@/lib/supabase');
-      const { data, error } = await supabase.from('users').select('id, full_name').limit(50);
-      if (!error && Array.isArray(data)) {
-        setAssignees(data.map(u => ({ id: u.id as string, name: (u as any).full_name || 'User' })));
-      } else if (user) {
-        setAssignees([{ id: user.id, name: (user as any).full_name || user.email?.split('@')[0] || 'Me' }]);
+      console.log('Supabase client initialized');
+      
+      // First, verify the table exists and we can query it
+      console.log('Checking users table...');
+      
+      // Fetch all users with pagination if needed
+      let allUsers: any[] = [];
+      let page = 0;
+      const pageSize = 100; // Adjust based on your needs
+      let hasMore = true;
+      
+      while (hasMore) {
+        console.log(`Fetching users page ${page + 1}...`);
+        const { data: users, error: fetchError } = await supabase
+          .from('users')
+          .select('id, full_name, email')
+          .order('full_name', { ascending: true })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+          
+        if (fetchError) {
+          console.error('Error fetching users:', fetchError);
+          throw fetchError;
+        }
+        
+        if (!users || users.length === 0) {
+          hasMore = false;
+        } else {
+          allUsers = [...allUsers, ...users];
+          if (users.length < pageSize) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        }
       }
-    } catch {
-      if (user) setAssignees([{ id: user.id, name: (user as any).full_name || 'Me' }]);
+      
+      console.log(`Fetched ${allUsers.length} users from the database`);
+      
+      // If we have a task with an assignee but that user isn't in our list,
+      // try to fetch that specific user
+      if (viewTask?.assigned_to && !allUsers.some(u => u.id === viewTask.assigned_to)) {
+        console.log(`User ${viewTask.assigned_to} not found in initial fetch, trying direct fetch...`);
+        const { data: missingUser, error: missingUserError } = await supabase
+          .from('users')
+          .select('id, full_name, email')
+          .eq('id', viewTask.assigned_to)
+          .single();
+          
+        if (!missingUserError && missingUser) {
+          console.log('Found missing user via direct fetch:', missingUser);
+          allUsers.push(missingUser);
+        } else {
+          console.warn('Could not find assigned user:', missingUserError || 'User not found');
+        }
+      }
+
+      if (error) {
+        console.error('Error fetching users:', error);
+        throw error;
+      }
+
+      if (allUsers.length > 0) {
+        console.log(`Processing ${allUsers.length} users from the database`);
+        console.log('Fetched assignees:', allUsers);
+        const formattedAssignees = allUsers.map((user) => ({
+          id: user.id,
+          name: user.full_name || user.email?.split('@')[0] || 'User',
+          email: user.email || ''
+        }));
+        console.log('Setting assignees:', formattedAssignees);
+        setAssignees(formattedAssignees);
+      } else {
+        console.warn('No users found in the database');
+        if (user) {
+          setAssignees([{ 
+            id: user.id, 
+            name: (user as any).full_name || user.email?.split('@')[0] || 'You' 
+          }]);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch assignees:', error);
+      if (user) {
+        setAssignees([{ 
+          id: user.id, 
+          name: (user as any).full_name || user.email?.split('@')[0] || 'You' 
+        }]);
+      }
     }
   };
 
@@ -192,11 +276,23 @@ export default function TasksPage() {
     return Math.max(300, Math.min(700, computed));
   }, [maxEventsPerDay, view, hasVisibleEvents]);
 
-  const EventComp = ({ event }: any) => {
+  const EventComp = ({ event, view = 'month' }: { event: any; view?: CalendarViewType }) => {
     const task: CalendarTask = event.resource;
     const overdue = isOverdue(task);
     const highPriority = task.priority === 'high' || task.priority === 'urgent';
-    console.log('Rendering event:', event.title, task);
+    const isMonthView = view === 'month';
+    const assignee = assignees.find(a => a.id === task.assigned_to);
+    const assigneeInitial = assignee?.name?.charAt(0).toUpperCase() || '?';
+
+    // Priority colors mapping
+    const priorityColors = {
+      low: 'bg-blue-100 text-blue-800',
+      medium: 'bg-green-100 text-green-800',
+      high: 'bg-yellow-100 text-yellow-800',
+      urgent: 'bg-red-100 text-red-800'
+    };
+
+    // Prepare tooltip with all details
     const start = event.start as Date;
     const end = event.end as Date;
     const timeRange = `${formatISTTime(start)} - ${formatISTTime(end)}`;
@@ -204,16 +300,67 @@ export default function TasksPage() {
     if (task.priority) {
       tooltipParts.push(`Priority: ${task.priority}`);
     }
+    if (assignee) {
+      tooltipParts.push(`Assigned to: ${assignee.name}`);
+    }
     tooltipParts.push(`Status: ${task.status}`);
     const tooltip = tooltipParts.join(' • ');
+
     return (
-      <div
-        className={`flex items-center gap-1 ${overdue ? 'text-red-700' : highPriority ? 'text-yellow-700' : 'text-gray-900'}`}
+      <div 
+        className={`flex items-start gap-1 ${overdue ? 'text-red-700' : highPriority ? 'text-yellow-700' : 'text-gray-900'}`}
         title={tooltip}
       >
-        {task.status === 'done' && <FiCheck className="h-3 w-3 text-green-600" />}
-        {overdue && <FiAlertTriangle className="h-3 w-3 text-red-600" />}
-        <span className="truncate">{event.title}</span>
+        {!isMonthView && (
+          <>
+            {task.status === 'done' && <FiCheck className="h-3 w-3 text-green-600 mt-0.5 flex-shrink-0" />}
+            {overdue && <FiAlertTriangle className="h-3 w-3 text-red-600 mt-0.5 flex-shrink-0" />}
+          </>
+        )}
+        
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1">
+            {isMonthView && (
+              <>
+                {task.status === 'done' && <FiCheck className="h-2.5 w-2.5 text-green-600 flex-shrink-0" />}
+                {overdue && <FiAlertTriangle className="h-2.5 w-2.5 text-red-600 flex-shrink-0" />}
+                <span className="truncate text-xs font-medium">{task.title}</span>
+                {task.assigned_to && (
+                  <span 
+                    className="flex-shrink-0 inline-flex items-center justify-center h-3 w-3 rounded-full bg-gray-200 text-gray-700 font-medium text-[8px]"
+                    title={`Assigned to: ${assignee?.name || 'Unknown'}`}
+                  >
+                    {assigneeInitial}
+                  </span>
+                )}
+              </>
+            )}
+            {!isMonthView && (
+              <>
+                <span className="truncate text-xs flex-1">{task.title}</span>
+                {task.assigned_to && (
+                  <span 
+                    className="flex-shrink-0 inline-flex items-center justify-center h-3 w-3 rounded-full bg-gray-200 text-gray-700 font-medium text-[8px] ml-1"
+                    title={`Assigned to: ${assignee?.name || 'Unknown'}`}
+                  >
+                    {assigneeInitial}
+                  </span>
+                )}
+                <span className={`text-[8px] px-1 rounded ${priorityColors[task.priority as keyof typeof priorityColors] || 'bg-gray-100'} ml-1`}>
+                  {task.priority}
+                </span>
+              </>
+            )}
+          </div>
+          
+          {isMonthView && (
+            <div className="flex items-center gap-1 mt-0.5">
+              <span className={`text-[8px] px-1 rounded ${priorityColors[task.priority as keyof typeof priorityColors] || 'bg-gray-100'}`}>
+                {task.priority}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -450,7 +597,8 @@ export default function TasksPage() {
         description: form.description || undefined,
         start_at: startIso,
         end_at: endIso,
-        assigned_to: form.project_id ? (form.assigned_to || null) : null,
+        assigned_to: form.assigned_to || null,
+        assigned_to_id: form.assigned_to || null,
         project_id: form.project_id || null,
         priority: form.priority,
       };
@@ -669,21 +817,81 @@ export default function TasksPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <p className="text-xs text-gray-500 mb-1">Status</p>
-              <p className="capitalize text-gray-900">{viewTask.status.replace('_', ' ')}</p>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                viewTask.status === 'done' ? 'bg-green-100 text-green-800' :
+                viewTask.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                viewTask.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                'bg-gray-100 text-gray-800'
+              }`}>
+                {viewTask.status.replace('_', ' ').charAt(0).toUpperCase() + viewTask.status.replace('_', ' ').slice(1)}
+              </span>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Project</p>
+              <p className="text-gray-900">
+                {viewTask.project_id ? (projects.find(p => p.id === viewTask.project_id)?.title || 'No project') : 'No project'}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Assigned To</p>
+              {viewTask.assigned_to || viewTask.assigned_to_id ? (
+                (() => {
+                  const assigneeId = viewTask.assigned_to || viewTask.assigned_to_id;
+                  const assignee = assignees.find(a => a.id === assigneeId);
+                  
+                  console.log('Assignee debug:', {
+                    taskId: viewTask.id,
+                    assigned_to: viewTask.assigned_to,
+                    assigned_to_id: viewTask.assigned_to_id,
+                    assigneeId,
+                    assignee,
+                    allAssignees: assignees
+                  });
+
+                  if (!assignee) {
+                    return (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2 text-yellow-700">
+                          <FiUserX className="h-4 w-4 flex-shrink-0" />
+                          <span>Assigned to user ID: {assigneeId}</span>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          (User not found in system)
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="flex items-center gap-2">
+                      <span 
+                        className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-indigo-100 text-indigo-800 text-xs font-medium"
+                        title={`${assignee.name} (${assignee.id})`}
+                      >
+                        {assignee.name?.charAt(0).toUpperCase() || '?'}
+                      </span>
+                      <span className="text-gray-900">{assignee.name}</span>
+                    </div>
+                  );
+                })()
+              ) : (
+                <span className="text-gray-500 italic">Unassigned</span>
+              )}
             </div>
             <div>
               <p className="text-xs text-gray-500 mb-1">Priority</p>
-              <p className="capitalize text-gray-900">{viewTask.priority}</p>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                viewTask.priority === 'high' ? 'bg-red-100 text-red-800' :
+                viewTask.priority === 'urgent' ? 'bg-red-100 text-red-800 font-bold' :
+                viewTask.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                'bg-blue-100 text-blue-800'
+              }`}>
+                {viewTask.priority.charAt(0).toUpperCase() + viewTask.priority.slice(1)}
+              </span>
             </div>
           </div>
-          {viewTask.assigned_to && (
-            <div>
-              <p className="text-xs text-gray-500 mb-1">Assigned To</p>
-              <p className="text-gray-900">
-                {assignees.find(a => a.id === viewTask.assigned_to)?.name || 'Unassigned'}
-              </p>
-            </div>
-          )}
         </div>
         <div className="flex justify-end gap-2 pt-4">
           <button
@@ -765,23 +973,35 @@ export default function TasksPage() {
               }
             }}
             components={{
-              event: EventComp,
+              event: (props: any) => <EventComp {...props} view={view} />,
               toolbar: TasksToolbar,
               month: {
-                dateHeader: ({ label, date }: any) => {
-                  const key = format(date as Date, 'yyyy-MM-dd');
-                  const count = eventsByDay.get(key) || 0;
+                dateHeader: ({ date, label }: { date: Date; label: string }) => {
+                  const isToday = format(new Date(), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
                   return (
-                    <div className="flex items-center justify-end pr-2 gap-1" aria-label={`Date ${label}${count ? `, ${count} tasks` : ''}`}>
-                      <span>{label}</span>
-                      {count > 0 && <span className="inline-block w-2 h-2 rounded-full bg-yellow-500" />}
+                    <div className="rbc-date-cell">
+                      <div className={`rbc-date-cell-content ${isToday ? 'rbc-now' : ''}`}>
+                        {label}
+                      </div>
                     </div>
                   );
                 },
               },
             }}
+            style={{
+              height: '100%',
+              minHeight: '600px',
+              '--rbc-today-bg': '#f0f9ff',
+              '--rbc-off-range-bg': '#f9fafb',
+              '--rbc-event-bg': '#4f46e5',
+              '--rbc-event-color': '#fff',
+              '--rbc-current-time-indicator': '#4f46e5',
+            } as React.CSSProperties}
             popup
-            messages={{ showMore: (count: number) => `+${count} more`, noEvents: loading ? 'Loading…' : 'No tasks' }}
+            messages={{
+              showMore: (count: number) => `+${count} more` as any,
+              noEventsInRange: loading ? 'Loading...' : 'No tasks'
+            }}
             className="tasks-calendar"
           />
         </div>
