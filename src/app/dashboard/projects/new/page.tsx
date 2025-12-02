@@ -151,7 +151,7 @@ export default function NewProjectPage() {
         console.log('Employees loaded:', employeesData?.length, employeesData);
         
         // Map to the expected format with 'name' field and include role for logic
-        const mappedEmployees = (employeesData || []).map(u => ({
+        const mappedEmployees = (employeesData || []).map((u: { id: string; full_name: string | null; email: string | null; designation: string | null; role: string | null }) => ({
           id: u.id,
           name: u.full_name,
           email: u.email,

@@ -90,7 +90,7 @@ export default function EditProjectPage() {
           .order('full_name', { ascending: true });
 
         if (employeesError) throw employeesError;
-        setEmployees((employeesData || []).map(u => ({
+                        setEmployees((employeesData || []).map((u: { id: string; full_name: string; email: string; designation: string }) => ({
           id: u.id,
           name: u.full_name,
           email: u.email,

@@ -32,7 +32,8 @@ export default function MyProjectsPage() {
           return;
         }
 
-        const projectIds = memberData.map(m => m.project_id);
+                interface MemberData { project_id: string; }
+        const projectIds = memberData.map((m: MemberData) => m.project_id);
         
         // Fetch full project details
         const { data: projectsData, error: projectsError } = await supabase
@@ -44,8 +45,9 @@ export default function MyProjectsPage() {
         if (projectsError) throw projectsError;
         
         // Combine project data with permissions
-        const projectsWithPermissions = projectsData?.map(project => {
-          const memberInfo = memberData.find(m => m.project_id === project.id);
+                interface ProjectWithId { id: string; }
+        const projectsWithPermissions = projectsData?.map((project: ProjectWithId) => {
+                    const memberInfo = memberData.find((m: { project_id: string }) => m.project_id === project.id);
           return {
             ...project,
             permissions: memberInfo?.permissions || {}

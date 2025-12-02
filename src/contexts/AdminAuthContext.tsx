@@ -98,7 +98,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
     // Set up session listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (event: string, session: Session | null) => {
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(true);

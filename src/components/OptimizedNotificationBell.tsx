@@ -180,7 +180,7 @@ export function OptimizedNotificationBell() {
               table: 'notifications',
               filter: `user_id=eq.${user.id}`
             },
-            (payload) => {
+            (payload: { new: Notification; old: Notification | null }) => {
               console.log('🔔 Real-time notification received');
               const newNotification = payload.new as Notification;
               
@@ -205,7 +205,7 @@ export function OptimizedNotificationBell() {
               table: 'notifications',
               filter: `user_id=eq.${user.id}`
             },
-            (payload) => {
+            (payload: { new: Notification; old: Notification | null }) => {
               console.log('🔄 Notification updated via real-time');
               const updatedNotification = payload.new as Notification;
               
@@ -224,7 +224,7 @@ export function OptimizedNotificationBell() {
               cacheInvalidation.invalidateNotifications();
             }
           )
-          .subscribe((status) => {
+          .subscribe((status: string) => {
             console.log('📡 Realtime status:', status);
             
             if (status === 'SUBSCRIBED') {
