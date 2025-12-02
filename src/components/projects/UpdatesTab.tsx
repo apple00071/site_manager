@@ -6,6 +6,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { formatDateReadable, formatDateTimeReadable, formatTimeIST, getTodayDateString } from '@/lib/dateUtils';
 import { ImageModal } from '@/components/ui/ImageModal';
 
+declare global {
+  interface Window {
+    MSStream?: any;
+  }
+}
+
 type ProjectUpdate = {
   id: string;
   project_id: string;
@@ -92,19 +98,24 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
   const [updates, setUpdates] = useState<ProjectUpdate[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploadingPhotos, setUploadingPhotos] = useState(false);
-  const [uploadingAudio, setUploadingAudio] = useState(false);
+  // Audio recording state
   const [isRecording, setIsRecording] = useState(false);
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  
+  // Refs for audio recording
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioBlobRef = useRef<Blob | null>(null);
+  
+  // Project state
   const [selectedStageId, setSelectedStageId] = useState('all');
   const [stages, setStages] = useState<ProjectStage[]>([]);
   const [showAll, setShowAll] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [currentImages, setCurrentImages] = useState<string[]>([]);
-  const mediaRecorderRef = useRef<any>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const audioBlobRef = useRef<Blob | null>(null);
-  const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
   const updatesListRef = useRef<HTMLDivElement | null>(null);
   const [form, setForm] = useState({
     update_date: getTodayDateString(),
@@ -241,88 +252,237 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
   };
 
   const startRecording = async () => {
+    console.log('Starting recording process...');
+    
+    // Enhanced error handler with more context
+    const showError = (message: string, error?: any) => {
+      console.error('Recording Error:', { message, error });
+      // More user-friendly error message
+      const userMessage = error?.message 
+        ? `${message}\n\n(Error: ${error.message})`
+        : message;
+      alert(userMessage);
+    };
+
     try {
-      if (typeof window === 'undefined' || !navigator.mediaDevices) {
-        alert('Audio recording is not supported in this browser');
-        return;
+      // Basic environment checks
+      if (typeof window === 'undefined') {
+        throw new Error('This feature is only available in the browser.');
       }
 
-      // Check if mediaDevices.getUserMedia is available
-      if (!navigator.mediaDevices.getUserMedia) {
-        alert('Audio recording is not supported in this browser. Please try a different browser like Chrome or Firefox.');
-        return;
+      // Check if we're on a mobile device
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      console.log('Device type:', isMobile ? 'Mobile' : 'Desktop');
+
+      // Check for required APIs
+      if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+        const missingApis = [];
+        if (!navigator.mediaDevices?.getUserMedia) missingApis.push('getUserMedia');
+        if (!window.MediaRecorder) missingApis.push('MediaRecorder');
+        
+        throw new Error(
+          `Your browser doesn't support required audio recording features.\n` +
+          `Missing: ${missingApis.join(', ')}.\n\n` +
+          'Please try using the latest version of Chrome or Firefox on your device.'
+        );
       }
+
+      console.log('Requesting microphone access...');
+      
+      // Configure audio constraints
+      const constraints = {
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      };
 
       // Request microphone access with better error handling
-      let stream;
+      let stream: MediaStream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          audio: {
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false
-          } 
-        });
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
       } catch (error: any) {
+        console.error('Microphone access error:', error);
+        
         if (error.name === 'NotAllowedError') {
-          alert('Microphone access was denied. Please allow microphone access to record voice notes.');
-        } else if (error.name === 'NotFoundError') {
-          alert('No microphone found. Please connect a microphone and try again.');
-        } else if (error.name === 'NotReadableError') {
-          alert('Microphone is being used by another application. Please close other apps using the microphone and try again.');
-        } else {
-          alert('Unable to access microphone: ' + error.message);
+          // Check if this is a mobile device that might need HTTPS
+          if (isMobile && window.location.protocol !== 'https:') {
+            throw new Error(
+              'Microphone access requires a secure (HTTPS) connection on mobile devices. ' +
+              'Please ensure you are using a secure connection.'
+            );
+          }
+          throw new Error(
+            'Microphone access was denied. ' +
+            (isMobile 
+              ? 'Please check your browser settings and ensure the app has microphone permissions.'
+              : 'Please allow microphone access in your browser settings.'
+            )
+          );
         }
-        return;
+        
+        if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+          throw new Error('No microphone found. Please ensure your device has a working microphone.');
+        }
+        
+        if (error.name === 'NotReadableError') {
+          throw new Error('Could not access the microphone. It might be in use by another application.');
+        }
+        
+        throw new Error(`Could not access microphone: ${error.message || 'Unknown error'}`);
       }
 
-      const MediaRecorderConstructor = (window as any).MediaRecorder;
+      console.log('Microphone access granted');
 
-      if (!MediaRecorderConstructor) {
-        alert('Audio recording is not supported in this browser');
-        stream.getTracks().forEach((t: MediaStreamTrack) => t.stop());
-        return;
+      console.log('Microphone access granted, initializing recorder...');
+      
+      // Try to create MediaRecorder with fallback options
+      let recorder: MediaRecorder;
+      try {
+        // Try different MIME types in order of preference
+        const mimeTypes = [
+          'audio/webm;codecs=opus',  // Most common and widely supported
+          'audio/webm',              // Fallback to basic webm
+          'audio/mp4',               // For Safari
+          'audio/ogg;codecs=opus',   // For older browsers
+          'audio/ogg',               // Basic ogg fallback
+          ''                         // Let the browser decide
+        ];
+        
+        // Find the first supported MIME type
+        const supportedType = mimeTypes.find(type => !type || MediaRecorder.isTypeSupported(type));
+        console.log('Using MIME type:', supportedType || 'browser default');
+        
+        const options = supportedType ? { mimeType: supportedType } : undefined;
+        recorder = new MediaRecorder(stream, options);
+        
+        // Check for iOS-specific issues
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+        if (isIOS) {
+          console.log('iOS device detected - applying workarounds');
+          // iOS may need additional handling
+        }
+        
+      } catch (error) {
+        console.error('Error initializing MediaRecorder:', error);
+        // Clean up the stream
+        stream.getTracks().forEach(track => {
+          track.stop();
+        });
+        
+        // Provide more specific error for iOS
+        if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream) {
+          throw new Error(
+            'Audio recording on iOS has some limitations. ' +
+            'Please ensure you are using Safari and have granted microphone permissions.'
+          );
+        }
+        
+        throw new Error('This browser or device does not support audio recording: ' + (error as Error).message);
       }
 
-      const recorder = new MediaRecorderConstructor(stream);
+      // Set up recording
       mediaRecorderRef.current = recorder;
       audioChunksRef.current = [];
       audioBlobRef.current = null;
       setAudioPreviewUrl(null);
 
-      recorder.ondataavailable = (event: any) => {
-        if (event.data && event.data.size > 0) {
+      // Handle data available event
+      recorder.ondataavailable = (event: BlobEvent) => {
+        if (event.data.size > 0) {
+          console.log('Audio data received:', event.data.size, 'bytes');
           audioChunksRef.current.push(event.data);
         }
       };
 
+      // Handle recording stop
       recorder.onstop = () => {
-        stream.getTracks().forEach((t: MediaStreamTrack) => t.stop());
-        if (audioChunksRef.current.length === 0) {
+        console.log('Recording stopped');
+        
+        // Stop all tracks in the stream
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
+        }
+        
+        if (!audioChunksRef.current.length) {
+          console.log('No audio data was recorded');
           setIsRecording(false);
           return;
         }
-        const mimeType = (mediaRecorderRef.current && (mediaRecorderRef.current as any).mimeType) || 'audio/webm';
-        const blob = new Blob(audioChunksRef.current, { type: mimeType });
-        audioBlobRef.current = blob;
-        const url = URL.createObjectURL(blob);
-        setAudioPreviewUrl(url);
-        setIsRecording(false);
-        audioChunksRef.current = [];
+
+        try {
+          // Create audio blob with the correct MIME type
+          const mimeType = recorder.mimeType || 'audio/webm';
+          const blob = new Blob(audioChunksRef.current, { type: mimeType });
+          
+          audioBlobRef.current = blob;
+          setAudioPreviewUrl(URL.createObjectURL(blob));
+          console.log('Audio recording created successfully');
+        } catch (error) {
+          console.error('Error creating audio blob:', error);
+          showError('Failed to process recording. Please try again.');
+        } finally {
+          setIsRecording(false);
+          audioChunksRef.current = [];
+        }
       };
 
-      recorder.start();
-      setIsRecording(true);
-    } catch (error) {
-      console.error('Error starting recording:', error);
-      alert('Failed to start recording');
+      // Handle errors
+      recorder.onerror = (event: Event) => {
+        console.error('Recording error:', event);
+        
+        // Stop all tracks in the stream
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
+        }
+        
+        setIsRecording(false);
+        showError('An error occurred while recording. Please try again.');
+      };
+
+      // Start recording
+      try {
+        // Start recording and request data every second
+        recorder.start(1000);
+        setIsRecording(true);
+        console.log('Recording started');
+      } catch (error) {
+        console.error('Error starting recording:', error);
+        
+        // Stop all tracks in the stream
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
+        }
+        
+        throw new Error('Could not start recording. Please try again.');
+      }
+    } catch (error: any) {
+      console.error('Recording failed:', error);
+      showError(error.message || 'Failed to start recording');
+      setIsRecording(false);
     }
   };
 
   const stopRecording = () => {
+    if (!mediaRecorderRef.current || !isRecording) return;
+    
     try {
-      if (mediaRecorderRef.current && isRecording) {
+      // Stop the MediaRecorder
+      if (mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
+      }
+      
+      // Make sure to clean up the stream
+      const stream = mediaRecorderRef.current.stream;
+      if (stream) {
+        setTimeout(() => {
+          stream.getTracks().forEach(track => {
+            if (track.readyState === 'live') {
+              track.stop();
+            }
+          });
+        }, 1000);
       }
     } catch (error) {
       console.error('Error stopping recording:', error);
@@ -334,9 +494,9 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     if (audioPreviewUrl) {
       URL.revokeObjectURL(audioPreviewUrl);
     }
+    setAudioPreviewUrl(null);
     audioBlobRef.current = null;
     audioChunksRef.current = [];
-    setAudioPreviewUrl(null);
     setIsRecording(false);
   };
 
@@ -529,6 +689,36 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
             {/* Media upload and actions */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
+                {isRecording ? (
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex items-center justify-center">
+                      <div className="absolute w-5 h-5 bg-red-500 rounded-full animate-ping opacity-75"></div>
+                      <button
+                        type="button"
+                        onClick={stopRecording}
+                        className="relative z-10 flex items-center justify-center w-10 h-10 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors"
+                        disabled={uploadingPhotos || saving}
+                        aria-label="Stop recording"
+                      >
+                        <div className="w-4 h-4 bg-white rounded-sm"></div>
+                      </button>
+                    </div>
+                    <span className="text-sm font-medium text-red-700">Recording...</span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={startRecording}
+                    className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors"
+                    disabled={uploadingPhotos || saving}
+                    aria-label="Record voice note"
+                  >
+                    <svg className="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3z" />
+                      <path d="M17 12c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V22h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+                    </svg>
+                  </button>
+                )}
                 {/* Photo upload */}
                 <label className="flex items-center justify-center w-10 h-10 rounded-lg border border-gray-300 bg-white cursor-pointer hover:bg-gray-50 transition-colors">
                   <svg
@@ -548,31 +738,16 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                     className="hidden"
                   />
                 </label>
-                
-                {/* Voice recording */}
-                <button
-                  type="button"
-                  onClick={isRecording ? stopRecording : startRecording}
-                  disabled={saving || uploadingAudio || isRecording}
-                  aria-label={isRecording ? 'Stop recording' : 'Record voice'}
-                  className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                >
-                  <svg
-                    className={`w-5 h-5 ${isRecording ? 'text-red-500' : 'text-gray-700'}`}
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path d="M12 14a3 3 0 0 0 3-3V7a3 3 0 0 0-6 0v4a3 3 0 0 0 3 3z" />
-                    <path d="M7 11a1 1 0 1 0-2 0 7 7 0 0 0 6 6.93V20H9a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2h-2v-2.07A7 7 0 0 0 19 11a1 1 0 1 0-2 0 5 5 0 0 1-10 0z" />
-                  </svg>
-                </button>
               </div>
-              
               <button
+                type="button"
                 onClick={handleSubmit}
-                disabled={saving || uploadingPhotos || uploadingAudio || isRecording}
-                className="px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-semibold disabled:opacity-50 transition-colors"
+                disabled={saving || uploadingPhotos || isRecording || (!form.description.trim() && !audioBlobRef.current && form.photos.length === 0)}
+                className={`px-4 py-2 rounded-md transition-colors ${
+                  isRecording
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-yellow-500 text-white hover:bg-yellow-600 disabled:bg-gray-300 disabled:cursor-not-allowed'
+                }`}
               >
                 {saving ? 'Posting...' : 'Post Update'}
               </button>
