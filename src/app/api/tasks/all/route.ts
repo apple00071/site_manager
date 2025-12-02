@@ -145,7 +145,35 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ tasks: tasks || [] }, { status: 200 });
+    // Also include standalone calendar tasks from the generic tasks table
+    let calendarTasks: any[] = [];
+    try {
+      let calendarQuery = supabaseAdmin
+        .from('tasks')
+        .select('*')
+        .order('start_at', { ascending: false });
+
+      if (userRole !== 'admin') {
+        calendarQuery = calendarQuery.or(`created_by.eq.${userId},assigned_to.eq.${userId}`);
+      }
+
+      const { data: calendarData, error: calendarError } = await calendarQuery;
+
+      if (calendarError) {
+        console.error('Error fetching calendar tasks for dashboard:', calendarError);
+      } else if (Array.isArray(calendarData)) {
+        calendarTasks = calendarData;
+      }
+    } catch (calendarError) {
+      console.error('Unexpected error fetching calendar tasks for dashboard:', calendarError);
+    }
+
+    const combinedTasks = [
+      ...(Array.isArray(tasks) ? tasks : []),
+      ...calendarTasks,
+    ];
+
+    return NextResponse.json({ tasks: combinedTasks }, { status: 200 });
   } catch (error: any) {
     console.error('Unexpected error in GET /api/tasks/all:', error);
     return NextResponse.json(
