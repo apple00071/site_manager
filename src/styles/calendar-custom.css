@@ -17,7 +17,17 @@
 .rbc-time-content {
   min-height: 0 !important;
   height: auto !important;
-  overflow: visible !important;
+  overflow-y: auto !important; /* Ensure vertical scrolling for events */
+  overflow-x: auto !important; /* Ensure horizontal scrolling for columns */
+}
+
+.rbc-time-content > * {
+  flex: 1 0 auto; /* Allow columns to grow but not shrink beyond content */
+  min-width: 150px; /* Minimum width for each day/column */
+}
+
+.rbc-day-slot {
+  min-width: 150px; /* Ensure day slots have a minimum width */
 }
 
 .rbc-time-content > * + * > * {
@@ -188,7 +198,117 @@
     padding: 4px 8px;
     font-size: 0.8rem;
   }
-  
+
+  .rbc-event {
+    font-size: 0.75em; /* Smaller font size for events on mobile */
+    padding: 2px 4px; /* Reduced padding */
+  }
+
+  .rbc-event-content {
+    white-space: normal; /* Allow event content to wrap */
+  }
+
+  .rbc-time-slot {
+    font-size: 0.7em; /* Smaller time slot labels */
+  }
+
+  .rbc-header {
+    font-size: 0.8em; /* Smaller header text */
+  }
+
+  /* Adjust day and week view specific elements */
+  .rbc-time-view .rbc-day-slot .rbc-events-container {
+    margin: 0; /* Remove default margins */
+  }
+
+  .rbc-time-view .rbc-day-slot {
+    min-width: 100px; /* Further reduce min-width for day slots on mobile */
+  }
+
+  .rbc-time-gutter,
+  .rbc-time-header-gutter {
+    flex: 0 0 40px !important; /* Smaller gutter for time labels */
+  }
+}
+
+/* Agenda View Optimizations */
+.rbc-agenda-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto; /* Enable scrolling for the agenda view */
+}
+
+.rbc-agenda-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.rbc-agenda-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.rbc-agenda-table th,
+.rbc-agenda-table td {
+  padding: 8px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+}
+
+.rbc-agenda-tbody {
+  display: table-row-group;
+}
+
+.rbc-agenda-row {
+  display: table-row;
+}
+
+.rbc-agenda-time-cell,
+.rbc-agenda-date-cell,
+.rbc-agenda-event-cell {
+  display: table-cell;
+  vertical-align: top;
+  padding: 8px;
+}
+
+.rbc-agenda-event {
+  margin-bottom: 5px;
+  padding: 5px;
+  border-radius: 4px;
+  background-color: #e0f2f7; /* Light blue for events */
+  color: #007bff;
+  font-size: 0.9em;
+}
+
+.rbc-agenda-view .priority-label {
+  font-size: 0.75em;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-left: 5px;
+  white-space: nowrap;
+}
+
+/* Mobile optimizations for Agenda View */
+@media (max-width: 768px) {
+  .rbc-agenda-table th,
+  .rbc-agenda-table td {
+    padding: 6px;
+    font-size: 0.85em;
+  }
+
+  .rbc-agenda-time-cell,
+  .rbc-agenda-date-cell,
+  .rbc-agenda-event-cell {
+    padding: 6px;
+  }
+
+  .rbc-agenda-event {
+    font-size: 0.8em;
+    padding: 4px;
+  }
+}  
   .rbc-month-view {
     height: 100%;
   }
@@ -298,8 +418,6 @@
     padding: 0.25rem 0.5rem;
     font-size: 0.75rem;
   }
-}
-
 /* Toolbar - Month/Year Header and Navigation */
 .rbc-toolbar {
   display: flex;
@@ -1083,6 +1201,236 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+}
+
+
+/* ============================================
+   USER REQUESTED FIXES
+   ============================================ */
+
+/* 1. Week View Fixes */
+/* Remove obstructing allday row to show dates clearly */
+.rbc-time-view .rbc-allday-cell {
+  display: none !important;
+}
+
+/* Ensure date headers are fully visible */
+.rbc-time-header {
+  height: auto !important;
+  min-height: 50px !important;
+  overflow: visible !important;
+}
+
+.rbc-header {
+  height: auto !important;
+  padding: 10px 5px !important;
+  overflow: visible !important;
+  white-space: normal !important;
+  line-height: 1.2;
+}
+
+/* 2. Day View Fixes */
+/* Ensure full height usage and even distribution */
+.rbc-day-slot {
+  min-height: 100%;
+}
+
+.rbc-timeslot-group {
+  min-height: 60px; /* Ensure adequate spacing for slots */
+}
+
+/* 3. Agenda View Fixes */
+/* Two-line time display for responsiveness */
+.rbc-agenda-time-cell {
+  white-space: normal !important;
+  text-transform: none;
+  vertical-align: top;
+  padding: 8px !important;
+}
+
+/* Force time content to wrap if needed */
+.rbc-agenda-time-cell span {
+  display: inline-block;
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  .rbc-agenda-time-cell {
+    font-size: 0.75rem;
+    width: 80px;
+  }
+  
+  /* Stack time components if possible (e.g. start - end) */
+  /* Note: RBC renders time as a single string usually */
+}
+
+
+/* ============================================
+   USER REQUESTED FIXES - ROUND 2
+   ============================================ */
+
+/* 1. Week View Spacing Optimization */
+/* Compact header to reduce gap between date and grid */
+.rbc-header {
+  padding: 4px 2px !important; /* Reduced from 10px */
+  padding-bottom: 4px !important;
+  margin-bottom: 0 !important;
+}
+
+.rbc-time-header {
+  min-height: 0 !important; /* Remove forced minimum height */
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* Ensure the grid starts immediately after header */
+.rbc-time-content {
+  border-top: none !important; /* Remove double border if any */
+  margin-top: 0;
+  padding-top: 0 !important;
+}
+
+/* 2. Mobile Month View Optimization */
+@media (max-width: 768px) {
+  /* Reduce row height while maintaining visibility */
+  .rbc-month-row {
+    min-height: 50px !important; /* Reduced from 70px */
+    height: auto !important; /* Allow growth if many events */
+    overflow: visible !important;
+  }
+  
+  /* Compact date cell */
+  .rbc-date-cell {
+    height: auto !important;
+    padding: 2px 4px !important;
+    margin-bottom: 0 !important;
+  }
+  
+  .rbc-date-cell-content {
+    font-size: 0.75rem !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    line-height: 20px !important;
+    margin-bottom: 2px;
+  }
+
+  /* Optimize event display for mobile */
+  .rbc-event {
+    padding: 1px 2px !important;
+    font-size: 0.65rem !important;
+    line-height: 1.1 !important;
+    min-height: 18px !important; /* Ensure touch target */
+    margin: 1px 0 !important;
+  }
+  
+  /* Allow the calendar to fit content rather than forcing 100% height */
+  .rbc-month-view {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  
+  /* Ensure the container adapts */
+  .rbc-calendar {
+    min-height: auto !important;
+    height: auto !important;
+  }
+  
+  /* Hide empty slots in month view on mobile to save space if needed */
+  /* But keep enough height for tap targets */
+}
+
+
+/* ============================================
+   USER REQUESTED FIXES - ROUND 3
+   ============================================ */
+
+/* 1. Mobile Month View Improvements */
+@media (max-width: 768px) {
+  /* Ensure events are fully visible in day cells */
+  .rbc-row-content {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    z-index: 4 !important;
+  }
+  
+  /* Adjust height of day cells */
+  .rbc-month-row {
+    height: auto !important;
+    min-height: 60px !important;
+    overflow: visible !important;
+  }
+  
+  /* Responsive event display scaling */
+  .rbc-event {
+    font-size: 0.7rem !important;
+    padding: 2px 4px !important;
+    margin: 1px 0 !important;
+    line-height: 1.2 !important;
+    height: auto !important;
+    white-space: normal !important; /* Allow wrapping if needed */
+  }
+  
+  .rbc-date-cell {
+    padding: 2px 4px !important;
+  }
+}
+
+/* 2. Agenda View Improvements */
+.rbc-agenda-view table {
+  width: 100%;
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+
+.rbc-agenda-view .rbc-agenda-table {
+  border: 1px solid #e5e7eb;
+}
+
+.rbc-agenda-view tbody > tr > td {
+  padding: 12px 8px;
+  vertical-align: top;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Dynamic response to row height */
+.rbc-agenda-content {
+  height: auto !important;
+  max-height: 600px; /* Reasonable max height with scroll */
+  overflow-y: auto;
+}
+
+/* Fix overflow and whitespace */
+.rbc-agenda-event-cell {
+  white-space: normal !important;
+  word-break: break-word;
+}
+
+/* Ensure time slots are compact but readable */
+.rbc-agenda-time-cell {
+  white-space: normal !important;
+  min-width: 80px;
+  width: 100px;
+}
+
+/* 3. Time Display Constraints (8am - 7pm) */
+
+/* 4. Responsive Tweaks for very small screens */
+@media (max-width: 375px) {
+  .rbc-toolbar {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .rbc-toolbar-label {
+    font-size: 1rem;
+    margin: 4px 0;
+  }
+  
+  .rbc-btn-group button {
+    padding: 4px 8px;
+    font-size: 0.75rem;
   }
 }
 
