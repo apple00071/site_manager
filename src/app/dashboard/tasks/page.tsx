@@ -27,8 +27,22 @@ type CalendarTask = {
   updated_at?: string;
 };
 
+// Custom date formatter for DD/MM/YYYY format
+const formatDate = (date: Date, formatStr: string) => {
+  if (formatStr === 'dd/MM/yyyy') {
+    return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+  }
+  return format(date, formatStr, { locale: enUS });
+};
+
 const locales = { 'en-US': enUS };
-const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
+const localizer = dateFnsLocalizer({ 
+  format: formatDate, 
+  parse, 
+  startOfWeek, 
+  getDay, 
+  locales 
+});
 
 function isOverdue(t: CalendarTask) {
   return t.status !== 'done' && new Date(t.end_at).getTime() < Date.now();
@@ -320,7 +334,7 @@ export default function TasksPage() {
         
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1">
-            {isMonthView && (
+            {isMonthView ? (
               <>
                 {task.status === 'done' && <FiCheck className="h-2.5 w-2.5 text-green-600 flex-shrink-0" />}
                 {overdue && <FiAlertTriangle className="h-2.5 w-2.5 text-red-600 flex-shrink-0" />}
@@ -334,9 +348,8 @@ export default function TasksPage() {
                   </span>
                 )}
               </>
-            )}
-            {!isMonthView && (
-              <>
+            ) : (
+              <div className="flex items-center w-full">
                 <span className="truncate text-xs flex-1">{task.title}</span>
                 {task.assigned_to && (
                   <span 
@@ -346,18 +359,19 @@ export default function TasksPage() {
                     {assigneeInitial}
                   </span>
                 )}
-                <span className={`text-[8px] px-1 rounded ${priorityColors[task.priority as keyof typeof priorityColors] || 'bg-gray-100'} ml-1`}>
-                  {task.priority}
+                {task.status === 'done' && <FiCheck className="h-2.5 w-2.5 text-green-600 flex-shrink-0 ml-1" />}
+                {overdue && <FiAlertTriangle className="h-2.5 w-2.5 text-red-600 flex-shrink-0 ml-1" />}
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                  priorityColors[task.priority as keyof typeof priorityColors] || 'bg-gray-100'
+                } ml-1`}>
+                  {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
                 </span>
-              </>
+              </div>
             )}
           </div>
-          
-          {isMonthView && (
-            <div className="flex items-center gap-1 mt-0.5">
-              <span className={`text-[8px] px-1 rounded ${priorityColors[task.priority as keyof typeof priorityColors] || 'bg-gray-100'}`}>
-                {task.priority}
-              </span>
+          {!isMonthView && task.description && (
+            <div className="mt-1 text-xs text-gray-600 line-clamp-2">
+              {task.description}
             </div>
           )}
         </div>
@@ -489,7 +503,12 @@ export default function TasksPage() {
   }, []);
 
   function formatISTDate(d: Date) {
-    return new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata' }).format(d);
+    return new Intl.DateTimeFormat('en-GB', { 
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }).format(d);
   }
   function formatISTTime(d: Date) {
     return new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }).format(d);
