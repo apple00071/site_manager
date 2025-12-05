@@ -62,7 +62,7 @@ export default function DashboardLayout({
   // Move useEffect before conditional return to maintain hook order
   useEffect(() => {
     setMounted(true);
-    
+
     const handleScroll = () => {
       const scrollTop = window.scrollY;
       setScrolled(scrollTop > 50);
@@ -104,9 +104,9 @@ export default function DashboardLayout({
         {/* Logo at top */}
         <div className="p-2 lg:p-3">
           <div className="flex items-center justify-center">
-            <img 
-              src="/icon.png" 
-              alt="Apple Interiors" 
+            <img
+              src="/icon.png"
+              alt="Apple Interiors"
               className="h-6 w-6 lg:h-7 lg:w-7"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
@@ -114,13 +114,13 @@ export default function DashboardLayout({
             />
           </div>
         </div>
-        
+
         {/* Navigation */}
         <nav className="flex-1 py-3">
           <div className="space-y-1">
             <Link
               href="/dashboard"
-              className="flex items-center px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
+              className="flex items-center justify-center group-hover:justify-start px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
               onClick={() => setSidebarOpen(false)}
               title="Dashboard"
             >
@@ -129,7 +129,7 @@ export default function DashboardLayout({
             </Link>
             <Link
               href="/dashboard/projects"
-              className="flex items-center px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
+              className="flex items-center justify-center group-hover:justify-start px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
               onClick={() => setSidebarOpen(false)}
               title="Projects"
             >
@@ -138,7 +138,7 @@ export default function DashboardLayout({
             </Link>
             <Link
               href="/dashboard/tasks"
-              className="flex items-center px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
+              className="flex items-center justify-center group-hover:justify-start px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
               onClick={() => setSidebarOpen(false)}
               title="All Tasks"
             >
@@ -148,7 +148,7 @@ export default function DashboardLayout({
             {isAdmin && (
               <Link
                 href="/dashboard/users"
-                className="flex items-center px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
+                className="flex items-center justify-center group-hover:justify-start px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
                 onClick={() => setSidebarOpen(false)}
                 title="Users"
               >
@@ -158,7 +158,7 @@ export default function DashboardLayout({
             )}
             <Link
               href="/dashboard/settings"
-              className="flex items-center px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
+              className="flex items-center justify-center group-hover:justify-start px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
               onClick={() => setSidebarOpen(false)}
               title="Settings"
             >

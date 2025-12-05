@@ -27,8 +27,21 @@ type CalendarTask = {
   updated_at?: string;
 };
 
+type CalendarEvent = {
+  id: string;
+  title: string;
+  start: Date;
+  end: Date;
+  allDay: boolean;
+  resource: CalendarTask;
+};
+
 // Custom date formatter for DD/MM/YYYY format
 const formatDate = (date: Date, formatStr: string) => {
+  // Validate Date object runtime validity
+  if (Number.isNaN(date.getTime())) {
+    return 'Invalid Date';
+  }
   if (formatStr === 'dd/MM/yyyy') {
     return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
   }
@@ -36,8 +49,73 @@ const formatDate = (date: Date, formatStr: string) => {
 };
 
 const locales = { 'en-US': enUS };
+
+// Check if we're on mobile (will be evaluated on client side)
+const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
+const customFormats = {
+  agendaDateFormat: 'dd/MM/yyyy',
+  // agendaHeaderFormat is a range formatter - use a function to format the date range
+  agendaHeaderFormat: ({ start, end }: { start: Date; end: Date }, culture?: string, localizer?: any) => {
+    const startStr = localizer?.format(start, 'dd/MM/yyyy') || format(start, 'dd/MM/yyyy');
+    const endStr = localizer?.format(end, 'dd/MM/yyyy') || format(end, 'dd/MM/yyyy');
+    return `${startStr} – ${endStr}`;
+  },
+  // Short day names for mobile (S, M, T, W, T, F, S)
+  dayFormat: (date: Date, culture?: string, localizer?: any) => {
+    const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    const fullDayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const isMobileNow = typeof window !== 'undefined' && window.innerWidth < 640;
+    return isMobileNow ? dayNames[date.getDay()] : fullDayNames[date.getDay()];
+  },
+  // Short weekday header for calendar
+  weekdayFormat: (date: Date, culture?: string, localizer?: any) => {
+    const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    const fullDayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    const isMobileNow = typeof window !== 'undefined' && window.innerWidth < 640;
+    return isMobileNow ? dayNames[date.getDay()] : fullDayNames[date.getDay()];
+  },
+  // Short month format for toolbar (Dec 2025 instead of December 2025)
+  monthHeaderFormat: (date: Date, culture?: string, localizer?: any) => {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+  },
+};
+
+// Safe format wrapper that handles invalid dates
+const safeFormat = (date: Date | number, formatStr: string, options?: any) => {
+  try {
+    // Handle number timestamps
+    if (typeof date === 'number') {
+      const d = new Date(date);
+      if (Number.isNaN(d.getTime())) {
+        return 'Invalid Date';
+      }
+      return format(d, formatStr, options);
+    }
+
+    // Handle Date objects
+    if (date instanceof Date) {
+      if (Number.isNaN(date.getTime())) {
+        return 'Invalid Date';
+      }
+      return format(date, formatStr, options);
+    }
+
+    // If it's something else, try to convert it
+    const parsed = new Date(date as any);
+    if (Number.isNaN(parsed.getTime())) {
+      return 'Invalid Date';
+    }
+    return format(parsed, formatStr, options);
+  } catch (e) {
+    console.warn('Date format error:', e, { date, formatStr });
+    return 'Invalid Date';
+  }
+};
+
 const localizer = dateFnsLocalizer({
-  format: formatDate,
+  format: safeFormat,
   parse,
   startOfWeek,
   getDay,
@@ -230,29 +308,39 @@ export default function TasksPage() {
   const events = useMemo(() => {
     const base = tasks.filter(t => (filterStatus === 'all' ? true : t.status === filterStatus));
     const mapped = base.map(t => {
+      // Validate that start_at and end_at exist and are valid strings
+      if (!t.start_at || !t.end_at || typeof t.start_at !== 'string' || typeof t.end_at !== 'string') {
+        console.warn('Task with missing or invalid date fields:', t.id, { start_at: t.start_at, end_at: t.end_at });
+        return null;
+      }
+
       const start = new Date(t.start_at);
       const endCandidate = new Date(t.end_at);
       const invalid = Number.isNaN(start.getTime()) || Number.isNaN(endCandidate.getTime());
-      const end = invalid || endCandidate.getTime() <= start.getTime()
+      if (invalid) {
+        console.warn('Task with invalid date values:', t.id, { start_at: t.start_at, end_at: t.end_at });
+        return null; // Filter out invalid events
+      }
+      const end = endCandidate.getTime() <= start.getTime()
         ? new Date(start.getTime() + 60 * 60 * 1000)
         : endCandidate;
+
       return {
         id: t.id,
         title: t.title,
         start,
         end,
-        resource: t,
         allDay: false,
+        resource: t,
       };
-    }).filter(e => !Number.isNaN((e.start as Date).getTime()) && !Number.isNaN((e.end as Date).getTime()));
-    console.log('Processed events for calendar:', mapped);
+    }).filter(Boolean) as CalendarEvent[]; // Filter out nulls
     return mapped;
   }, [tasks, filterStatus]);
 
   const eventsByDay = useMemo(() => {
     const m = new Map<string, number>();
     events.forEach(e => {
-      const key = format(e.start as Date, 'yyyy-MM-dd');
+      const key = format(e.start, 'yyyy-MM-dd');
       m.set(key, (m.get(key) || 0) + 1);
     });
     return m;
@@ -270,8 +358,8 @@ export default function TasksPage() {
     }
     const { start, end } = visibleRange;
     return events.some((ev) => {
-      const evStart = ev.start as Date;
-      const evEnd = ev.end as Date;
+      const evStart = ev.start;
+      const evEnd = ev.end;
       return evEnd >= start && evStart <= end;
     });
   }, [events, visibleRange]);
@@ -290,7 +378,12 @@ export default function TasksPage() {
     return Math.max(300, Math.min(700, computed));
   }, [maxEventsPerDay, view, hasVisibleEvents]);
 
-  const EventComp = ({ event, view = 'month' }: { event: any; view?: CalendarViewType }) => {
+  const onSelectEvent = (event: any) => {
+    setViewTask(event.resource);
+    setViewModalOpen(true);
+  };
+
+  const EventComp = ({ event, view = 'month', onSelectEvent }: { event: any; view?: CalendarViewType; onSelectEvent: (event: any) => void }) => {
     const task: CalendarTask = event.resource;
     const overdue = isOverdue(task);
     const highPriority = task.priority === 'high' || task.priority === 'urgent';
@@ -324,6 +417,7 @@ export default function TasksPage() {
       <div
         className={`flex items-start gap-1 ${overdue ? 'text-red-700' : highPriority ? 'text-yellow-700' : 'text-gray-900'}`}
         title={tooltip}
+        onClick={() => onSelectEvent(event)}
       >
         {!isMonthView && (
           <>
@@ -386,7 +480,7 @@ export default function TasksPage() {
 
   const maxTime = useMemo(() => {
     const d = new Date();
-    d.setHours(19, 0, 0, 0);
+    d.setHours(20, 0, 0, 0); // Set to 8 PM so 7 PM slot is visible
     return d;
   }, []);
 
@@ -439,11 +533,10 @@ export default function TasksPage() {
                 key={v.key}
                 type="button"
                 onClick={() => toolbar.onView(v.key)}
-                className={`px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-all ${
-                  toolbar.view === v.key
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }${v.hideOnMobile ? ' hidden sm:inline-block' : ''}`}
+                className={`px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-all ${toolbar.view === v.key
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  }${v.hideOnMobile ? ' hidden sm:inline-block' : ''}`}
               >
                 {v.label}
               </button>
@@ -477,6 +570,25 @@ export default function TasksPage() {
   const [viewTask, setViewTask] = useState<CalendarTask | null>(null);
   const [viewModalOpen, setViewModalOpen] = useState(false);
 
+  // ESC key handler to close modals
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (modalOpen) {
+          setModalOpen(false);
+          setEditingTask(null);
+        }
+        if (viewModalOpen) {
+          setViewModalOpen(false);
+          setViewTask(null);
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+    return () => document.removeEventListener('keydown', handleEscKey);
+  }, [modalOpen, viewModalOpen]);
+
   const titleSuggestions = [
     'Site Visit',
     'Client Meeting',
@@ -493,14 +605,17 @@ export default function TasksPage() {
 
   const timeOptions = useMemo(() => {
     const options: string[] = [];
-    const periods: Array<'AM' | 'PM'> = ['AM', 'PM'];
-    for (let hour = 1; hour <= 12; hour += 1) {
-      for (let minute = 0; minute < 60; minute += 15) {
-        const hh = hour.toString().padStart(2, '0');
+    // Generate times for working hours only: 8:00 AM to 7:00 PM (19:00)
+    for (let hour = 8; hour <= 19; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        // Don't add 7:30 PM - end at 7:00 PM
+        if (hour === 19 && minute > 0) continue;
+
+        const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const hh = hour12.toString().padStart(2, '0');
         const mm = minute.toString().padStart(2, '0');
-        periods.forEach((ampm) => {
-          options.push(`${hh}:${mm} ${ampm}`);
-        });
+        options.push(`${hh}:${mm} ${ampm}`);
       }
     }
     return options;
@@ -519,11 +634,11 @@ export default function TasksPage() {
   }
   function parseISTToISO(dateStr: string, timeStr: string) {
     const parts = dateStr.split('/');
-    if (parts.length !== 3) return null;
+    if (parts.length !== 3) return undefined;
     const [dd, mm, yyyy] = parts.map(p => parseInt(p, 10));
-    if (!dd || !mm || !yyyy) return null;
+    if (!dd || !mm || !yyyy) return undefined;
     const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-    if (!match) return null;
+    if (!match) return undefined;
     let hour = parseInt(match[1], 10);
     const minute = parseInt(match[2], 10);
     const ampm = match[3].toUpperCase();
@@ -547,26 +662,39 @@ export default function TasksPage() {
   }
 
   const openCreateAt = (dateArg: Date) => {
+    console.log('openCreateAt called with:', dateArg, 'hours:', dateArg.getHours(), 'minutes:', dateArg.getMinutes());
+
     const start = new Date(dateArg);
-    const end = new Date(dateArg);
-    end.setHours(end.getHours() + 1);
+    // Snap minutes to nearest 30-minute interval
+    const snapMinutes = Math.round(start.getMinutes() / 30) * 30;
+    start.setMinutes(snapMinutes === 60 ? 0 : snapMinutes);
+    if (snapMinutes === 60) {
+      start.setHours(start.getHours() + 1);
+    }
 
-    const startHour = format(start, 'hh');
-    const startMinute = format(start, 'mm');
-    const startAmPm = format(start, 'a');
+    const end = new Date(start);
+    end.setMinutes(end.getMinutes() + 30); // Default duration: 30 minutes
 
-    const endHour = format(end, 'hh');
-    const endMinute = format(end, 'mm');
-    const endAmPm = format(end, 'a');
+    // Get hours in 12-hour format
+    const startHours = start.getHours();
+    const startHour12 = startHours === 0 ? 12 : startHours > 12 ? startHours - 12 : startHours;
+    const startAmPm = startHours >= 12 ? 'PM' : 'AM';
+
+    const endHours = end.getHours();
+    const endHour12 = endHours === 0 ? 12 : endHours > 12 ? endHours - 12 : endHours;
+    const endAmPm = endHours >= 12 ? 'PM' : 'AM';
+
+    console.log('Setting form - start:', startHour12, ':', start.getMinutes(), startAmPm);
+    console.log('Setting form - end:', endHour12, ':', end.getMinutes(), endAmPm);
 
     setForm(prev => ({
       ...prev,
       start_date_picker: format(start, 'yyyy-MM-dd'),
-      start_hour: startHour,
-      start_minute: startMinute,
+      start_hour: String(startHour12).padStart(2, '0'),
+      start_minute: String(start.getMinutes()).padStart(2, '0'),
       start_ampm: startAmPm,
-      end_hour: endHour,
-      end_minute: endMinute,
+      end_hour: String(endHour12).padStart(2, '0'),
+      end_minute: String(end.getMinutes()).padStart(2, '0'),
       end_ampm: endAmPm,
       end_date_picker: format(end, 'yyyy-MM-dd'),
     }));
@@ -689,8 +817,14 @@ export default function TasksPage() {
   }, []);
 
   const modal = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-3 sm:px-0">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto p-3 sm:p-5">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-3 sm:px-0"
+      onClick={() => { setModalOpen(false); setEditingTask(null); }}
+    >
+      <div
+        className="bg-white rounded-lg shadow-xl w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto p-3 sm:p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
         <h2 className="text-lg font-semibold text-gray-900 mb-3">{isEditing ? 'Edit Task' : 'Create Task'}</h2>
         <div className="space-y-3">
           <div>
@@ -809,8 +943,14 @@ export default function TasksPage() {
   );
 
   const viewModal = viewTask && viewModalOpen && (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-5">
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
+      onClick={() => { setViewModalOpen(false); setViewTask(null); }}
+    >
+      <div
+        className="bg-white rounded-lg shadow-xl w-full max-w-lg p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
         <h2 className="text-lg font-semibold text-gray-900 mb-3">Task Details</h2>
         <div className="space-y-3 text-sm text-gray-700">
           <div>
@@ -841,9 +981,9 @@ export default function TasksPage() {
             <div>
               <p className="text-xs text-gray-500 mb-1">Status</p>
               <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${viewTask.status === 'done' ? 'bg-green-100 text-green-800' :
-                  viewTask.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                    viewTask.status === 'blocked' ? 'bg-red-100 text-red-800' :
-                      'bg-gray-100 text-gray-800'
+                viewTask.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                  viewTask.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800'
                 }`}>
                 {viewTask.status.replace('_', ' ').charAt(0).toUpperCase() + viewTask.status.replace('_', ' ').slice(1)}
               </span>
@@ -905,9 +1045,9 @@ export default function TasksPage() {
             <div>
               <p className="text-xs text-gray-500 mb-1">Priority</p>
               <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${viewTask.priority === 'high' ? 'bg-red-100 text-red-800' :
-                  viewTask.priority === 'urgent' ? 'bg-red-100 text-red-800 font-bold' :
-                    viewTask.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-blue-100 text-blue-800'
+                viewTask.priority === 'urgent' ? 'bg-red-100 text-red-800 font-bold' :
+                  viewTask.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-blue-100 text-blue-800'
                 }`}>
                 {viewTask.priority.charAt(0).toUpperCase() + viewTask.priority.slice(1)}
               </span>
@@ -981,12 +1121,23 @@ export default function TasksPage() {
             date={date}
             min={minTime}
             max={maxTime}
-            step={60}
-            timeslots={1}
+            step={30}
+            timeslots={2}
+            showAllDayEventRow={false}
             onView={(v: CalendarViewType) => setView(v)}
             onNavigate={(d: Date) => setDate(d)}
+            formats={customFormats}
             selectable
-            onSelectSlot={(slotInfo: any) => openCreateAt(slotInfo.start)}
+            onSelectSlot={(slotInfo: any) => {
+              console.log('Slot selected:', slotInfo);
+              // For week/day view, slotInfo.start should contain the exact time
+              // slotInfo.slots[0] might also contain the first slot time
+              const selectedTime = slotInfo.start instanceof Date
+                ? slotInfo.start
+                : new Date(slotInfo.start);
+              console.log('Selected time hours:', selectedTime.getHours(), 'minutes:', selectedTime.getMinutes());
+              openCreateAt(selectedTime);
+            }}
             onSelectEvent={(event: any) => {
               const task: CalendarTask | undefined = event.resource;
               if (task) {
@@ -994,7 +1145,7 @@ export default function TasksPage() {
               }
             }}
             components={{
-              event: (props: any) => <EventComp {...props} view={view} />,
+              event: (props: any) => <EventComp {...props} view={view} onSelectEvent={onSelectEvent} />,
               toolbar: TasksToolbar,
               month: {
                 dateHeader: ({ date, label }: { date: Date; label: string }) => {
@@ -1006,8 +1157,8 @@ export default function TasksPage() {
                       </div>
                     </div>
                   );
-                },
-              },
+                }
+              }
             }}
             style={{
               height: '100%',
@@ -1030,11 +1181,11 @@ export default function TasksPage() {
 
       <button
         type="button"
-        onClick={() => setModalOpen(true)}
-        className="fixed bottom-20 right-4 z-40 inline-flex h-12 w-12 items-center justify-center rounded-full bg-yellow-500 text-gray-900 shadow-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 sm:hidden"
+        onClick={() => openCreateAt(new Date())}
+        className="fixed bottom-20 right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-yellow-500 text-gray-900 shadow-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 sm:hidden"
         aria-label="Add new task"
       >
-        <FiPlus className="h-6 w-6" />
+        <FiPlus className="h-7 w-7" />
       </button>
 
       {error && (
