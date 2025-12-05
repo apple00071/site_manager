@@ -29,7 +29,7 @@ export default function DashboardPage() {
       try {
         // Fetch stats using API route
         let projects: any[] = [];
-        
+
         try {
           const response = await fetch('/api/admin/projects');
           if (response.ok) {
@@ -38,7 +38,7 @@ export default function DashboardPage() {
         } catch (error) {
           console.error('Error fetching projects:', error);
         }
-        
+
         if (projects) {
           const active = projects.filter(p => p.status !== 'completed').length;
           const completed = projects.filter(p => p.status === 'completed').length;
@@ -49,7 +49,7 @@ export default function DashboardPage() {
             const days = diff / (1000 * 3600 * 24);
             return days <= 7 && days > 0;
           }).length;
-          
+
           setStats(prevStats => ({
             ...prevStats,
             totalProjects: projects.length,
@@ -58,7 +58,7 @@ export default function DashboardPage() {
             upcomingDeadlines: upcoming,
           }));
         }
-        
+
         // Set recent projects from the same data (first 5 projects)
         const recentData = projects.slice(0, 5);
         setRecentProjects(recentData);
@@ -68,22 +68,22 @@ export default function DashboardPage() {
           const tasksResponse = await fetch('/api/tasks/all?t=' + Date.now());
           if (tasksResponse.ok) {
             const tasksData = await tasksResponse.json();
-            
+
             // More defensive handling
             let tasksArray = [];
-            
+
             if (Array.isArray(tasksData)) {
               tasksArray = tasksData;
             } else if (tasksData && typeof tasksData === 'object') {
               // Try different possible properties
               tasksArray = tasksData.tasks || tasksData.data || tasksData.results || [];
             }
-            
-            
+
+
             // Ensure it's an array before slicing
             if (Array.isArray(tasksArray)) {
               setRecentTasks(tasksArray.slice(0, 5)); // Get first 5 tasks
-              
+
               // Calculate task stats
               const taskStats = {
                 totalTasks: tasksArray.length,
@@ -91,13 +91,13 @@ export default function DashboardPage() {
                 inProgressTasks: tasksArray.filter(t => t.status === 'in_progress').length,
                 doneTasks: tasksArray.filter(t => t.status === 'done').length,
               };
-              
+
               // Update stats with task data
               setStats(prevStats => ({
                 ...prevStats,
                 ...taskStats
               }));
-              
+
             } else {
               console.error('Tasks array is not an array:', tasksArray);
               setRecentTasks([]); // Set empty array as fallback
@@ -299,8 +299,8 @@ export default function DashboardPage() {
         <div className="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden animate-slide-up">
           <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200 flex items-center justify-between">
             <h2 className="text-lg sm:text-xl font-bold text-gray-900">Recent Tasks</h2>
-            <Link 
-              href="/dashboard/tasks" 
+            <Link
+              href="/dashboard/tasks"
               className="text-sm text-yellow-600 hover:text-yellow-700 font-medium"
             >
               View All
@@ -308,7 +308,7 @@ export default function DashboardPage() {
           </div>
           <div className="divide-y divide-gray-100">
             {recentTasks.length > 0 ? (
-                recentTasks.map((task, index) => (
+              recentTasks.map((task, index) => (
                 <div
                   key={task.id}
                   className="px-4 sm:px-6 py-4 sm:py-5 hover:bg-gray-50 transition-all duration-200"
@@ -331,23 +331,21 @@ export default function DashboardPage() {
                         )}
                       </div>
                       <div className="mt-2 flex items-center gap-2">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          task.status === 'todo' ? 'bg-gray-100 text-gray-700' :
-                          task.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-                          task.status === 'blocked' ? 'bg-red-100 text-red-700' :
-                          'bg-green-100 text-green-700'
-                        }`}>
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${task.status === 'todo' ? 'bg-gray-100 text-gray-700' :
+                            task.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                              task.status === 'blocked' ? 'bg-red-100 text-red-700' :
+                                'bg-green-100 text-green-700'
+                          }`}>
                           {task.status === 'todo' ? 'To Do' :
-                           task.status === 'in_progress' ? 'In Progress' :
-                           task.status === 'blocked' ? 'Blocked' : 'Done'}
+                            task.status === 'in_progress' ? 'In Progress' :
+                              task.status === 'blocked' ? 'Blocked' : 'Done'}
                         </span>
                         {task.priority && (
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            task.priority === 'low' ? 'bg-green-100 text-green-700' :
-                            task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                            task.priority === 'high' ? 'bg-orange-100 text-orange-700' :
-                            'bg-red-100 text-red-700'
-                          }`}>
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${task.priority === 'low' ? 'bg-green-100 text-green-700' :
+                              task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                task.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                                  'bg-red-100 text-red-700'
+                            }`}>
                             {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
                           </span>
                         )}
@@ -357,25 +355,51 @@ export default function DashboardPage() {
                       {task.status !== 'done' && (
                         <button
                           onClick={async () => {
+                            // Optimistic update - immediately update UI
+                            const previousTasks = [...recentTasks];
+                            setRecentTasks(prev => prev.map(t =>
+                              t.id === task.id ? { ...t, status: 'done' } : t
+                            ));
+                            setStats(prev => ({
+                              ...prev,
+                              doneTasks: prev.doneTasks + 1,
+                              todoTasks: task.status === 'todo' ? prev.todoTasks - 1 : prev.todoTasks,
+                              inProgressTasks: task.status === 'in_progress' ? prev.inProgressTasks - 1 : prev.inProgressTasks,
+                            }));
+
                             try {
                               const response = await fetch('/api/tasks', {
                                 method: 'PATCH',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ 
-                                  id: task.id, 
+                                body: JSON.stringify({
+                                  id: task.id,
                                   status: 'done',
                                   step_id: task.step?.id || null
                                 }),
                               });
-                              
-                              if (response.ok) {
-                                // Refresh the dashboard data instead of full page reload
-                                window.location.reload();
-                              } else {
-                                console.error('Failed to update task status');
+
+                              if (!response.ok) {
+                                // Revert on error
+                                setRecentTasks(previousTasks);
+                                setStats(prev => ({
+                                  ...prev,
+                                  doneTasks: prev.doneTasks - 1,
+                                  todoTasks: task.status === 'todo' ? prev.todoTasks + 1 : prev.todoTasks,
+                                  inProgressTasks: task.status === 'in_progress' ? prev.inProgressTasks + 1 : prev.inProgressTasks,
+                                }));
+                                alert('Failed to update task status');
                               }
                             } catch (error) {
+                              // Revert on error
+                              setRecentTasks(previousTasks);
+                              setStats(prev => ({
+                                ...prev,
+                                doneTasks: prev.doneTasks - 1,
+                                todoTasks: task.status === 'todo' ? prev.todoTasks + 1 : prev.todoTasks,
+                                inProgressTasks: task.status === 'in_progress' ? prev.inProgressTasks + 1 : prev.inProgressTasks,
+                              }));
                               console.error('Error updating task:', error);
+                              alert('Failed to update task');
                             }
                           }}
                           className="text-green-600 hover:text-green-800 p-1 rounded hover:bg-green-50"
@@ -387,24 +411,48 @@ export default function DashboardPage() {
                       {task.status === 'todo' && (
                         <button
                           onClick={async () => {
+                            // Optimistic update - immediately update UI
+                            const previousTasks = [...recentTasks];
+                            setRecentTasks(prev => prev.map(t =>
+                              t.id === task.id ? { ...t, status: 'in_progress' } : t
+                            ));
+                            setStats(prev => ({
+                              ...prev,
+                              todoTasks: prev.todoTasks - 1,
+                              inProgressTasks: prev.inProgressTasks + 1,
+                            }));
+
                             try {
                               const response = await fetch('/api/tasks', {
                                 method: 'PATCH',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ 
-                                  id: task.id, 
+                                body: JSON.stringify({
+                                  id: task.id,
                                   status: 'in_progress',
                                   step_id: task.step?.id || null
                                 }),
                               });
-                              
-                              if (response.ok) {
-                                window.location.reload();
-                              } else {
-                                console.error('Failed to update task status');
+
+                              if (!response.ok) {
+                                // Revert on error
+                                setRecentTasks(previousTasks);
+                                setStats(prev => ({
+                                  ...prev,
+                                  todoTasks: prev.todoTasks + 1,
+                                  inProgressTasks: prev.inProgressTasks - 1,
+                                }));
+                                alert('Failed to update task status');
                               }
                             } catch (error) {
+                              // Revert on error
+                              setRecentTasks(previousTasks);
+                              setStats(prev => ({
+                                ...prev,
+                                todoTasks: prev.todoTasks + 1,
+                                inProgressTasks: prev.inProgressTasks - 1,
+                              }));
                               console.error('Error updating task:', error);
+                              alert('Failed to update task');
                             }
                           }}
                           className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
@@ -416,7 +464,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
-                ))
+              ))
             ) : (
               <div className="px-4 sm:px-6 py-8 sm:py-12 text-center text-gray-500">
                 <FiCheckCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
@@ -431,8 +479,8 @@ export default function DashboardPage() {
         <div className="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden animate-slide-up">
           <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200 flex items-center justify-between">
             <h2 className="text-lg sm:text-xl font-bold text-gray-900">Recent Projects</h2>
-            <Link 
-              href="/dashboard/projects" 
+            <Link
+              href="/dashboard/projects"
               className="text-sm text-yellow-600 hover:text-yellow-700 font-medium"
             >
               View All
@@ -496,26 +544,24 @@ export default function DashboardPage() {
                       <div className="flex flex-row sm:flex-col items-start sm:items-end gap-2">
                         {project.workflow_stage && (
                           <span
-                            className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
-                              project.workflow_stage === 'design_completed'
+                            className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap ${project.workflow_stage === 'design_completed'
                                 ? 'bg-green-100 text-green-700'
                                 : project.workflow_stage === 'design_in_progress'
-                                ? 'bg-blue-100 text-blue-700'
-                                : project.workflow_stage === 'design_pending'
-                                ? 'bg-amber-100 text-amber-700'
-                                : 'bg-gray-100 text-gray-700'
-                            }`}
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : project.workflow_stage === 'design_pending'
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : 'bg-gray-100 text-gray-700'
+                              }`}
                           >
                             {project.workflow_stage.replace(/_/g, ' ')}
                           </span>
                         )}
-                        <span className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
-                          project.status === 'completed'
+                        <span className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap ${project.status === 'completed'
                             ? 'bg-green-100 text-green-700'
                             : project.status === 'in_progress'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-amber-100 text-amber-700'
-                        }`}>
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-amber-100 text-amber-700'
+                          }`}>
                           {project.status.replace('_', ' ')}
                         </span>
                       </div>

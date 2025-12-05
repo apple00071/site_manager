@@ -45,6 +45,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
   const [rejectingItem, setRejectingItem] = useState<InventoryItem | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [processingApproval, setProcessingApproval] = useState(false);
+  const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
   const [resubmittingItem, setResubmittingItem] = useState<InventoryItem | null>(null);
   const [showResubmitModal, setShowResubmitModal] = useState(false);
 
@@ -214,7 +215,17 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
   const handleApproveBill = async (itemId: string) => {
     if (!confirm('Are you sure you want to approve this bill?')) return;
 
-    setProcessingApproval(true);
+    // Add to loading set
+    setLoadingItems(prev => new Set(prev).add(itemId));
+
+    // Optimistic update
+    const previousItems = [...items];
+    setItems(prev => prev.map(item =>
+      item.id === itemId
+        ? { ...item, bill_approval_status: 'approved' }
+        : item
+    ));
+
     try {
       const response = await fetch(`/api/inventory-items/${itemId}/approve-bill`, {
         method: 'POST',
@@ -222,22 +233,21 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to approve bill');
+        // Revert on error
+        setItems(previousItems);
+        alert(error.error || 'Failed to approve bill');
       }
-
-      // Update the item in the list
-      setItems(prev => prev.map(item =>
-        item.id === itemId
-          ? { ...item, bill_approval_status: 'approved' }
-          : item
-      ));
-
-      alert('Bill approved successfully!');
     } catch (error: any) {
       console.error('Error approving bill:', error);
+      // Revert on error
+      setItems(previousItems);
       alert(error.message || 'Failed to approve bill');
     } finally {
-      setProcessingApproval(false);
+      setLoadingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
     }
   };
 
@@ -645,15 +655,19 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                   <div className="flex items-center justify-center gap-2 mt-3 pt-3 border-t border-gray-100">
                     <button
                       onClick={() => handleApproveBill(item.id)}
-                      disabled={processingApproval}
+                      disabled={loadingItems.has(item.id)}
                       className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50"
                       title="Approve Bill"
                     >
-                      <FiCheck className="w-5 h-5" />
+                      {loadingItems.has(item.id) ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-600 border-t-transparent" />
+                      ) : (
+                        <FiCheck className="w-5 h-5" />
+                      )}
                     </button>
                     <button
                       onClick={() => handleRejectBill(item)}
-                      disabled={processingApproval}
+                      disabled={loadingItems.has(item.id)}
                       className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
                       title="Reject Bill"
                     >
