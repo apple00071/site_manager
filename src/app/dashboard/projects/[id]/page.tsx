@@ -1,12 +1,13 @@
 'use client';
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { formatDateIST } from '@/lib/dateUtils';
+import { FiClock, FiLayers, FiImage } from 'react-icons/fi';
 
 // Page runs as a client component to use interactive tabs/boards
 
@@ -49,12 +50,19 @@ type Project = {
     email: string;
     designation?: string;
   } | null;
+  created_by: string;
 };
+
+const KanbanBoard = dynamic(() => import('@/components/projects/KanbanBoard').then(m => m.KanbanBoard), { ssr: false });
+const UpdatesTab = dynamic(() => import('@/components/projects/UpdatesTab').then(m => m.UpdatesTab), { ssr: false });
+const InventoryTab = dynamic(() => import('@/components/projects/InventoryTab').then(m => m.InventoryTab), { ssr: false });
+const DesignsTab = dynamic(() => import('@/components/projects/DesignsTab').then(m => m.DesignsTab), { ssr: false });
 
 export default function ProjectDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { setTitle } = useHeaderTitle();
 
   const { user, isAdmin, isLoading: authLoading } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
@@ -64,25 +72,25 @@ export default function ProjectDetailsPage() {
   const [showTabWidget, setShowTabWidget] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  const WorkflowTab = dynamic(() => import('@/components/projects/WorkflowTab').then(m => m.WorkflowTab), { ssr: false });
-  const KanbanBoard = dynamic(() => import('@/components/projects/KanbanBoard').then(m => m.KanbanBoard), { ssr: false });
-  const UpdatesTab = dynamic(() => import('@/components/projects/UpdatesTab').then(m => m.UpdatesTab), { ssr: false });
-  const InventoryTab = dynamic(() => import('@/components/projects/InventoryTab').then(m => m.InventoryTab), { ssr: false });
-  const DesignsTab = dynamic(() => import('@/components/projects/DesignsTab').then(m => m.DesignsTab), { ssr: false });
-
   useEffect(() => {
     setMounted(true);
   }, []);
 
   // Initialize active tab from ?tab= query param if present
   useEffect(() => {
-    const tab = searchParams?.get('tab');
-    if (!tab) return;
-    const validTabs = ['details', 'workflow', 'board', 'updates', 'inventory', 'designs'] as const;
-    if (validTabs.includes(tab as any)) {
-      setActiveTab(tab as typeof validTabs[number]);
+    const tabParam = searchParams?.get('tab');
+    if (tabParam) {
+      const validTabs = ['details', 'workflow', 'board', 'updates', 'inventory', 'designs'] as const;
+      if (validTabs.includes(tabParam as any)) {
+        setActiveTab(tabParam as typeof validTabs[number]);
+      }
     }
   }, [searchParams]);
+
+  const handleTabChange = (tab: 'details' | 'workflow' | 'board' | 'updates' | 'inventory' | 'designs') => {
+    setActiveTab(tab);
+    router.push(`/dashboard/projects/${id}?tab=${tab}`, { scroll: false });
+  };
 
   // Function to fetch project data
   const fetchProject = async () => {
@@ -97,10 +105,10 @@ export default function ProjectDetailsPage() {
         cache: 'no-store',
         next: { tags: [`project-${id}`] }
       });
-      
+
       console.log('Response status:', response.status);
       console.log('Response ok:', response.ok);
-      
+
       if (!response.ok) {
         if (response.status === 401) {
           throw new Error('You are not authorized to view this project');
@@ -108,7 +116,7 @@ export default function ProjectDetailsPage() {
         if (response.status === 403) {
           throw new Error('You do not have permission to view this project');
         }
-        
+
         let errorMessage = 'Failed to fetch project';
         try {
           const errorData = await response.json();
@@ -117,20 +125,21 @@ export default function ProjectDetailsPage() {
         } catch (parseError) {
           console.log('Could not parse error response as JSON');
         }
-        
+
         throw new Error(errorMessage);
       }
 
       const projectsData = await response.json();
       console.log('Project data received:', projectsData);
-      
+
       const projectData = Array.isArray(projectsData) ? projectsData[0] : projectsData;
-      
+
       if (!projectData) {
         throw new Error('Project not found');
       }
 
       setProject(projectData as Project);
+      setTitle(`Project Details / ${projectData.title}`);
     } catch (err: any) {
       console.error('Error fetching project:', err);
       setError(err.message || 'Failed to load project');
@@ -142,7 +151,7 @@ export default function ProjectDetailsPage() {
   // Initial fetch
   useEffect(() => {
     if (authLoading) return;
-    
+
     // Redirect to login if not authenticated
     if (!user) {
       router.push('/login');
@@ -163,13 +172,13 @@ export default function ProjectDetailsPage() {
 
     // Listen for visibility changes
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
+
     // Also refresh when the route changes (e.g., coming back from edit)
     const handleRouteChange = () => {
       console.log('Route changed, refreshing project data...');
       fetchProject();
     };
-    
+
     window.addEventListener('popstate', handleRouteChange);
 
     // Cleanup
@@ -228,23 +237,20 @@ export default function ProjectDetailsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 safe-area-inset-bottom lg:pt-0 h-full flex flex-col min-h-0 overflow-hidden">
+    <div className="p-4 sm:p-6 space-y-3 sm:space-y-6 safe-area-inset-bottom lg:pt-0 h-full flex flex-col min-h-0 overflow-hidden">
 
-      {/* Mobile-friendly header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-4">
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 truncate">{project.title}</h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">{project.customer_name}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs sm:text-sm font-semibold ${
-            project.status === 'completed' 
-              ? 'bg-green-100 text-green-700' 
-              : project.status === 'in_progress' 
-              ? 'bg-blue-100 text-blue-700' 
-              : 'bg-yellow-100 text-yellow-700'
-          }`}>
-            {project.status.replace('_', ' ').charAt(0).toUpperCase() + project.status.replace('_', ' ').slice(1)}
+      {/* Mobile-only compact header */}
+      <div className="lg:hidden -mx-4 -mt-4 px-4 pt-2 pb-3 bg-white border-b border-gray-100">
+        <h1 className="text-lg font-bold text-gray-900 truncate">{project.title}</h1>
+        <div className="flex items-center justify-between mt-1">
+          <p className="text-sm text-gray-600 truncate flex-1">{project.customer_name}</p>
+          <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${project.status === 'completed'
+              ? 'bg-green-100 text-green-700'
+              : project.status === 'in_progress'
+                ? 'bg-blue-100 text-blue-700'
+                : 'bg-yellow-100 text-yellow-700'
+            }`}>
+            {project.status.replace('_', ' ').toUpperCase()}
           </span>
         </div>
       </div>
@@ -252,89 +258,84 @@ export default function ProjectDetailsPage() {
       {/* Mobile Tab Widget - Floating Action Button */}
       {mounted && (
         <div className="lg:hidden fixed right-6 bottom-24 z-50">
-        <div className="relative">
-          <button
-            onClick={() => setShowTabWidget(!showTabWidget)}
-            className="w-14 h-14 bg-yellow-500 hover:bg-yellow-600 text-gray-900 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 touch-target"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          
-          {showTabWidget && (
-            <div className="absolute bottom-16 right-0 bg-white rounded-2xl shadow-xl border border-gray-200 p-2 min-w-48">
-              <div className="space-y-1">
-                <button
-                  className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    activeTab === 'details' 
-                      ? 'bg-yellow-100 text-yellow-700' 
+          <div className="relative">
+            <button
+              onClick={() => setShowTabWidget(!showTabWidget)}
+              className="w-14 h-14 bg-yellow-500 hover:bg-yellow-600 text-gray-900 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 touch-target"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+
+            {showTabWidget && (
+              <div className="absolute bottom-16 right-0 bg-white rounded-2xl shadow-xl border border-gray-200 p-2 min-w-48">
+                <div className="space-y-1">
+                  <button
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'details'
+                      ? 'bg-yellow-100 text-yellow-700'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                  onClick={() => {
-                    setActiveTab('details');
-                    setShowTabWidget(false);
-                  }}
-                >
-                  📋 Project Details
-                </button>
-                <button
-                  className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    activeTab === 'board' 
-                      ? 'bg-yellow-100 text-yellow-700' 
+                      }`}
+                    onClick={() => {
+                      setActiveTab('details');
+                      setShowTabWidget(false);
+                    }}
+                  >
+                    📋 Project Details
+                  </button>
+                  <button
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'board'
+                      ? 'bg-yellow-100 text-yellow-700'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                  onClick={() => {
-                    setActiveTab('board');
-                    setShowTabWidget(false);
-                  }}
-                >
-                  📊 Stage Board
-                </button>
-                <button
-                  className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    activeTab === 'updates' 
-                      ? 'bg-yellow-100 text-yellow-700' 
+                      }`}
+                    onClick={() => {
+                      handleTabChange('board');
+                      setShowTabWidget(false);
+                    }}
+                  >
+                    📊 Stage Board
+                  </button>
+                  <button
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'updates'
+                      ? 'bg-yellow-100 text-yellow-700'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                  onClick={() => {
-                    setActiveTab('updates');
-                    setShowTabWidget(false);
-                  }}
-                >
-                  📝 Updates
-                </button>
-                <button
-                  className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    activeTab === 'inventory' 
-                      ? 'bg-yellow-100 text-yellow-700' 
+                      }`}
+                    onClick={() => {
+                      handleTabChange('updates');
+                      setShowTabWidget(false);
+                    }}
+                  >
+                    📝 Updates
+                  </button>
+                  <button
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'inventory'
+                      ? 'bg-yellow-100 text-yellow-700'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                  onClick={() => {
-                    setActiveTab('inventory');
-                    setShowTabWidget(false);
-                  }}
-                >
-                  📦 Inventory
-                </button>
-                <button
-                  className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    activeTab === 'designs' 
-                      ? 'bg-yellow-100 text-yellow-700' 
+                      }`}
+                    onClick={() => {
+                      handleTabChange('inventory');
+                      setShowTabWidget(false);
+                    }}
+                  >
+                    📦 Inventory
+                  </button>
+                  <button
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'designs'
+                      ? 'bg-yellow-100 text-yellow-700'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                  onClick={() => {
-                    setActiveTab('designs');
-                    setShowTabWidget(false);
-                  }}
-                >
-                  🎨 Designs
-                </button>
+                      }`}
+                    onClick={() => {
+                      handleTabChange('designs');
+                      setShowTabWidget(false);
+                    }}
+                  >
+                    🎨 Designs
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
       )}
 
       {/* Desktop FAB Navigation */}
@@ -344,76 +345,70 @@ export default function ProjectDetailsPage() {
             <button
               onClick={() => setShowTabWidget(!showTabWidget)}
               className="w-14 h-14 bg-yellow-500 hover:bg-yellow-600 text-gray-900 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 touch-target"
-              aria-label="Navigation menu"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            
+
             {showTabWidget && (
               <div className="absolute bottom-16 right-0 bg-white rounded-2xl shadow-xl border border-gray-200 p-2 min-w-48">
                 <div className="space-y-1">
                   <button
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                      activeTab === 'details' 
-                        ? 'bg-yellow-100 text-yellow-700' 
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'details'
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                      }`}
                     onClick={() => {
-                      setActiveTab('details');
+                      handleTabChange('details');
                       setShowTabWidget(false);
                     }}
                   >
                     📋 Project Details
                   </button>
-                                    <button
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                      activeTab === 'board' 
-                        ? 'bg-yellow-100 text-yellow-700' 
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
+                  <button
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'board'
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                      }`}
                     onClick={() => {
-                      setActiveTab('board');
+                      handleTabChange('board');
                       setShowTabWidget(false);
                     }}
                   >
                     📊 Stage Board
                   </button>
                   <button
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                      activeTab === 'updates' 
-                        ? 'bg-yellow-100 text-yellow-700' 
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'updates'
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                      }`}
                     onClick={() => {
-                      setActiveTab('updates');
+                      handleTabChange('updates');
                       setShowTabWidget(false);
                     }}
                   >
                     📝 Updates
                   </button>
                   <button
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                      activeTab === 'inventory' 
-                        ? 'bg-yellow-100 text-yellow-700' 
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'inventory'
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                      }`}
                     onClick={() => {
-                      setActiveTab('inventory');
+                      handleTabChange('inventory');
                       setShowTabWidget(false);
                     }}
                   >
                     📦 Inventory
                   </button>
                   <button
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                      activeTab === 'designs' 
-                        ? 'bg-yellow-100 text-yellow-700' 
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'designs'
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                      }`}
                     onClick={() => {
-                      setActiveTab('designs');
+                      handleTabChange('designs');
                       setShowTabWidget(false);
                     }}
                   >
@@ -477,7 +472,7 @@ export default function ProjectDetailsPage() {
                     )}
                   </div>
                 </div>
-                
+
                 <div className="mt-4">
                   <dt className="text-sm font-medium text-gray-500 mb-1">Address</dt>
                   <dd className="text-sm text-gray-900 whitespace-pre-line">{project.address}</dd>
@@ -533,9 +528,9 @@ export default function ProjectDetailsPage() {
                   <div className="mt-4">
                     <dt className="text-sm font-medium text-gray-500 mb-1">Requirements Document</dt>
                     <dd className="text-sm">
-                      <a 
-                        href={project.requirements_pdf_url} 
-                        target="_blank" 
+                      <a
+                        href={project.requirements_pdf_url}
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center text-blue-600 hover:text-blue-800"
                       >

@@ -9,8 +9,9 @@ import { supabase } from '@/lib/supabase';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 import { OptimizedNotificationBell } from '@/components/OptimizedNotificationBell';
 import HydrationSafe from '@/components/HydrationSafe';
+import { HeaderTitleProvider, useHeaderTitle } from '@/contexts/HeaderTitleContext';
 
-export default function DashboardLayout({
+function DashboardLayoutContent({
   children,
 }: {
   children: React.ReactNode;
@@ -23,7 +24,10 @@ export default function DashboardLayout({
   const pathname = usePathname();
 
   // Get dynamic page title based on current route
+  const { title: customTitle } = useHeaderTitle();
+
   const getPageTitle = () => {
+    if (customTitle) return customTitle;
     if (pathname === '/dashboard') return 'Dashboard';
     if (pathname === '/dashboard/projects') return 'Projects';
     if (pathname === '/dashboard/users') return 'User Management';
@@ -120,7 +124,7 @@ export default function DashboardLayout({
           <div className="space-y-1">
             <Link
               href="/dashboard"
-              className="flex items-center justify-center group-hover:justify-start px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
+              className="flex items-center justify-start pl-[14px] sm:pl-[18px] lg:pl-[14px] pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
               onClick={() => setSidebarOpen(false)}
               title="Dashboard"
             >
@@ -129,7 +133,7 @@ export default function DashboardLayout({
             </Link>
             <Link
               href="/dashboard/projects"
-              className="flex items-center justify-center group-hover:justify-start px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
+              className="flex items-center justify-start pl-[14px] sm:pl-[18px] lg:pl-[14px] pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
               onClick={() => setSidebarOpen(false)}
               title="Projects"
             >
@@ -138,7 +142,7 @@ export default function DashboardLayout({
             </Link>
             <Link
               href="/dashboard/tasks"
-              className="flex items-center justify-center group-hover:justify-start px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
+              className="flex items-center justify-start pl-[14px] sm:pl-[18px] lg:pl-[14px] pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
               onClick={() => setSidebarOpen(false)}
               title="All Tasks"
             >
@@ -148,7 +152,7 @@ export default function DashboardLayout({
             {isAdmin && (
               <Link
                 href="/dashboard/users"
-                className="flex items-center justify-center group-hover:justify-start px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
+                className="flex items-center justify-start pl-[14px] sm:pl-[18px] lg:pl-[14px] pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
                 onClick={() => setSidebarOpen(false)}
                 title="Users"
               >
@@ -158,7 +162,7 @@ export default function DashboardLayout({
             )}
             <Link
               href="/dashboard/settings"
-              className="flex items-center justify-center group-hover:justify-start px-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
+              className="flex items-center justify-start pl-[14px] sm:pl-[18px] lg:pl-[14px] pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
               onClick={() => setSidebarOpen(false)}
               title="Settings"
             >
@@ -224,5 +228,17 @@ export default function DashboardLayout({
       {/* PWA Install Prompt */}
       <PWAInstallPrompt />
     </div>
+  );
+}
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <HeaderTitleProvider>
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+    </HeaderTitleProvider>
   );
 }

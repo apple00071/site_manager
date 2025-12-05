@@ -57,9 +57,16 @@ const customFormats = {
   agendaDateFormat: 'dd/MM/yyyy',
   // agendaHeaderFormat is a range formatter - use a function to format the date range
   agendaHeaderFormat: ({ start, end }: { start: Date; end: Date }, culture?: string, localizer?: any) => {
-    const startStr = localizer?.format(start, 'dd/MM/yyyy') || format(start, 'dd/MM/yyyy');
-    const endStr = localizer?.format(end, 'dd/MM/yyyy') || format(end, 'dd/MM/yyyy');
-    return `${startStr} – ${endStr}`;
+    // Validate dates before formatting
+    const safeStartStr = (start && !Number.isNaN(start.getTime()))
+      ? (localizer?.format(start, 'dd/MM/yyyy') || format(start, 'dd/MM/yyyy'))
+      : 'Invalid Date';
+
+    const safeEndStr = (end && !Number.isNaN(end.getTime()))
+      ? (localizer?.format(end, 'dd/MM/yyyy') || format(end, 'dd/MM/yyyy'))
+      : 'Invalid Date';
+
+    return `${safeStartStr} – ${safeEndStr}`;
   },
   // Short day names for mobile (S, M, T, W, T, F, S)
   dayFormat: (date: Date, culture?: string, localizer?: any) => {
@@ -622,15 +629,25 @@ export default function TasksPage() {
   }, []);
 
   function formatISTDate(d: Date) {
-    return new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Asia/Kolkata',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    }).format(d);
+    if (!d || !(d instanceof Date) || Number.isNaN(d.getTime())) return 'Invalid Date';
+    try {
+      return new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }).format(d);
+    } catch (e) {
+      return 'Invalid Date';
+    }
   }
   function formatISTTime(d: Date) {
-    return new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }).format(d);
+    if (!d || !(d instanceof Date) || Number.isNaN(d.getTime())) return 'Invalid Time';
+    try {
+      return new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }).format(d);
+    } catch (e) {
+      return 'Invalid Time';
+    }
   }
   function parseISTToISO(dateStr: string, timeStr: string) {
     const parts = dateStr.split('/');
@@ -646,7 +663,9 @@ export default function TasksPage() {
     if (ampm === 'AM' && hour === 12) hour = 0;
     const ms = Date.UTC(yyyy, mm - 1, dd, hour, minute);
     const offsetMs = 5.5 * 60 * 60 * 1000; // IST offset
-    return new Date(ms - offsetMs).toISOString();
+    const finalDate = new Date(ms - offsetMs);
+    if (Number.isNaN(finalDate.getTime())) return undefined;
+    return finalDate.toISOString();
   }
 
   function partsToTimeString(h: string, m: string, ap: string) {
@@ -1149,7 +1168,12 @@ export default function TasksPage() {
               toolbar: TasksToolbar,
               month: {
                 dateHeader: ({ date, label }: { date: Date; label: string }) => {
-                  const isToday = format(new Date(), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
+                  let isToday = false;
+                  try {
+                    isToday = format(new Date(), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
+                  } catch (e) {
+                    // Ignore format errors
+                  }
                   return (
                     <div className="rbc-date-cell">
                       <div className={`rbc-date-cell-content ${isToday ? 'rbc-now' : ''}`}>
