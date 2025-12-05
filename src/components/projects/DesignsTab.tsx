@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDateTimeReadable } from '@/lib/dateUtils';
-import { FiUpload, FiFileText, FiPaperclip, FiEye, FiCheck, FiAlertTriangle, FiX } from 'react-icons/fi';
+import { useToast } from '@/components/ui/Toast';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { InlineApproval } from '@/components/ui/InlineApproval';
+import { FiUpload, FiFileText, FiPaperclip, FiEye, FiX, FiChevronDown, FiChevronUp, FiPlus } from 'react-icons/fi';
 
 type DesignFile = {
   id: string;
@@ -48,20 +51,32 @@ type DesignsTabProps = {
 
 export function DesignsTab({ projectId }: DesignsTabProps) {
   const { user, isAdmin } = useAuth();
+  const { showToast } = useToast();
   const [designs, setDesigns] = useState<DesignFile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showUploadForm, setShowUploadForm] = useState(false);
+
+  // Inline expansion state
+  const [expandedDesignId, setExpandedDesignId] = useState<string | null>(null);
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Form state
   const [uploading, setUploading] = useState(false);
-  const [selectedDesign, setSelectedDesign] = useState<DesignFile | null>(null);
-  const [showApprovalModal, setShowApprovalModal] = useState(false);
-  const [approvalAction, setApprovalAction] = useState<'approved' | 'rejected' | 'needs_changes'>('approved');
-  const [adminComments, setAdminComments] = useState('');
   const [processing, setProcessing] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const [uploadForm, setUploadForm] = useState({
     file: null as File | null,
     version_number: 1,
   });
+
+  // Check for mobile viewport
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     fetchDesigns();
@@ -73,7 +88,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
       const response = await fetch(`/api/design-files?project_id=${projectId}`);
 
       if (!response.ok) {
-        console.error('Failed to fetch designs');
+        showToast('error', 'Failed to fetch designs');
         return;
       }
 
@@ -81,18 +96,25 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
       setDesigns(fetchedDesigns || []);
     } catch (error) {
       console.error('Error fetching designs:', error);
+      showToast('error', 'Failed to fetch designs');
     } finally {
       setLoading(false);
     }
   };
 
+  const resetForm = () => {
+    setUploadForm({ file: null, version_number: 1 });
+    setFormError(null);
+  };
+
   const handleFileUpload = async () => {
     if (!uploadForm.file) {
-      alert('Please select a file');
+      setFormError('Please select a file');
       return;
     }
 
     setUploading(true);
+    setFormError(null);
 
     try {
       const file = uploadForm.file;
@@ -106,7 +128,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
 
       if (error) {
         console.error('Error uploading file:', error);
-        alert('Failed to upload file');
+        showToast('error', 'Failed to upload file');
         return;
       }
 
@@ -144,19 +166,18 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
 
       const { design } = await response.json();
       setDesigns(prev => [design, ...prev]);
-      setShowUploadForm(false);
-      setUploadForm({ file: null, version_number: 1 });
+      setIsAddingNew(false);
+      resetForm();
+      showToast('success', 'Design uploaded successfully');
     } catch (error: any) {
       console.error('Error uploading design:', error);
-      alert(error.message || 'Failed to upload design');
+      showToast('error', error.message || 'Failed to upload design');
     } finally {
       setUploading(false);
     }
   };
 
-  const handleApproval = async () => {
-    if (!selectedDesign) return;
-
+  const handleApproval = async (designId: string, action: 'approved' | 'rejected' | 'needs_changes', comments?: string) => {
     setProcessing(true);
 
     try {
@@ -164,9 +185,9 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: selectedDesign.id,
-          approval_status: approvalAction,
-          admin_comments: adminComments.trim() || undefined,
+          id: designId,
+          approval_status: action,
+          admin_comments: comments?.trim() || undefined,
         }),
       });
 
@@ -176,23 +197,22 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
       }
 
       const { design } = await response.json();
-      setDesigns(prev => prev.map(d => d.id === design.id ? design : (approvalAction === 'approved' ? { ...d, is_current_approved: false } : d)));
-      setShowApprovalModal(false);
-      setSelectedDesign(null);
-      setAdminComments('');
+      setDesigns(prev => prev.map(d =>
+        d.id === design.id ? design : (action === 'approved' ? { ...d, is_current_approved: false } : d)
+      ));
+
+      const actionLabels = {
+        approved: 'approved',
+        rejected: 'rejected',
+        needs_changes: 'marked for changes',
+      };
+      showToast('success', `Design ${actionLabels[action]}`);
     } catch (error: any) {
       console.error('Error updating approval:', error);
-      alert(error.message || 'Failed to update approval');
+      showToast('error', error.message || 'Failed to update approval');
     } finally {
       setProcessing(false);
     }
-  };
-
-  const openApprovalModal = (design: DesignFile, action: 'approved' | 'rejected' | 'needs_changes') => {
-    setSelectedDesign(design);
-    setApprovalAction(action);
-    setAdminComments('');
-    setShowApprovalModal(true);
   };
 
   const handleReupload = (design: DesignFile) => {
@@ -200,7 +220,8 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
       ...prev,
       version_number: design.version_number + 1
     }));
-    setShowUploadForm(true);
+    setIsAddingNew(true);
+    setExpandedDesignId(null);
   };
 
   const getStatusBadge = (status: string) => {
@@ -217,6 +238,62 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
     );
   };
 
+  const handleCloseForm = () => {
+    setIsAddingNew(false);
+    resetForm();
+  };
+
+  // Upload form component
+  const UploadForm = () => (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm text-gray-700 mb-2">Design File *</label>
+        <input
+          type="file"
+          accept="image/*,application/pdf,.dwg,.dxf"
+          onChange={(e) => {
+            setUploadForm(prev => ({ ...prev, file: e.target.files?.[0] || null }));
+            setFormError(null);
+          }}
+          className={`w-full border rounded-md px-3 py-2 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100 ${formError ? 'border-red-300' : 'border-gray-300'
+            }`}
+        />
+        {formError && <p className="mt-1 text-xs text-red-600">{formError}</p>}
+      </div>
+      <div>
+        <label className="block text-sm text-gray-700 mb-2">Version Number</label>
+        <input
+          type="number"
+          min="1"
+          value={uploadForm.version_number}
+          onChange={(e) => setUploadForm(prev => ({ ...prev, version_number: parseInt(e.target.value) || 1 }))}
+          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+        />
+      </div>
+      <div className="flex justify-end gap-3 pt-2">
+        <button
+          onClick={handleCloseForm}
+          disabled={uploading}
+          className="px-4 py-2 rounded-md text-sm text-gray-700 bg-gray-100 hover:bg-gray-200"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleFileUpload}
+          disabled={uploading || !uploadForm.file}
+          className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {uploading ? (
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-900 border-t-transparent"></div>
+          ) : (
+            <FiUpload className="w-4 h-4" />
+          )}
+          {uploading ? 'Uploading...' : 'Upload'}
+        </button>
+      </div>
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -230,354 +307,271 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 md:mb-6">
         <h3 className="text-base sm:text-lg font-medium leading-6 text-gray-900">Design Files</h3>
         <button
-          onClick={() => setShowUploadForm(true)}
+          onClick={() => {
+            setIsAddingNew(true);
+            setExpandedDesignId(null);
+            resetForm();
+          }}
           className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 text-sm font-bold w-full sm:w-auto flex items-center justify-center gap-2"
         >
-          <FiUpload className="w-4 h-4" />
+          <FiPlus className="w-4 h-4" />
           Upload Design
         </button>
       </div>
 
-      {showUploadForm && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
-            <h4 className="text-lg font-semibold text-gray-900 mb-4">Upload New Design</h4>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Design File *</label>
-                <input
-                  type="file"
-                  accept="image/*,application/pdf,.dwg,.dxf"
-                  onChange={(e) => setUploadForm(prev => ({ ...prev, file: e.target.files?.[0] || null }))}
-                  className="w-full border rounded-md px-3 py-2 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Version Number</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={uploadForm.version_number}
-                  onChange={(e) => setUploadForm(prev => ({ ...prev, version_number: parseInt(e.target.value) || 1 }))}
-                  className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                />
-              </div>
-              <div className="flex justify-end gap-3 mt-4">
-                <button
-                  onClick={() => setShowUploadForm(false)}
-                  disabled={uploading}
-                  className="px-4 py-2 rounded-md text-sm text-gray-700 bg-gray-100 hover:bg-gray-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleFileUpload}
-                  disabled={uploading || !uploadForm.file}
-                  className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {uploading ? <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-900 border-t-transparent"></div> : <FiUpload />}
-                  {uploading ? 'Uploading...' : 'Upload'}
-                </button>
-              </div>
-            </div>
+      {/* Inline Upload Form (Desktop) */}
+      {isAddingNew && !isMobile && (
+        <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg animate-slide-down">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="text-lg font-semibold text-gray-900">Upload New Design</h4>
+            <button
+              onClick={handleCloseForm}
+              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-md transition-colors"
+            >
+              <FiX className="w-4 h-4" />
+            </button>
           </div>
+          <UploadForm />
         </div>
       )}
 
+      {/* Mobile Bottom Sheet for Upload */}
+      <BottomSheet
+        isOpen={isAddingNew && isMobile}
+        onClose={handleCloseForm}
+        title="Upload New Design"
+      >
+        <UploadForm />
+      </BottomSheet>
+
+      {/* Designs List */}
       {designs.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-          <div className="mx-auto h-12 w-12 text-gray-400">
-            <FiUpload className="h-12 w-12" />
-          </div>
+          <FiUpload className="h-12 w-12 mx-auto text-gray-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900">No designs</h3>
           <p className="mt-1 text-sm text-gray-500">Get started by uploading a new design file.</p>
         </div>
       ) : (
-        <>
-          {/* Mobile Card View (lg:hidden) */}
-          <div className="lg:hidden space-y-4">
-            {designs.map((design) => (
-              <div key={design.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex-shrink-0 h-10 w-10 relative">
-                      {design.file_type === 'image' ? (
-                        <img className="h-10 w-10 rounded object-cover border border-gray-200" src={design.file_url} alt="" />
-                      ) : (
-                        <div className="h-10 w-10 rounded bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100">
-                          {design.file_type === 'pdf' ? <FiFileText className="w-5 h-5" /> : <FiPaperclip className="w-5 h-5" />}
-                        </div>
-                      )}
+        <div className="space-y-3">
+          {designs.map((design) => (
+            <div key={design.id} className="border border-gray-200 rounded-lg overflow-hidden">
+              {/* Design Row */}
+              <div
+                className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${expandedDesignId === design.id ? 'bg-gray-50' : ''
+                  }`}
+                onClick={() => {
+                  if (expandedDesignId === design.id) {
+                    setExpandedDesignId(null);
+                  } else {
+                    setExpandedDesignId(design.id);
+                    setIsAddingNew(false);
+                  }
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  {/* Thumbnail */}
+                  <div className="flex-shrink-0 h-10 w-10">
+                    {design.file_type === 'image' ? (
+                      <img className="h-10 w-10 rounded object-cover border border-gray-200" src={design.file_url} alt="" />
+                    ) : (
+                      <div className="h-10 w-10 rounded bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100">
+                        {design.file_type === 'pdf' ? <FiFileText className="w-5 h-5" /> : <FiPaperclip className="w-5 h-5" />}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-semibold text-gray-900 truncate">{design.file_name}</h4>
+                    <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-500">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                        V{design.version_number}
+                      </span>
+                      <span>{design.file_type.toUpperCase()}</span>
+                      <span>{formatDateTimeReadable(design.created_at).split(',')[0]}</span>
                     </div>
-                    <div>
-                      <h4 className="text-sm font-semibold text-gray-900 break-all line-clamp-1">{design.file_name}</h4>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-gray-500">{design.file_type.toUpperCase()}</span>
-                        <span className="text-xs font-medium text-gray-400">•</span>
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200">
-                          V{design.version_number}
-                        </span>
+                  </div>
+
+                  {/* Status & Toggle */}
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(design.approval_status)}
+                    {expandedDesignId === design.id ? (
+                      <FiChevronUp className="w-4 h-4 text-gray-400" />
+                    ) : (
+                      <FiChevronDown className="w-4 h-4 text-gray-400" />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Expanded Content (Desktop) */}
+              {expandedDesignId === design.id && !isMobile && (
+                <div className="p-4 pt-0 border-t border-gray-100 bg-gray-50 animate-slide-down">
+                  <div className="pt-4 space-y-4">
+                    {/* Details */}
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-xs text-gray-500">Uploaded By</p>
+                        <p className="font-medium">{design.uploaded_by_user.full_name}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Date</p>
+                        <p className="font-medium">{formatDateTimeReadable(design.created_at)}</p>
                       </div>
                     </div>
+
+                    {/* Admin Comments */}
+                    {design.admin_comments && (
+                      <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                        <p className="text-xs font-medium text-orange-800">Admin Comments:</p>
+                        <p className="text-sm text-orange-700 mt-1">{design.admin_comments}</p>
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <a
+                        href={design.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <FiEye className="w-4 h-4" />
+                        View File
+                      </a>
+
+                      {!isAdmin && (design.approval_status === 'rejected' || design.approval_status === 'needs_changes') && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleReupload(design);
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100"
+                        >
+                          <FiUpload className="w-4 h-4" />
+                          Resubmit
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Inline Approval for Admin */}
+                    {isAdmin && design.approval_status === 'pending' && (
+                      <div className="p-3 bg-white rounded-lg border border-gray-200">
+                        <p className="text-xs text-gray-600 mb-2">Approval Actions</p>
+                        <InlineApproval
+                          status="pending"
+                          onApprove={() => handleApproval(design.id, 'approved')}
+                          onReject={(reason) => handleApproval(design.id, 'rejected', reason)}
+                          onRequestChanges={(comment) => handleApproval(design.id, 'needs_changes', comment)}
+                          showRequestChanges
+                          size="sm"
+                        />
+                      </div>
+                    )}
                   </div>
-                  {getStatusBadge(design.approval_status)}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Mobile Bottom Sheet for Expanded Design */}
+      {expandedDesignId && isMobile && (
+        <BottomSheet
+          isOpen={true}
+          onClose={() => setExpandedDesignId(null)}
+          title={designs.find(d => d.id === expandedDesignId)?.file_name || 'Design Details'}
+        >
+          {(() => {
+            const design = designs.find(d => d.id === expandedDesignId);
+            if (!design) return null;
+
+            return (
+              <div className="space-y-4">
+                {/* Thumbnail */}
+                <div className="flex justify-center">
+                  {design.file_type === 'image' ? (
+                    <img className="max-h-48 rounded-lg object-contain" src={design.file_url} alt="" />
+                  ) : (
+                    <div className="h-24 w-24 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+                      {design.file_type === 'pdf' ? <FiFileText className="w-12 h-12" /> : <FiPaperclip className="w-12 h-12" />}
+                    </div>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-gray-600 mb-3 bg-gray-50 p-3 rounded-md border border-gray-100">
+                {/* Details */}
+                <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-400 block text-[10px] uppercase tracking-wider mb-0.5">Uploaded By</span>
-                    <span className="font-medium text-gray-900">{design.uploaded_by_user.full_name}</span>
+                    <p className="text-xs text-gray-500">Version</p>
+                    <p className="font-medium">V{design.version_number}</p>
                   </div>
                   <div>
-                    <span className="text-gray-400 block text-[10px] uppercase tracking-wider mb-0.5">Date</span>
-                    <span className="font-medium text-gray-900">{formatDateTimeReadable(design.created_at).split(',')[0]}</span>
+                    <p className="text-xs text-gray-500">Type</p>
+                    <p className="font-medium">{design.file_type.toUpperCase()}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Uploaded By</p>
+                    <p className="font-medium">{design.uploaded_by_user.full_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Status</p>
+                    {getStatusBadge(design.approval_status)}
                   </div>
                 </div>
 
-                {design.approval_status === 'needs_changes' && design.admin_comments && (
-                  <div className="mb-3 p-3 bg-red-50 text-red-700 text-xs rounded-md border border-red-100">
-                    <div className="font-medium mb-1">Requested Changes:</div>
-                    {design.admin_comments}
+                {/* Admin Comments */}
+                {design.admin_comments && (
+                  <div className="p-3 bg-orange-50 rounded-lg">
+                    <p className="text-xs font-medium text-orange-800">Admin Comments:</p>
+                    <p className="text-sm text-orange-700 mt-1">{design.admin_comments}</p>
                   </div>
                 )}
 
-                <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                  <div className="flex gap-2">
-                    <a
-                      href={design.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2 text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded-md transition-colors"
-                      title="View File"
+                {/* Actions */}
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href={design.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg"
+                  >
+                    <FiEye className="w-4 h-4" />
+                    View File
+                  </a>
+
+                  {!isAdmin && (design.approval_status === 'rejected' || design.approval_status === 'needs_changes') && (
+                    <button
+                      onClick={() => handleReupload(design)}
+                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg"
                     >
-                      <FiEye className="w-4 h-4" />
-                    </a>
+                      <FiUpload className="w-4 h-4" />
+                      Resubmit
+                    </button>
+                  )}
+                </div>
+
+                {/* Inline Approval for Admin */}
+                {isAdmin && design.approval_status === 'pending' && (
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-600 mb-2">Approval Actions</p>
+                    <InlineApproval
+                      status="pending"
+                      onApprove={() => handleApproval(design.id, 'approved')}
+                      onReject={(reason) => handleApproval(design.id, 'rejected', reason)}
+                      onRequestChanges={(comment) => handleApproval(design.id, 'needs_changes', comment)}
+                      showRequestChanges
+                    />
                   </div>
-                  <div className="flex gap-2">
-                    {isAdmin && design.approval_status === 'pending' && (
-                      <>
-                        <button
-                          onClick={() => openApprovalModal(design, 'approved')}
-                          className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors border border-transparent hover:border-green-200"
-                          title="Approve"
-                        >
-                          <FiCheck className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => openApprovalModal(design, 'needs_changes')}
-                          className="p-2 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-md transition-colors border border-transparent hover:border-orange-200"
-                          title="Request Changes"
-                        >
-                          <FiAlertTriangle className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => openApprovalModal(design, 'rejected')}
-                          className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors border border-transparent hover:border-red-200"
-                          title="Reject"
-                        >
-                          <FiX className="w-4 h-4" />
-                        </button>
-                      </>
-                    )}
-
-                    {!isAdmin && (design.approval_status === 'rejected' || design.approval_status === 'needs_changes') && (
-                      <button
-                        onClick={() => handleReupload(design)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors border border-blue-200"
-                      >
-                        <FiUpload className="w-3.5 h-3.5" />
-                        Resubmit
-                      </button>
-                    )}
-                  </div>
-                </div>
+                )}
               </div>
-            ))}
-          </div>
-
-          {/* Desktop Table View (hidden lg:block) */}
-          <div className="hidden lg:block overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    File
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Uploaded By
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {designs.map((design) => (
-                  <tr key={design.id} className="hover:bg-gray-50 transition-colors group">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 relative group-hover:scale-105 transition-transform">
-                          {design.file_type === 'image' ? (
-                            <img className="h-10 w-10 rounded object-cover border border-gray-200" src={design.file_url} alt="" />
-                          ) : (
-                            <div className="h-10 w-10 rounded bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100">
-                              {design.file_type === 'pdf' ? <FiFileText className="w-5 h-5" /> : <FiPaperclip className="w-5 h-5" />}
-                            </div>
-                          )}
-                        </div>
-                        <div className="ml-4">
-                          <div className="flex items-center gap-2">
-                            <div className="text-sm font-medium text-gray-900 max-w-[200px] truncate" title={design.file_name}>
-                              {design.file_name}
-                            </div>
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700">
-                              V{design.version_number}
-                            </span>
-                          </div>
-                          <div className="text-xs text-gray-500">{design.file_type.toUpperCase()}</div>
-                          {design.admin_comments && (
-                            <div className="mt-1 text-xs text-red-600 bg-red-50 p-1 rounded border border-red-100 max-w-[200px] break-words">
-                              Comments: {design.admin_comments}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-700 text-xs font-bold border border-yellow-200">
-                          {design.uploaded_by_user.full_name.charAt(0)}
-                        </div>
-                        <div className="ml-3">
-                          <div className="text-sm font-medium text-gray-900">{design.uploaded_by_user.full_name}</div>
-                          <div className="text-xs text-gray-500">{design.uploaded_by_user.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatDateTimeReadable(design.created_at).split(',')[0]}</div>
-                      <div className="text-xs text-gray-500">{formatDateTimeReadable(design.created_at).split(',')[1]}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(design.approval_status)}
-                      {design.is_current_approved && (
-                        <div className="mt-1 flex items-center text-xs text-green-600 font-medium">
-                          <FiCheck className="w-3 h-3 mr-1" />
-                          Current
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end gap-2">
-                        <a
-                          href={design.file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded-md transition-colors"
-                          title="View File"
-                        >
-                          <FiEye className="w-5 h-5" />
-                        </a>
-
-                        {isAdmin && design.approval_status === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => openApprovalModal(design, 'approved')}
-                              className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors"
-                              title="Approve"
-                            >
-                              <FiCheck className="w-5 h-5" />
-                            </button>
-                            <button
-                              onClick={() => openApprovalModal(design, 'needs_changes')}
-                              className="p-1.5 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
-                              title="Request Changes"
-                            >
-                              <FiAlertTriangle className="w-5 h-5" />
-                            </button>
-                            <button
-                              onClick={() => openApprovalModal(design, 'rejected')}
-                              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                              title="Reject"
-                            >
-                              <FiX className="w-5 h-5" />
-                            </button>
-                          </>
-                        )}
-
-                        {!isAdmin && (design.approval_status === 'rejected' || design.approval_status === 'needs_changes') && (
-                          <button
-                            onClick={() => handleReupload(design)}
-                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                            title="Upload New Version"
-                          >
-                            <FiUpload className="w-5 h-5" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Approval Modal - Shared */}
-          {showApprovalModal && selectedDesign && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-              <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-4 md:p-6 max-h-screen overflow-y-auto">
-                <h3 className="text-base md:text-lg font-medium text-gray-900 mb-3 md:mb-4 flex items-center gap-2">
-                  {approvalAction === 'approved' && <FiCheck className="w-5 h-5 text-green-600" />}
-                  {approvalAction === 'rejected' && <FiX className="w-5 h-5 text-red-600" />}
-                  {approvalAction === 'needs_changes' && <FiAlertTriangle className="w-5 h-5 text-orange-600" />}
-
-                  {approvalAction === 'approved' && 'Approve Design'}
-                  {approvalAction === 'rejected' && 'Reject Design'}
-                  {approvalAction === 'needs_changes' && 'Request Changes'}
-                </h3>
-                <p className="text-sm text-gray-600 mb-3 md:mb-4">
-                  Design: <span className="font-medium break-words">{selectedDesign.file_name}</span>
-                </p>
-                <div className="mb-4">
-                  <label className="block text-sm text-gray-700 mb-2">Comments (optional)</label>
-                  <textarea
-                    value={adminComments}
-                    onChange={(e) => setAdminComments(e.target.value)}
-                    rows={4}
-                    placeholder="Add your feedback..."
-                    className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                  />
-                </div>
-                <div className="flex flex-col sm:flex-row justify-end gap-2">
-                  <button
-                    onClick={() => setShowApprovalModal(false)}
-                    disabled={processing}
-                    className="px-4 py-2 rounded-md text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 w-full sm:w-auto"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleApproval}
-                    disabled={processing}
-                    className={`px-4 py-2 text-white rounded-md text-sm font-medium disabled:opacity-50 w-full sm:w-auto ${approvalAction === 'approved' ? 'bg-green-600 hover:bg-green-700' :
-                      approvalAction === 'rejected' ? 'bg-red-600 hover:bg-red-700' :
-                        'bg-orange-600 hover:bg-orange-700'
-                      }`}
-                  >
-                    {processing ? 'Processing...' : 'Confirm'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </>
+            );
+          })()}
+        </BottomSheet>
       )}
     </div>
   );
 }
+
+export default DesignsTab;

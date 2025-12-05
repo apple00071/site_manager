@@ -6,9 +6,11 @@ import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { FiPlus, FiClock, FiCheckCircle, FiAlertCircle, FiBriefcase, FiCheck, FiPlay, FiPause } from 'react-icons/fi';
 import { formatDateIST } from '@/lib/dateUtils';
+import { useToast } from '@/components/ui/Toast';
 
 export default function DashboardPage() {
   const { user, isAdmin } = useAuth();
+  const { showToast } = useToast();
   const [stats, setStats] = useState({
     totalProjects: 0,
     activeProjects: 0,
@@ -332,9 +334,9 @@ export default function DashboardPage() {
                       </div>
                       <div className="mt-2 flex items-center gap-2">
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${task.status === 'todo' ? 'bg-gray-100 text-gray-700' :
-                            task.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-                              task.status === 'blocked' ? 'bg-red-100 text-red-700' :
-                                'bg-green-100 text-green-700'
+                          task.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                            task.status === 'blocked' ? 'bg-red-100 text-red-700' :
+                              'bg-green-100 text-green-700'
                           }`}>
                           {task.status === 'todo' ? 'To Do' :
                             task.status === 'in_progress' ? 'In Progress' :
@@ -342,9 +344,9 @@ export default function DashboardPage() {
                         </span>
                         {task.priority && (
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${task.priority === 'low' ? 'bg-green-100 text-green-700' :
-                              task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                                task.priority === 'high' ? 'bg-orange-100 text-orange-700' :
-                                  'bg-red-100 text-red-700'
+                            task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                              task.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                                'bg-red-100 text-red-700'
                             }`}>
                             {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
                           </span>
@@ -387,7 +389,7 @@ export default function DashboardPage() {
                                   todoTasks: task.status === 'todo' ? prev.todoTasks + 1 : prev.todoTasks,
                                   inProgressTasks: task.status === 'in_progress' ? prev.inProgressTasks + 1 : prev.inProgressTasks,
                                 }));
-                                alert('Failed to update task status');
+                                showToast('error', 'Failed to update task status');
                               }
                             } catch (error) {
                               // Revert on error
@@ -399,7 +401,7 @@ export default function DashboardPage() {
                                 inProgressTasks: task.status === 'in_progress' ? prev.inProgressTasks + 1 : prev.inProgressTasks,
                               }));
                               console.error('Error updating task:', error);
-                              alert('Failed to update task');
+                              showToast('error', 'Failed to update task');
                             }
                           }}
                           className="text-green-600 hover:text-green-800 p-1 rounded hover:bg-green-50"
@@ -452,7 +454,7 @@ export default function DashboardPage() {
                                 inProgressTasks: prev.inProgressTasks - 1,
                               }));
                               console.error('Error updating task:', error);
-                              alert('Failed to update task');
+                              showToast('error', 'Failed to update task');
                             }
                           }}
                           className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
@@ -545,22 +547,22 @@ export default function DashboardPage() {
                         {project.workflow_stage && (
                           <span
                             className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap ${project.workflow_stage === 'design_completed'
-                                ? 'bg-green-100 text-green-700'
-                                : project.workflow_stage === 'design_in_progress'
-                                  ? 'bg-blue-100 text-blue-700'
-                                  : project.workflow_stage === 'design_pending'
-                                    ? 'bg-amber-100 text-amber-700'
-                                    : 'bg-gray-100 text-gray-700'
+                              ? 'bg-green-100 text-green-700'
+                              : project.workflow_stage === 'design_in_progress'
+                                ? 'bg-blue-100 text-blue-700'
+                                : project.workflow_stage === 'design_pending'
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : 'bg-gray-100 text-gray-700'
                               }`}
                           >
                             {project.workflow_stage.replace(/_/g, ' ')}
                           </span>
                         )}
                         <span className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap ${project.status === 'completed'
-                            ? 'bg-green-100 text-green-700'
-                            : project.status === 'in_progress'
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-amber-100 text-amber-700'
+                          ? 'bg-green-100 text-green-700'
+                          : project.status === 'in_progress'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-amber-100 text-amber-700'
                           }`}>
                           {project.status.replace('_', ' ')}
                         </span>

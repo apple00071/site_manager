@@ -7,7 +7,9 @@ import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import '@/styles/calendar-custom.css';
-import { FiCheck, FiFilter, FiPlus, FiUser, FiAlertTriangle, FiChevronLeft, FiChevronRight, FiUserX } from 'react-icons/fi';
+import { FiCheck, FiFilter, FiPlus, FiUser, FiAlertTriangle, FiChevronLeft, FiChevronRight, FiUserX, FiX } from 'react-icons/fi';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { useToast } from '@/components/ui/Toast';
 
 type CalendarViewType = 'month' | 'week' | 'work_week' | 'day' | 'agenda';
 
@@ -162,6 +164,16 @@ export default function TasksPage() {
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'todo' | 'in_progress' | 'blocked' | 'done'>('all');
   const [visibleRange, setVisibleRange] = useState<{ start: Date; end: Date } | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const { showToast } = useToast();
+
+  // Check for mobile viewport
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     // Persist filters across navigation
@@ -813,7 +825,7 @@ export default function TasksPage() {
       });
       fetchTasks();
     } catch (e: any) {
-      setError(e.message || (editingTask ? 'Failed to update task' : 'Failed to create task'));
+      showToast('error', e.message || (editingTask ? 'Failed to update task' : 'Failed to create task'));
     }
   };
 
@@ -835,261 +847,222 @@ export default function TasksPage() {
     fetchProjects();
   }, []);
 
-  const modal = (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-3 sm:px-0"
-      onClick={() => { setModalOpen(false); setEditingTask(null); }}
-    >
-      <div
-        className="bg-white rounded-lg shadow-xl w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto p-3 sm:p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-lg font-semibold text-gray-900 mb-3">{isEditing ? 'Edit Task' : 'Create Task'}</h2>
-        <div className="space-y-3">
+  // Task form content (used in both modal and bottom sheet)
+  const TaskFormContent = () => (
+    <div className="space-y-3">
+      <div>
+        <label className="block text-xs text-gray-600 mb-1">Title *</label>
+        <input list="task-title-templates" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-required="true" />
+        <datalist id="task-title-templates">
+          {titleSuggestions.map((s, i) => (
+            <option key={i} value={s} />
+          ))}
+        </datalist>
+      </div>
+      <div>
+        <label className="block text-xs text-gray-600 mb-1">Description</label>
+        <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+      </div>
+      <div>
+        <label className="block text-xs text-gray-600 mb-1">Project (optional)</label>
+        <select value={form.project_id} onChange={e => setForm({ ...form, project_id: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md">
+          <option value="">No Project</option>
+          {projects.map(p => (
+            <option key={p.id} value={p.id}>{p.title}</option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-gray-600 mb-1">Title *</label>
-            <input list="task-title-templates" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-required="true" />
-            <datalist id="task-title-templates">
-              {titleSuggestions.map((s, i) => (
-                <option key={i} value={s} />
-              ))}
-            </datalist>
+            <label className="block text-xs text-gray-600 mb-1">Start Date</label>
+            <input type="date" value={form.start_date_picker} onChange={e => setForm({ ...form, start_date_picker: e.target.value, end_date_picker: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-label="Calendar start date picker" />
           </div>
           <div>
-            <label className="block text-xs text-gray-600 mb-1">Description</label>
-            <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Project (optional)</label>
-            <select value={form.project_id} onChange={e => setForm({ ...form, project_id: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md">
-              <option value="">No Project</option>
-              {projects.map(p => (
-                <option key={p.id} value={p.id}>{p.title}</option>
+            <label className="block text-xs text-gray-600 mb-1">Start Time</label>
+            <select
+              value={partsToTimeString(form.start_hour, form.start_minute, form.start_ampm)}
+              onChange={e => {
+                const value = e.target.value;
+                const [time, ap] = value.split(' ');
+                const [hh, mm] = time.split(':');
+                setForm(prev => ({
+                  ...prev,
+                  start_hour: hh,
+                  start_minute: mm,
+                  start_ampm: ap as 'AM' | 'PM',
+                }));
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              aria-label="Start time"
+            >
+              {timeOptions.map((t) => (
+                <option key={t} value={t}>{t}</option>
               ))}
             </select>
           </div>
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Start Date</label>
-                <input type="date" value={form.start_date_picker} onChange={e => setForm({ ...form, start_date_picker: e.target.value, end_date_picker: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-label="Calendar start date picker" />
-
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Start Time</label>
-                <select
-                  value={partsToTimeString(form.start_hour, form.start_minute, form.start_ampm)}
-                  onChange={e => {
-                    const value = e.target.value;
-                    const [time, ap] = value.split(' ');
-                    const [hh, mm] = time.split(':');
-                    setForm(prev => ({
-                      ...prev,
-                      start_hour: hh,
-                      start_minute: mm,
-                      start_ampm: ap as 'AM' | 'PM',
-                    }));
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  aria-label="Start time"
-                >
-                  {timeOptions.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">End Date</label>
-                <input type="date" value={form.end_date_picker} onChange={e => setForm({ ...form, end_date_picker: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-label="Calendar end date picker" />
-
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">End Time</label>
-                <select
-                  value={partsToTimeString(form.end_hour, form.end_minute, form.end_ampm)}
-                  onChange={e => {
-                    const value = e.target.value;
-                    const [time, ap] = value.split(' ');
-                    const [hh, mm] = time.split(':');
-                    setForm(prev => ({
-                      ...prev,
-                      end_hour: hh,
-                      end_minute: mm,
-                      end_ampm: ap as 'AM' | 'PM',
-                    }));
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  aria-label="End time"
-                >
-                  {timeOptions.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Priority</label>
-                <select value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value as 'low' | 'medium' | 'high' | 'urgent' })} className="w-full px-3 py-2 border border-gray-300 rounded-md">
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="urgent">Urgent</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Assign to</label>
-                <select value={form.assigned_to} onChange={e => setForm({ ...form, assigned_to: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md">
-                  <option value="">Unassigned</option>
-                  {assignees.map(a => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => { setModalOpen(false); setEditingTask(null); }} className="px-4 py-2 text-gray-700 rounded-md bg-gray-100 hover:bg-gray-200">Cancel</button>
-              <button onClick={saveTask} className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 font-medium">{isEditing ? 'Save Changes' : 'Create Task'}</button>
-            </div>
-          </div>
         </div>
-      </div>
-    </div>
-  );
 
-  const viewModal = viewTask && viewModalOpen && (
-    <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
-      onClick={() => { setViewModalOpen(false); setViewTask(null); }}
-    >
-      <div
-        className="bg-white rounded-lg shadow-xl w-full max-w-lg p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-lg font-semibold text-gray-900 mb-3">Task Details</h2>
-        <div className="space-y-3 text-sm text-gray-700">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <p className="text-xs text-gray-500 mb-1">Title</p>
-            <p className="font-medium text-gray-900">{viewTask.title}</p>
+            <label className="block text-xs text-gray-600 mb-1">End Date</label>
+            <input type="date" value={form.end_date_picker} onChange={e => setForm({ ...form, end_date_picker: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-label="Calendar end date picker" />
           </div>
-          {viewTask.description && (
-            <div>
-              <p className="text-xs text-gray-500 mb-1">Description</p>
-              <p className="whitespace-pre-line">{viewTask.description}</p>
-            </div>
-          )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <p className="text-xs text-gray-500 mb-1">Start</p>
-              <p className="text-gray-900">
-                {formatISTDate(new Date(viewTask.start_at))}, {formatISTTime(new Date(viewTask.start_at))}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 mb-1">End</p>
-              <p className="text-gray-900">
-                {formatISTDate(new Date(viewTask.end_at))}, {formatISTTime(new Date(viewTask.end_at))}
-              </p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <p className="text-xs text-gray-500 mb-1">Status</p>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${viewTask.status === 'done' ? 'bg-green-100 text-green-800' :
-                viewTask.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                  viewTask.status === 'blocked' ? 'bg-red-100 text-red-800' :
-                    'bg-gray-100 text-gray-800'
-                }`}>
-                {viewTask.status.replace('_', ' ').charAt(0).toUpperCase() + viewTask.status.replace('_', ' ').slice(1)}
-              </span>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 mb-1">Project</p>
-              <p className="text-gray-900">
-                {viewTask.project_id ? (projects.find(p => p.id === viewTask.project_id)?.title || 'No project') : 'No project'}
-              </p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <p className="text-xs text-gray-500 mb-1">Assigned To</p>
-              {viewTask.assigned_to || viewTask.assigned_to_id ? (
-                (() => {
-                  const assigneeId = viewTask.assigned_to || viewTask.assigned_to_id;
-                  const assignee = assignees.find(a => a.id === assigneeId);
-
-                  console.log('Assignee debug:', {
-                    taskId: viewTask.id,
-                    assigned_to: viewTask.assigned_to,
-                    assigned_to_id: viewTask.assigned_to_id,
-                    assigneeId,
-                    assignee,
-                    allAssignees: assignees
-                  });
-
-                  if (!assignee) {
-                    return (
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2 text-yellow-700">
-                          <FiUserX className="h-4 w-4 flex-shrink-0" />
-                          <span>Assigned to user ID: {assigneeId}</span>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          (User not found in system)
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-indigo-100 text-indigo-800 text-xs font-medium"
-                        title={`${assignee.name} (${assignee.id})`}
-                      >
-                        {assignee.name?.charAt(0).toUpperCase() || '?'}
-                      </span>
-                      <span className="text-gray-900">{assignee.name}</span>
-                    </div>
-                  );
-                })()
-              ) : (
-                <span className="text-gray-500 italic">Unassigned</span>
-              )}
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 mb-1">Priority</p>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${viewTask.priority === 'high' ? 'bg-red-100 text-red-800' :
-                viewTask.priority === 'urgent' ? 'bg-red-100 text-red-800 font-bold' :
-                  viewTask.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-blue-100 text-blue-800'
-                }`}>
-                {viewTask.priority.charAt(0).toUpperCase() + viewTask.priority.slice(1)}
-              </span>
-            </div>
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">End Time</label>
+            <select
+              value={partsToTimeString(form.end_hour, form.end_minute, form.end_ampm)}
+              onChange={e => {
+                const value = e.target.value;
+                const [time, ap] = value.split(' ');
+                const [hh, mm] = time.split(':');
+                setForm(prev => ({
+                  ...prev,
+                  end_hour: hh,
+                  end_minute: mm,
+                  end_ampm: ap as 'AM' | 'PM',
+                }));
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              aria-label="End time"
+            >
+              {timeOptions.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
           </div>
         </div>
-        <div className="flex justify-end gap-2 pt-4">
-          <button
-            onClick={() => { setViewModalOpen(false); setViewTask(null); }}
-            className="px-4 py-2 text-gray-700 rounded-md bg-gray-100 hover:bg-gray-200"
-          >
-            Close
-          </button>
-          <button
-            onClick={() => { if (viewTask) { openEditTask(viewTask); } }}
-            className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 font-medium"
-          >
-            Edit Task
-          </button>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Priority</label>
+            <select value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value as 'low' | 'medium' | 'high' | 'urgent' })} className="w-full px-3 py-2 border border-gray-300 rounded-md">
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Assign to</label>
+            <select value={form.assigned_to} onChange={e => setForm({ ...form, assigned_to: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md">
+              <option value="">Unassigned</option>
+              {assignees.map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <button onClick={() => { setModalOpen(false); setEditingTask(null); }} className="px-4 py-2 text-gray-700 rounded-md bg-gray-100 hover:bg-gray-200">Cancel</button>
+          <button onClick={saveTask} className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 font-medium">{isEditing ? 'Save Changes' : 'Create Task'}</button>
         </div>
       </div>
     </div>
   );
+
+  // View task content (used in both modal and bottom sheet)
+  const ViewTaskContent = () => viewTask ? (
+    <div className="space-y-3 text-sm text-gray-700">
+      <div>
+        <p className="text-xs text-gray-500 mb-1">Title</p>
+        <p className="font-medium text-gray-900">{viewTask.title}</p>
+      </div>
+      {viewTask.description && (
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Description</p>
+          <p className="whitespace-pre-line">{viewTask.description}</p>
+        </div>
+      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Start</p>
+          <p className="text-gray-900">
+            {formatISTDate(new Date(viewTask.start_at))}, {formatISTTime(new Date(viewTask.start_at))}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500 mb-1">End</p>
+          <p className="text-gray-900">
+            {formatISTDate(new Date(viewTask.end_at))}, {formatISTTime(new Date(viewTask.end_at))}
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Status</p>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${viewTask.status === 'done' ? 'bg-green-100 text-green-800' :
+            viewTask.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+              viewTask.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                'bg-gray-100 text-gray-800'
+            }`}>
+            {viewTask.status.replace('_', ' ').charAt(0).toUpperCase() + viewTask.status.replace('_', ' ').slice(1)}
+          </span>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Project</p>
+          <p className="text-gray-900">
+            {viewTask.project_id ? (projects.find(p => p.id === viewTask.project_id)?.title || 'No project') : 'No project'}
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Assigned To</p>
+          {viewTask.assigned_to || viewTask.assigned_to_id ? (
+            (() => {
+              const assigneeId = viewTask.assigned_to || viewTask.assigned_to_id;
+              const assignee = assignees.find(a => a.id === assigneeId);
+              if (!assignee) {
+                return (
+                  <div className="flex items-center gap-2 text-yellow-700">
+                    <FiUserX className="h-4 w-4 flex-shrink-0" />
+                    <span>User not found</span>
+                  </div>
+                );
+              }
+              return (
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-indigo-100 text-indigo-800 text-xs font-medium">
+                    {assignee.name?.charAt(0).toUpperCase() || '?'}
+                  </span>
+                  <span className="text-gray-900">{assignee.name}</span>
+                </div>
+              );
+            })()
+          ) : (
+            <span className="text-gray-500 italic">Unassigned</span>
+          )}
+        </div>
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Priority</p>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${viewTask.priority === 'high' ? 'bg-red-100 text-red-800' :
+            viewTask.priority === 'urgent' ? 'bg-red-100 text-red-800 font-bold' :
+              viewTask.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                'bg-blue-100 text-blue-800'
+            }`}>
+            {viewTask.priority.charAt(0).toUpperCase() + viewTask.priority.slice(1)}
+          </span>
+        </div>
+      </div>
+      <div className="flex justify-end gap-2 pt-4">
+        <button
+          onClick={() => { setViewModalOpen(false); setViewTask(null); }}
+          className="px-4 py-2 text-gray-700 rounded-md bg-gray-100 hover:bg-gray-200"
+        >
+          Close
+        </button>
+        <button
+          onClick={() => { if (viewTask) { openEditTask(viewTask); } }}
+          className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 font-medium"
+        >
+          Edit Task
+        </button>
+      </div>
+    </div>
+  ) : null;
+
+
 
   return (
     <div className="space-y-4">
@@ -1216,8 +1189,71 @@ export default function TasksPage() {
         <div className="bg-red-50 border-l-4 border-red-500 p-3 text-sm text-red-700 rounded">{error}</div>
       )}
 
-      {viewModalOpen && viewModal}
-      {modalOpen && modal}
+      {/* Mobile: BottomSheet for View Task */}
+      <BottomSheet
+        isOpen={viewModalOpen && isMobile}
+        onClose={() => { setViewModalOpen(false); setViewTask(null); }}
+        title="Task Details"
+      >
+        <ViewTaskContent />
+      </BottomSheet>
+
+      {/* Desktop: Modal for View Task */}
+      {viewModalOpen && !isMobile && viewTask && (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
+          onClick={() => { setViewModalOpen(false); setViewTask(null); }}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl w-full max-w-lg p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold text-gray-900">Task Details</h2>
+              <button
+                onClick={() => { setViewModalOpen(false); setViewTask(null); }}
+                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+            <ViewTaskContent />
+          </div>
+        </div>
+      )}
+
+      {/* Mobile: BottomSheet for Create/Edit Task */}
+      <BottomSheet
+        isOpen={modalOpen && isMobile}
+        onClose={() => { setModalOpen(false); setEditingTask(null); }}
+        title={isEditing ? 'Edit Task' : 'Create Task'}
+      >
+        <TaskFormContent />
+      </BottomSheet>
+
+      {/* Desktop: Modal for Create/Edit Task */}
+      {modalOpen && !isMobile && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-3 sm:px-0"
+          onClick={() => { setModalOpen(false); setEditingTask(null); }}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto p-3 sm:p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold text-gray-900">{isEditing ? 'Edit Task' : 'Create Task'}</h2>
+              <button
+                onClick={() => { setModalOpen(false); setEditingTask(null); }}
+                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+            <TaskFormContent />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

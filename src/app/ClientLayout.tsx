@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic';
 import { useEffect, useState } from 'react';
 import { AuthProvider } from '@/contexts/AuthContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { ToastProvider } from '@/components/ui/Toast';
 
 export default function ClientLayout({
   children,
@@ -17,12 +18,12 @@ export default function ClientLayout({
 
   useEffect(() => {
     setIsMounted(true);
-    
+
     // Add a small delay to ensure hydration is complete
     const timer = setTimeout(() => {
       setHydrationComplete(true);
     }, 100);
-    
+
     // Register service worker for PWA with update handling
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js')
@@ -42,7 +43,7 @@ export default function ClientLayout({
                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                   // New service worker available, prompt user to reload
                   console.log('[App] New version available! Please refresh the page.');
-                  // Optionally show a notification to the user
+                  // TODO: Replace with toast notification
                   if (confirm('A new version is available. Reload to update?')) {
                     window.location.reload();
                   }
@@ -70,9 +71,12 @@ export default function ClientLayout({
 
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        {children}
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+      </ToastProvider>
     </ErrorBoundary>
   );
 }
+

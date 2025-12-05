@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/Toast';
 
 type WorkflowTabProps = {
   projectId: string;
@@ -40,6 +41,7 @@ type User = {
 
 export function WorkflowTab({ projectId }: WorkflowTabProps) {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [project, setProject] = useState<ProjectWorkflow | null>(null);
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<User[]>([]);
@@ -61,10 +63,10 @@ export function WorkflowTab({ projectId }: WorkflowTabProps) {
   const fetchProjectWorkflow = async () => {
     try {
       setLoading(true);
-      
+
       // Use API route instead of direct Supabase query
       const response = await fetch(`/api/admin/projects?id=${projectId}`);
-      
+
       if (!response.ok) {
         if (response.status === 401) {
           throw new Error('You are not authorized to view this project');
@@ -77,18 +79,18 @@ export function WorkflowTab({ projectId }: WorkflowTabProps) {
       }
 
       const data = await response.json();
-      
+
       if (!data) {
         throw new Error('Project not found');
       }
-      
+
       // Transform the data to match ProjectWorkflow type
       const transformedData: ProjectWorkflow = {
         ...data,
         designer: Array.isArray(data.designer) ? data.designer[0] || null : data.designer,
         site_supervisor: Array.isArray(data.site_supervisor) ? data.site_supervisor[0] || null : data.site_supervisor,
       };
-      
+
       setProject(transformedData);
       if (data.designer_id) setSelectedDesigner(data.designer_id);
       if (data.site_supervisor_id) setSelectedSupervisor(data.site_supervisor_id);
@@ -103,11 +105,11 @@ export function WorkflowTab({ projectId }: WorkflowTabProps) {
     try {
       // Use API route instead of direct Supabase query
       const response = await fetch('/api/admin/users?role=employee');
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch employees');
       }
-      
+
       const data = await response.json();
       setEmployees(data || []);
     } catch (error) {
@@ -127,12 +129,12 @@ export function WorkflowTab({ projectId }: WorkflowTabProps) {
     ];
 
     if (!allowedTypes.includes(file.type)) {
-      alert('Please upload a PDF or image file (JPG, PNG, or WebP)');
+      showToast('error', 'Please upload a PDF or image file (JPG, PNG, or WebP)');
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) { // 10MB limit
-      alert('File size must be less than 10MB');
+      showToast('error', 'File size must be less than 10MB');
       return;
     }
 
@@ -141,12 +143,12 @@ export function WorkflowTab({ projectId }: WorkflowTabProps) {
 
   const handleAssignDesigner = async () => {
     if (!selectedDesigner) {
-      alert('Please select a designer');
+      showToast('error', 'Please select a designer');
       return;
     }
 
     if (!pdfFile && !project?.requirements_pdf_url) {
-      alert('Please upload a requirements PDF');
+      showToast('error', 'Please upload a requirements PDF');
       return;
     }
 
@@ -190,12 +192,12 @@ export function WorkflowTab({ projectId }: WorkflowTabProps) {
         throw new Error(error.error || 'Failed to assign designer');
       }
 
-      alert('Designer assigned successfully!');
+      showToast('success', 'Designer assigned successfully!');
       setPdfFile(null);
       fetchProjectWorkflow();
     } catch (error: any) {
       console.error('Error assigning designer:', error);
-      alert(error.message || 'Failed to assign designer');
+      showToast('error', error.message || 'Failed to assign designer');
     } finally {
       setAssigning(false);
       setUploadingPDF(false);
@@ -254,7 +256,7 @@ export function WorkflowTab({ projectId }: WorkflowTabProps) {
           <h3 className="text-lg font-semibold text-gray-900 mb-3">
             Step 1: Assign Designer & Upload Requirements
           </h3>
-          
+
           {project?.designer ? (
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm">
@@ -328,9 +330,8 @@ export function WorkflowTab({ projectId }: WorkflowTabProps) {
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Workflow Progress</h3>
         <div className="space-y-3">
           <div className="flex items-start gap-3">
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-              project?.designer_id ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
-            }`}>
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${project?.designer_id ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
+              }`}>
               {project?.designer_id ? '✓' : '1'}
             </div>
             <div className="flex-1">
@@ -340,9 +341,8 @@ export function WorkflowTab({ projectId }: WorkflowTabProps) {
           </div>
 
           <div className="flex items-start gap-3">
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-              project?.workflow_stage === 'design_pending' || project?.workflow_stage === 'design_review' || project?.workflow_stage === 'design_approved' || project?.workflow_stage === 'in_progress' ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
-            }`}>
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${project?.workflow_stage === 'design_pending' || project?.workflow_stage === 'design_review' || project?.workflow_stage === 'design_approved' || project?.workflow_stage === 'in_progress' ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
+              }`}>
               {project?.workflow_stage === 'design_pending' || project?.workflow_stage === 'design_review' || project?.workflow_stage === 'design_approved' || project?.workflow_stage === 'in_progress' ? '✓' : '2'}
             </div>
             <div className="flex-1">
@@ -352,9 +352,8 @@ export function WorkflowTab({ projectId }: WorkflowTabProps) {
           </div>
 
           <div className="flex items-start gap-3">
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-              project?.design_approved_at ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
-            }`}>
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${project?.design_approved_at ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
+              }`}>
               {project?.design_approved_at ? '✓' : '3'}
             </div>
             <div className="flex-1">
@@ -364,9 +363,8 @@ export function WorkflowTab({ projectId }: WorkflowTabProps) {
           </div>
 
           <div className="flex items-start gap-3">
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-              project?.site_supervisor_id ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
-            }`}>
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${project?.site_supervisor_id ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
+              }`}>
               {project?.site_supervisor_id ? '✓' : '4'}
             </div>
             <div className="flex-1">

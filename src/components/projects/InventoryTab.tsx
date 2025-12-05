@@ -3,9 +3,13 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatDateIST, formatDateTimeReadable } from '@/lib/dateUtils';
+import { formatDateIST } from '@/lib/dateUtils';
 import { ImageModal } from '@/components/ui/ImageModal';
-import { FiEdit2, FiTrash2, FiEye, FiCheck, FiX, FiRefreshCw } from 'react-icons/fi';
+import { useToast } from '@/components/ui/Toast';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { InlineApproval } from '@/components/ui/InlineApproval';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { FiEdit2, FiTrash2, FiEye, FiPlus, FiChevronDown, FiChevronUp, FiX, FiUpload } from 'react-icons/fi';
 
 type InventoryItem = {
   id: string;
@@ -34,20 +38,24 @@ type InventoryTabProps = {
 
 export function InventoryTab({ projectId }: InventoryTabProps) {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
+
+  // Inline expansion state
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Form state
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploadingBill, setUploadingBill] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectingItem, setRejectingItem] = useState<InventoryItem | null>(null);
-  const [rejectionReason, setRejectionReason] = useState('');
-  const [processingApproval, setProcessingApproval] = useState(false);
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
-  const [resubmittingItem, setResubmittingItem] = useState<InventoryItem | null>(null);
-  const [showResubmitModal, setShowResubmitModal] = useState(false);
+
+  // Form validation errors
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const [form, setForm] = useState({
     item_name: '',
@@ -56,6 +64,14 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
     date_purchased: '',
     bill_url: '',
   });
+
+  // Check for mobile viewport
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     fetchItems();
@@ -67,7 +83,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
       const response = await fetch(`/api/inventory-items?project_id=${projectId}`);
 
       if (!response.ok) {
-        console.error('Failed to fetch inventory items');
+        showToast('error', 'Failed to fetch inventory items');
         return;
       }
 
@@ -75,9 +91,21 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
       setItems(fetchedItems || []);
     } catch (error) {
       console.error('Error fetching inventory items:', error);
+      showToast('error', 'Failed to fetch inventory items');
     } finally {
       setLoading(false);
     }
+  };
+
+  const resetForm = () => {
+    setForm({
+      item_name: '',
+      quantity: '',
+      supplier_name: '',
+      date_purchased: '',
+      bill_url: '',
+    });
+    setFormErrors({});
   };
 
   const handleBillUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,7 +124,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
 
       if (error) {
         console.error('Error uploading bill:', error);
-        alert('Failed to upload bill');
+        showToast('error', 'Failed to upload bill');
         return;
       }
 
@@ -105,25 +133,32 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
         .getPublicUrl(fileName);
 
       setForm(prev => ({ ...prev, bill_url: publicUrl }));
+      showToast('success', 'Bill uploaded successfully');
     } catch (error) {
       console.error('Error uploading bill:', error);
-      alert('Failed to upload bill');
+      showToast('error', 'Failed to upload bill');
     } finally {
       setUploadingBill(false);
     }
   };
 
-  const handleSubmit = async () => {
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
     if (!form.item_name.trim()) {
-      alert('Please enter an item name');
-      return;
+      errors.item_name = 'Item name is required';
     }
 
-    // Quantity is now optional, only validate if provided
     if (form.quantity && parseFloat(form.quantity) <= 0) {
-      alert('Please enter a valid quantity (greater than 0)');
-      return;
+      errors.quantity = 'Quantity must be greater than 0';
     }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
 
     setSaving(true);
 
@@ -144,8 +179,6 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
         body.id = editingItem.id;
       }
 
-      console.log('Submitting inventory item:', body);
-
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -154,7 +187,6 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
 
       if (!response.ok) {
         const error = await response.json();
-        console.error('API error:', error);
         throw new Error(error.error || 'Failed to save item');
       }
 
@@ -162,19 +194,20 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
 
       if (editingItem) {
         setItems(prev => prev.map(i => i.id === item.id ? item : i));
+        showToast('success', 'Item updated successfully');
       } else {
         setItems(prev => [item, ...prev]);
+        showToast('success', 'Item added successfully');
       }
 
-      // Refresh items list
-      fetchItems();
-
-      setShowForm(false);
+      // Close form
+      setExpandedItemId(null);
+      setIsAddingNew(false);
       setEditingItem(null);
       resetForm();
     } catch (error: any) {
       console.error('Error saving item:', error);
-      alert(error.message || 'Failed to save item');
+      showToast('error', error.message || 'Failed to save item');
     } finally {
       setSaving(false);
     }
@@ -189,12 +222,11 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
       date_purchased: item.date_purchased || '',
       bill_url: item.bill_url || '',
     });
-    setShowForm(true);
+    setExpandedItemId(item.id);
+    setIsAddingNew(false);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this item?')) return;
-
     try {
       const response = await fetch(`/api/inventory-items?id=${id}`, {
         method: 'DELETE',
@@ -205,17 +237,14 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
       }
 
       setItems(prev => prev.filter(i => i.id !== id));
-      fetchItems(); // Refresh items list
+      showToast('success', 'Item deleted successfully');
     } catch (error) {
       console.error('Error deleting item:', error);
-      alert('Failed to delete item');
+      showToast('error', 'Failed to delete item');
     }
   };
 
   const handleApproveBill = async (itemId: string) => {
-    if (!confirm('Are you sure you want to approve this bill?')) return;
-
-    // Add to loading set
     setLoadingItems(prev => new Set(prev).add(itemId));
 
     // Optimistic update
@@ -233,15 +262,15 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
 
       if (!response.ok) {
         const error = await response.json();
-        // Revert on error
         setItems(previousItems);
-        alert(error.error || 'Failed to approve bill');
+        showToast('error', error.error || 'Failed to approve bill');
+      } else {
+        showToast('success', 'Bill approved');
       }
     } catch (error: any) {
       console.error('Error approving bill:', error);
-      // Revert on error
       setItems(previousItems);
-      alert(error.message || 'Failed to approve bill');
+      showToast('error', error.message || 'Failed to approve bill');
     } finally {
       setLoadingItems(prev => {
         const newSet = new Set(prev);
@@ -251,25 +280,19 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
     }
   };
 
-  const handleRejectBill = (item: InventoryItem) => {
-    setRejectingItem(item);
-    setRejectionReason('');
-    setShowRejectModal(true);
-  };
-
-  const submitRejectBill = async () => {
-    if (!rejectingItem) return;
-    if (!rejectionReason.trim()) {
-      alert('Please provide a rejection reason');
+  const handleRejectBill = async (itemId: string, reason?: string) => {
+    if (!reason?.trim()) {
+      showToast('error', 'Please provide a rejection reason');
       return;
     }
 
-    setProcessingApproval(true);
+    setLoadingItems(prev => new Set(prev).add(itemId));
+
     try {
-      const response = await fetch(`/api/inventory-items/${rejectingItem.id}/reject-bill`, {
+      const response = await fetch(`/api/inventory-items/${itemId}/reject-bill`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rejection_reason: rejectionReason.trim() }),
+        body: JSON.stringify({ rejection_reason: reason.trim() }),
       });
 
       if (!response.ok) {
@@ -277,47 +300,38 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
         throw new Error(error.error || 'Failed to reject bill');
       }
 
-      // Update the item in the list with rejection reason
       setItems(prev => prev.map(item =>
-        item.id === rejectingItem.id
-          ? { ...item, bill_approval_status: 'rejected', bill_rejection_reason: rejectionReason.trim() }
+        item.id === itemId
+          ? { ...item, bill_approval_status: 'rejected', bill_rejection_reason: reason.trim() }
           : item
       ));
 
-      setShowRejectModal(false);
-      setRejectingItem(null);
-      setRejectionReason('');
-      alert('Bill rejected successfully!');
-
-      // Refresh items to get latest data from server
-      fetchItems();
+      showToast('success', 'Bill rejected');
     } catch (error: any) {
       console.error('Error rejecting bill:', error);
-      alert(error.message || 'Failed to reject bill');
+      showToast('error', error.message || 'Failed to reject bill');
     } finally {
-      setProcessingApproval(false);
+      setLoadingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
     }
   };
 
-  const handleResubmitBill = (item: InventoryItem) => {
-    setResubmittingItem(item);
-    setForm(prev => ({ ...prev, bill_url: '' }));
-    setShowResubmitModal(true);
-  };
-
-  const submitResubmitBill = async () => {
-    if (!resubmittingItem) return;
-    if (!form.bill_url) {
-      alert('Please upload a new bill');
+  const handleResubmitBill = async (itemId: string, billUrl: string) => {
+    if (!billUrl) {
+      showToast('error', 'Please upload a new bill');
       return;
     }
 
-    setProcessingApproval(true);
+    setLoadingItems(prev => new Set(prev).add(itemId));
+
     try {
-      const response = await fetch(`/api/inventory-items/${resubmittingItem.id}/resubmit-bill`, {
+      const response = await fetch(`/api/inventory-items/${itemId}/resubmit-bill`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bill_url: form.bill_url }),
+        body: JSON.stringify({ bill_url: billUrl }),
       });
 
       if (!response.ok) {
@@ -325,42 +339,129 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
         throw new Error(error.error || 'Failed to resubmit bill');
       }
 
-      // Update the item in the list
       setItems(prev => prev.map(item =>
-        item.id === resubmittingItem.id
-          ? { ...item, bill_approval_status: 'pending', bill_url: form.bill_url, bill_rejection_reason: null, is_bill_resubmission: true }
+        item.id === itemId
+          ? { ...item, bill_approval_status: 'pending', bill_url: billUrl, bill_rejection_reason: null, is_bill_resubmission: true }
           : item
       ));
 
-      setShowResubmitModal(false);
-      setResubmittingItem(null);
-      setForm(prev => ({ ...prev, bill_url: '' }));
-      alert('Bill resubmitted successfully!');
-      fetchItems(); // Refresh items list
+      showToast('success', 'Bill resubmitted successfully');
+      setExpandedItemId(null);
     } catch (error: any) {
       console.error('Error resubmitting bill:', error);
-      alert(error.message || 'Failed to resubmit bill');
+      showToast('error', error.message || 'Failed to resubmit bill');
     } finally {
-      setProcessingApproval(false);
+      setLoadingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
     }
   };
 
-  const resetForm = () => {
-    setForm({
-      item_name: '',
-      quantity: '',
-      supplier_name: '',
-      date_purchased: '',
-      bill_url: '',
-    });
+  const handleStartAddNew = () => {
+    setIsAddingNew(true);
+    setExpandedItemId(null);
+    setEditingItem(null);
+    resetForm();
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-    }).format(amount);
+  const handleCloseForm = () => {
+    setIsAddingNew(false);
+    setExpandedItemId(null);
+    setEditingItem(null);
+    resetForm();
   };
+
+  // Form component used for both add and edit
+  const ItemForm = () => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-xs text-gray-600 mb-1">Item Name *</label>
+        <input
+          type="text"
+          value={form.item_name}
+          onChange={(e) => setForm(prev => ({ ...prev, item_name: e.target.value }))}
+          className={`w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 ${formErrors.item_name ? 'border-red-300' : 'border-gray-300'
+            }`}
+          placeholder="e.g., Cement, Paint, Tiles"
+        />
+        {formErrors.item_name && (
+          <p className="mt-1 text-xs text-red-600">{formErrors.item_name}</p>
+        )}
+      </div>
+      <div>
+        <label className="block text-xs text-gray-600 mb-1">Supplier Name</label>
+        <input
+          type="text"
+          value={form.supplier_name}
+          onChange={(e) => setForm(prev => ({ ...prev, supplier_name: e.target.value }))}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+          placeholder="Optional"
+        />
+      </div>
+      <div>
+        <label className="block text-xs text-gray-600 mb-1">Quantity</label>
+        <input
+          type="number"
+          step="0.01"
+          min="0.01"
+          value={form.quantity}
+          onChange={(e) => setForm(prev => ({ ...prev, quantity: e.target.value }))}
+          className={`w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 ${formErrors.quantity ? 'border-red-300' : 'border-gray-300'
+            }`}
+          placeholder="Optional"
+        />
+        {formErrors.quantity && (
+          <p className="mt-1 text-xs text-red-600">{formErrors.quantity}</p>
+        )}
+      </div>
+      <div>
+        <label className="block text-xs text-gray-600 mb-1">Date Purchased</label>
+        <input
+          type="date"
+          value={form.date_purchased}
+          onChange={(e) => setForm(prev => ({ ...prev, date_purchased: e.target.value }))}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+        />
+      </div>
+      <div className="sm:col-span-2">
+        <label className="block text-xs text-gray-600 mb-1">Bill/Invoice</label>
+        <input
+          type="file"
+          accept="image/*,application/pdf"
+          onChange={handleBillUpload}
+          disabled={uploadingBill}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"
+        />
+        {uploadingBill && <p className="text-xs text-gray-500 mt-1">Uploading...</p>}
+        {form.bill_url && (
+          <button
+            onClick={() => setSelectedImage(form.bill_url)}
+            className="text-xs text-yellow-600 hover:underline hover:text-yellow-700 mt-1 block"
+          >
+            📄 View uploaded bill
+          </button>
+        )}
+      </div>
+      <div className="sm:col-span-2 flex justify-end gap-3 pt-2">
+        <button
+          onClick={handleCloseForm}
+          disabled={saving}
+          className="px-4 py-2 rounded-md text-sm text-gray-700 bg-gray-100 hover:bg-gray-200"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSubmit}
+          disabled={saving || uploadingBill}
+          className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 text-sm font-bold disabled:opacity-50"
+        >
+          {saving ? 'Saving...' : editingItem ? 'Update' : 'Add Item'}
+        </button>
+      </div>
+    </div>
+  );
 
   if (loading) {
     return (
@@ -377,441 +478,332 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
           <h3 className="text-base sm:text-lg font-medium leading-6 text-gray-900">Inventory</h3>
         </div>
         <button
-          onClick={() => {
-            setEditingItem(null);
-            resetForm();
-            setShowForm(true);
-          }}
-          className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 text-sm font-bold w-full sm:w-auto"
+          onClick={handleStartAddNew}
+          className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 text-sm font-bold w-full sm:w-auto flex items-center justify-center gap-2"
         >
-          + Add Item
+          <FiPlus className="w-4 h-4" />
+          Add Item
         </button>
       </div>
 
-      {showForm && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-            <h4 className="text-lg font-semibold text-gray-900 mb-4">{editingItem ? 'Edit Item' : 'New Item'}</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Item Name *</label>
-                <input
-                  type="text"
-                  value={form.item_name}
-                  onChange={(e) => setForm(prev => ({ ...prev, item_name: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                  placeholder="e.g., Cement, Paint, Tiles"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Supplier Name</label>
-                <input
-                  type="text"
-                  value={form.supplier_name}
-                  onChange={(e) => setForm(prev => ({ ...prev, supplier_name: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                  placeholder="Optional"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Quantity</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={form.quantity}
-                  onChange={(e) => setForm(prev => ({ ...prev, quantity: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                  placeholder="Optional"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Date Purchased</label>
-                <input
-                  type="date"
-                  value={form.date_purchased}
-                  onChange={(e) => setForm(prev => ({ ...prev, date_purchased: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block text-xs text-gray-600 mb-1">Bill/Invoice</label>
-                <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  onChange={handleBillUpload}
-                  disabled={uploadingBill}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"
-                />
-                {uploadingBill && <p className="text-xs text-gray-500 mt-1">Uploading...</p>}
-                {form.bill_url && (
-                  <button
-                    onClick={() => setSelectedImage(form.bill_url)}
-                    className="text-xs text-yellow-600 hover:underline hover:text-yellow-700 mt-1 block"
-                  >
-                    📄 View uploaded bill
-                  </button>
-                )}
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowForm(false);
-                  setEditingItem(null);
-                  resetForm();
-                }}
-                disabled={saving}
-                className="px-4 py-2 rounded-md text-sm text-gray-700 bg-gray-100 hover:bg-gray-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmit}
-                disabled={saving || uploadingBill}
-                className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 text-sm font-bold disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : editingItem ? 'Update' : 'Add Item'}
-              </button>
-            </div>
+      {/* Inline Add New Form (Desktop) */}
+      {isAddingNew && !isMobile && (
+        <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg animate-slide-down">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="text-lg font-semibold text-gray-900">New Item</h4>
+            <button
+              onClick={handleCloseForm}
+              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-md transition-colors"
+            >
+              <FiX className="w-4 h-4" />
+            </button>
           </div>
+          <ItemForm />
         </div>
       )}
 
-      {/* Inventory Display - Table for desktop, Cards for mobile */}
+      {/* Mobile Bottom Sheet for Add */}
+      <BottomSheet
+        isOpen={isAddingNew && isMobile}
+        onClose={handleCloseForm}
+        title="New Item"
+      >
+        <ItemForm />
+      </BottomSheet>
+
+      {/* Inventory List */}
       {items.length === 0 ? (
         <p className="text-sm text-gray-500 text-center py-8">No inventory items yet. Add your first item!</p>
       ) : (
-        <>
-          {/* Desktop Table View - hidden on mobile */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bill</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {items.map((item) => (
-                  <tr key={item.id}>
-                    <td className="px-4 py-3 text-sm text-gray-900">{item.item_name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{item.quantity || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{item.supplier_name || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {item.date_purchased ? formatDateIST(item.date_purchased) : '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      {item.bill_url ? (
-                        <button
-                          onClick={() => setSelectedImage(item.bill_url!)}
-                          className="p-1.5 text-gray-500 hover:text-yellow-600 transition-colors"
-                          title="View Bill"
-                        >
-                          <FiEye className="w-5 h-5" />
-                        </button>
-                      ) : (
-                        '-'
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <div className="flex flex-col gap-1">
-                        <span className={`px-2 py-1 text-xs rounded-full inline-block ${item.bill_approval_status === 'approved' ? 'bg-green-100 text-green-800' :
-                          item.bill_approval_status === 'rejected' ? 'bg-red-100 text-red-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
-                          {item.bill_approval_status || 'pending'}
-                          {item.is_bill_resubmission && ' (Resubmitted)'}
-                        </span>
-                        {item.bill_approval_status === 'rejected' && item.bill_rejection_reason && (
-                          <p className="text-xs text-red-600 mt-1">
-                            Reason: {item.bill_rejection_reason}
-                          </p>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <div className="flex items-center gap-2 justify-end">
-                        <button
-                          onClick={() => handleEdit(item)}
-                          className="p-1.5 text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded-md transition-colors"
-                          title="Edit"
-                        >
-                          <FiEdit2 className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                          title="Delete"
-                        >
-                          <FiTrash2 className="w-5 h-5" />
-                        </button>
-
-                        {user?.role === 'admin' && item.bill_url && item.bill_approval_status === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => handleApproveBill(item.id)}
-                              disabled={processingApproval}
-                              className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50"
-                              title="Approve Bill"
-                            >
-                              <FiCheck className="w-5 h-5" />
-                            </button>
-                            <button
-                              onClick={() => handleRejectBill(item)}
-                              disabled={processingApproval}
-                              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
-                              title="Reject Bill"
-                            >
-                              <FiX className="w-5 h-5" />
-                            </button>
-                          </>
-                        )}
-
-                        {item.bill_approval_status === 'rejected' && item.created_by === user?.id && (
-                          <button
-                            onClick={() => handleResubmitBill(item)}
-                            disabled={processingApproval}
-                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors disabled:opacity-50"
-                            title="Resubmit Bill"
-                          >
-                            <FiRefreshCw className="w-5 h-5" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile Card View - hidden on desktop */}
-          <div className="md:hidden space-y-4">
-            {items.map((item) => (
-              <div key={item.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h4 className="text-base font-semibold text-gray-900">{item.item_name}</h4>
-                    {item.supplier_name && (
-                      <p className="text-sm text-gray-500">{item.supplier_name}</p>
+        <div className="space-y-3">
+          {items.map((item) => (
+            <div key={item.id} className="border border-gray-200 rounded-lg overflow-hidden">
+              {/* Item Row */}
+              <div
+                className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${expandedItemId === item.id ? 'bg-gray-50' : ''
+                  }`}
+                onClick={() => {
+                  if (expandedItemId === item.id) {
+                    setExpandedItemId(null);
+                    setEditingItem(null);
+                    resetForm();
+                  } else {
+                    setExpandedItemId(item.id);
+                    setIsAddingNew(false);
+                  }
+                }}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-semibold text-gray-900">{item.item_name}</h4>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-gray-500">
+                      {item.quantity && <span>Qty: {item.quantity}</span>}
+                      {item.supplier_name && <span>Supplier: {item.supplier_name}</span>}
+                      {item.date_purchased && <span>{formatDateIST(item.date_purchased)}</span>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 ml-2">
+                    {/* Status Badge */}
+                    <span className={`px-2 py-1 text-xs rounded-full ${item.bill_approval_status === 'approved' ? 'bg-green-100 text-green-800' :
+                        item.bill_approval_status === 'rejected' ? 'bg-red-100 text-red-800' :
+                          'bg-yellow-100 text-yellow-800'
+                      }`}>
+                      {item.bill_approval_status === 'approved' ? 'Approved' :
+                        item.bill_approval_status === 'rejected' ? 'Rejected' : 'Pending'}
+                    </span>
+                    {/* Expand Toggle */}
+                    {expandedItemId === item.id ? (
+                      <FiChevronUp className="w-4 h-4 text-gray-400" />
+                    ) : (
+                      <FiChevronDown className="w-4 h-4 text-gray-400" />
                     )}
                   </div>
-                  <span className={`px-2.5 py-1 text-xs rounded-full font-medium ${item.bill_approval_status === 'approved' ? 'bg-green-100 text-green-800' :
-                    item.bill_approval_status === 'rejected' ? 'bg-red-100 text-red-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
-                    {item.bill_approval_status === 'approved' ? 'Approved' :
-                      item.bill_approval_status === 'rejected' ? 'Rejected' : 'Pending'}
-                  </span>
                 </div>
+              </div>
 
-                <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-4">
+              {/* Expanded Content (Desktop) */}
+              {expandedItemId === item.id && !isMobile && (
+                <div className="p-4 pt-0 border-t border-gray-100 bg-gray-50 animate-slide-down">
+                  {/* Actions Row */}
+                  <div className="flex flex-wrap items-center gap-2 mb-4 pt-4">
+                    {item.bill_url && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedImage(item.bill_url!);
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+                      >
+                        <FiEye className="w-4 h-4" />
+                        View Bill
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(item);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg hover:bg-yellow-100"
+                    >
+                      <FiEdit2 className="w-4 h-4" />
+                      Edit
+                    </button>
+                    <ConfirmDialog
+                      trigger={
+                        <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100">
+                          <FiTrash2 className="w-4 h-4" />
+                          Delete
+                        </button>
+                      }
+                      title="Delete Item"
+                      message="Are you sure you want to delete this item? This action cannot be undone."
+                      confirmLabel="Delete"
+                      destructive
+                      onConfirm={() => handleDelete(item.id)}
+                    />
+                  </div>
+
+                  {/* Inline Approval (for admin) */}
+                  {user?.role === 'admin' && item.bill_url && item.bill_approval_status === 'pending' && (
+                    <div className="mb-4 p-3 bg-white rounded-lg border border-gray-200">
+                      <p className="text-xs text-gray-600 mb-2">Bill Approval</p>
+                      <InlineApproval
+                        status="pending"
+                        onApprove={() => handleApproveBill(item.id)}
+                        onReject={(reason) => handleRejectBill(item.id, reason)}
+                        requireRejectReason
+                        size="sm"
+                      />
+                    </div>
+                  )}
+
+                  {/* Rejection reason display */}
+                  {item.bill_approval_status === 'rejected' && item.bill_rejection_reason && (
+                    <div className="mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
+                      <p className="text-xs font-medium text-red-800">Rejection Reason:</p>
+                      <p className="text-sm text-red-700 mt-1">{item.bill_rejection_reason}</p>
+
+                      {/* Resubmit option for creator */}
+                      {item.created_by === user?.id && (
+                        <div className="mt-3">
+                          <label className="block text-xs text-red-700 mb-1">Upload New Bill</label>
+                          <div className="flex gap-2">
+                            <input
+                              type="file"
+                              accept="image/*,application/pdf"
+                              onChange={handleBillUpload}
+                              disabled={uploadingBill || loadingItems.has(item.id)}
+                              className="flex-1 text-xs"
+                            />
+                            {form.bill_url && (
+                              <button
+                                onClick={() => handleResubmitBill(item.id, form.bill_url)}
+                                disabled={loadingItems.has(item.id)}
+                                className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                              >
+                                {loadingItems.has(item.id) ? 'Submitting...' : 'Resubmit'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Edit Form (inline when editing) */}
+                  {editingItem?.id === item.id && (
+                    <div className="mt-4 p-4 bg-white rounded-lg border border-gray-200">
+                      <h5 className="text-sm font-semibold text-gray-900 mb-3">Edit Item</h5>
+                      <ItemForm />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Mobile Bottom Sheet for Expanded Item */}
+      {expandedItemId && isMobile && (
+        <BottomSheet
+          isOpen={true}
+          onClose={() => {
+            setExpandedItemId(null);
+            setEditingItem(null);
+            resetForm();
+          }}
+          title={items.find(i => i.id === expandedItemId)?.item_name || 'Item Details'}
+        >
+          {(() => {
+            const item = items.find(i => i.id === expandedItemId);
+            if (!item) return null;
+
+            return (
+              <div className="space-y-4">
+                {/* Item Details */}
+                <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Quantity</p>
-                    <p className="text-sm font-medium text-gray-900 mt-0.5">{item.quantity ?? '-'}</p>
+                    <p className="text-xs text-gray-500">Quantity</p>
+                    <p className="font-medium">{item.quantity || '-'}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Date</p>
-                    <p className="text-sm font-medium text-gray-900 mt-0.5">
-                      {item.date_purchased ? formatDateIST(item.date_purchased) : '-'}
-                    </p>
+                    <p className="text-xs text-gray-500">Supplier</p>
+                    <p className="font-medium">{item.supplier_name || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Date</p>
+                    <p className="font-medium">{item.date_purchased ? formatDateIST(item.date_purchased) : '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Status</p>
+                    <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${item.bill_approval_status === 'approved' ? 'bg-green-100 text-green-800' :
+                        item.bill_approval_status === 'rejected' ? 'bg-red-100 text-red-800' :
+                          'bg-yellow-100 text-yellow-800'
+                      }`}>
+                      {item.bill_approval_status || 'Pending'}
+                    </span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-1 pt-3 border-t border-gray-50">
+                {/* Actions */}
+                <div className="flex flex-wrap gap-2">
                   {item.bill_url && (
                     <button
                       onClick={() => setSelectedImage(item.bill_url!)}
-                      className="p-2 text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded-md transition-colors"
-                      title="View Bill"
+                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg"
                     >
-                      <FiEye className="w-5 h-5" />
+                      <FiEye className="w-4 h-4" />
+                      View Bill
                     </button>
                   )}
                   <button
                     onClick={() => handleEdit(item)}
-                    className="p-2 text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded-md transition-colors"
-                    title="Edit"
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-yellow-700 bg-yellow-50 rounded-lg"
                   >
-                    <FiEdit2 className="w-5 h-5" />
+                    <FiEdit2 className="w-4 h-4" />
+                    Edit
                   </button>
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                    title="Delete"
-                  >
-                    <FiTrash2 className="w-5 h-5" />
-                  </button>
+                  <ConfirmDialog
+                    trigger={
+                      <button className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-700 bg-red-50 rounded-lg">
+                        <FiTrash2 className="w-4 h-4" />
+                        Delete
+                      </button>
+                    }
+                    title="Delete Item"
+                    message="Are you sure you want to delete this item?"
+                    confirmLabel="Delete"
+                    destructive
+                    onConfirm={() => handleDelete(item.id)}
+                  />
                 </div>
 
-                {/* Admin Actions Row if needed */}
+                {/* Inline Approval for Admin */}
                 {user?.role === 'admin' && item.bill_url && item.bill_approval_status === 'pending' && (
-                  <div className="flex items-center justify-center gap-2 mt-3 pt-3 border-t border-gray-100">
-                    <button
-                      onClick={() => handleApproveBill(item.id)}
-                      disabled={loadingItems.has(item.id)}
-                      className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50"
-                      title="Approve Bill"
-                    >
-                      {loadingItems.has(item.id) ? (
-                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-600 border-t-transparent" />
-                      ) : (
-                        <FiCheck className="w-5 h-5" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => handleRejectBill(item)}
-                      disabled={loadingItems.has(item.id)}
-                      className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
-                      title="Reject Bill"
-                    >
-                      <FiX className="w-5 h-5" />
-                    </button>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-600 mb-2">Bill Approval</p>
+                    <InlineApproval
+                      status="pending"
+                      onApprove={() => handleApproveBill(item.id)}
+                      onReject={(reason) => handleRejectBill(item.id, reason)}
+                      requireRejectReason
+                    />
                   </div>
                 )}
 
-                {/* Rejection/Resubmit States */}
-                {item.bill_approval_status === 'rejected' && (
-                  <div className="mt-3 bg-red-50 rounded-lg p-3 text-xs">
-                    <p className="text-red-800 mb-1"><strong>Rejected:</strong> {item.bill_rejection_reason}</p>
+                {/* Rejection reason + resubmit */}
+                {item.bill_approval_status === 'rejected' && item.bill_rejection_reason && (
+                  <div className="p-3 bg-red-50 rounded-lg">
+                    <p className="text-xs font-medium text-red-800">Rejection Reason:</p>
+                    <p className="text-sm text-red-700 mt-1">{item.bill_rejection_reason}</p>
+
                     {item.created_by === user?.id && (
-                      <div className="flex justify-center mt-2">
-                        <button
-                          onClick={() => handleResubmitBill(item)}
-                          disabled={processingApproval}
-                          className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors disabled:opacity-50"
-                          title="Resubmit Bill"
-                        >
-                          <FiRefreshCw className="w-5 h-5" />
-                        </button>
+                      <div className="mt-3">
+                        <label className="block text-xs text-red-700 mb-1">Upload New Bill</label>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          onChange={handleBillUpload}
+                          disabled={uploadingBill}
+                          className="w-full text-xs"
+                        />
+                        {form.bill_url && (
+                          <button
+                            onClick={() => handleResubmitBill(item.id, form.bill_url)}
+                            disabled={loadingItems.has(item.id)}
+                            className="mt-2 w-full px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {loadingItems.has(item.id) ? 'Submitting...' : 'Resubmit Bill'}
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
                 )}
-              </div>
-            ))}
-          </div>
-        </>
-      )
-      }
 
-      {/* Enhanced Image Modal for Bills */}
+                {/* Edit Form */}
+                {editingItem?.id === item.id && (
+                  <div className="pt-4 border-t border-gray-200">
+                    <h5 className="text-sm font-semibold text-gray-900 mb-3">Edit Item</h5>
+                    <ItemForm />
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </BottomSheet>
+      )}
+
+      {/* Image Modal for Bills (keeping this as it's appropriate for full-screen viewing) */}
       <ImageModal
         images={selectedImage ? [selectedImage] : []}
         currentIndex={0}
         isOpen={!!selectedImage}
         onClose={() => setSelectedImage(null)}
       />
-
-      {/* Rejection Modal */}
-      {
-        showRejectModal && (
-          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Reject Bill
-              </h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Please provide a reason for rejecting this bill. The site supervisor will be notified.
-              </p>
-              <textarea
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Enter rejection reason..."
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 min-h-[100px]"
-                autoFocus
-              />
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => {
-                    setShowRejectModal(false);
-                    setRejectingItem(null);
-                    setRejectionReason('');
-                  }}
-                  disabled={processingApproval}
-                  className="flex-1 px-4 py-2 text-sm rounded-lg text-gray-700 bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={submitRejectBill}
-                  disabled={processingApproval || !rejectionReason.trim()}
-                  className="flex-1 px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
-                >
-                  {processingApproval ? 'Rejecting...' : 'Reject Bill'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-      }
-
-      {/* Resubmit Bill Modal */}
-      {
-        showResubmitModal && (
-          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Resubmit Bill
-              </h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Upload a new bill to resubmit for approval.
-              </p>
-              {resubmittingItem?.bill_rejection_reason && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-sm text-red-800">
-                    <strong>Previous rejection reason:</strong><br />
-                    {resubmittingItem.bill_rejection_reason}
-                  </p>
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Upload New Bill *
-                </label>
-                <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  onChange={handleBillUpload}
-                  disabled={uploadingBill}
-                  className="w-full border rounded-md px-3 py-2 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                />
-                {uploadingBill && <p className="text-xs text-gray-500 mt-1">Uploading...</p>}
-                {form.bill_url && (
-                  <p className="text-xs text-green-600 mt-1">✓ Bill uploaded successfully</p>
-                )}
-              </div>
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => {
-                    setShowResubmitModal(false);
-                    setResubmittingItem(null);
-                    setForm(prev => ({ ...prev, bill_url: '' }));
-                  }}
-                  disabled={processingApproval || uploadingBill}
-                  className="flex-1 px-4 py-2 text-sm rounded-lg text-gray-700 bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={submitResubmitBill}
-                  disabled={processingApproval || uploadingBill || !form.bill_url}
-                  className="flex-1 px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
-                >
-                  {processingApproval ? 'Resubmitting...' : 'Resubmit Bill'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-      }
-    </div >
+    </div>
   );
 }
 
+export default InventoryTab;

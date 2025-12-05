@@ -10,7 +10,6 @@ import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 import { OptimizedNotificationBell } from '@/components/OptimizedNotificationBell';
 import HydrationSafe from '@/components/HydrationSafe';
 import { HeaderTitleProvider, useHeaderTitle } from '@/contexts/HeaderTitleContext';
-import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 
 function DashboardLayoutContent({
   children,
@@ -21,7 +20,6 @@ function DashboardLayoutContent({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -53,34 +51,6 @@ function DashboardLayoutContent({
     return 'Dashboard';
   };
 
-  // Keyboard shortcuts
-  useKeyboardShortcuts([
-    {
-      key: 'k',
-      ctrl: true,
-      handler: () => {
-        // Placeholder for global search - will implement later
-        alert('Global search coming soon! (Ctrl+K)');
-      },
-      description: 'Global search',
-    },
-    {
-      key: '?',
-      handler: () => {
-        setShowShortcutsHelp(prev => !prev);
-      },
-      description: 'Show keyboard shortcuts',
-    },
-    {
-      key: 'Escape',
-      handler: () => {
-        if (showShortcutsHelp) {
-          setShowShortcutsHelp(false);
-        }
-      },
-      description: 'Close modals',
-    },
-  ], mounted);
 
   const handleSignOut = async () => {
     try {
