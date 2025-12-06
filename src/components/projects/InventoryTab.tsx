@@ -272,7 +272,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
 
   // Form component
   const ItemForm = () => (
-    <div className="space-y-4">
+    <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Item Name *</label>
         <input
@@ -317,7 +317,10 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
         <input
           type="file"
           accept="image/*,application/pdf"
-          onChange={handleBillUpload}
+          onChange={(e) => {
+            e.stopPropagation();
+            handleBillUpload(e);
+          }}
           disabled={uploadingBill}
           className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-yellow-50 file:text-yellow-700"
         />
@@ -327,12 +330,14 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
       </div>
       <div className="flex gap-3 pt-2">
         <button
+          type="button"
           onClick={() => { setIsAddingNew(false); resetForm(); }}
           className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
         >
           Cancel
         </button>
         <button
+          type="button"
           onClick={handleSubmit}
           disabled={saving}
           className="flex-1 px-4 py-2 bg-yellow-500 text-gray-900 font-medium rounded-lg hover:bg-yellow-600 disabled:opacity-50"
@@ -340,7 +345,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
           {saving ? 'Saving...' : editingItem ? 'Update' : 'Add Item'}
         </button>
       </div>
-    </div>
+    </form>
   );
 
   if (loading) {

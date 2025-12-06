@@ -54,8 +54,12 @@ export async function GET(request: NextRequest) {
         comments:design_comments(
           id,
           comment,
+          x_percent,
+          y_percent,
+          linked_task_id,
+          is_resolved,
           created_at,
-          user:users(id, full_name, email)
+          user:users!design_comments_user_id_fkey(id, full_name, email)
         )
       `)
       .eq('project_id', project_id)
@@ -73,7 +77,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Create new design file
+// POST - Create new design file (with version stacking)
 export async function POST(request: NextRequest) {
   try {
     const { user, error: authError } = await getAuthUser();
@@ -90,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const parsed = createDesignFileSchema.safeParse(body);
-    
+
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invalid input', details: parsed.error.format() },
@@ -98,7 +102,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { project_id, file_name, file_url, file_type, version_number } = parsed.data;
+    const { project_id, file_name, file_url, file_type } = parsed.data;
+
+    // P0: Check if project designs are frozen
+    const { data: existingFrozen } = await supabaseAdmin
+      .from('design_files')
+      .select('is_frozen')
+      .eq('project_id', project_id)
+      .eq('is_frozen', true)
+      .limit(1);
+
+    if (existingFrozen && existingFrozen.length > 0) {
+      return NextResponse.json(
+        { error: 'Cannot upload: project designs are frozen' },
+        { status: 409 }
+      );
+    }
+
+    // P0: Version stacking - check for existing file with same name
+    const { data: existingDesign } = await supabaseAdmin
+      .from('design_files')
+      .select('id, version_number')
+      .eq('project_id', project_id)
+      .eq('file_name', file_name)
+      .order('version_number', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const newVersionNumber = existingDesign ? existingDesign.version_number + 1 : 1;
+    const parentDesignId = existingDesign?.id || null;
+
+    // If stacking, mark previous version as non-current
+    if (parentDesignId) {
+      await supabaseAdmin
+        .from('design_files')
+        .update({ is_current_approved: false })
+        .eq('id', parentDesignId);
+    }
 
     const { data: design, error } = await supabaseAdmin
       .from('design_files')
@@ -107,7 +147,8 @@ export async function POST(request: NextRequest) {
         file_name,
         file_url,
         file_type,
-        version_number,
+        version_number: newVersionNumber,
+        parent_design_id: parentDesignId,
         uploaded_by: userId,
         approval_status: 'pending',
       })
@@ -156,7 +197,7 @@ export async function POST(request: NextRequest) {
               `🖼️ New Design Uploaded\n\n${userFullName} uploaded "${file_name}" for project "${projectData.title}"\n\nOpen: ${link}`
             );
           }
-        } catch (_) {}
+        } catch (_) { }
       }
     } catch (notificationError) {
       console.error('Failed to send design upload notification:', notificationError);
@@ -186,7 +227,7 @@ export async function PATCH(request: NextRequest) {
 
     const body = await request.json();
     const parsed = updateApprovalSchema.safeParse(body);
-    
+
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invalid input', details: parsed.error.format() },
@@ -239,11 +280,11 @@ export async function PATCH(request: NextRequest) {
     // Notify employee of approval/rejection
     try {
       if (design.uploaded_by_user && design.uploaded_by_user.id !== user.id) {
-        const statusMessage = approval_status === 'approved' ? 'approved' : 
-                             approval_status === 'rejected' ? 'rejected' : 
-                             approval_status === 'needs_changes' ? 'needs changes' : approval_status;
-        
-        const message = admin_comments ? 
+        const statusMessage = approval_status === 'approved' ? 'approved' :
+          approval_status === 'rejected' ? 'rejected' :
+            approval_status === 'needs_changes' ? 'needs changes' : approval_status;
+
+        const message = admin_comments ?
           `Your design "${design.file_name}" has been ${statusMessage}. Admin comment: ${admin_comments}` :
           `Your design "${design.file_name}" has been ${statusMessage}`;
 
@@ -271,7 +312,7 @@ export async function PATCH(request: NextRequest) {
               `${message}\n\nOpen: ${link}`
             );
           }
-        } catch (_) {}
+        } catch (_) { }
       }
     } catch (notificationError) {
       console.error('Failed to send design approval notification:', notificationError);

@@ -11,6 +11,7 @@ export type NotificationType =
   | 'comment_added'
   | 'bill_approved'
   | 'bill_rejected'
+  | 'mention'
   | 'general';
 
 export interface CreateNotificationParams {

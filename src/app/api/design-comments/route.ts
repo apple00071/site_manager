@@ -10,12 +10,23 @@ import { getAuthUser } from '@/lib/supabase-server';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+// P0: Enhanced schema with pin-drop coordinates and task creation
 const addCommentSchema = z.object({
   design_file_id: z.string().uuid(),
   comment: z.string().min(1),
+  // Pin-drop coordinates (optional)
+  x_percent: z.number().min(0).max(100).optional(),
+  y_percent: z.number().min(0).max(100).optional(),
+  zoom_level: z.number().min(0).optional(),
+  // Mentions (optional array of user IDs)
+  mentioned_user_ids: z.array(z.string().uuid()).optional(),
+  // Task creation (optional)
+  create_task: z.boolean().optional().default(false),
+  task_assignee_id: z.string().uuid().optional(),
+  task_due_date: z.string().optional(), // ISO date string
 });
 
-// POST - Add comment to design file
+// POST - Add comment to design file (with pin-drop coords and task creation)
 export async function POST(request: NextRequest) {
   try {
     const { user, error: authError } = await getAuthUser();
@@ -32,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const parsed = addCommentSchema.safeParse(body);
-    
+
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invalid input', details: parsed.error.format() },
@@ -40,7 +51,52 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { design_file_id, comment } = parsed.data;
+    const {
+      design_file_id,
+      comment,
+      x_percent,
+      y_percent,
+      zoom_level,
+      mentioned_user_ids,
+      create_task,
+      task_assignee_id,
+      task_due_date,
+    } = parsed.data;
+
+    let linkedTaskId: string | null = null;
+
+    // P0: Create linked task if requested
+    if (create_task) {
+      // Get design file info for task context
+      const { data: designInfo } = await supabaseAdmin
+        .from('design_files')
+        .select('file_name, project_id')
+        .eq('id', design_file_id)
+        .single();
+
+      const taskTitle = `Design comment: ${comment.substring(0, 50)}${comment.length > 50 ? '...' : ''}`;
+
+      const { data: task, error: taskError } = await supabaseAdmin
+        .from('tasks')
+        .insert({
+          title: taskTitle,
+          description: `Comment from design file: ${designInfo?.file_name || 'Unknown'}\n\n${comment}`,
+          project_id: designInfo?.project_id,
+          status: 'todo',
+          created_by: userId,
+          assigned_to: task_assignee_id || null,
+          due_date: task_due_date || null,
+        })
+        .select('id')
+        .single();
+
+      if (taskError) {
+        console.error('Error creating linked task:', taskError);
+        // Continue without task - don't fail the comment
+      } else {
+        linkedTaskId = task?.id || null;
+      }
+    }
 
     const { data: newComment, error } = await supabaseAdmin
       .from('design_comments')
@@ -48,6 +104,11 @@ export async function POST(request: NextRequest) {
         design_file_id,
         user_id: userId,
         comment,
+        x_percent: x_percent ?? null,
+        y_percent: y_percent ?? null,
+        zoom_level: zoom_level ?? null,
+        mentioned_user_ids: mentioned_user_ids ?? null,
+        linked_task_id: linkedTaskId,
       })
       .select(`
         *,
@@ -58,6 +119,24 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Error adding comment:', error);
       return NextResponse.json({ error: 'Failed to add comment' }, { status: 500 });
+    }
+
+    // P0: Notify mentioned users
+    if (mentioned_user_ids && mentioned_user_ids.length > 0) {
+      try {
+        await Promise.all(mentioned_user_ids.map(mentionedUserId =>
+          NotificationService.createNotification({
+            userId: mentionedUserId,
+            title: 'You were mentioned in a design comment',
+            message: `${userFullName} mentioned you: "${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}"`,
+            type: 'mention',
+            relatedId: design_file_id,
+            relatedType: 'design_file'
+          })
+        ));
+      } catch (mentionError) {
+        console.error('Failed to send mention notifications:', mentionError);
+      }
     }
 
     // Notify relevant users about the new comment
@@ -76,7 +155,7 @@ export async function POST(request: NextRequest) {
 
       if (designFile) {
         const notifications = [];
-        
+
         // Notify the design uploader if commenter is not the uploader
         if (designFile.uploaded_by !== userId) {
           notifications.push(

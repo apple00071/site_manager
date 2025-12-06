@@ -280,7 +280,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
 
   // Upload form component
   const UploadForm = () => (
-    <div className="space-y-4">
+    <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Select File *
@@ -289,6 +289,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
           type="file"
           accept="image/*,.pdf,.dwg,.dxf"
           onChange={(e) => {
+            e.stopPropagation();
             const file = e.target.files?.[0] || null;
             setUploadForm(prev => ({ ...prev, file }));
           }}
@@ -320,12 +321,14 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
 
       <div className="flex gap-3 pt-2">
         <button
+          type="button"
           onClick={handleCloseForm}
           className="flex-1 px-4 py-2 text-gray-700 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
         >
           Cancel
         </button>
         <button
+          type="button"
           onClick={handleFileUpload}
           disabled={uploading || !uploadForm.file}
           className="flex-1 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium rounded-lg disabled:opacity-50 transition-colors"
@@ -333,7 +336,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
           {uploading ? 'Uploading...' : 'Upload'}
         </button>
       </div>
-    </div>
+    </form>
   );
 
   if (loading) {
