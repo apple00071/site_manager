@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
-import { FiZoomIn, FiZoomOut, FiMaximize2, FiMessageCircle, FiX, FiCheck } from 'react-icons/fi';
+import { FiZoomIn, FiZoomOut, FiMaximize2, FiMessageCircle, FiX, FiCheck, FiDownload, FiPrinter, FiXCircle, FiCheckCircle } from 'react-icons/fi';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,9 +28,13 @@ type DesignViewerProps = {
     fileUrl: string;
     fileName: string;
     fileType: string;
+    versionNumber?: number;
     comments?: DesignComment[];
     onCommentAdded?: () => void;
+    onClose?: () => void;
     readOnly?: boolean;
+    approvalStatus?: 'pending' | 'approved' | 'rejected' | 'needs_changes';
+    onApprovalChange?: (status: 'approved' | 'rejected') => void;
 };
 
 export function DesignViewer({
@@ -38,34 +42,69 @@ export function DesignViewer({
     fileUrl,
     fileName,
     fileType,
+    versionNumber = 1,
     comments = [],
     onCommentAdded,
+    onClose,
     readOnly = false,
+    approvalStatus,
+    onApprovalChange,
 }: DesignViewerProps) {
     const { user } = useAuth();
     const { showToast } = useToast();
+    const isAdmin = user?.role === 'admin';
     const containerRef = useRef<HTMLDivElement>(null);
     const [isMobile, setIsMobile] = useState(false);
 
     // Pin-drop state
     const [isAddingPin, setIsAddingPin] = useState(false);
     const [pendingPin, setPendingPin] = useState<{ x: number; y: number } | null>(null);
-    const [showCommentSheet, setShowCommentSheet] = useState(false);
     const [commentText, setCommentText] = useState('');
     const [createTask, setCreateTask] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
+    // Task assignment state
+    const [taskAssignee, setTaskAssignee] = useState<string>('');
+    const [taskDueDate, setTaskDueDate] = useState<string>('');
+    const [users, setUsers] = useState<{ id: string; full_name: string }[]>([]);
+
     // Active comment
     const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
 
+    // Comments panel visibility (for mobile)
+    const [showCommentsPanel, setShowCommentsPanel] = useState(!isMobile);
+
+    // Fetch users for assignee dropdown
     useEffect(() => {
-        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        const fetchUsers = async () => {
+            try {
+                const { supabase } = await import('@/lib/supabase');
+                const { data } = await supabase
+                    .from('users')
+                    .select('id, full_name')
+                    .order('full_name');
+                if (data) {
+                    setUsers(data);
+                }
+            } catch (error) {
+                console.error('Failed to fetch users:', error);
+            }
+        };
+        fetchUsers();
+    }, []);
+
+    useEffect(() => {
+        const checkMobile = () => {
+            const mobile = window.innerWidth < 768;
+            setIsMobile(mobile);
+            setShowCommentsPanel(!mobile);
+        };
         checkMobile();
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
-    // Handle click on image to place pin
+    // Handle click on image/PDF to place pin
     const handleImageClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
         if (!isAddingPin || readOnly) return;
 
@@ -74,13 +113,12 @@ export function DesignViewer({
         const y = ((e.clientY - rect.top) / rect.height) * 100;
 
         setPendingPin({ x, y });
-        setShowCommentSheet(true);
         setIsAddingPin(false);
     }, [isAddingPin, readOnly]);
 
     // Submit comment with coordinates
     const handleSubmitComment = async () => {
-        if (!commentText.trim() || !pendingPin) return;
+        if (!commentText.trim()) return;
 
         setSubmitting(true);
         try {
@@ -90,9 +128,16 @@ export function DesignViewer({
                 body: JSON.stringify({
                     design_file_id: designId,
                     comment: commentText,
-                    x_percent: pendingPin.x,
-                    y_percent: pendingPin.y,
+                    // Only send coordinates if pin was placed (undefined instead of null)
+                    ...(pendingPin && {
+                        x_percent: pendingPin.x,
+                        y_percent: pendingPin.y,
+                    }),
                     create_task: createTask,
+                    // Only send assignee if valid (not empty string)
+                    ...(createTask && taskAssignee && { task_assignee_id: taskAssignee }),
+                    // Only send due date if valid
+                    ...(createTask && taskDueDate && { task_due_date: taskDueDate }),
                 }),
             });
 
@@ -103,8 +148,9 @@ export function DesignViewer({
             showToast('success', 'Comment added');
             setCommentText('');
             setCreateTask(false);
+            setTaskAssignee('');
+            setTaskDueDate('');
             setPendingPin(null);
-            setShowCommentSheet(false);
             onCommentAdded?.();
         } catch (error) {
             showToast('error', 'Failed to add comment');
@@ -131,7 +177,7 @@ export function DesignViewer({
                         setActiveCommentId(activeCommentId === comment.id ? null : comment.id);
                     }}
                 >
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg ${comment.is_resolved ? 'bg-green-500' : 'bg-yellow-500'
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg ${comment.is_resolved ? 'bg-gray-500' : 'bg-yellow-500'
                         }`}>
                         {comment.is_resolved ? <FiCheck className="w-3 h-3" /> : <FiMessageCircle className="w-3 h-3" />}
                     </div>
@@ -150,7 +196,7 @@ export function DesignViewer({
                             </div>
                             <p className="text-sm text-gray-700">{comment.comment}</p>
                             {comment.linked_task_id && (
-                                <div className="mt-2 text-xs text-blue-600">
+                                <div className="mt-2 text-xs text-yellow-600">
                                     📋 Task linked
                                 </div>
                             )}
@@ -165,14 +211,14 @@ export function DesignViewer({
         if (!pendingPin) return null;
         return (
             <div
-                className="absolute w-8 h-8 -translate-x-1/2 -translate-y-1/2 animate-pulse"
+                className="absolute w-8 h-8 -translate-x-1/2 -translate-y-1/2 animate-pulse pointer-events-none"
                 style={{
                     left: `${pendingPin.x}%`,
                     top: `${pendingPin.y}%`,
                 }}
             >
                 <div className="w-8 h-8 rounded-full bg-yellow-500 border-2 border-white shadow-lg flex items-center justify-center">
-                    <FiMessageCircle className="w-4 h-4 text-white" />
+                    <FiMessageCircle className="w-4 h-4 text-gray-900" />
                 </div>
             </div>
         );
@@ -181,170 +227,331 @@ export function DesignViewer({
     const isImage = fileType === 'image' || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(fileName);
 
     return (
-        <div className="relative w-full h-full bg-gray-100 rounded-lg overflow-hidden">
-            {/* Toolbar */}
-            <div className="absolute top-2 right-2 z-20 flex gap-2">
-                {!readOnly && (
+        <div className="flex flex-col h-full bg-gray-900">
+            {/* Top Toolbar */}
+            <div className="flex items-center justify-between px-2 md:px-4 py-2 bg-gray-800 border-b border-gray-700">
+                <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                    <span className="px-2 py-0.5 bg-yellow-500 text-gray-900 text-xs font-bold rounded flex-shrink-0">
+                        V{versionNumber}
+                    </span>
+                    <span className="text-white font-medium truncate max-w-[120px] md:max-w-[300px]">{fileName}</span>
+                </div>
+
+                <div className="flex items-center gap-1 md:gap-2">
+                    {/* Approve/Reject buttons - Admin only, pending status */}
+                    {isAdmin && approvalStatus === 'pending' && onApprovalChange && (
+                        <>
+                            <button
+                                onClick={() => onApprovalChange('approved')}
+                                className="flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium rounded-lg transition-colors"
+                                title="Approve"
+                            >
+                                <FiCheckCircle className="w-4 h-4" />
+                                <span className="hidden md:inline">Approve</span>
+                            </button>
+                            <button
+                                onClick={() => onApprovalChange('rejected')}
+                                className="flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white font-medium rounded-lg transition-colors"
+                                title="Reject"
+                            >
+                                <FiXCircle className="w-4 h-4" />
+                                <span className="hidden md:inline">Reject</span>
+                            </button>
+                            <div className="hidden md:block w-px h-6 bg-gray-600 mx-1" />
+                        </>
+                    )}
+
+                    {/* Zoom controls for images */}
+                    {isImage && (
+                        <div className="flex items-center gap-1 bg-gray-700 rounded-lg px-2 py-1">
+                            <span className="text-white text-sm">90%</span>
+                        </div>
+                    )}
+
+                    {/* Download */}
+                    <a
+                        href={fileUrl}
+                        download
+                        className="p-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded"
+                    >
+                        <FiDownload className="w-5 h-5" />
+                    </a>
+
+                    {/* Print */}
                     <button
-                        onClick={() => setIsAddingPin(!isAddingPin)}
-                        className={`p-2 rounded-lg shadow-md transition-colors ${isAddingPin ? 'bg-yellow-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'
-                            }`}
-                        title="Add pin comment"
+                        onClick={() => window.print()}
+                        className="p-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded"
+                    >
+                        <FiPrinter className="w-5 h-5" />
+                    </button>
+
+                    {/* Toggle Comments Panel */}
+                    <button
+                        onClick={() => setShowCommentsPanel(!showCommentsPanel)}
+                        className={`p-2 rounded ${showCommentsPanel ? 'bg-yellow-500 text-gray-900' : 'text-gray-300 hover:text-white hover:bg-gray-700'}`}
                     >
                         <FiMessageCircle className="w-5 h-5" />
                     </button>
-                )}
-            </div>
 
-            {/* Pin mode indicator */}
-            {isAddingPin && (
-                <div className="absolute top-2 left-2 z-20 bg-yellow-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                    Click to place pin
-                </div>
-            )}
-
-            {/* Image viewer with pan/zoom */}
-            {isImage ? (
-                <TransformWrapper
-                    initialScale={1}
-                    minScale={0.5}
-                    maxScale={4}
-                    centerOnInit
-                >
-                    {({ zoomIn, zoomOut, resetTransform }) => (
-                        <>
-                            {/* Zoom controls */}
-                            <div className="absolute bottom-2 right-2 z-20 flex gap-1">
-                                <button
-                                    onClick={() => zoomIn()}
-                                    className="p-2 bg-white rounded-lg shadow-md hover:bg-gray-100"
-                                >
-                                    <FiZoomIn className="w-4 h-4" />
-                                </button>
-                                <button
-                                    onClick={() => zoomOut()}
-                                    className="p-2 bg-white rounded-lg shadow-md hover:bg-gray-100"
-                                >
-                                    <FiZoomOut className="w-4 h-4" />
-                                </button>
-                                <button
-                                    onClick={() => resetTransform()}
-                                    className="p-2 bg-white rounded-lg shadow-md hover:bg-gray-100"
-                                >
-                                    <FiMaximize2 className="w-4 h-4" />
-                                </button>
-                            </div>
-
-                            <TransformComponent
-                                wrapperStyle={{ width: '100%', height: '100%' }}
-                                contentStyle={{ width: '100%', height: '100%' }}
-                            >
-                                <div
-                                    ref={containerRef}
-                                    className="relative w-full h-full flex items-center justify-center"
-                                    onClick={handleImageClick}
-                                    style={{ cursor: isAddingPin ? 'crosshair' : 'grab' }}
-                                >
-                                    <img
-                                        src={fileUrl}
-                                        alt={fileName}
-                                        className="max-w-full max-h-full object-contain"
-                                        draggable={false}
-                                    />
-                                    {renderPins()}
-                                    {renderPendingPin()}
-                                </div>
-                            </TransformComponent>
-                        </>
-                    )}
-                </TransformWrapper>
-            ) : (
-                // PDF or other file type - show iframe or link
-                <div className="w-full h-full flex items-center justify-center">
-                    <a
-                        href={fileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600"
-                    >
-                        Open {fileName}
-                    </a>
-                </div>
-            )}
-
-            {/* Mobile Comment Sheet */}
-            <BottomSheet
-                isOpen={showCommentSheet && isMobile}
-                onClose={() => {
-                    setShowCommentSheet(false);
-                    setPendingPin(null);
-                }}
-                title="Add Comment"
-            >
-                <div className="space-y-4">
-                    <textarea
-                        value={commentText}
-                        onChange={(e) => setCommentText(e.target.value)}
-                        placeholder="Enter your comment..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 min-h-[100px]"
-                    />
-                    <label className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
-                            checked={createTask}
-                            onChange={(e) => setCreateTask(e.target.checked)}
-                            className="rounded border-gray-300"
-                        />
-                        <span className="text-sm text-gray-700">Create task from comment</span>
-                    </label>
-                    <button
-                        onClick={handleSubmitComment}
-                        disabled={submitting || !commentText.trim()}
-                        className="w-full py-2 bg-yellow-500 text-gray-900 font-medium rounded-lg hover:bg-yellow-600 disabled:opacity-50"
-                    >
-                        {submitting ? 'Adding...' : 'Add Comment'}
-                    </button>
-                </div>
-            </BottomSheet>
-
-            {/* Desktop Comment Panel */}
-            {showCommentSheet && !isMobile && (
-                <div className="absolute bottom-4 left-4 z-30 w-80 bg-white rounded-lg shadow-xl border border-gray-200 p-4">
-                    <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-medium text-gray-900">Add Comment</h4>
+                    {/* Close */}
+                    {onClose && (
                         <button
-                            onClick={() => {
-                                setShowCommentSheet(false);
-                                setPendingPin(null);
-                            }}
-                            className="text-gray-400 hover:text-gray-600"
+                            onClick={onClose}
+                            className="p-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded"
                         >
                             <FiX className="w-5 h-5" />
                         </button>
-                    </div>
-                    <textarea
-                        value={commentText}
-                        onChange={(e) => setCommentText(e.target.value)}
-                        placeholder="Enter your comment..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 min-h-[80px] mb-3"
-                    />
-                    <label className="flex items-center gap-2 mb-3">
-                        <input
-                            type="checkbox"
-                            checked={createTask}
-                            onChange={(e) => setCreateTask(e.target.checked)}
-                            className="rounded border-gray-300"
-                        />
-                        <span className="text-sm text-gray-700">Create task from comment</span>
-                    </label>
-                    <button
-                        onClick={handleSubmitComment}
-                        disabled={submitting || !commentText.trim()}
-                        className="w-full py-2 bg-yellow-500 text-gray-900 font-medium rounded-lg hover:bg-yellow-600 disabled:opacity-50"
-                    >
-                        {submitting ? 'Adding...' : 'Add Comment'}
-                    </button>
+                    )}
                 </div>
+            </div>
+
+            {/* Main Content Area */}
+            <div className="flex flex-1 overflow-hidden">
+                {/* PDF/Image Viewer */}
+                <div className="flex-1 relative bg-gray-100 overflow-auto">
+                    {/* Pin mode indicator */}
+                    {isAddingPin && (
+                        <div className="absolute top-4 left-4 z-30 bg-yellow-500 text-gray-900 px-3 py-1 rounded-full text-sm font-medium">
+                            Click to place pin
+                        </div>
+                    )}
+
+                    {isImage ? (
+                        // Image viewer with pan/zoom
+                        <TransformWrapper
+                            initialScale={1}
+                            minScale={0.5}
+                            maxScale={4}
+                            centerOnInit
+                        >
+                            {({ zoomIn, zoomOut, resetTransform }) => (
+                                <>
+                                    <div className="absolute bottom-4 left-4 z-20 flex gap-1">
+                                        <button onClick={() => zoomIn()} className="p-2 bg-white rounded-lg shadow-md hover:bg-gray-100">
+                                            <FiZoomIn className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => zoomOut()} className="p-2 bg-white rounded-lg shadow-md hover:bg-gray-100">
+                                            <FiZoomOut className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => resetTransform()} className="p-2 bg-white rounded-lg shadow-md hover:bg-gray-100">
+                                            <FiMaximize2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+
+                                    <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%', height: '100%' }}>
+                                        <div
+                                            ref={containerRef}
+                                            className="relative w-full h-full flex items-center justify-center p-8"
+                                            onClick={handleImageClick}
+                                            style={{ cursor: isAddingPin ? 'crosshair' : 'grab' }}
+                                        >
+                                            <img src={fileUrl} alt={fileName} className="max-w-full max-h-full object-contain shadow-lg" draggable={false} />
+                                            {renderPins()}
+                                            {renderPendingPin()}
+                                        </div>
+                                    </TransformComponent>
+                                </>
+                            )}
+                        </TransformWrapper>
+                    ) : (
+                        // PDF viewer with overlay
+                        <div ref={containerRef} className="relative w-full h-full">
+                            <iframe src={fileUrl} className="w-full h-full border-0" title={fileName} />
+
+                            {/* Clickable overlay for pin placement */}
+                            {isAddingPin && (
+                                <div className="absolute inset-0 cursor-crosshair z-10" onClick={handleImageClick} />
+                            )}
+
+                            {/* Pin markers overlay */}
+                            <div className="absolute inset-0 pointer-events-none z-20">
+                                <div className="pointer-events-auto">
+                                    {renderPins()}
+                                    {renderPendingPin()}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Right Comments Panel */}
+                {showCommentsPanel && (
+                    <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
+                        {/* Panel Header */}
+                        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                            <span className="font-semibold text-gray-900">Comments</span>
+                            <button onClick={() => setShowCommentsPanel(false)} className="text-gray-400 hover:text-gray-600">
+                                <FiX className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Add New Comment */}
+                        {!readOnly && (
+                            <div className="p-4 border-b border-gray-200">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium text-gray-700">Add New Comment</span>
+                                    {pendingPin && (
+                                        <button onClick={() => setPendingPin(null)} className="text-gray-400 hover:text-gray-600">
+                                            <FiX className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Pin button */}
+                                <div className="flex gap-2 mb-3">
+                                    <button
+                                        onClick={() => setIsAddingPin(!isAddingPin)}
+                                        className={`p-2 rounded border ${isAddingPin
+                                            ? 'bg-yellow-500 text-gray-900 border-yellow-500'
+                                            : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                                            }`}
+                                        title="Add pin comment"
+                                    >
+                                        📍
+                                    </button>
+                                    {pendingPin && (
+                                        <span className="text-xs text-yellow-600 flex items-center">
+                                            ✓ Pin placed at ({Math.round(pendingPin.x)}%, {Math.round(pendingPin.y)}%)
+                                        </span>
+                                    )}
+                                </div>
+
+                                <textarea
+                                    value={commentText}
+                                    onChange={(e) => setCommentText(e.target.value)}
+                                    placeholder="Enter your comment..."
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-sm min-h-[80px] resize-none"
+                                />
+
+                                <label className="flex items-center gap-2 mt-3">
+                                    <input
+                                        type="checkbox"
+                                        checked={createTask}
+                                        onChange={(e) => setCreateTask(e.target.checked)}
+                                        className="rounded border-gray-300 text-yellow-500 focus:ring-yellow-500"
+                                    />
+                                    <span className="text-sm text-gray-600">Assign as task</span>
+                                </label>
+
+                                {/* Task assignment fields - only show when createTask is checked */}
+                                {createTask && (
+                                    <div className="mt-3 space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                        {/* Assignee dropdown */}
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                Assignee
+                                            </label>
+                                            <select
+                                                value={taskAssignee}
+                                                onChange={(e) => setTaskAssignee(e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent bg-white"
+                                            >
+                                                <option value="">Select User</option>
+                                                {users.map((u) => (
+                                                    <option key={u.id} value={u.id}>
+                                                        {u.full_name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        {/* Due date picker */}
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                Due Date
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={taskDueDate}
+                                                onChange={(e) => setTaskDueDate(e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                <button
+                                    onClick={handleSubmitComment}
+                                    disabled={submitting || !commentText.trim()}
+                                    className="mt-3 w-full py-2 bg-yellow-500 text-gray-900 font-medium rounded-lg hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {submitting ? 'Submitting...' : 'Submit'}
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Comments List */}
+                        <div className="flex-1 overflow-y-auto p-4">
+                            {comments.length === 0 ? (
+                                <div className="text-center py-8">
+                                    <FiMessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                                    <p className="text-gray-500 text-sm">No Comments to show</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {comments.map((comment) => (
+                                        <div
+                                            key={comment.id}
+                                            className={`p-3 rounded-lg border ${activeCommentId === comment.id
+                                                ? 'border-yellow-500 bg-yellow-50'
+                                                : 'border-gray-200 bg-gray-50'
+                                                }`}
+                                            onClick={() => setActiveCommentId(comment.id)}
+                                        >
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-sm font-medium text-gray-900">{comment.user.full_name}</span>
+                                                {comment.x_percent !== null && (
+                                                    <span className="text-xs text-gray-400">📍 Pinned</span>
+                                                )}
+                                            </div>
+                                            <p className="text-sm text-gray-700">{comment.comment}</p>
+                                            {comment.linked_task_id && (
+                                                <div className="mt-2 text-xs text-yellow-600">📋 Task linked</div>
+                                            )}
+                                            {comment.is_resolved && (
+                                                <div className="mt-2 text-xs text-gray-500">✓ Resolved</div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Mobile Bottom Sheet for adding comments */}
+            {isMobile && (
+                <BottomSheet
+                    isOpen={pendingPin !== null}
+                    onClose={() => setPendingPin(null)}
+                    title="Add Comment"
+                >
+                    <div className="space-y-4">
+                        <textarea
+                            value={commentText}
+                            onChange={(e) => setCommentText(e.target.value)}
+                            placeholder="Enter your comment..."
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 min-h-[100px]"
+                        />
+                        <label className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                checked={createTask}
+                                onChange={(e) => setCreateTask(e.target.checked)}
+                                className="rounded border-gray-300"
+                            />
+                            <span className="text-sm text-gray-700">Create task from comment</span>
+                        </label>
+                        <button
+                            onClick={handleSubmitComment}
+                            disabled={submitting || !commentText.trim()}
+                            className="w-full py-2 bg-yellow-500 text-gray-900 font-medium rounded-lg hover:bg-yellow-600 disabled:opacity-50"
+                        >
+                            {submitting ? 'Adding...' : 'Add Comment'}
+                        </button>
+                    </div>
+                </BottomSheet>
             )}
         </div>
     );

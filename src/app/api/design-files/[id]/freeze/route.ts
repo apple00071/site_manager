@@ -5,8 +5,8 @@ import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 export const dynamic = 'force-dynamic';
 
 /**
- * POST /api/projects/[id]/freeze-designs
- * Freeze all designs in a project (prevents uploads/modifications)
+ * POST /api/design-files/[id]/freeze
+ * Freeze a single design (prevents modifications)
  * RBAC: admin or project_manager only
  */
 export async function POST(
@@ -19,7 +19,7 @@ export async function POST(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { id: projectId } = await params;
+        const { id: designId } = await params;
         const userId = user.id;
 
         // Get user role
@@ -41,51 +41,39 @@ export async function POST(
             );
         }
 
-        // Check project exists
-        const { data: project, error: projectError } = await supabaseAdmin
-            .from('projects')
-            .select('id, title')
-            .eq('id', projectId)
-            .single();
-
-        if (projectError || !project) {
-            console.error('Project lookup error:', projectError, 'projectId:', projectId);
-            return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-        }
-
-        // Freeze all designs in the project
-        const { data: frozenDesigns, error: freezeError } = await supabaseAdmin
+        // Freeze the design
+        const { data: frozenDesign, error: freezeError } = await supabaseAdmin
             .from('design_files')
             .update({
                 is_frozen: true,
                 frozen_at: new Date().toISOString(),
                 frozen_by: userId,
             })
-            .eq('project_id', projectId)
-            .select('id');
+            .eq('id', designId)
+            .select('id, file_name')
+            .single();
 
         if (freezeError) {
-            console.error('Error freezing designs:', freezeError);
+            console.error('Error freezing design:', freezeError);
             return NextResponse.json(
-                { error: 'Failed to freeze designs' },
+                { error: 'Failed to freeze design' },
                 { status: 500 }
             );
         }
 
         return NextResponse.json({
-            message: 'Designs frozen successfully',
-            frozen_count: frozenDesigns?.length || 0,
-            project_id: projectId,
+            message: 'Design frozen successfully',
+            design: frozenDesign,
         });
     } catch (error) {
-        console.error('Unexpected error freezing designs:', error);
+        console.error('Unexpected error freezing design:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }
 
 /**
- * DELETE /api/projects/[id]/freeze-designs
- * Unfreeze all designs in a project (allow uploads/modifications again)
+ * DELETE /api/design-files/[id]/freeze
+ * Unfreeze a single design
  * RBAC: admin or project_manager only
  */
 export async function DELETE(
@@ -98,7 +86,7 @@ export async function DELETE(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { id: projectId } = await params;
+        const { id: designId } = await params;
         const userId = user.id;
 
         // Get user role
@@ -120,76 +108,32 @@ export async function DELETE(
             );
         }
 
-        // Unfreeze all designs in the project
-        const { data: unfrozenDesigns, error: unfreezeError } = await supabaseAdmin
+        // Unfreeze the design
+        const { data: unfrozenDesign, error: unfreezeError } = await supabaseAdmin
             .from('design_files')
             .update({
                 is_frozen: false,
                 frozen_at: null,
                 frozen_by: null,
             })
-            .eq('project_id', projectId)
-            .select('id');
+            .eq('id', designId)
+            .select('id, file_name')
+            .single();
 
         if (unfreezeError) {
-            console.error('Error unfreezing designs:', unfreezeError);
+            console.error('Error unfreezing design:', unfreezeError);
             return NextResponse.json(
-                { error: 'Failed to unfreeze designs' },
+                { error: 'Failed to unfreeze design' },
                 { status: 500 }
             );
         }
 
         return NextResponse.json({
-            message: 'Designs unfrozen successfully',
-            unfrozen_count: unfrozenDesigns?.length || 0,
-            project_id: projectId,
+            message: 'Design unfrozen successfully',
+            design: unfrozenDesign,
         });
     } catch (error) {
-        console.error('Unexpected error unfreezing designs:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-    }
-}
-
-/**
- * GET /api/projects/[id]/freeze-designs
- * Get freeze status for project designs
- */
-export async function GET(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { user, error: authError } = await getAuthUser();
-        if (authError || !user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        const { id: projectId } = await params;
-
-        // Get freeze status
-        const { data: designs, error } = await supabaseAdmin
-            .from('design_files')
-            .select('is_frozen, frozen_at, frozen_by')
-            .eq('project_id', projectId)
-            .limit(1);
-
-        if (error) {
-            console.error('Error getting freeze status:', error);
-            return NextResponse.json(
-                { error: 'Failed to get freeze status' },
-                { status: 500 }
-            );
-        }
-
-        const isFrozen = designs?.[0]?.is_frozen || false;
-
-        return NextResponse.json({
-            is_frozen: isFrozen,
-            frozen_at: designs?.[0]?.frozen_at || null,
-            frozen_by: designs?.[0]?.frozen_by || null,
-        });
-    } catch (error) {
-        console.error('Unexpected error:', error);
+        console.error('Unexpected error unfreezing design:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

@@ -1,15 +1,17 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDateTimeReadable } from '@/lib/dateUtils';
 import { useToast } from '@/components/ui/Toast';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { SidePanel } from '@/components/ui/SidePanel';
+import { DesignViewer } from '@/components/projects/DesignViewer';
 import {
   FiUpload, FiFileText, FiPaperclip, FiEye, FiPlus,
-  FiMoreVertical, FiEdit, FiTrash2, FiDownload, FiCheck, FiX, FiClock, FiAlertCircle
+  FiMoreVertical, FiEdit, FiTrash2, FiDownload, FiCheck, FiX, FiClock, FiAlertCircle, FiLock, FiUnlock,
+  FiMessageCircle, FiMapPin
 } from 'react-icons/fi';
 
 type DesignFile = {
@@ -18,6 +20,7 @@ type DesignFile = {
   file_name: string;
   file_url: string;
   file_type: string;
+  category: string;
   version_number: number;
   approval_status: 'pending' | 'approved' | 'rejected' | 'needs_changes';
   uploaded_by: string;
@@ -25,6 +28,7 @@ type DesignFile = {
   approved_at: string | null;
   admin_comments: string | null;
   is_current_approved: boolean;
+  is_frozen: boolean;
   created_at: string;
   uploaded_by_user: {
     id: string;
@@ -66,6 +70,16 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
   const [approvalAction, setApprovalAction] = useState<'reject' | 'needs_changes' | null>(null);
   const [approvalComment, setApprovalComment] = useState('');
 
+  // Freeze state
+  const [isFrozen, setIsFrozen] = useState(false);
+  const [freezing, setFreezing] = useState(false);
+
+  // Viewer state
+  const [viewerDesign, setViewerDesign] = useState<DesignFile | null>(null);
+
+  // Selected category tab (for horizontal tabs navigation)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
   // Form state
   const [uploading, setUploading] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -74,6 +88,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
 
   const [uploadForm, setUploadForm] = useState({
     file: null as File | null,
+    category: '', // Room category like "Kitchen", "Bedroom", etc.
     version_number: 1,
   });
 
@@ -120,14 +135,96 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
     }
   };
 
+  // Fetch freeze status
+  const fetchFreezeStatus = async () => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/freeze-designs`);
+      if (response.ok) {
+        const { is_frozen } = await response.json();
+        setIsFrozen(is_frozen);
+      }
+    } catch (error) {
+      console.error('Error fetching freeze status:', error);
+    }
+  };
+
+  // Toggle freeze/unfreeze for individual design
+  const handleToggleFreezeDesign = async (design: DesignFile) => {
+    try {
+      const response = await fetch(`/api/design-files/${design.id}/freeze`, {
+        method: design.is_frozen ? 'DELETE' : 'POST',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update freeze status');
+      }
+
+      // Update local state
+      setDesigns(prev => prev.map(d =>
+        d.id === design.id ? { ...d, is_frozen: !d.is_frozen } : d
+      ));
+      showToast('success', design.is_frozen ? 'Design unfrozen' : 'Design frozen');
+    } catch (error: any) {
+      console.error('Error toggling design freeze:', error);
+      showToast('error', error.message || 'Failed to update freeze status');
+    }
+  };
+
+  // Check if any design in project is frozen (for upload blocking)
+  const hasAnyFrozenDesign = designs.some(d => d.is_frozen);
+
+  // Group designs by category
+  const groupedDesigns = useMemo(() => {
+    const groups: Record<string, DesignFile[]> = {};
+    designs.forEach(design => {
+      const cat = design.category || 'Uncategorized';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(design);
+    });
+    // Sort each group by version_number descending (latest first)
+    Object.values(groups).forEach(group => {
+      group.sort((a, b) => b.version_number - a.version_number);
+    });
+    return groups;
+  }, [designs]);
+
+  // Get list of categories for tabs
+  const categories = Object.keys(groupedDesigns);
+
+  // Set default selected category when designs load
+  useEffect(() => {
+    if (categories.length > 0 && !selectedCategory) {
+      setSelectedCategory(categories[0]);
+    }
+  }, [categories, selectedCategory]);
+
+  // Get designs for the selected category
+  const filteredDesigns = selectedCategory ? (groupedDesigns[selectedCategory] || []) : [];
+
+  // Helper to check if design has pinned comments
+  const hasPinnedComments = (design: DesignFile) => {
+    return design.comments?.some(c => (c as any).x_percent !== null && (c as any).x_percent !== undefined) || false;
+  };
+
+  // Fetch freeze status on mount
+  useEffect(() => {
+    fetchFreezeStatus();
+  }, [projectId]);
+
   const resetForm = () => {
-    setUploadForm({ file: null, version_number: 1 });
+    setUploadForm({ file: null, category: '', version_number: 1 });
     setFormError(null);
   };
 
   const handleFileUpload = async () => {
     if (!uploadForm.file) {
       setFormError('Please select a file');
+      return;
+    }
+
+    if (!uploadForm.category.trim()) {
+      setFormError('Please enter a room/category name (e.g. Kitchen, Bedroom)');
       return;
     }
 
@@ -160,7 +257,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
           file_name: uploadForm.file.name,
           file_url: publicUrl,
           file_type: fileType,
-          version_number: uploadForm.version_number,
+          category: uploadForm.category.trim(),
         }),
       });
 
@@ -246,7 +343,8 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
   const handleUploadNewVersion = (design: DesignFile) => {
     setUploadForm(prev => ({
       ...prev,
-      version_number: design.version_number + 1
+      version_number: design.version_number + 1,
+      category: design.category || '' // Auto-fill category from original design
     }));
     setIsAddingNew(true);
     setOpenMenuId(null);
@@ -302,15 +400,18 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Version Number
+          Room/Category *
         </label>
         <input
-          type="number"
-          min="1"
-          value={uploadForm.version_number}
-          onChange={(e) => setUploadForm(prev => ({ ...prev, version_number: parseInt(e.target.value) || 1 }))}
+          type="text"
+          value={uploadForm.category}
+          onChange={(e) => setUploadForm(prev => ({ ...prev, category: e.target.value }))}
+          placeholder="e.g. Kitchen, Bedroom, Floor Plan"
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
         />
+        <p className="mt-1 text-xs text-gray-500">
+          Designs with the same category are grouped as versions (V1, V2, V3...)
+        </p>
       </div>
 
       {formError && (
@@ -394,11 +495,35 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
         </div>
       ) : (
         <>
-          {/* Desktop Table */}
           <div className="hidden md:block">
             {/* Action bar above table */}
-            <div className="flex justify-end px-4 py-2 border-b border-gray-200">
+            <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
+              {/* Category Tabs */}
+              <div className="flex items-center gap-1 overflow-x-auto">
+                {categories.map((category) => {
+                  const count = groupedDesigns[category]?.length || 0;
+                  const isActive = selectedCategory === category;
+                  return (
+                    <button
+                      key={category}
+                      onClick={() => setSelectedCategory(category)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${isActive
+                        ? 'bg-yellow-500 text-gray-900'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                    >
+                      {category}
+                      <span className={`inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold rounded ${isActive ? 'bg-gray-900 text-white' : 'bg-gray-300 text-gray-700'
+                        }`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
               <button
+                type="button"
                 onClick={() => {
                   setIsAddingNew(true);
                   resetForm();
@@ -409,6 +534,8 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                 Upload Design
               </button>
             </div>
+
+            {/* Flat Design Table */}
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -416,7 +543,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                     Name of File
                   </th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
+                    Type of File
                   </th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Uploaded By
@@ -433,14 +560,15 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {designs.map((design) => (
+                {filteredDesigns.map((design) => (
                   <tr key={design.id} className="hover:bg-gray-50">
-                    {/* Name with Version Badge */}
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold bg-red-500 text-white rounded">
+                        {/* Version badge */}
+                        <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold bg-yellow-500 text-gray-900 rounded">
                           V{design.version_number}
                         </span>
+                        {/* Thumbnail */}
                         {design.file_type === 'image' ? (
                           <img
                             src={design.file_url}
@@ -452,33 +580,39 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                             {getFileIcon(design.file_type)}
                           </div>
                         )}
+                        {/* File name */}
                         <span className="text-sm font-medium text-gray-900 truncate max-w-[200px]">
                           {design.file_name}
                         </span>
                       </div>
                     </td>
-
-                    {/* Type */}
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                      {design.file_type.toUpperCase()}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        {/* Comment count */}
+                        {design.comments && design.comments.length > 0 && (
+                          <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+                            <FiMessageCircle className="w-3.5 h-3.5" />
+                            {design.comments.length}
+                          </span>
+                        )}
+                        {/* Pinned indicator */}
+                        {hasPinnedComments(design) && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-medium rounded">
+                            <FiMapPin className="w-3 h-3" />
+                            Pinned
+                          </span>
+                        )}
+                      </div>
                     </td>
-
-                    {/* Uploaded By */}
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                       {design.uploaded_by_user?.full_name || 'Unknown'}
                     </td>
-
-                    {/* Uploaded On */}
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                       {formatDateTimeReadable(design.created_at)}
                     </td>
-
-                    {/* Status */}
                     <td className="px-4 py-3 whitespace-nowrap">
                       {getStatusBadge(design.approval_status)}
                     </td>
-
-                    {/* Actions */}
                     <td className="px-4 py-3 whitespace-nowrap text-right relative">
                       <button
                         onClick={() => setOpenMenuId(openMenuId === design.id ? null : design.id)}
@@ -493,16 +627,16 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                           ref={menuRef}
                           className="absolute right-4 top-10 z-50 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
                         >
-                          <a
-                            href={design.file_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                            onClick={() => setOpenMenuId(null)}
+                          <button
+                            onClick={() => {
+                              setViewerDesign(design);
+                              setOpenMenuId(null);
+                            }}
+                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                           >
                             <FiEye className="w-4 h-4" />
                             View
-                          </a>
+                          </button>
                           <a
                             href={design.file_url}
                             download
@@ -520,8 +654,50 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                             Upload new version
                           </button>
 
+                          {isAdmin && (
+                            <button
+                              onClick={() => {
+                                handleToggleFreezeDesign(design);
+                                setOpenMenuId(null);
+                              }}
+                              className={`w-full flex items-center gap-2 px-4 py-2 text-sm ${design.is_frozen
+                                ? 'text-yellow-700 hover:bg-yellow-50'
+                                : 'text-gray-700 hover:bg-gray-50'
+                                }`}
+                            >
+                              {design.is_frozen ? (
+                                <>
+                                  <FiUnlock className="w-4 h-4" />
+                                  Unfreeze
+                                </>
+                              ) : (
+                                <>
+                                  <FiLock className="w-4 h-4" />
+                                  Freeze
+                                </>
+                              )}
+                            </button>
+                          )}
+
                           <div className="border-t border-gray-100 my-1"></div>
 
+                          {/* Remove (for owner or admin) */}
+                          {(isAdmin || design.uploaded_by === user?.id) && (
+                            <button
+                              onClick={() => {
+                                handleDelete(design.id);
+                                setOpenMenuId(null);
+                              }}
+                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                            >
+                              <FiTrash2 className="w-4 h-4" />
+                              Remove
+                            </button>
+                          )}
+
+                          <div className="border-t border-gray-100 my-1"></div>
+
+                          {/* Approve/Reject for admin */}
                           {isAdmin && design.approval_status === 'pending' && (
                             <>
                               <button
@@ -551,27 +727,12 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                                   setApprovalAction('needs_changes');
                                   setOpenMenuId(null);
                                 }}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-orange-700 hover:bg-orange-50"
+                                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                               >
-                                <FiAlertCircle className="w-4 h-4" />
-                                Request Changes
+                                <FiClock className="w-4 h-4" />
+                                Mark Reviewed
                               </button>
                             </>
-                          )}
-
-                          <div className="border-t border-gray-100 my-1"></div>
-
-                          {(isAdmin || design.uploaded_by === user?.id) && (
-                            <button
-                              onClick={() => {
-                                handleDelete(design.id);
-                                setOpenMenuId(null);
-                              }}
-                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                            >
-                              <FiTrash2 className="w-4 h-4" />
-                              Remove
-                            </button>
                           )}
                         </div>
                       )}
@@ -625,14 +786,15 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                 {/* Mobile Dropdown */}
                 {openMenuId === design.id && (
                   <div className="mt-3 p-2 bg-gray-50 rounded-lg space-y-1">
-                    <a
-                      href={design.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-white rounded"
+                    <button
+                      onClick={() => {
+                        setViewerDesign(design);
+                        setOpenMenuId(null);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-white rounded"
                     >
                       <FiEye className="w-4 h-4" /> View
-                    </a>
+                    </button>
                     <a
                       href={design.file_url}
                       download
@@ -646,6 +808,21 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                     >
                       <FiUpload className="w-4 h-4" /> Upload new version
                     </button>
+                    {/* Freeze/Unfreeze (admin only) */}
+                    {isAdmin && (
+                      <button
+                        onClick={() => {
+                          handleToggleFreezeDesign(design);
+                          setOpenMenuId(null);
+                        }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded ${design.is_frozen
+                          ? 'text-blue-700 hover:bg-blue-50'
+                          : 'text-gray-700 hover:bg-white'
+                          }`}
+                      >
+                        {design.is_frozen ? '🔓 Unfreeze' : '🔒 Freeze'}
+                      </button>
+                    )}
                     {isAdmin && design.approval_status === 'pending' && (
                       <>
                         <button
@@ -724,6 +901,40 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Design Viewer Modal - Full Screen */}
+      {viewerDesign && (
+        <div className="fixed inset-0 z-50 bg-black">
+          <DesignViewer
+            designId={viewerDesign.id}
+            fileUrl={viewerDesign.file_url}
+            fileName={viewerDesign.file_name}
+            fileType={viewerDesign.file_type}
+            versionNumber={viewerDesign.version_number}
+            approvalStatus={viewerDesign.approval_status}
+            onApprovalChange={async (status) => {
+              await handleApproval(viewerDesign.id, status);
+              // Refresh viewer design data after approval
+              const updated = designs.find(d => d.id === viewerDesign.id);
+              if (updated) {
+                setViewerDesign({ ...updated, approval_status: status });
+              }
+            }}
+            comments={viewerDesign.comments?.map(c => ({
+              ...c,
+              x_percent: (c as any).x_percent ?? null,
+              y_percent: (c as any).y_percent ?? null,
+              zoom_level: (c as any).zoom_level ?? null,
+              is_resolved: (c as any).is_resolved ?? false,
+              linked_task_id: (c as any).linked_task_id ?? null,
+            })) || []}
+            onCommentAdded={() => {
+              fetchDesigns();
+            }}
+            onClose={() => setViewerDesign(null)}
+          />
         </div>
       )}
     </div>

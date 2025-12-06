@@ -76,6 +76,10 @@ export async function POST(request: NextRequest) {
 
       const taskTitle = `Design comment: ${comment.substring(0, 50)}${comment.length > 50 ? '...' : ''}`;
 
+      // Create start and end dates (end = start + 1 hour)
+      const startAt = new Date();
+      const endAt = new Date(startAt.getTime() + 60 * 60 * 1000); // +1 hour
+
       const { data: task, error: taskError } = await supabaseAdmin
         .from('tasks')
         .insert({
@@ -86,6 +90,8 @@ export async function POST(request: NextRequest) {
           created_by: userId,
           assigned_to: task_assignee_id || null,
           due_date: task_due_date || null,
+          start_at: startAt.toISOString(),
+          end_at: endAt.toISOString(),
         })
         .select('id')
         .single();
@@ -112,13 +118,26 @@ export async function POST(request: NextRequest) {
       })
       .select(`
         *,
-        user:users(id, full_name, email)
+        user:users!design_comments_user_id_fkey(id, full_name, email)
       `)
       .single();
 
     if (error) {
       console.error('Error adding comment:', error);
       return NextResponse.json({ error: 'Failed to add comment' }, { status: 500 });
+    }
+
+    // Auto-update design status to 'needs_changes' when a pinned comment is added
+    if (x_percent !== undefined && y_percent !== undefined) {
+      const { error: statusError } = await supabaseAdmin
+        .from('design_files')
+        .update({ approval_status: 'needs_changes' })
+        .eq('id', design_file_id);
+
+      if (statusError) {
+        console.error('Error updating design status:', statusError);
+        // Don't fail the comment creation, just log the error
+      }
     }
 
     // P0: Notify mentioned users

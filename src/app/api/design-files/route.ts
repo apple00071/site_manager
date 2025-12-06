@@ -15,6 +15,7 @@ const createDesignFileSchema = z.object({
   file_name: z.string().min(1),
   file_url: z.string().min(1),
   file_type: z.string().min(1),
+  category: z.string().min(1), // Required: Room category like "Kitchen", "Bedroom", etc.
   version_number: z.number().int().positive().optional().default(1),
 });
 
@@ -102,29 +103,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { project_id, file_name, file_url, file_type } = parsed.data;
+    const { project_id, file_name, file_url, file_type, category } = parsed.data;
 
-    // P0: Check if project designs are frozen
+    // P0: Check if any design in this category is frozen
     const { data: existingFrozen } = await supabaseAdmin
       .from('design_files')
       .select('is_frozen')
       .eq('project_id', project_id)
+      .eq('category', category)
       .eq('is_frozen', true)
       .limit(1);
 
     if (existingFrozen && existingFrozen.length > 0) {
       return NextResponse.json(
-        { error: 'Cannot upload: project designs are frozen' },
+        { error: `Cannot upload: "${category}" designs are frozen` },
         { status: 409 }
       );
     }
 
-    // P0: Version stacking - check for existing file with same name
+    // P0: Version stacking - check for existing design in same category
     const { data: existingDesign } = await supabaseAdmin
       .from('design_files')
       .select('id, version_number')
       .eq('project_id', project_id)
-      .eq('file_name', file_name)
+      .eq('category', category)
       .order('version_number', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -147,6 +149,7 @@ export async function POST(request: NextRequest) {
         file_name,
         file_url,
         file_type,
+        category,
         version_number: newVersionNumber,
         parent_design_id: parentDesignId,
         uploaded_by: userId,
