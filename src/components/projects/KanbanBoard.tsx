@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { formatDateIST } from '@/lib/dateUtils';
-import Modal from '@/components/Modal';
+import { SidePanel } from '@/components/ui/SidePanel';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { FiPlus } from 'react-icons/fi';
 
 type StageKey = 'false_ceiling' | 'electrical_work' | 'carpenter_works' | 'painting_work' | 'deep_cleaning';
 
@@ -43,6 +45,15 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
   });
   const [addTaskLoading, setAddTaskLoading] = useState(false);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check for mobile viewport
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Group tasks by status
   const groupedByStatus = {
@@ -58,24 +69,24 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
   const fetchTasks = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       console.log('Fetching tasks for project:', projectId);
       const response = await fetch(`/api/project-steps?project_id=${projectId}`);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const text = await response.text();
       console.log('Raw response text:', text);
-      
+
       if (!text) {
         console.log('Empty response, setting empty tasks');
         setTasks([]);
         return;
       }
-      
+
       let data;
       try {
         data = JSON.parse(text);
@@ -86,11 +97,11 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
         setTasks([]);
         return;
       }
-      
+
       console.log('Parsed data:', data);
       console.log('Data type:', typeof data);
       console.log('Is data an array?', Array.isArray(data));
-      
+
       // Handle different response formats
       let stepsArray = [];
       if (data && typeof data === 'object') {
@@ -113,28 +124,28 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
         setTasks([]);
         return;
       }
-      
+
       console.log('Final steps array:', stepsArray);
-      
+
       if (stepsArray.length === 0) {
         setTasks([]);
         return;
       }
-      
+
       // Map the tasks with explicit error handling
       const formattedTasks = stepsArray.map((item: any) => {
         if (!item || typeof item !== 'object') {
           console.error('Invalid item in array:', item);
           return null;
         }
-        
+
         return {
           id: item.id || '',
           title: item.title || '',
           description: item.description || null,
           stage: item.stage || 'general',
-          status: (item.status === 'done' ? 'completed' : 
-                  item.status === 'in_progress' ? 'progress' : 'todo') as TaskStatus,
+          status: (item.status === 'done' ? 'completed' :
+            item.status === 'in_progress' ? 'progress' : 'todo') as TaskStatus,
           start_date: item.start_date || null,
           end_date: item.end_date || null,
           worker_name: item.worker_name || '',
@@ -142,10 +153,10 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
           sort_order: item.sort_order || 0
         };
       }).filter(Boolean); // Remove any null items
-      
+
       console.log('Formatted tasks:', formattedTasks);
       setTasks(formattedTasks);
-      
+
     } catch (error) {
       console.error('Complete error in fetchTasks:', error);
       setError('Failed to load tasks');
@@ -158,7 +169,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
   const addTask = async () => {
     // Use the stage label as the title
     const stageLabel = STAGES.find(s => s.key === addTaskForm.stage)?.label || '';
-    
+
     setAddTaskLoading(true);
     try {
       const response = await fetch('/api/project-steps', {
@@ -194,7 +205,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
         });
         throw new Error('Failed to add task');
       }
-      
+
       await fetchTasks();
       setShowAddModal(false);
       setAddTaskForm({
@@ -214,9 +225,9 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
 
   const updateTaskStatus = async (taskId: string, newStatus: TaskStatus) => {
     try {
-      const apiStatus = newStatus === 'completed' ? 'done' : 
-                       newStatus === 'progress' ? 'in_progress' : 'todo';
-      
+      const apiStatus = newStatus === 'completed' ? 'done' :
+        newStatus === 'progress' ? 'in_progress' : 'todo';
+
       const response = await fetch('/api/project-steps', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -261,21 +272,19 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header with Add Task Button */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-gray-900">Project Tasks</h2>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium rounded-xl transition-all duration-200"
-        >
-          + Add Task
-        </button>
-      </div>
-
+    <div className="bg-white shadow sm:rounded-lg">
       {/* Kanban Columns - Desktop */}
-      <div className="hidden lg:block">
-        <div className="flex gap-8">
+      <div className="hidden lg:block p-3">
+        <div className="flex justify-end mb-3">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-3 py-1.5 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 text-xs font-medium flex items-center gap-1.5 transition-all duration-200"
+          >
+            <FiPlus className="w-3.5 h-3.5" />
+            Add Task
+          </button>
+        </div>
+        <div className="flex gap-4">
           {(['todo', 'progress', 'completed'] as TaskStatus[]).map(status => (
             <div
               key={status}
@@ -362,87 +371,106 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
         ))}
       </div>
 
-      {/* Add Task Modal */}
-      <Modal 
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        title="Add New Task"
-        maxWidth="md"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Stage *</label>
-            <select
-              value={addTaskForm.stage}
-              onChange={(e) => setAddTaskForm({ ...addTaskForm, stage: e.target.value as StageKey })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-            >
-              {STAGES.map(stage => (
-                <option key={stage.key} value={stage.key}>{stage.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+      {/* Add Task Form Content */}
+      {(() => {
+        const formContent = (
+          <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-              <input
-                type="date"
-                value={addTaskForm.start_date}
-                onChange={(e) => setAddTaskForm({ ...addTaskForm, start_date: e.target.value })}
+              <label className="block text-sm font-medium text-gray-700 mb-1">Stage *</label>
+              <select
+                value={addTaskForm.stage}
+                onChange={(e) => setAddTaskForm({ ...addTaskForm, stage: e.target.value as StageKey })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+              >
+                {STAGES.map(stage => (
+                  <option key={stage.key} value={stage.key}>{stage.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={addTaskForm.start_date}
+                  onChange={(e) => setAddTaskForm({ ...addTaskForm, start_date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                <input
+                  type="date"
+                  value={addTaskForm.end_date}
+                  onChange={(e) => setAddTaskForm({ ...addTaskForm, end_date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Worker Name</label>
+              <input
+                type="text"
+                value={addTaskForm.worker_name}
+                onChange={(e) => setAddTaskForm({ ...addTaskForm, worker_name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                placeholder="Optional"
               />
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Worker Phone Number</label>
               <input
-                type="date"
-                value={addTaskForm.end_date}
-                onChange={(e) => setAddTaskForm({ ...addTaskForm, end_date: e.target.value })}
+                type="tel"
+                value={addTaskForm.worker_number}
+                onChange={(e) => setAddTaskForm({ ...addTaskForm, worker_number: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                placeholder="Optional"
               />
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Worker Name</label>
-            <input
-              type="text"
-              value={addTaskForm.worker_name}
-              onChange={(e) => setAddTaskForm({ ...addTaskForm, worker_name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-              placeholder="Optional"
-            />
+            <div className="flex gap-3 pt-4">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 px-4 py-2 text-gray-700 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={addTask}
+                disabled={addTaskLoading}
+                className="flex-1 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {addTaskLoading ? 'Adding...' : 'Add Task'}
+              </button>
+            </div>
           </div>
+        );
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Worker Phone Number</label>
-            <input
-              type="tel"
-              value={addTaskForm.worker_number}
-              onChange={(e) => setAddTaskForm({ ...addTaskForm, worker_number: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-              placeholder="Optional"
-            />
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            <button
-              onClick={() => setShowAddModal(false)}
-              className="flex-1 px-4 py-2 text-gray-700 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+        return (
+          <>
+            {/* Desktop Side Panel */}
+            <SidePanel
+              isOpen={showAddModal && !isMobile}
+              onClose={() => setShowAddModal(false)}
+              title="Add New Task"
             >
-              Cancel
-            </button>
-            <button
-              onClick={addTask}
-              disabled={addTaskLoading}
-              className="flex-1 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium rounded-lg disabled:opacity-50 transition-colors"
+              {formContent}
+            </SidePanel>
+
+            {/* Mobile Bottom Sheet */}
+            <BottomSheet
+              isOpen={showAddModal && isMobile}
+              onClose={() => setShowAddModal(false)}
+              title="Add New Task"
             >
-              {addTaskLoading ? 'Adding...' : 'Add Task'}
-            </button>
-          </div>
-        </div>
-      </Modal>
+              {formContent}
+            </BottomSheet>
+          </>
+        );
+      })()}
     </div>
   );
 }

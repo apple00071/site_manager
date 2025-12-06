@@ -62,7 +62,7 @@ export default function ProjectDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { setTitle } = useHeaderTitle();
+  const { setTitle, setSubtitle, setTabs, setActions, clearHeader } = useHeaderTitle();
 
   const { user, isAdmin, isLoading: authLoading } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
@@ -139,7 +139,22 @@ export default function ProjectDetailsPage() {
       }
 
       setProject(projectData as Project);
-      setTitle(`Project Details / ${projectData.title}`);
+      setTitle(`${projectData.title}`);
+      // Set workflow stage as subtitle for header status display
+      const stageLabels: Record<string, string> = {
+        recce: 'Recce',
+        design: 'Design',
+        boq: 'BOQ',
+        order: 'Order',
+        work_progress: 'Work Progress',
+        snag: 'Snag',
+        finance: 'Finance',
+        design_approved: 'Design Approved',
+        design_rejected: 'Design Rejected',
+        in_progress: 'In Progress',
+        completed: 'Completed',
+      };
+      setSubtitle(stageLabels[projectData.workflow_stage] || projectData.workflow_stage || 'Recce');
     } catch (err: any) {
       console.error('Error fetching project:', err);
       setError(err.message || 'Failed to load project');
@@ -147,6 +162,28 @@ export default function ProjectDetailsPage() {
       setIsLoading(false);
     }
   };
+
+  // Register tabs in header when project loads
+  useEffect(() => {
+    if (!project) return;
+
+    const headerTabs = [
+      { id: 'details', label: 'Details' },
+      { id: 'board', label: 'Stage Board' },
+      { id: 'updates', label: 'Updates' },
+      { id: 'inventory', label: 'Inventory' },
+      { id: 'designs', label: 'Designs' },
+    ];
+
+    setTabs(headerTabs, activeTab, (tabId) => {
+      handleTabChange(tabId as any);
+    });
+
+    // Cleanup on unmount
+    return () => {
+      clearHeader();
+    };
+  }, [project, activeTab]);
 
   // Initial fetch
   useEffect(() => {
@@ -245,10 +282,10 @@ export default function ProjectDetailsPage() {
         <div className="flex items-center justify-between mt-1">
           <p className="text-sm text-gray-600 truncate flex-1">{project.customer_name}</p>
           <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${project.status === 'completed'
-              ? 'bg-green-100 text-green-700'
-              : project.status === 'in_progress'
-                ? 'bg-blue-100 text-blue-700'
-                : 'bg-yellow-100 text-yellow-700'
+            ? 'bg-green-100 text-green-700'
+            : project.status === 'in_progress'
+              ? 'bg-blue-100 text-blue-700'
+              : 'bg-yellow-100 text-yellow-700'
             }`}>
             {project.status.replace('_', ' ').toUpperCase()}
           </span>
@@ -278,89 +315,6 @@ export default function ProjectDetailsPage() {
                       }`}
                     onClick={() => {
                       setActiveTab('details');
-                      setShowTabWidget(false);
-                    }}
-                  >
-                    📋 Project Details
-                  </button>
-                  <button
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'board'
-                      ? 'bg-yellow-100 text-yellow-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    onClick={() => {
-                      handleTabChange('board');
-                      setShowTabWidget(false);
-                    }}
-                  >
-                    📊 Stage Board
-                  </button>
-                  <button
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'updates'
-                      ? 'bg-yellow-100 text-yellow-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    onClick={() => {
-                      handleTabChange('updates');
-                      setShowTabWidget(false);
-                    }}
-                  >
-                    📝 Updates
-                  </button>
-                  <button
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'inventory'
-                      ? 'bg-yellow-100 text-yellow-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    onClick={() => {
-                      handleTabChange('inventory');
-                      setShowTabWidget(false);
-                    }}
-                  >
-                    📦 Inventory
-                  </button>
-                  <button
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'designs'
-                      ? 'bg-yellow-100 text-yellow-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    onClick={() => {
-                      handleTabChange('designs');
-                      setShowTabWidget(false);
-                    }}
-                  >
-                    🎨 Designs
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Desktop FAB Navigation */}
-      {mounted && (
-        <div className="fixed right-6 bottom-6 z-50 hidden lg:block">
-          <div className="relative">
-            <button
-              onClick={() => setShowTabWidget(!showTabWidget)}
-              className="w-14 h-14 bg-yellow-500 hover:bg-yellow-600 text-gray-900 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 touch-target"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-
-            {showTabWidget && (
-              <div className="absolute bottom-16 right-0 bg-white rounded-2xl shadow-xl border border-gray-200 p-2 min-w-48">
-                <div className="space-y-1">
-                  <button
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'details'
-                      ? 'bg-yellow-100 text-yellow-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    onClick={() => {
-                      handleTabChange('details');
                       setShowTabWidget(false);
                     }}
                   >
