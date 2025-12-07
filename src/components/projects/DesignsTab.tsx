@@ -66,6 +66,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [mobileActionDesign, setMobileActionDesign] = useState<DesignFile | null>(null);
   const [approvalDesign, setApprovalDesign] = useState<DesignFile | null>(null);
   const [approvalAction, setApprovalAction] = useState<'reject' | 'needs_changes' | null>(null);
   const [approvalComment, setApprovalComment] = useState('');
@@ -472,472 +473,508 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
         <UploadForm />
       </BottomSheet>
 
-      {/* Empty State */}
-      {designs.length === 0 ? (
-        <div className="p-4">
-          <div className="flex justify-end mb-4">
+      {/* Mobile Actions Bottom Sheet */}
+      <BottomSheet
+        isOpen={mobileActionDesign !== null}
+        onClose={() => setMobileActionDesign(null)}
+        title={mobileActionDesign?.file_name || 'Design Actions'}
+      >
+        {mobileActionDesign && (
+          <div className="space-y-1">
             <button
               onClick={() => {
-                setIsAddingNew(true);
-                resetForm();
+                setViewerDesign(mobileActionDesign);
+                setMobileActionDesign(null);
               }}
-              className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 text-sm font-medium flex items-center gap-2 transition-all duration-200"
+              className="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
             >
-              <FiPlus className="w-4 h-4" />
-              Upload Design
+              <FiEye className="w-5 h-5 text-gray-500" /> View Design
             </button>
-          </div>
-          <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-            <FiUpload className="h-12 w-12 mx-auto text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No designs</h3>
-            <p className="mt-1 text-sm text-gray-500">Get started by uploading a new design file.</p>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="hidden md:block">
-            {/* Action bar above table */}
-            <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
-              {/* Category Tabs */}
-              <div className="flex items-center gap-1 overflow-x-auto">
-                {categories.map((category) => {
-                  const count = groupedDesigns[category]?.length || 0;
-                  const isActive = selectedCategory === category;
-                  return (
-                    <button
-                      key={category}
-                      onClick={() => setSelectedCategory(category)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${isActive
-                        ? 'bg-yellow-500 text-gray-900'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                    >
-                      {category}
-                      <span className={`inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold rounded ${isActive ? 'bg-gray-900 text-white' : 'bg-gray-300 text-gray-700'
-                        }`}>
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
 
+            <a
+              href={mobileActionDesign.file_url}
+              download
+              className="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
+            >
+              <FiDownload className="w-5 h-5 text-gray-500" /> Download File
+            </a>
+
+            <button
+              onClick={() => {
+                handleUploadNewVersion(mobileActionDesign);
+                setMobileActionDesign(null);
+              }}
+              className="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
+            >
+              <FiUpload className="w-5 h-5 text-gray-500" /> Upload New Version
+            </button>
+
+            {/* Freeze/Unfreeze (admin only) */}
+            {isAdmin && (
               <button
-                type="button"
+                onClick={() => {
+                  handleToggleFreezeDesign(mobileActionDesign);
+                  setMobileActionDesign(null);
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-3 text-sm font-medium rounded-lg ${mobileActionDesign.is_frozen
+                  ? 'text-blue-700 bg-blue-50'
+                  : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+              >
+                {mobileActionDesign.is_frozen ? (
+                  <>
+                    <FiUnlock className="w-5 h-5" /> Unfreeze Design
+                  </>
+                ) : (
+                  <>
+                    <FiLock className="w-5 h-5" /> Freeze Design
+                  </>
+                )}
+              </button>
+            )}
+
+            {isAdmin && mobileActionDesign.approval_status === 'pending' && (
+              <>
+                <button
+                  onClick={() => {
+                    handleApproval(mobileActionDesign.id, 'approved');
+                    setMobileActionDesign(null);
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium text-green-700 hover:bg-green-50 rounded-lg"
+                >
+                  <FiCheck className="w-5 h-5" /> Approve Design
+                </button>
+                <button
+                  onClick={() => {
+                    setApprovalDesign(mobileActionDesign);
+                    setApprovalAction('reject');
+                    setMobileActionDesign(null);
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium text-red-700 hover:bg-red-50 rounded-lg"
+                >
+                  <FiX className="w-5 h-5" /> Reject Design
+                </button>
+              </>
+            )}
+
+            {(isAdmin || mobileActionDesign.uploaded_by === user?.id) && (
+              <button
+                onClick={() => {
+                  handleDelete(mobileActionDesign.id);
+                  setMobileActionDesign(null);
+                }}
+                className="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg"
+              >
+                <FiTrash2 className="w-5 h-5" /> Remove Design
+              </button>
+            )}
+          </div>
+        )}
+      </BottomSheet>
+
+      {/* Empty State */}
+      {
+        designs.length === 0 ? (
+          <div className="p-4">
+            <div className="flex justify-end mb-4">
+              <button
                 onClick={() => {
                   setIsAddingNew(true);
                   resetForm();
                 }}
-                className="px-3 py-1.5 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 text-xs font-medium inline-flex items-center gap-1.5 transition-all duration-200"
+                className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 text-sm font-medium flex items-center gap-2 transition-all duration-200"
               >
-                <FiPlus className="w-3.5 h-3.5" />
+                <FiPlus className="w-4 h-4" />
                 Upload Design
               </button>
             </div>
-
-            {/* Flat Design Table */}
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name of File
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type of File
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Uploaded By
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Uploaded On
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredDesigns.map((design) => (
-                  <tr key={design.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        {/* Version badge */}
-                        <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold bg-yellow-500 text-gray-900 rounded">
-                          V{design.version_number}
-                        </span>
-                        {/* Thumbnail */}
-                        {design.file_type === 'image' ? (
-                          <img
-                            src={design.file_url}
-                            alt=""
-                            className="w-8 h-8 rounded object-cover border border-gray-200"
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center">
-                            {getFileIcon(design.file_type)}
-                          </div>
-                        )}
-                        {/* File name */}
-                        <span className="text-sm font-medium text-gray-900 truncate max-w-[200px]">
-                          {design.file_name}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        {/* Comment count */}
-                        {design.comments && design.comments.length > 0 && (
-                          <span className="inline-flex items-center gap-1 text-xs text-gray-500">
-                            <FiMessageCircle className="w-3.5 h-3.5" />
-                            {design.comments.length}
-                          </span>
-                        )}
-                        {/* Pinned indicator */}
-                        {hasPinnedComments(design) && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-medium rounded">
-                            <FiMapPin className="w-3 h-3" />
-                            Pinned
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                      {design.uploaded_by_user?.full_name || 'Unknown'}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                      {formatDateTimeReadable(design.created_at)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {getStatusBadge(design.approval_status)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right relative">
+            <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+              <FiUpload className="h-12 w-12 mx-auto text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No designs</h3>
+              <p className="mt-1 text-sm text-gray-500">Get started by uploading a new design file.</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div>
+              {/* Action bar above table */}
+              <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
+                {/* Category Tabs */}
+                <div className="flex items-center gap-1 overflow-x-auto">
+                  {categories.map((category) => {
+                    const count = groupedDesigns[category]?.length || 0;
+                    const isActive = selectedCategory === category;
+                    return (
                       <button
-                        onClick={() => setOpenMenuId(openMenuId === design.id ? null : design.id)}
-                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                        key={category}
+                        onClick={() => setSelectedCategory(category)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${isActive
+                          ? 'bg-yellow-500 text-gray-900'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                      >
+                        {category}
+                        <span className={`inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold rounded ${isActive ? 'bg-gray-900 text-white' : 'bg-gray-300 text-gray-700'
+                          }`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingNew(true);
+                    resetForm();
+                  }}
+                  className="px-3 py-1.5 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 text-xs font-medium inline-flex items-center gap-1.5 transition-all duration-200"
+                >
+                  <FiPlus className="w-3.5 h-3.5" />
+                  <span className="hidden md:inline">Upload Design</span>
+                </button>
+              </div>
+
+              {/* Flat Design Table - Desktop Only */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Name of File
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Type of File
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Uploaded By
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Uploaded On
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredDesigns.map((design) => (
+                      <tr key={design.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            {/* Version badge */}
+                            <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold bg-yellow-500 text-gray-900 rounded">
+                              V{design.version_number}
+                            </span>
+                            {/* Thumbnail */}
+                            {design.file_type === 'image' ? (
+                              <img
+                                src={design.file_url}
+                                alt=""
+                                className="w-8 h-8 rounded object-cover border border-gray-200"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center">
+                                {getFileIcon(design.file_type)}
+                              </div>
+                            )}
+                            {/* File name */}
+                            <span className="text-sm font-medium text-gray-900 truncate max-w-[200px]">
+                              {design.file_name}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            {/* Comment count */}
+                            {design.comments && design.comments.length > 0 && (
+                              <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+                                <FiMessageCircle className="w-3.5 h-3.5" />
+                                {design.comments.length}
+                              </span>
+                            )}
+                            {/* Pinned indicator */}
+                            {hasPinnedComments(design) && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-medium rounded">
+                                <FiMapPin className="w-3 h-3" />
+                                Pinned
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                          {design.uploaded_by_user?.full_name || 'Unknown'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                          {formatDateTimeReadable(design.created_at)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {getStatusBadge(design.approval_status)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-right relative">
+                          <button
+                            onClick={() => setOpenMenuId(openMenuId === design.id ? null : design.id)}
+                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                          >
+                            <FiMoreVertical className="w-5 h-5" />
+                          </button>
+
+                          {/* Dropdown Menu */}
+                          {openMenuId === design.id && (
+                            <div
+                              ref={menuRef}
+                              className="absolute right-4 top-10 z-50 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
+                            >
+                              <button
+                                onClick={() => {
+                                  setViewerDesign(design);
+                                  setOpenMenuId(null);
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                <FiEye className="w-4 h-4" />
+                                View
+                              </button>
+                              <a
+                                href={design.file_url}
+                                download
+                                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                onClick={() => setOpenMenuId(null)}
+                              >
+                                <FiDownload className="w-4 h-4" />
+                                Download
+                              </a>
+                              <button
+                                onClick={() => handleUploadNewVersion(design)}
+                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                <FiUpload className="w-4 h-4" />
+                                Upload new version
+                              </button>
+
+                              {isAdmin && (
+                                <button
+                                  onClick={() => {
+                                    handleToggleFreezeDesign(design);
+                                    setOpenMenuId(null);
+                                  }}
+                                  className={`w-full flex items-center gap-2 px-4 py-2 text-sm ${design.is_frozen
+                                    ? 'text-yellow-700 hover:bg-yellow-50'
+                                    : 'text-gray-700 hover:bg-gray-50'
+                                    }`}
+                                >
+                                  {design.is_frozen ? (
+                                    <>
+                                      <FiUnlock className="w-4 h-4" />
+                                      Unfreeze
+                                    </>
+                                  ) : (
+                                    <>
+                                      <FiLock className="w-4 h-4" />
+                                      Freeze
+                                    </>
+                                  )}
+                                </button>
+                              )}
+
+                              <div className="border-t border-gray-100 my-1"></div>
+
+                              {/* Remove (for owner or admin) */}
+                              {(isAdmin || design.uploaded_by === user?.id) && (
+                                <button
+                                  onClick={() => {
+                                    handleDelete(design.id);
+                                    setOpenMenuId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                >
+                                  <FiTrash2 className="w-4 h-4" />
+                                  Remove
+                                </button>
+                              )}
+
+                              <div className="border-t border-gray-100 my-1"></div>
+
+                              {/* Approve/Reject for admin */}
+                              {isAdmin && design.approval_status === 'pending' && (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      handleApproval(design.id, 'approved');
+                                      setOpenMenuId(null);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-green-700 hover:bg-green-50"
+                                  >
+                                    <FiCheck className="w-4 h-4" />
+                                    Approve
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setApprovalDesign(design);
+                                      setApprovalAction('reject');
+                                      setOpenMenuId(null);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-red-50"
+                                  >
+                                    <FiX className="w-4 h-4" />
+                                    Reject
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setApprovalDesign(design);
+                                      setApprovalAction('needs_changes');
+                                      setOpenMenuId(null);
+                                    }}
+                                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                  >
+                                    <FiClock className="w-4 h-4" />
+                                    Mark Reviewed
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Mobile List */}
+            <div className="md:hidden divide-y divide-gray-200">
+              {filteredDesigns.map((design) => (
+                <div key={design.id} className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold bg-red-500 text-white rounded">
+                        V{design.version_number}
+                      </span>
+                      {design.file_type === 'image' ? (
+                        <img
+                          src={design.file_url}
+                          alt=""
+                          className="w-10 h-10 rounded object-cover border border-gray-200"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center">
+                          {getFileIcon(design.file_type)}
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 truncate max-w-[180px]">
+                          {design.file_name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {design.uploaded_by_user?.full_name} • {formatDateTimeReadable(design.created_at).split(',')[0]}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(design.approval_status)}
+                      <button
+                        onClick={() => setMobileActionDesign(design)}
+                        className="p-1 text-gray-400"
                       >
                         <FiMoreVertical className="w-5 h-5" />
                       </button>
-
-                      {/* Dropdown Menu */}
-                      {openMenuId === design.id && (
-                        <div
-                          ref={menuRef}
-                          className="absolute right-4 top-10 z-50 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
-                        >
-                          <button
-                            onClick={() => {
-                              setViewerDesign(design);
-                              setOpenMenuId(null);
-                            }}
-                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                          >
-                            <FiEye className="w-4 h-4" />
-                            View
-                          </button>
-                          <a
-                            href={design.file_url}
-                            download
-                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                            onClick={() => setOpenMenuId(null)}
-                          >
-                            <FiDownload className="w-4 h-4" />
-                            Download
-                          </a>
-                          <button
-                            onClick={() => handleUploadNewVersion(design)}
-                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                          >
-                            <FiUpload className="w-4 h-4" />
-                            Upload new version
-                          </button>
-
-                          {isAdmin && (
-                            <button
-                              onClick={() => {
-                                handleToggleFreezeDesign(design);
-                                setOpenMenuId(null);
-                              }}
-                              className={`w-full flex items-center gap-2 px-4 py-2 text-sm ${design.is_frozen
-                                ? 'text-yellow-700 hover:bg-yellow-50'
-                                : 'text-gray-700 hover:bg-gray-50'
-                                }`}
-                            >
-                              {design.is_frozen ? (
-                                <>
-                                  <FiUnlock className="w-4 h-4" />
-                                  Unfreeze
-                                </>
-                              ) : (
-                                <>
-                                  <FiLock className="w-4 h-4" />
-                                  Freeze
-                                </>
-                              )}
-                            </button>
-                          )}
-
-                          <div className="border-t border-gray-100 my-1"></div>
-
-                          {/* Remove (for owner or admin) */}
-                          {(isAdmin || design.uploaded_by === user?.id) && (
-                            <button
-                              onClick={() => {
-                                handleDelete(design.id);
-                                setOpenMenuId(null);
-                              }}
-                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                            >
-                              <FiTrash2 className="w-4 h-4" />
-                              Remove
-                            </button>
-                          )}
-
-                          <div className="border-t border-gray-100 my-1"></div>
-
-                          {/* Approve/Reject for admin */}
-                          {isAdmin && design.approval_status === 'pending' && (
-                            <>
-                              <button
-                                onClick={() => {
-                                  handleApproval(design.id, 'approved');
-                                  setOpenMenuId(null);
-                                }}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-green-700 hover:bg-green-50"
-                              >
-                                <FiCheck className="w-4 h-4" />
-                                Approve
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setApprovalDesign(design);
-                                  setApprovalAction('reject');
-                                  setOpenMenuId(null);
-                                }}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-red-50"
-                              >
-                                <FiX className="w-4 h-4" />
-                                Reject
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setApprovalDesign(design);
-                                  setApprovalAction('needs_changes');
-                                  setOpenMenuId(null);
-                                }}
-                                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                              >
-                                <FiClock className="w-4 h-4" />
-                                Mark Reviewed
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile List */}
-          <div className="md:hidden divide-y divide-gray-200">
-            {designs.map((design) => (
-              <div key={design.id} className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold bg-red-500 text-white rounded">
-                      V{design.version_number}
-                    </span>
-                    {design.file_type === 'image' ? (
-                      <img
-                        src={design.file_url}
-                        alt=""
-                        className="w-10 h-10 rounded object-cover border border-gray-200"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center">
-                        {getFileIcon(design.file_type)}
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 truncate max-w-[180px]">
-                        {design.file_name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {design.uploaded_by_user?.full_name} • {formatDateTimeReadable(design.created_at).split(',')[0]}
-                      </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {getStatusBadge(design.approval_status)}
-                    <button
-                      onClick={() => setOpenMenuId(openMenuId === design.id ? null : design.id)}
-                      className="p-1 text-gray-400"
-                    >
-                      <FiMoreVertical className="w-5 h-5" />
-                    </button>
-                  </div>
                 </div>
-
-                {/* Mobile Dropdown */}
-                {openMenuId === design.id && (
-                  <div className="mt-3 p-2 bg-gray-50 rounded-lg space-y-1">
-                    <button
-                      onClick={() => {
-                        setViewerDesign(design);
-                        setOpenMenuId(null);
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-white rounded"
-                    >
-                      <FiEye className="w-4 h-4" /> View
-                    </button>
-                    <a
-                      href={design.file_url}
-                      download
-                      className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-white rounded"
-                    >
-                      <FiDownload className="w-4 h-4" /> Download
-                    </a>
-                    <button
-                      onClick={() => handleUploadNewVersion(design)}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-white rounded"
-                    >
-                      <FiUpload className="w-4 h-4" /> Upload new version
-                    </button>
-                    {/* Freeze/Unfreeze (admin only) */}
-                    {isAdmin && (
-                      <button
-                        onClick={() => {
-                          handleToggleFreezeDesign(design);
-                          setOpenMenuId(null);
-                        }}
-                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded ${design.is_frozen
-                          ? 'text-blue-700 hover:bg-blue-50'
-                          : 'text-gray-700 hover:bg-white'
-                          }`}
-                      >
-                        {design.is_frozen ? '🔓 Unfreeze' : '🔒 Freeze'}
-                      </button>
-                    )}
-                    {isAdmin && design.approval_status === 'pending' && (
-                      <>
-                        <button
-                          onClick={() => handleApproval(design.id, 'approved')}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-green-700 hover:bg-white rounded"
-                        >
-                          <FiCheck className="w-4 h-4" /> Approve
-                        </button>
-                        <button
-                          onClick={() => {
-                            setApprovalDesign(design);
-                            setApprovalAction('reject');
-                            setOpenMenuId(null);
-                          }}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-700 hover:bg-white rounded"
-                        >
-                          <FiX className="w-4 h-4" /> Reject
-                        </button>
-                      </>
-                    )}
-                    {(isAdmin || design.uploaded_by === user?.id) && (
-                      <button
-                        onClick={() => handleDelete(design.id)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-white rounded"
-                      >
-                        <FiTrash2 className="w-4 h-4" /> Remove
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+              ))}
+            </div>
+          </>
+        )
+      }
 
       {/* Rejection/Changes Modal */}
-      {approvalDesign && approvalAction && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {approvalAction === 'reject' ? 'Reject Design' : 'Request Changes'}
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Please provide a reason for {approvalAction === 'reject' ? 'rejecting' : 'requesting changes to'} "{approvalDesign.file_name}":
-            </p>
-            <textarea
-              value={approvalComment}
-              onChange={(e) => setApprovalComment(e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-              placeholder="Enter your comments..."
-            />
-            <div className="flex gap-3 mt-4">
-              <button
-                onClick={() => {
-                  setApprovalDesign(null);
-                  setApprovalAction(null);
-                  setApprovalComment('');
-                }}
-                className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleApproval(
-                  approvalDesign.id,
-                  approvalAction === 'reject' ? 'rejected' : 'needs_changes',
-                  approvalComment
-                )}
-                disabled={processing || !approvalComment.trim()}
-                className={`flex-1 px-4 py-2 text-white rounded-lg disabled:opacity-50 ${approvalAction === 'reject' ? 'bg-red-500 hover:bg-red-600' : 'bg-orange-500 hover:bg-orange-600'
-                  }`}
-              >
-                {processing ? 'Processing...' : approvalAction === 'reject' ? 'Reject' : 'Request Changes'}
-              </button>
+      {
+        approvalDesign && approvalAction && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                {approvalAction === 'reject' ? 'Reject Design' : 'Request Changes'}
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Please provide a reason for {approvalAction === 'reject' ? 'rejecting' : 'requesting changes to'} "{approvalDesign.file_name}":
+              </p>
+              <textarea
+                value={approvalComment}
+                onChange={(e) => setApprovalComment(e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                placeholder="Enter your comments..."
+              />
+              <div className="flex gap-3 mt-4">
+                <button
+                  onClick={() => {
+                    setApprovalDesign(null);
+                    setApprovalAction(null);
+                    setApprovalComment('');
+                  }}
+                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleApproval(
+                    approvalDesign.id,
+                    approvalAction === 'reject' ? 'rejected' : 'needs_changes',
+                    approvalComment
+                  )}
+                  disabled={processing || !approvalComment.trim()}
+                  className={`flex-1 px-4 py-2 text-white rounded-lg disabled:opacity-50 ${approvalAction === 'reject' ? 'bg-red-500 hover:bg-red-600' : 'bg-orange-500 hover:bg-orange-600'
+                    }`}
+                >
+                  {processing ? 'Processing...' : approvalAction === 'reject' ? 'Reject' : 'Request Changes'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Design Viewer Modal - Full Screen */}
-      {viewerDesign && (
-        <div className="fixed inset-0 z-50 bg-black">
-          <DesignViewer
-            designId={viewerDesign.id}
-            fileUrl={viewerDesign.file_url}
-            fileName={viewerDesign.file_name}
-            fileType={viewerDesign.file_type}
-            versionNumber={viewerDesign.version_number}
-            approvalStatus={viewerDesign.approval_status}
-            onApprovalChange={async (status) => {
-              await handleApproval(viewerDesign.id, status);
-              // Refresh viewer design data after approval
-              const updated = designs.find(d => d.id === viewerDesign.id);
-              if (updated) {
-                setViewerDesign({ ...updated, approval_status: status });
-              }
-            }}
-            comments={viewerDesign.comments?.map(c => ({
-              ...c,
-              x_percent: (c as any).x_percent ?? null,
-              y_percent: (c as any).y_percent ?? null,
-              zoom_level: (c as any).zoom_level ?? null,
-              is_resolved: (c as any).is_resolved ?? false,
-              linked_task_id: (c as any).linked_task_id ?? null,
-            })) || []}
-            onCommentAdded={() => {
-              fetchDesigns();
-            }}
-            onClose={() => setViewerDesign(null)}
-          />
-        </div>
-      )}
-    </div>
+      {
+        viewerDesign && (
+          <div className="fixed inset-0 z-50 bg-black">
+            <DesignViewer
+              designId={viewerDesign.id}
+              fileUrl={viewerDesign.file_url}
+              fileName={viewerDesign.file_name}
+              fileType={viewerDesign.file_type}
+              versionNumber={viewerDesign.version_number}
+              approvalStatus={viewerDesign.approval_status}
+              onApprovalChange={async (status) => {
+                await handleApproval(viewerDesign.id, status);
+                // Refresh viewer design data after approval
+                const updated = designs.find(d => d.id === viewerDesign.id);
+                if (updated) {
+                  setViewerDesign({ ...updated, approval_status: status });
+                }
+              }}
+              comments={viewerDesign.comments?.map(c => ({
+                ...c,
+                x_percent: (c as any).x_percent ?? null,
+                y_percent: (c as any).y_percent ?? null,
+                zoom_level: (c as any).zoom_level ?? null,
+                is_resolved: (c as any).is_resolved ?? false,
+                linked_task_id: (c as any).linked_task_id ?? null,
+              })) || []}
+              onCommentAdded={() => {
+                fetchDesigns();
+              }}
+              onClose={() => setViewerDesign(null)}
+            />
+          </div>
+        )
+      }
+    </div >
   );
 }
 

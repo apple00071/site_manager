@@ -18,6 +18,8 @@ const addCommentSchema = z.object({
   x_percent: z.number().min(0).max(100).optional(),
   y_percent: z.number().min(0).max(100).optional(),
   zoom_level: z.number().min(0).optional(),
+  // Page number for multi-page PDFs (defaults to 1)
+  page_number: z.number().int().min(1).optional().default(1),
   // Mentions (optional array of user IDs)
   mentioned_user_ids: z.array(z.string().uuid()).optional(),
   // Task creation (optional)
@@ -57,6 +59,7 @@ export async function POST(request: NextRequest) {
       x_percent,
       y_percent,
       zoom_level,
+      page_number,
       mentioned_user_ids,
       create_task,
       task_assignee_id,
@@ -113,6 +116,7 @@ export async function POST(request: NextRequest) {
         x_percent: x_percent ?? null,
         y_percent: y_percent ?? null,
         zoom_level: zoom_level ?? null,
+        page_number: page_number ?? 1,
         mentioned_user_ids: mentioned_user_ids ?? null,
         linked_task_id: linkedTaskId,
       })

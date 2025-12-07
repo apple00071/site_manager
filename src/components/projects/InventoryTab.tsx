@@ -47,6 +47,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [mobileActionItem, setMobileActionItem] = useState<InventoryItem | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -157,10 +158,10 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
         body: JSON.stringify({
           project_id: projectId,
           item_name: form.item_name,
-          quantity: form.quantity ? parseFloat(form.quantity) : null,
-          supplier_name: form.supplier_name || null,
-          date_purchased: form.date_purchased || null,
-          bill_url: form.bill_url || null,
+          quantity: form.quantity ? parseFloat(form.quantity) : undefined,
+          supplier_name: form.supplier_name || undefined,
+          date_purchased: form.date_purchased || undefined,
+          bill_url: form.bill_url || undefined,
         }),
       });
 
@@ -380,30 +381,74 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
         <ItemForm />
       </BottomSheet>
 
-      {/* Empty State */}
-      {items.length === 0 ? (
-        <div className="p-3">
-          <div className="flex justify-end mb-2">
+      {/* Mobile Actions Bottom Sheet */}
+      <BottomSheet
+        isOpen={mobileActionItem !== null}
+        onClose={() => setMobileActionItem(null)}
+        title="Item Actions"
+      >
+        {mobileActionItem && (
+          <div className="space-y-1">
+            {mobileActionItem.bill_url && (
+              <button
+                onClick={() => { setSelectedImage(mobileActionItem.bill_url!); setMobileActionItem(null); }}
+                className="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
+              >
+                <FiEye className="w-5 h-5 text-gray-500" /> View Bill
+              </button>
+            )}
+
             <button
-              onClick={() => setIsAddingNew(true)}
-              className="px-3 py-1.5 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 text-xs font-medium inline-flex items-center gap-1.5"
+              onClick={() => {
+                if (mobileActionItem) handleEdit(mobileActionItem);
+                setMobileActionItem(null);
+              }}
+              className="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
             >
-              <FiPlus className="w-3.5 h-3.5" />
-              Add Item
+              <FiEdit2 className="w-5 h-5 text-gray-500" /> Edit Item
+            </button>
+
+            {user?.role === 'admin' && mobileActionItem.bill_url && mobileActionItem.bill_approval_status === 'pending' && (
+              <>
+                <button
+                  onClick={() => {
+                    if (mobileActionItem) handleApprove(mobileActionItem.id);
+                    setMobileActionItem(null);
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium text-green-700 hover:bg-green-50 rounded-lg"
+                >
+                  <FiCheck className="w-5 h-5" /> Approve Bill
+                </button>
+                <button
+                  onClick={() => {
+                    if (mobileActionItem) handleReject(mobileActionItem.id);
+                    setMobileActionItem(null);
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium text-red-700 hover:bg-red-50 rounded-lg"
+                >
+                  <FiX className="w-5 h-5" /> Reject Bill
+                </button>
+              </>
+            )}
+
+            <button
+              onClick={() => {
+                if (mobileActionItem) handleDelete(mobileActionItem.id);
+                setMobileActionItem(null);
+              }}
+              className="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg"
+            >
+              <FiTrash2 className="w-5 h-5" /> Delete Item
             </button>
           </div>
-          <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-            <FiPackage className="h-12 w-12 mx-auto text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No inventory items</h3>
-            <p className="mt-1 text-sm text-gray-500">Add your first item to get started.</p>
-          </div>
-        </div>
-      ) : (
-        <>
-          {/* Desktop Table */}
-          <div className="hidden md:block">
-            {/* Action bar */}
-            <div className="flex justify-end px-4 py-2 border-b border-gray-200">
+        )}
+      </BottomSheet>
+
+      {/* Empty State */}
+      {
+        items.length === 0 ? (
+          <div className="p-3">
+            <div className="flex justify-end mb-2">
               <button
                 onClick={() => setIsAddingNew(true)}
                 className="px-3 py-1.5 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 text-xs font-medium inline-flex items-center gap-1.5"
@@ -412,193 +457,173 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 Add Item
               </button>
             </div>
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Item Name
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Qty
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Supplier
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {items.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="text-sm font-medium text-gray-900">{item.item_name}</span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                      {item.quantity || '-'}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                      {item.supplier_name || '-'}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                      {item.date_purchased ? formatDateIST(item.date_purchased) : '-'}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {getStatusBadge(item.bill_approval_status)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right relative">
-                      <button
-                        onClick={() => setOpenMenuId(openMenuId === item.id ? null : item.id)}
-                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
-                      >
-                        <FiMoreVertical className="w-5 h-5" />
-                      </button>
-
-                      {openMenuId === item.id && (
-                        <div
-                          ref={menuRef}
-                          className="absolute right-4 top-10 z-50 w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
+            <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+              <FiPackage className="h-12 w-12 mx-auto text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No inventory items</h3>
+              <p className="mt-1 text-sm text-gray-500">Add your first item to get started.</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Desktop Table */}
+            <div className="hidden md:block">
+              {/* Action bar */}
+              <div className="flex justify-end px-4 py-2 border-b border-gray-200">
+                <button
+                  onClick={() => setIsAddingNew(true)}
+                  className="px-3 py-1.5 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 text-xs font-medium inline-flex items-center gap-1.5"
+                >
+                  <FiPlus className="w-3.5 h-3.5" />
+                  Add Item
+                </button>
+              </div>
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Item Name
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Qty
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Supplier
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {items.map((item) => (
+                    <tr key={item.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="text-sm font-medium text-gray-900">{item.item_name}</span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        {item.quantity || '-'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        {item.supplier_name || '-'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        {item.date_purchased ? formatDateIST(item.date_purchased) : '-'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {getStatusBadge(item.bill_approval_status)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right relative">
+                        <button
+                          onClick={() => setOpenMenuId(openMenuId === item.id ? null : item.id)}
+                          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
                         >
-                          {item.bill_url && (
+                          <FiMoreVertical className="w-5 h-5" />
+                        </button>
+
+                        {openMenuId === item.id && (
+                          <div
+                            ref={menuRef}
+                            className="absolute right-4 top-10 z-50 w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
+                          >
+                            {item.bill_url && (
+                              <button
+                                onClick={() => { setSelectedImage(item.bill_url!); setOpenMenuId(null); }}
+                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                <FiEye className="w-4 h-4" />
+                                View Bill
+                              </button>
+                            )}
                             <button
-                              onClick={() => { setSelectedImage(item.bill_url!); setOpenMenuId(null); }}
+                              onClick={() => handleEdit(item)}
                               className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                             >
-                              <FiEye className="w-4 h-4" />
-                              View Bill
+                              <FiEdit2 className="w-4 h-4" />
+                              Edit
                             </button>
-                          )}
-                          <button
-                            onClick={() => handleEdit(item)}
-                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                          >
-                            <FiEdit2 className="w-4 h-4" />
-                            Edit
-                          </button>
 
-                          {user?.role === 'admin' && item.bill_url && item.bill_approval_status === 'pending' && (
-                            <>
-                              <div className="border-t border-gray-100 my-1"></div>
-                              <button
-                                onClick={() => handleApprove(item.id)}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-green-700 hover:bg-green-50"
-                              >
-                                <FiCheck className="w-4 h-4" />
-                                Approve Bill
-                              </button>
-                              <button
-                                onClick={() => handleReject(item.id)}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-red-50"
-                              >
-                                <FiX className="w-4 h-4" />
-                                Reject Bill
-                              </button>
-                            </>
-                          )}
+                            {user?.role === 'admin' && item.bill_url && item.bill_approval_status === 'pending' && (
+                              <>
+                                <div className="border-t border-gray-100 my-1"></div>
+                                <button
+                                  onClick={() => handleApprove(item.id)}
+                                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-green-700 hover:bg-green-50"
+                                >
+                                  <FiCheck className="w-4 h-4" />
+                                  Approve Bill
+                                </button>
+                                <button
+                                  onClick={() => handleReject(item.id)}
+                                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-red-50"
+                                >
+                                  <FiX className="w-4 h-4" />
+                                  Reject Bill
+                                </button>
+                              </>
+                            )}
 
-                          <div className="border-t border-gray-100 my-1"></div>
-                          <button
-                            onClick={() => { handleDelete(item.id); setOpenMenuId(null); }}
-                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                          >
-                            <FiTrash2 className="w-4 h-4" />
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile List */}
-          <div className="md:hidden">
-            <div className="flex justify-end px-4 py-3 border-b border-gray-200">
-              <button
-                onClick={() => setIsAddingNew(true)}
-                className="px-3 py-1.5 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 text-xs font-medium inline-flex items-center gap-1.5"
-              >
-                <FiPlus className="w-3.5 h-3.5" />
-                Add Item
-              </button>
+                            <div className="border-t border-gray-100 my-1"></div>
+                            <button
+                              onClick={() => { handleDelete(item.id); setOpenMenuId(null); }}
+                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                            >
+                              <FiTrash2 className="w-4 h-4" />
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div className="divide-y divide-gray-200">
-              {items.map((item) => (
-                <div key={item.id} className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{item.item_name}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {item.quantity && `Qty: ${item.quantity}`}
-                        {item.supplier_name && ` • ${item.supplier_name}`}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {getStatusBadge(item.bill_approval_status)}
-                      <button
-                        onClick={() => setOpenMenuId(openMenuId === item.id ? null : item.id)}
-                        className="p-1 text-gray-400"
-                      >
-                        <FiMoreVertical className="w-5 h-5" />
-                      </button>
+
+            {/* Mobile List */}
+            <div className="md:hidden">
+              <div className="flex justify-end px-4 py-3 border-b border-gray-200">
+                <button
+                  onClick={() => setIsAddingNew(true)}
+                  className="px-3 py-1.5 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 text-xs font-medium inline-flex items-center gap-1.5"
+                >
+                  <FiPlus className="w-3.5 h-3.5" />
+                  Add Item
+                </button>
+              </div>
+              <div className="divide-y divide-gray-200">
+                {items.map((item) => (
+                  <div key={item.id} className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{item.item_name}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {item.quantity && `Qty: ${item.quantity}`}
+                          {item.supplier_name && ` • ${item.supplier_name}`}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {getStatusBadge(item.bill_approval_status)}
+                        <button
+                          onClick={() => setMobileActionItem(item)}
+                          className="p-1 text-gray-400"
+                        >
+                          <FiMoreVertical className="w-5 h-5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-
-                  {openMenuId === item.id && (
-                    <div className="mt-3 p-2 bg-gray-50 rounded-lg space-y-1">
-                      {item.bill_url && (
-                        <button
-                          onClick={() => { setSelectedImage(item.bill_url!); setOpenMenuId(null); }}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-white rounded"
-                        >
-                          <FiEye className="w-4 h-4" /> View Bill
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleEdit(item)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-white rounded"
-                      >
-                        <FiEdit2 className="w-4 h-4" /> Edit
-                      </button>
-                      {user?.role === 'admin' && item.bill_url && item.bill_approval_status === 'pending' && (
-                        <>
-                          <button
-                            onClick={() => handleApprove(item.id)}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-green-700 hover:bg-white rounded"
-                          >
-                            <FiCheck className="w-4 h-4" /> Approve
-                          </button>
-                          <button
-                            onClick={() => handleReject(item.id)}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-700 hover:bg-white rounded"
-                          >
-                            <FiX className="w-4 h-4" /> Reject
-                          </button>
-                        </>
-                      )}
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-white rounded"
-                      >
-                        <FiTrash2 className="w-4 h-4" /> Delete
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        </>
-      )}
+          </>
+        )
+      }
 
       {/* Image Modal for Bills */}
       <ImageModal

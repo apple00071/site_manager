@@ -6,6 +6,17 @@ import { FiZoomIn, FiZoomOut, FiMaximize2, FiMessageCircle, FiX, FiCheck, FiDown
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/contexts/AuthContext';
+import dynamic from 'next/dynamic';
+
+// Dynamically import PdfViewer (only on client side)
+const PdfViewer = dynamic(() => import('./PdfViewer').then(mod => mod.PdfViewer), {
+    ssr: false,
+    loading: () => (
+        <div className="flex items-center justify-center h-full bg-gray-100">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
+        </div>
+    ),
+});
 
 type DesignComment = {
     id: string;
@@ -13,6 +24,7 @@ type DesignComment = {
     x_percent: number | null;
     y_percent: number | null;
     zoom_level: number | null;
+    page_number: number;
     is_resolved: boolean;
     created_at: string;
     linked_task_id: string | null;
@@ -58,10 +70,13 @@ export function DesignViewer({
 
     // Pin-drop state
     const [isAddingPin, setIsAddingPin] = useState(false);
-    const [pendingPin, setPendingPin] = useState<{ x: number; y: number } | null>(null);
+    const [pendingPin, setPendingPin] = useState<{ x: number; y: number; page: number } | null>(null);
     const [commentText, setCommentText] = useState('');
     const [createTask, setCreateTask] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+
+    // Current PDF page for multi-page documents
+    const [currentPage, setCurrentPage] = useState(1);
 
     // Task assignment state
     const [taskAssignee, setTaskAssignee] = useState<string>('');
@@ -112,9 +127,9 @@ export function DesignViewer({
         const x = ((e.clientX - rect.left) / rect.width) * 100;
         const y = ((e.clientY - rect.top) / rect.height) * 100;
 
-        setPendingPin({ x, y });
+        setPendingPin({ x, y, page: currentPage });
         setIsAddingPin(false);
-    }, [isAddingPin, readOnly]);
+    }, [isAddingPin, readOnly, currentPage]);
 
     // Submit comment with coordinates
     const handleSubmitComment = async () => {
@@ -132,6 +147,8 @@ export function DesignViewer({
                     ...(pendingPin && {
                         x_percent: pendingPin.x,
                         y_percent: pendingPin.y,
+                        // EXPLICT FALLBACK: Use pendingPin.page, or fallback to currentPage, or default to 1
+                        page_number: pendingPin.page || currentPage || 1,
                     }),
                     create_task: createTask,
                     // Only send assignee if valid (not empty string)
@@ -354,29 +371,35 @@ export function DesignViewer({
                             )}
                         </TransformWrapper>
                     ) : (
-                        // PDF viewer with overlay
-                        <div ref={containerRef} className="relative w-full h-full">
-                            <iframe src={fileUrl} className="w-full h-full border-0" title={fileName} />
-
-                            {/* Clickable overlay for pin placement */}
-                            {isAddingPin && (
-                                <div className="absolute inset-0 cursor-crosshair z-10" onClick={handleImageClick} />
-                            )}
-
-                            {/* Pin markers overlay */}
-                            <div className="absolute inset-0 pointer-events-none z-20">
-                                <div className="pointer-events-auto">
-                                    {renderPins()}
-                                    {renderPendingPin()}
-                                </div>
-                            </div>
-                        </div>
+                        // PDF viewer with custom react-pdf renderer
+                        <PdfViewer
+                            fileUrl={fileUrl}
+                            comments={comments.map(c => ({
+                                id: c.id,
+                                x_percent: c.x_percent,
+                                y_percent: c.y_percent,
+                                page_number: c.page_number || 1,
+                                is_resolved: c.is_resolved,
+                                user: c.user,
+                            }))}
+                            isAddingPin={isAddingPin}
+                            pendingPin={pendingPin}
+                            onPinClick={(pin) => {
+                                // FORCE page: Ensure we capture the page from the pin, or fallback to currentPage
+                                setPendingPin({ ...pin, page: pin.page || currentPage });
+                                setIsAddingPin(false);
+                            }}
+                            onCommentClick={(id) => setActiveCommentId(id)}
+                            activeCommentId={activeCommentId}
+                            currentPage={currentPage}
+                            onPageChange={setCurrentPage}
+                        />
                     )}
                 </div>
 
                 {/* Right Comments Panel */}
                 {showCommentsPanel && (
-                    <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
+                    <div className={`${isMobile ? 'fixed inset-0 z-40 w-full' : 'w-80 border-l'} bg-white border-gray-200 flex flex-col`}>
                         {/* Panel Header */}
                         <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
                             <span className="font-semibold text-gray-900">Comments</span>

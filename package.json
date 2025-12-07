@@ -20,11 +20,13 @@
     "jsonwebtoken": "^9.0.2",
     "next": "16.0.7",
     "next-pwa": "^5.6.0",
+    "pdfjs-dist": "^5.4.449",
     "react": "19.2.0",
     "react-big-calendar": "^1.19.4",
     "react-dom": "19.2.0",
     "react-hook-form": "^7.65.0",
     "react-icons": "^5.5.0",
+    "react-pdf": "^10.2.0",
     "react-zoom-pan-pinch": "^3.7.0",
     "wasenderapi": "^0.1.5",
     "zod": "^4.1.12"
