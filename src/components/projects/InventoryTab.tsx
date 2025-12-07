@@ -33,6 +33,110 @@ type InventoryItem = {
   };
 };
 
+
+
+interface InventoryItemFormProps {
+  form: {
+    item_name: string;
+    quantity: string;
+    supplier_name: string;
+    date_purchased: string;
+    bill_url: string;
+  };
+  setForm: React.Dispatch<React.SetStateAction<{
+    item_name: string;
+    quantity: string;
+    supplier_name: string;
+    date_purchased: string;
+    bill_url: string;
+  }>>;
+  onClose: () => void;
+  onSubmit: () => Promise<void>;
+  onBillUpload: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
+  saving: boolean;
+  uploadingBill: boolean;
+  isEditing: boolean;
+}
+
+const InventoryItemForm = ({
+  form, setForm, onClose, onSubmit, onBillUpload, saving, uploadingBill, isEditing
+}: InventoryItemFormProps) => (
+  <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">Item Name *</label>
+      <input
+        type="text"
+        value={form.item_name}
+        onChange={(e) => setForm(prev => ({ ...prev, item_name: e.target.value }))}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
+        placeholder="Enter item name"
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+      <input
+        type="number"
+        value={form.quantity}
+        onChange={(e) => setForm(prev => ({ ...prev, quantity: e.target.value }))}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
+        placeholder="Enter quantity"
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+      <input
+        type="text"
+        value={form.supplier_name}
+        onChange={(e) => setForm(prev => ({ ...prev, supplier_name: e.target.value }))}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
+        placeholder="Enter supplier name"
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">Date Purchased</label>
+      <input
+        type="date"
+        value={form.date_purchased}
+        onChange={(e) => setForm(prev => ({ ...prev, date_purchased: e.target.value }))}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">Bill/Invoice</label>
+      <input
+        type="file"
+        accept="image/*,application/pdf"
+        onChange={(e) => {
+          e.stopPropagation();
+          onBillUpload(e);
+        }}
+        disabled={uploadingBill}
+        className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-yellow-50 file:text-yellow-700"
+      />
+      {form.bill_url && (
+        <p className="mt-1 text-xs text-green-600">✓ Bill uploaded</p>
+      )}
+    </div>
+    <div className="flex gap-3 pt-2">
+      <button
+        type="button"
+        onClick={onClose}
+        className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        onClick={onSubmit}
+        disabled={saving}
+        className="flex-1 px-4 py-2 bg-yellow-500 text-gray-900 font-medium rounded-lg hover:bg-yellow-600 disabled:opacity-50"
+      >
+        {saving ? 'Saving...' : isEditing ? 'Update' : 'Add Item'}
+      </button>
+    </div>
+  </form>
+);
+
 type InventoryTabProps = {
   projectId: string;
 };
@@ -271,83 +375,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
     );
   };
 
-  // Form component
-  const ItemForm = () => (
-    <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Item Name *</label>
-        <input
-          type="text"
-          value={form.item_name}
-          onChange={(e) => setForm(prev => ({ ...prev, item_name: e.target.value }))}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-          placeholder="Enter item name"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-        <input
-          type="number"
-          value={form.quantity}
-          onChange={(e) => setForm(prev => ({ ...prev, quantity: e.target.value }))}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-          placeholder="Enter quantity"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
-        <input
-          type="text"
-          value={form.supplier_name}
-          onChange={(e) => setForm(prev => ({ ...prev, supplier_name: e.target.value }))}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-          placeholder="Enter supplier name"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Date Purchased</label>
-        <input
-          type="date"
-          value={form.date_purchased}
-          onChange={(e) => setForm(prev => ({ ...prev, date_purchased: e.target.value }))}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Bill/Invoice</label>
-        <input
-          type="file"
-          accept="image/*,application/pdf"
-          onChange={(e) => {
-            e.stopPropagation();
-            handleBillUpload(e);
-          }}
-          disabled={uploadingBill}
-          className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-yellow-50 file:text-yellow-700"
-        />
-        {form.bill_url && (
-          <p className="mt-1 text-xs text-green-600">✓ Bill uploaded</p>
-        )}
-      </div>
-      <div className="flex gap-3 pt-2">
-        <button
-          type="button"
-          onClick={() => { setIsAddingNew(false); resetForm(); }}
-          className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={saving}
-          className="flex-1 px-4 py-2 bg-yellow-500 text-gray-900 font-medium rounded-lg hover:bg-yellow-600 disabled:opacity-50"
-        >
-          {saving ? 'Saving...' : editingItem ? 'Update' : 'Add Item'}
-        </button>
-      </div>
-    </form>
-  );
+
 
   if (loading) {
     return (
@@ -369,7 +397,16 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
         onClose={() => { setIsAddingNew(false); resetForm(); }}
         title={editingItem ? 'Edit Item' : 'Add New Item'}
       >
-        <ItemForm />
+        <InventoryItemForm
+          form={form}
+          setForm={setForm}
+          onClose={() => { setIsAddingNew(false); resetForm(); }}
+          onSubmit={handleSubmit}
+          onBillUpload={handleBillUpload}
+          saving={saving}
+          uploadingBill={uploadingBill}
+          isEditing={!!editingItem}
+        />
       </SidePanel>
 
       {/* Mobile Bottom Sheet */}
@@ -378,7 +415,16 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
         onClose={() => { setIsAddingNew(false); resetForm(); }}
         title={editingItem ? 'Edit Item' : 'Add New Item'}
       >
-        <ItemForm />
+        <InventoryItemForm
+          form={form}
+          setForm={setForm}
+          onClose={() => { setIsAddingNew(false); resetForm(); }}
+          onSubmit={handleSubmit}
+          onBillUpload={handleBillUpload}
+          saving={saving}
+          uploadingBill={uploadingBill}
+          isEditing={!!editingItem}
+        />
       </BottomSheet>
 
       {/* Mobile Actions Bottom Sheet */}
