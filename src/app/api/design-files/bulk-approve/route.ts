@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
 
         // Send notifications to uploaders
         try {
-            const notifications = (updatedDesigns || []).map(design =>
+            const notifications = (updatedDesigns || []).map((design: any) =>
                 NotificationService.createNotification({
                     userId: design.uploaded_by,
                     title: `Design ${action === 'approve' ? 'Approved' : 'Rejected'}`,
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             message: `Successfully ${action}d ${updatedDesigns?.length || 0} design(s)`,
             updated_count: updatedDesigns?.length || 0,
-            design_ids: updatedDesigns?.map(d => d.id) || [],
+            design_ids: updatedDesigns?.map((d: any) => d.id) || [],
         });
     } catch (error) {
         console.error('Unexpected error:', error);

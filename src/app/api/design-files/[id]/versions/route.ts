@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const { user, error: authError } = await getAuthUser();
@@ -19,7 +19,7 @@ export async function GET(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const designId = params.id;
+        const { id: designId } = await params;
 
         // Get the current design
         const { data: currentDesign, error: currentError } = await supabaseAdmin

@@ -59,6 +59,8 @@ export async function GET(request: NextRequest) {
           y_percent,
           linked_task_id,
           is_resolved,
+          page_number,
+          zoom_level,
           created_at,
           user:users!design_comments_user_id_fkey(id, full_name, email)
         )

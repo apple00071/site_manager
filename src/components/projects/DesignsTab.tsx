@@ -963,6 +963,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                 x_percent: (c as any).x_percent ?? null,
                 y_percent: (c as any).y_percent ?? null,
                 zoom_level: (c as any).zoom_level ?? null,
+                page_number: (c as any).page_number ?? 1,
                 is_resolved: (c as any).is_resolved ?? false,
                 linked_task_id: (c as any).linked_task_id ?? null,
               })) || []}
