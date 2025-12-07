@@ -69,10 +69,16 @@ interface DesignUploadFormProps {
   onUpload: () => void;
   uploading: boolean;
   error: string | null;
+  recoveryMessage?: string | null;
 }
 
-const DesignUploadForm = ({ uploadForm, setUploadForm, onClose, onUpload, uploading, error }: DesignUploadFormProps) => (
+const DesignUploadForm = ({ uploadForm, setUploadForm, onClose, onUpload, uploading, error, recoveryMessage }: DesignUploadFormProps) => (
   <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
+    {recoveryMessage && (
+      <div className="p-3 bg-yellow-50 text-yellow-800 rounded-lg text-sm border border-yellow-200">
+        ⚠️ {recoveryMessage}
+      </div>
+    )}
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-2">
         Select File *
@@ -174,6 +180,10 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
     category: '', // Room category like "Kitchen", "Bedroom", etc.
     version_number: 1,
   });
+  const [uploadRecoveryMessage, setUploadRecoveryMessage] = useState<string | null>(null);
+
+  // Session storage key for upload recovery
+  const UPLOAD_STORAGE_KEY = `design_upload_${projectId}`;
 
   // Check for mobile viewport
   useEffect(() => {
@@ -197,6 +207,38 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
   useEffect(() => {
     fetchDesigns();
   }, [projectId]);
+
+  // Persist upload form state to sessionStorage (for mobile tab discard recovery)
+  useEffect(() => {
+    if (isAddingNew && uploadForm.category) {
+      sessionStorage.setItem(UPLOAD_STORAGE_KEY, JSON.stringify({
+        category: uploadForm.category,
+        timestamp: Date.now()
+      }));
+    }
+  }, [isAddingNew, uploadForm.category, UPLOAD_STORAGE_KEY]);
+
+  // Recover from page refresh (mobile tab discard)
+  useEffect(() => {
+    const stored = sessionStorage.getItem(UPLOAD_STORAGE_KEY);
+    if (stored) {
+      try {
+        const data = JSON.parse(stored);
+        // Only recover if less than 5 minutes old
+        if (Date.now() - data.timestamp < 5 * 60 * 1000) {
+          setIsAddingNew(true);
+          setUploadForm(prev => ({ ...prev, category: data.category || '' }));
+          setUploadRecoveryMessage('Your previous upload was interrupted. Please select the file again.');
+          // Clear after recovery
+          sessionStorage.removeItem(UPLOAD_STORAGE_KEY);
+        } else {
+          sessionStorage.removeItem(UPLOAD_STORAGE_KEY);
+        }
+      } catch {
+        sessionStorage.removeItem(UPLOAD_STORAGE_KEY);
+      }
+    }
+  }, [UPLOAD_STORAGE_KEY]);
 
   const fetchDesigns = async () => {
     try {
@@ -352,6 +394,9 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
       await fetchDesigns();
       setIsAddingNew(false);
       resetForm();
+      // Clear recovery state after successful upload
+      sessionStorage.removeItem(UPLOAD_STORAGE_KEY);
+      setUploadRecoveryMessage(null);
       showToast('success', 'Design uploaded successfully');
     } catch (error: any) {
       console.error('Error uploading design:', error);
@@ -488,6 +533,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
           onUpload={handleFileUpload}
           uploading={uploading}
           error={formError}
+          recoveryMessage={uploadRecoveryMessage}
         />
       </SidePanel>
 
@@ -504,6 +550,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
           onUpload={handleFileUpload}
           uploading={uploading}
           error={formError}
+          recoveryMessage={uploadRecoveryMessage}
         />
       </BottomSheet>
 
