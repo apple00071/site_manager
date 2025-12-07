@@ -782,10 +782,11 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
             {/* Mobile List */}
             <div className="md:hidden divide-y divide-gray-200">
               {filteredDesigns.map((design) => (
-                <div key={design.id} className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold bg-red-500 text-white rounded">
+                <div key={design.id} className="p-3">
+                  <div className="flex items-start gap-3">
+                    {/* Left: V-Badge + Thumbnail */}
+                    <div className="flex-shrink-0 flex items-center gap-2 mt-0.5">
+                      <span className="inline-flex items-center justify-center min-w-[24px] px-1.5 py-0.5 text-xs font-bold bg-red-500 text-white rounded">
                         V{design.version_number}
                       </span>
                       {design.file_type === 'image' ? (
@@ -799,23 +800,30 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                           {getFileIcon(design.file_type)}
                         </div>
                       )}
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 truncate max-w-[180px]">
+                    </div>
+
+                    {/* Right: Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start">
+                        <p className="text-sm font-medium text-gray-900 break-words leading-tight pr-2">
                           {design.file_name}
                         </p>
-                        <p className="text-xs text-gray-500">
-                          {design.uploaded_by_user?.full_name} • {formatDateTimeReadable(design.created_at).split(',')[0]}
-                        </p>
+                        <button
+                          onClick={() => setMobileActionDesign(design)}
+                          className="p-1 -mr-2 -mt-1 text-gray-400 hover:bg-gray-100 rounded-full flex-shrink-0"
+                        >
+                          <FiMoreVertical className="w-5 h-5" />
+                        </button>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {getStatusBadge(design.approval_status)}
-                      <button
-                        onClick={() => setMobileActionDesign(design)}
-                        className="p-1 text-gray-400"
-                      >
-                        <FiMoreVertical className="w-5 h-5" />
-                      </button>
+
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2">
+                        <div className="scale-90 origin-left">
+                          {getStatusBadge(design.approval_status)}
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          {design.uploaded_by_user?.full_name} • {formatDateTimeReadable(design.created_at).split(',')[0]}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
