@@ -52,6 +52,88 @@ type DesignFile = {
   }>;
 };
 
+
+
+interface DesignUploadFormProps {
+  uploadForm: {
+    file: File | null;
+    category: string;
+    version_number: number;
+  };
+  setUploadForm: React.Dispatch<React.SetStateAction<{
+    file: File | null;
+    category: string;
+    version_number: number;
+  }>>;
+  onClose: () => void;
+  onUpload: () => void;
+  uploading: boolean;
+  error: string | null;
+}
+
+const DesignUploadForm = ({ uploadForm, setUploadForm, onClose, onUpload, uploading, error }: DesignUploadFormProps) => (
+  <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Select File *
+      </label>
+      <input
+        type="file"
+        accept="image/*,.pdf,.dwg,.dxf"
+        onChange={(e) => {
+          e.stopPropagation();
+          const file = e.target.files?.[0] || null;
+          setUploadForm(prev => ({ ...prev, file }));
+        }}
+        className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"
+      />
+      {uploadForm.file && (
+        <p className="mt-2 text-sm text-gray-600">Selected: {uploadForm.file.name}</p>
+      )}
+    </div>
+
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Room/Category *
+      </label>
+      <input
+        type="text"
+        value={uploadForm.category}
+        onChange={(e) => setUploadForm(prev => ({ ...prev, category: e.target.value }))}
+        placeholder="e.g. Kitchen, Bedroom, Floor Plan"
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+      />
+      <p className="mt-1 text-xs text-gray-500">
+        Designs with the same category are grouped as versions (V1, V2, V3...)
+      </p>
+    </div>
+
+    {error && (
+      <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
+        {error}
+      </div>
+    )}
+
+    <div className="flex gap-3 pt-2">
+      <button
+        type="button"
+        onClick={onClose}
+        className="flex-1 px-4 py-2 text-gray-700 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        onClick={onUpload}
+        disabled={uploading || !uploadForm.file}
+        className="flex-1 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium rounded-lg disabled:opacity-50 transition-colors"
+      >
+        {uploading ? 'Uploading...' : 'Upload'}
+      </button>
+    </div>
+  </form>
+);
+
 type DesignsTabProps = {
   projectId: string;
 };
@@ -65,7 +147,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
   // UI state
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [openMenu, setOpenMenu] = useState<{ design: DesignFile, top: number, left: number } | null>(null);
   const [mobileActionDesign, setMobileActionDesign] = useState<DesignFile | null>(null);
   const [approvalDesign, setApprovalDesign] = useState<DesignFile | null>(null);
   const [approvalAction, setApprovalAction] = useState<'reject' | 'needs_changes' | null>(null);
@@ -105,7 +187,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpenMenuId(null);
+        setOpenMenu(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -348,7 +430,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
       category: design.category || '' // Auto-fill category from original design
     }));
     setIsAddingNew(true);
-    setOpenMenuId(null);
+    setOpenMenu(null);
   };
 
   const getStatusBadge = (status: string) => {
@@ -377,69 +459,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
     resetForm();
   };
 
-  // Upload form component
-  const UploadForm = () => (
-    <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Select File *
-        </label>
-        <input
-          type="file"
-          accept="image/*,.pdf,.dwg,.dxf"
-          onChange={(e) => {
-            e.stopPropagation();
-            const file = e.target.files?.[0] || null;
-            setUploadForm(prev => ({ ...prev, file }));
-          }}
-          className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"
-        />
-        {uploadForm.file && (
-          <p className="mt-2 text-sm text-gray-600">Selected: {uploadForm.file.name}</p>
-        )}
-      </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Room/Category *
-        </label>
-        <input
-          type="text"
-          value={uploadForm.category}
-          onChange={(e) => setUploadForm(prev => ({ ...prev, category: e.target.value }))}
-          placeholder="e.g. Kitchen, Bedroom, Floor Plan"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-        />
-        <p className="mt-1 text-xs text-gray-500">
-          Designs with the same category are grouped as versions (V1, V2, V3...)
-        </p>
-      </div>
-
-      {formError && (
-        <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
-          {formError}
-        </div>
-      )}
-
-      <div className="flex gap-3 pt-2">
-        <button
-          type="button"
-          onClick={handleCloseForm}
-          className="flex-1 px-4 py-2 text-gray-700 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={handleFileUpload}
-          disabled={uploading || !uploadForm.file}
-          className="flex-1 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium rounded-lg disabled:opacity-50 transition-colors"
-        >
-          {uploading ? 'Uploading...' : 'Upload'}
-        </button>
-      </div>
-    </form>
-  );
 
   if (loading) {
     return (
@@ -461,7 +481,14 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
         onClose={handleCloseForm}
         title="Upload New Design"
       >
-        <UploadForm />
+        <DesignUploadForm
+          uploadForm={uploadForm}
+          setUploadForm={setUploadForm}
+          onClose={handleCloseForm}
+          onUpload={handleFileUpload}
+          uploading={uploading}
+          error={formError}
+        />
       </SidePanel>
 
       {/* Mobile Bottom Sheet for Upload */}
@@ -470,7 +497,14 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
         onClose={handleCloseForm}
         title="Upload New Design"
       >
-        <UploadForm />
+        <DesignUploadForm
+          uploadForm={uploadForm}
+          setUploadForm={setUploadForm}
+          onClose={handleCloseForm}
+          onUpload={handleFileUpload}
+          uploading={uploading}
+          error={formError}
+        />
       </BottomSheet>
 
       {/* Mobile Actions Bottom Sheet */}
@@ -600,7 +634,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
               {/* Action bar above table */}
               <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
                 {/* Category Tabs */}
-                <div className="flex items-center gap-1 overflow-x-auto">
+                <div className="flex-1 flex items-center gap-1 overflow-x-auto min-w-0 mr-2">
                   {categories.map((category) => {
                     const count = groupedDesigns[category]?.length || 0;
                     const isActive = selectedCategory === category;
@@ -717,127 +751,26 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-right relative">
                           <button
-                            onClick={() => setOpenMenuId(openMenuId === design.id ? null : design.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              // Toggle if clicking same button
+                              if (openMenu?.design.id === design.id) {
+                                setOpenMenu(null);
+                              } else {
+                                setOpenMenu({
+                                  design,
+                                  top: rect.bottom + 5,
+                                  left: rect.right - 192, // 192px = w-48
+                                });
+                              }
+                            }}
                             className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
                           >
                             <FiMoreVertical className="w-5 h-5" />
                           </button>
 
-                          {/* Dropdown Menu */}
-                          {openMenuId === design.id && (
-                            <div
-                              ref={menuRef}
-                              className="absolute right-4 top-10 z-50 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
-                            >
-                              <button
-                                onClick={() => {
-                                  setViewerDesign(design);
-                                  setOpenMenuId(null);
-                                }}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                              >
-                                <FiEye className="w-4 h-4" />
-                                View
-                              </button>
-                              <a
-                                href={design.file_url}
-                                download
-                                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                onClick={() => setOpenMenuId(null)}
-                              >
-                                <FiDownload className="w-4 h-4" />
-                                Download
-                              </a>
-                              <button
-                                onClick={() => handleUploadNewVersion(design)}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                              >
-                                <FiUpload className="w-4 h-4" />
-                                Upload new version
-                              </button>
 
-                              {isAdmin && (
-                                <button
-                                  onClick={() => {
-                                    handleToggleFreezeDesign(design);
-                                    setOpenMenuId(null);
-                                  }}
-                                  className={`w-full flex items-center gap-2 px-4 py-2 text-sm ${design.is_frozen
-                                    ? 'text-yellow-700 hover:bg-yellow-50'
-                                    : 'text-gray-700 hover:bg-gray-50'
-                                    }`}
-                                >
-                                  {design.is_frozen ? (
-                                    <>
-                                      <FiUnlock className="w-4 h-4" />
-                                      Unfreeze
-                                    </>
-                                  ) : (
-                                    <>
-                                      <FiLock className="w-4 h-4" />
-                                      Freeze
-                                    </>
-                                  )}
-                                </button>
-                              )}
-
-                              <div className="border-t border-gray-100 my-1"></div>
-
-                              {/* Remove (for owner or admin) */}
-                              {(isAdmin || design.uploaded_by === user?.id) && (
-                                <button
-                                  onClick={() => {
-                                    handleDelete(design.id);
-                                    setOpenMenuId(null);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                                >
-                                  <FiTrash2 className="w-4 h-4" />
-                                  Remove
-                                </button>
-                              )}
-
-                              <div className="border-t border-gray-100 my-1"></div>
-
-                              {/* Approve/Reject for admin */}
-                              {isAdmin && design.approval_status === 'pending' && (
-                                <>
-                                  <button
-                                    onClick={() => {
-                                      handleApproval(design.id, 'approved');
-                                      setOpenMenuId(null);
-                                    }}
-                                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-green-700 hover:bg-green-50"
-                                  >
-                                    <FiCheck className="w-4 h-4" />
-                                    Approve
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setApprovalDesign(design);
-                                      setApprovalAction('reject');
-                                      setOpenMenuId(null);
-                                    }}
-                                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-red-50"
-                                  >
-                                    <FiX className="w-4 h-4" />
-                                    Reject
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setApprovalDesign(design);
-                                      setApprovalAction('needs_changes');
-                                      setOpenMenuId(null);
-                                    }}
-                                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                  >
-                                    <FiClock className="w-4 h-4" />
-                                    Mark Reviewed
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          )}
                         </td>
                       </tr>
                     ))}
@@ -975,7 +908,129 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
           </div>
         )
       }
-    </div >
+
+      {/* Desktop Dropdown Menu (Fixed) */}
+      {openMenu && (
+        <div
+          ref={menuRef}
+          style={{ top: openMenu.top, left: openMenu.left }}
+          className="fixed z-50 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
+        >
+          {(() => {
+            const design = openMenu.design;
+            return (
+              <>
+                <button
+                  onClick={() => {
+                    setViewerDesign(design);
+                    setOpenMenu(null);
+                  }}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <FiEye className="w-4 h-4" />
+                  View
+                </button>
+                <a
+                  href={design.file_url}
+                  download
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  onClick={() => setOpenMenu(null)}
+                >
+                  <FiDownload className="w-4 h-4" />
+                  Download
+                </a>
+                <button
+                  onClick={() => handleUploadNewVersion(design)}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <FiUpload className="w-4 h-4" />
+                  Upload new version
+                </button>
+
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      handleToggleFreezeDesign(design);
+                      setOpenMenu(null);
+                    }}
+                    className={`w-full flex items-center gap-2 px-4 py-2 text-sm ${design.is_frozen
+                      ? 'text-yellow-700 hover:bg-yellow-50'
+                      : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                  >
+                    {design.is_frozen ? (
+                      <>
+                        <FiUnlock className="w-4 h-4" />
+                        Unfreeze
+                      </>
+                    ) : (
+                      <>
+                        <FiLock className="w-4 h-4" />
+                        Freeze
+                      </>
+                    )}
+                  </button>
+                )}
+
+                <div className="border-t border-gray-100 my-1"></div>
+
+                {(isAdmin || design.uploaded_by === user?.id) && (
+                  <button
+                    onClick={() => {
+                      handleDelete(design.id);
+                      setOpenMenu(null);
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                  >
+                    <FiTrash2 className="w-4 h-4" />
+                    Remove
+                  </button>
+                )}
+
+                <div className="border-t border-gray-100 my-1"></div>
+
+                {isAdmin && design.approval_status === 'pending' && (
+                  <>
+                    <button
+                      onClick={() => {
+                        handleApproval(design.id, 'approved');
+                        setOpenMenu(null);
+                      }}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-green-700 hover:bg-green-50"
+                    >
+                      <FiCheck className="w-4 h-4" />
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => {
+                        setApprovalDesign(design);
+                        setApprovalAction('reject');
+                        setOpenMenu(null);
+                      }}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-red-50"
+                    >
+                      <FiX className="w-4 h-4" />
+                      Reject
+                    </button>
+                    <button
+                      onClick={() => {
+                        setApprovalDesign(design);
+                        setApprovalAction('needs_changes');
+                        setOpenMenu(null);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <FiClock className="w-4 h-4" />
+                      Mark Reviewed
+                    </button>
+                  </>
+                )}
+              </>
+            );
+          })()}
+        </div>
+      )}
+    </div>
   );
 }
 
