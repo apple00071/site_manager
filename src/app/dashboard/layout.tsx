@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX, FiCheckSquare } from 'react-icons/fi';
 import { supabase } from '@/lib/supabase';
@@ -26,8 +26,14 @@ function DashboardLayoutContent({
   // Get dynamic page title based on current route
   const { title: customTitle, subtitle, tabs, activeTab, onTabChange, actions } = useHeaderTitle();
 
-  const getPageTitle = () => {
-    if (customTitle) return customTitle;
+  // Use useMemo to ensure title updates when customTitle changes
+  const pageTitle = useMemo(() => {
+    // Prioritize custom title set by pages (like project name)
+    if (customTitle && customTitle.trim()) {
+      return customTitle;
+    }
+
+    // Fallback to pathname-based titles
     if (pathname === '/dashboard') return 'Dashboard';
     if (pathname === '/dashboard/projects') return 'Projects';
     if (pathname === '/dashboard/users') return 'User Management';
@@ -49,7 +55,7 @@ function DashboardLayoutContent({
       if (pathname.includes('/users/')) return 'New User';
     }
     return 'Dashboard';
-  };
+  }, [customTitle, pathname]); // Re-compute when customTitle or pathname changes
 
 
   const handleSignOut = async () => {
@@ -215,7 +221,7 @@ function DashboardLayoutContent({
           <div className="px-6 py-3 flex items-center justify-between h-full">
             {/* Left side: Title with tabs */}
             <div className="flex items-center gap-3 min-w-0 flex-1">
-              <h2 className="text-lg font-bold text-gray-900 whitespace-nowrap">{getPageTitle()}</h2>
+              <h2 className="text-lg font-bold text-gray-900 whitespace-nowrap">{pageTitle}</h2>
 
               {/* Tab pills (if any) */}
               {tabs.length > 0 && (
@@ -275,9 +281,9 @@ function DashboardLayoutContent({
           </div>
         </header>
 
-        {/* Main content area - no wrapper padding for edge-to-edge layout */}
+        {/* Main content area with proper padding */}
         <main className="flex-1 bg-white">
-          <div className="pt-16 lg:pt-0 h-full flex flex-col min-h-0">
+          <div className="pt-16 lg:pt-0 px-4 sm:px-6 lg:px-8 py-6 h-full flex flex-col min-h-0">
             {children}
           </div>
         </main>

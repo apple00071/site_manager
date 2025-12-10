@@ -138,8 +138,10 @@ export default function ProjectDetailsPage() {
         throw new Error('Project not found');
       }
 
+
       setProject(projectData as Project);
-      setTitle(`${projectData.title}`);
+      setTitle(projectData.title);
+
       // Set workflow stage as subtitle for header status display
       const stageLabels: Record<string, string> = {
         recce: 'Recce',
@@ -179,11 +181,15 @@ export default function ProjectDetailsPage() {
       handleTabChange(tabId as any);
     });
 
-    // Cleanup on unmount
+    // Don't clear header on tab changes - only when component unmounts
+  }, [project, activeTab]);
+
+  // Cleanup header only when component unmounts (not on tab changes)
+  useEffect(() => {
     return () => {
       clearHeader();
     };
-  }, [project, activeTab]);
+  }, []); // Empty dependency array = only runs on mount/unmount
 
   // Initial fetch
   useEffect(() => {
