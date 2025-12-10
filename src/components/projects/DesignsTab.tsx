@@ -681,7 +681,26 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
               {/* Action bar above table */}
               <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
                 {/* Category Tabs */}
-                <div className="flex-1 flex items-center gap-1 overflow-x-auto min-w-0 mr-2">
+                {/* Mobile dropdown */}
+                <div className="md:hidden flex-1 mr-2">
+                  <select
+                    value={selectedCategory || ''}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-yellow-500"
+                  >
+                    {categories.map((category) => {
+                      const count = groupedDesigns[category]?.length || 0;
+                      return (
+                        <option key={category} value={category}>
+                          {category} ({count})
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                {/* Desktop tabs */}
+                <div className="hidden md:flex flex-1 items-center gap-1 overflow-x-auto min-w-0 mr-2">
                   {categories.map((category) => {
                     const count = groupedDesigns[category]?.length || 0;
                     const isActive = selectedCategory === category;

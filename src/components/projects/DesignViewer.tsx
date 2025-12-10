@@ -179,7 +179,7 @@ export function DesignViewer({
     // Render pin markers
     const renderPins = () => {
         return comments
-            .filter(c => c.x_percent !== null && c.y_percent !== null)
+            .filter(c => c.x_percent !== null && c.y_percent !== null && c.page_number === currentPage)
             .map((comment) => (
                 <div
                     key={comment.id}

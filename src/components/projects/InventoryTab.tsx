@@ -8,6 +8,7 @@ import { ImageModal } from '@/components/ui/ImageModal';
 import { useToast } from '@/components/ui/Toast';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { SidePanel } from '@/components/ui/SidePanel';
+import { DesignViewer } from '@/components/projects/DesignViewer';
 import {
   FiEdit2, FiTrash2, FiEye, FiPlus, FiMoreVertical, FiCheck, FiX, FiUpload, FiPackage
 } from 'react-icons/fi';
@@ -153,6 +154,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [mobileActionItem, setMobileActionItem] = useState<InventoryItem | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [viewingPDF, setViewingPDF] = useState<{ url: string; filename: string } | null>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -437,7 +439,18 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
           <div className="space-y-1">
             {mobileActionItem.bill_url && (
               <button
-                onClick={() => { setSelectedImage(mobileActionItem.bill_url!); setMobileActionItem(null); }}
+                onClick={() => {
+                  const isPDF = mobileActionItem.bill_url!.toLowerCase().endsWith('.pdf');
+                  if (isPDF) {
+                    setViewingPDF({
+                      url: mobileActionItem.bill_url!,
+                      filename: `${mobileActionItem.item_name} - Bill`
+                    });
+                  } else {
+                    setSelectedImage(mobileActionItem.bill_url!);
+                  }
+                  setMobileActionItem(null);
+                }}
                 className="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
               >
                 <FiEye className="w-5 h-5 text-gray-500" /> View Bill
@@ -579,7 +592,18 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                           >
                             {item.bill_url && (
                               <button
-                                onClick={() => { setSelectedImage(item.bill_url!); setOpenMenuId(null); }}
+                                onClick={() => {
+                                  const isPDF = item.bill_url!.toLowerCase().endsWith('.pdf');
+                                  if (isPDF) {
+                                    setViewingPDF({
+                                      url: item.bill_url!,
+                                      filename: `${item.item_name} - Bill`
+                                    });
+                                  } else {
+                                    setSelectedImage(item.bill_url!);
+                                  }
+                                  setOpenMenuId(null);
+                                }}
                                 className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                               >
                                 <FiEye className="w-4 h-4" />
@@ -678,6 +702,21 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
         isOpen={!!selectedImage}
         onClose={() => setSelectedImage(null)}
       />
+
+      {/* PDF Viewer using DesignViewer in read-only mode */}
+      {viewingPDF && (
+        <div className="fixed inset-0 z-50">
+          <DesignViewer
+            designId="inventory-bill"
+            fileUrl={viewingPDF.url}
+            fileName={viewingPDF.filename}
+            fileType="pdf"
+            comments={[]}
+            readOnly={true}
+            onClose={() => setViewingPDF(null)}
+          />
+        </div>
+      )}
     </div>
   );
 }
