@@ -7,7 +7,7 @@ import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import '@/styles/calendar-custom.css';
-import { FiCheck, FiFilter, FiPlus, FiUser, FiAlertTriangle, FiChevronLeft, FiChevronRight, FiUserX, FiX } from 'react-icons/fi';
+import { FiCheck, FiFilter, FiPlus, FiUser, FiAlertTriangle, FiChevronLeft, FiChevronRight, FiUserX, FiX, FiClock, FiList } from 'react-icons/fi';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useToast } from '@/components/ui/Toast';
 
@@ -167,6 +167,10 @@ export default function TasksPage() {
   const [isMobile, setIsMobile] = useState(false);
   const { showToast } = useToast();
 
+  // Sidebar category state
+  const [activeCategory, setActiveCategory] = useState<'for-me' | 'by-me' | 'all'>('for-me');
+  const [showSidebar, setShowSidebar] = useState(true);
+
   // Check for mobile viewport
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -324,8 +328,30 @@ export default function TasksPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, filterAssignee]);
 
+  // Category counts for sidebar
+  const categoryCounts = useMemo(() => {
+    return {
+      forMe: tasks.filter(t => t.assigned_to === user?.id || t.assigned_to_id === user?.id).length,
+      byMe: tasks.filter(t => t.created_by === user?.id).length,
+      all: tasks.length
+    };
+  }, [tasks, user]);
+
+  // Filter tasks by active category
+  const filteredTasksByCategory = useMemo(() => {
+    switch (activeCategory) {
+      case 'for-me':
+        return tasks.filter(t => t.assigned_to === user?.id || t.assigned_to_id === user?.id);
+      case 'by-me':
+        return tasks.filter(t => t.created_by === user?.id);
+      case 'all':
+      default:
+        return tasks;
+    }
+  }, [activeCategory, tasks, user]);
+
   const events = useMemo(() => {
-    const base = tasks.filter(t => (filterStatus === 'all' ? true : t.status === filterStatus));
+    const base = filteredTasksByCategory.filter(t => (filterStatus === 'all' ? true : t.status === filterStatus));
     const mapped = base.map(t => {
       // Validate that start_at and end_at exist and are valid strings
       if (!t.start_at || !t.end_at || typeof t.start_at !== 'string' || typeof t.end_at !== 'string') {
@@ -1065,195 +1091,315 @@ export default function TasksPage() {
 
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
-        <div className="hidden sm:flex items-center gap-2">
+    <div className="flex h-full overflow-hidden">
+      {/* Sidebar - Desktop Only */}
+      {!isMobile && showSidebar && (
+        <aside className="w-64 bg-white border-r border-gray-200 flex-shrink-0 flex flex-col">
+          <div className="p-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Task Manager</h2>
+          </div>
+          <nav className="flex-1 overflow-y-auto p-2 space-y-1">
+            <button
+              onClick={() => setActiveCategory('for-me')}
+              className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeCategory === 'for-me'
+                ? 'bg-yellow-500 text-gray-900'
+                : 'text-gray-700 hover:bg-gray-100'
+                }`}
+            >
+              <div className="flex items-center gap-3">
+                <FiUser className="w-5 h-5" />
+                <span>Tasks for me</span>
+              </div>
+              <span className={`inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded ${activeCategory === 'for-me' ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-700'
+                }`}>
+                {categoryCounts.forMe}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveCategory('by-me')}
+              className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeCategory === 'by-me'
+                ? 'bg-yellow-500 text-gray-900'
+                : 'text-gray-700 hover:bg-gray-100'
+                }`}
+            >
+              <div className="flex items-center gap-3">
+                <FiClock className="w-5 h-5" />
+                <span>Tasks by me</span>
+              </div>
+              <span className={`inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded ${activeCategory === 'by-me' ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-700'
+                }`}>
+                {categoryCounts.byMe}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveCategory('all')}
+              className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeCategory === 'all'
+                ? 'bg-yellow-500 text-gray-900'
+                : 'text-gray-700 hover:bg-gray-100'
+                }`}
+            >
+              <div className="flex items-center gap-3">
+                <FiList className="w-5 h-5" />
+                <span>All Tasks</span>
+              </div>
+              <span className={`inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded ${activeCategory === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-700'
+                }`}>
+                {categoryCounts.all}
+              </span>
+            </button>
+          </nav>
+        </aside>
+      )}
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto">
+        <div className="space-y-4 p-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
+            <div className="hidden sm:flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setModalOpen(true)}
+                className="inline-flex items-center px-3 py-2 rounded-md bg-yellow-500 text-gray-900 font-medium hover:bg-yellow-600"
+              >
+                <FiPlus className="h-4 w-4 mr-1" />
+                New Task
+              </button>
+            </div>
+          </div>
+
+          <div className="tasks-calendar-card bg-white border border-gray-200 rounded-lg p-3 shadow-sm" role="region" aria-label="Tasks calendar" aria-live="polite">
+            <div className="flex flex-wrap items-center gap-3 mb-3">
+              <div className="inline-flex items-center gap-2">
+                <FiFilter className="h-4 w-4 text-gray-600" />
+                <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)} className="px-2 py-1 border border-gray-300 rounded-md text-sm">
+                  <option value="all">All assignees</option>
+                  {assignees.map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="inline-flex items-center gap-2">
+                <FiUser className="h-4 w-4 text-gray-600" />
+                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)} className="px-2 py-1 border border-gray-300 rounded-md text-sm">
+                  <option value="all">All status</option>
+                  <option value="todo">To Do</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="blocked">Blocked</option>
+                  <option value="done">Completed</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-gray-200">
+              <Calendar
+                localizer={localizer}
+                events={events}
+                startAccessor="start"
+                endAccessor="end"
+                view={view}
+                date={date}
+                min={minTime}
+                max={maxTime}
+                step={30}
+                timeslots={2}
+                showAllDayEventRow={false}
+                onView={(v: CalendarViewType) => setView(v)}
+                onNavigate={(d: Date) => setDate(d)}
+                formats={customFormats}
+                selectable
+                onSelectSlot={(slotInfo: any) => {
+                  console.log('Slot selected:', slotInfo);
+                  // For week/day view, slotInfo.start should contain the exact time
+                  // slotInfo.slots[0] might also contain the first slot time
+                  const selectedTime = slotInfo.start instanceof Date
+                    ? slotInfo.start
+                    : new Date(slotInfo.start);
+                  console.log('Selected time hours:', selectedTime.getHours(), 'minutes:', selectedTime.getMinutes());
+                  openCreateAt(selectedTime);
+                }}
+                onSelectEvent={(event: any) => {
+                  const task: CalendarTask | undefined = event.resource;
+                  if (task) {
+                    openViewTask(task);
+                  }
+                }}
+                components={{
+                  event: (props: any) => <EventComp {...props} view={view} onSelectEvent={onSelectEvent} />,
+                  toolbar: TasksToolbar,
+                  month: {
+                    dateHeader: ({ date, label }: { date: Date; label: string }) => {
+                      let isToday = false;
+                      try {
+                        isToday = format(new Date(), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
+                      } catch (e) {
+                        // Ignore format errors
+                      }
+                      return (
+                        <div className="rbc-date-cell">
+                          <div className={`rbc-date-cell-content ${isToday ? 'rbc-now' : ''}`}>
+                            {label}
+                          </div>
+                        </div>
+                      );
+                    }
+                  }
+                }}
+                style={{
+                  height: '100%',
+                  minHeight: '600px',
+                  '--rbc-today-bg': '#f0f9ff',
+                  '--rbc-off-range-bg': '#f9fafb',
+                  '--rbc-event-bg': '#4f46e5',
+                  '--rbc-event-color': '#fff',
+                  '--rbc-current-time-indicator': '#4f46e5',
+                } as React.CSSProperties}
+                popup
+                messages={{
+                  showMore: (count: number) => `+${count} more` as any,
+                  noEventsInRange: loading ? 'Loading...' : 'No tasks'
+                }}
+                className="tasks-calendar"
+              />
+            </div>
+          </div>
+
           <button
             type="button"
-            onClick={() => setModalOpen(true)}
-            className="inline-flex items-center px-3 py-2 rounded-md bg-yellow-500 text-gray-900 font-medium hover:bg-yellow-600"
+            onClick={() => openCreateAt(new Date())}
+            className="fixed bottom-20 right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-yellow-500 text-gray-900 shadow-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 sm:hidden"
+            aria-label="Add new task"
           >
-            <FiPlus className="h-4 w-4 mr-1" />
-            New Task
+            <FiPlus className="h-7 w-7" />
           </button>
-        </div>
-      </div>
 
-      <div className="tasks-calendar-card bg-white border border-gray-200 rounded-lg p-3 shadow-sm" role="region" aria-label="Tasks calendar" aria-live="polite">
-        <div className="flex flex-wrap items-center gap-3 mb-3">
-          <div className="inline-flex items-center gap-2">
-            <FiFilter className="h-4 w-4 text-gray-600" />
-            <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)} className="px-2 py-1 border border-gray-300 rounded-md text-sm">
-              <option value="all">All assignees</option>
-              {assignees.map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="inline-flex items-center gap-2">
-            <FiUser className="h-4 w-4 text-gray-600" />
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)} className="px-2 py-1 border border-gray-300 rounded-md text-sm">
-              <option value="all">All status</option>
-              <option value="todo">To Do</option>
-              <option value="in_progress">In Progress</option>
-              <option value="blocked">Blocked</option>
-              <option value="done">Completed</option>
-            </select>
-          </div>
-        </div>
+          {
+            error && (
+              <div className="bg-red-50 border-l-4 border-red-500 p-3 text-sm text-red-700 rounded">{error}</div>
+            )
+          }
 
-        <div className="rounded-lg border border-gray-200">
-          <Calendar
-            localizer={localizer}
-            events={events}
-            startAccessor="start"
-            endAccessor="end"
-            view={view}
-            date={date}
-            min={minTime}
-            max={maxTime}
-            step={30}
-            timeslots={2}
-            showAllDayEventRow={false}
-            onView={(v: CalendarViewType) => setView(v)}
-            onNavigate={(d: Date) => setDate(d)}
-            formats={customFormats}
-            selectable
-            onSelectSlot={(slotInfo: any) => {
-              console.log('Slot selected:', slotInfo);
-              // For week/day view, slotInfo.start should contain the exact time
-              // slotInfo.slots[0] might also contain the first slot time
-              const selectedTime = slotInfo.start instanceof Date
-                ? slotInfo.start
-                : new Date(slotInfo.start);
-              console.log('Selected time hours:', selectedTime.getHours(), 'minutes:', selectedTime.getMinutes());
-              openCreateAt(selectedTime);
-            }}
-            onSelectEvent={(event: any) => {
-              const task: CalendarTask | undefined = event.resource;
-              if (task) {
-                openViewTask(task);
-              }
-            }}
-            components={{
-              event: (props: any) => <EventComp {...props} view={view} onSelectEvent={onSelectEvent} />,
-              toolbar: TasksToolbar,
-              month: {
-                dateHeader: ({ date, label }: { date: Date; label: string }) => {
-                  let isToday = false;
-                  try {
-                    isToday = format(new Date(), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
-                  } catch (e) {
-                    // Ignore format errors
-                  }
-                  return (
-                    <div className="rbc-date-cell">
-                      <div className={`rbc-date-cell-content ${isToday ? 'rbc-now' : ''}`}>
-                        {label}
-                      </div>
-                    </div>
-                  );
-                }
-              }
-            }}
-            style={{
-              height: '100%',
-              minHeight: '600px',
-              '--rbc-today-bg': '#f0f9ff',
-              '--rbc-off-range-bg': '#f9fafb',
-              '--rbc-event-bg': '#4f46e5',
-              '--rbc-event-color': '#fff',
-              '--rbc-current-time-indicator': '#4f46e5',
-            } as React.CSSProperties}
-            popup
-            messages={{
-              showMore: (count: number) => `+${count} more` as any,
-              noEventsInRange: loading ? 'Loading...' : 'No tasks'
-            }}
-            className="tasks-calendar"
-          />
-        </div>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => openCreateAt(new Date())}
-        className="fixed bottom-20 right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-yellow-500 text-gray-900 shadow-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 sm:hidden"
-        aria-label="Add new task"
-      >
-        <FiPlus className="h-7 w-7" />
-      </button>
-
-      {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-3 text-sm text-red-700 rounded">{error}</div>
-      )}
-
-      {/* Mobile: BottomSheet for View Task */}
-      <BottomSheet
-        isOpen={viewModalOpen && isMobile}
-        onClose={() => { setViewModalOpen(false); setViewTask(null); }}
-        title="Task Details"
-      >
-        <ViewTaskContent />
-      </BottomSheet>
-
-      {/* Desktop: Modal for View Task */}
-      {viewModalOpen && !isMobile && viewTask && (
-        <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
-          onClick={() => { setViewModalOpen(false); setViewTask(null); }}
-        >
-          <div
-            className="bg-white rounded-lg shadow-xl w-full max-w-lg p-5"
-            onClick={(e) => e.stopPropagation()}
+          {/* Mobile: BottomSheet for View Task */}
+          <BottomSheet
+            isOpen={viewModalOpen && isMobile}
+            onClose={() => { setViewModalOpen(false); setViewTask(null); }}
+            title="Task Details"
           >
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold text-gray-900">Task Details</h2>
-              <button
-                onClick={() => { setViewModalOpen(false); setViewTask(null); }}
-                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-              >
-                <FiX className="w-5 h-5" />
-              </button>
-            </div>
             <ViewTaskContent />
-          </div>
-        </div>
-      )}
+          </BottomSheet>
 
-      {/* Mobile: BottomSheet for Create/Edit Task */}
-      <BottomSheet
-        isOpen={modalOpen && isMobile}
-        onClose={() => { setModalOpen(false); setEditingTask(null); }}
-        title={isEditing ? 'Edit Task' : 'Create Task'}
-      >
-        <TaskFormContent />
-      </BottomSheet>
-
-      {/* Desktop: Modal for Create/Edit Task */}
-      {modalOpen && !isMobile && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-3 sm:px-0"
-          onClick={() => { setModalOpen(false); setEditingTask(null); }}
-        >
-          <div
-            className="bg-white rounded-lg shadow-xl w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto p-3 sm:p-5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold text-gray-900">{isEditing ? 'Edit Task' : 'Create Task'}</h2>
-              <button
-                onClick={() => { setModalOpen(false); setEditingTask(null); }}
-                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+          {/* Desktop: Modal for View Task */}
+          {
+            viewModalOpen && !isMobile && viewTask && (
+              <div
+                className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
+                onClick={() => { setViewModalOpen(false); setViewTask(null); }}
               >
-                <FiX className="w-5 h-5" />
-              </button>
-            </div>
+                <div
+                  className="bg-white rounded-lg shadow-xl w-full max-w-lg p-5"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-lg font-semibold text-gray-900">Task Details</h2>
+                    <button
+                      onClick={() => { setViewModalOpen(false); setViewTask(null); }}
+                      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                    >
+                      <FiX className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <ViewTaskContent />
+                </div>
+              </div>
+            )
+          }
+
+          {/* Mobile: BottomSheet for Create/Edit Task */}
+          <BottomSheet
+            isOpen={modalOpen && isMobile}
+            onClose={() => { setModalOpen(false); setEditingTask(null); }}
+            title={isEditing ? 'Edit Task' : 'Create Task'}
+          >
             <TaskFormContent />
-          </div>
+          </BottomSheet>
+
+          {/* Desktop: Modal for Create/Edit Task */}
+          {
+            modalOpen && !isMobile && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-3 sm:px-0"
+                onClick={() => { setModalOpen(false); setEditingTask(null); }}
+              >
+                <div
+                  className="bg-white rounded-lg shadow-xl w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto p-3 sm:p-5"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-lg font-semibold text-gray-900">{isEditing ? 'Edit Task' : 'Create Task'}</h2>
+                    <button
+                      onClick={() => { setModalOpen(false); setEditingTask(null); }}
+                      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                    >
+                      <FiX className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <TaskFormContent />
+                </div>
+              </div>
+            )
+          }
+
+          {/* Mobile Bottom Navigation */}
+          {
+            isMobile && (
+              <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-30">
+                <div className="flex justify-around">
+                  <button
+                    onClick={() => setActiveCategory('for-me')}
+                    className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'for-me' ? 'text-yellow-600' : 'text-gray-600'
+                      }`}
+                  >
+                    <FiUser className="w-5 h-5" />
+                    <span className="text-xs">For Me</span>
+                    {categoryCounts.forMe > 0 && (
+                      <span className="absolute top-1 right-1/4 bg-yellow-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                        {categoryCounts.forMe}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setActiveCategory('by-me')}
+                    className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'by-me' ? 'text-yellow-600' : 'text-gray-600'
+                      }`}
+                  >
+                    <FiClock className="w-5 h-5" />
+                    <span className="text-xs">By Me</span>
+                    {categoryCounts.byMe > 0 && (
+                      <span className="absolute top-1 right-1/4 bg-yellow-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                        {categoryCounts.byMe}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setActiveCategory('all')}
+                    className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'all' ? 'text-yellow-600' : 'text-gray-600'
+                      }`}
+                  >
+                    <FiList className="w-5 h-5" />
+                    <span className="text-xs">All</span>
+                    {categoryCounts.all > 0 && (
+                      <span className="absolute top-1 right-1/4 bg-yellow-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                        {categoryCounts.all}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

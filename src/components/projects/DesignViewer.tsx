@@ -433,8 +433,9 @@ export function DesignViewer({
                                         📍
                                     </button>
                                     {pendingPin && (
-                                        <span className="text-xs text-yellow-600 flex items-center">
-                                            ✓ Pin placed at ({Math.round(pendingPin.x)}%, {Math.round(pendingPin.y)}%)
+                                        <span className="text-xs text-yellow-600 flex items-center gap-1">
+                                            <FiMessageCircle className="w-3.5 h-3.5" />
+                                            Pin placed on design
                                         </span>
                                     )}
                                 </div>

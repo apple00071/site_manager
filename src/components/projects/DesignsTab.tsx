@@ -275,6 +275,14 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
 
   // Toggle freeze/unfreeze for individual design
   const handleToggleFreezeDesign = async (design: DesignFile) => {
+    // Confirmation dialog
+    const action = design.is_frozen ? 'unfreeze' : 'freeze';
+    const confirmMessage = design.is_frozen
+      ? `Unfreeze "${design.file_name}"? This will allow new uploads to this category.`
+      : `Freeze "${design.file_name}"? This will prevent new uploads to the "${design.category}" category.`;
+
+    if (!confirm(confirmMessage)) return;
+
     try {
       const response = await fetch(`/api/design-files/${design.id}/freeze`, {
         method: design.is_frozen ? 'DELETE' : 'POST',
@@ -289,7 +297,11 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
       setDesigns(prev => prev.map(d =>
         d.id === design.id ? { ...d, is_frozen: !d.is_frozen } : d
       ));
-      showToast('success', design.is_frozen ? 'Design unfrozen' : 'Design frozen');
+
+      const successMessage = design.is_frozen
+        ? `"${design.category}" unfrozen - uploads allowed`
+        : `"${design.category}" frozen - uploads blocked`;
+      showToast('success', successMessage);
     } catch (error: any) {
       console.error('Error toggling design freeze:', error);
       showToast('error', error.message || 'Failed to update freeze status');
@@ -508,11 +520,33 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
 
   if (loading) {
     return (
-      <div className="bg-white shadow overflow-hidden sm:rounded-lg p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-10 bg-gray-200 rounded w-full"></div>
-          <div className="h-10 bg-gray-200 rounded w-full"></div>
-          <div className="h-10 bg-gray-200 rounded w-full"></div>
+      <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+        {/* Header skeleton */}
+        <div className="px-4 py-3 border-b border-gray-200 animate-pulse">
+          <div className="flex items-center justify-between">
+            <div className="flex gap-2">
+              <div className="h-8 w-20 bg-gray-200 rounded"></div>
+              <div className="h-8 w-20 bg-gray-200 rounded"></div>
+              <div className="h-8 w-24 bg-gray-200 rounded"></div>
+            </div>
+            <div className="h-8 w-32 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+        {/* Design cards skeleton */}
+        <div className="p-4 space-y-3 animate-pulse">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg">
+              <div className="h-12 w-12 bg-gray-200 rounded"></div>
+              <div className="flex-1 space-y-2">
+                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                <div className="flex gap-2">
+                  <div className="h-3 w-16 bg-gray-200 rounded"></div>
+                  <div className="h-3 w-20 bg-gray-200 rounded"></div>
+                </div>
+              </div>
+              <div className="h-8 w-8 bg-gray-200 rounded"></div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -669,10 +703,26 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                 Upload Design
               </button>
             </div>
-            <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-              <FiUpload className="h-12 w-12 mx-auto text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No designs</h3>
-              <p className="mt-1 text-sm text-gray-500">Get started by uploading a new design file.</p>
+            <div className="text-center py-16 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+              <div className="flex justify-center">
+                <div className="rounded-full bg-yellow-100 p-3">
+                  <FiUpload className="h-8 w-8 text-yellow-600" />
+                </div>
+              </div>
+              <h3 className="mt-4 text-base font-semibold text-gray-900">No designs yet</h3>
+              <p className="mt-2 text-sm text-gray-500 max-w-sm mx-auto">
+                Upload your first design file to get started. Supports PDF, images, and CAD files.
+              </p>
+              <button
+                onClick={() => {
+                  setIsAddingNew(true);
+                  resetForm();
+                }}
+                className="mt-6 px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 text-sm font-medium inline-flex items-center gap-2 transition-all duration-200"
+              >
+                <FiPlus className="w-4 h-4" />
+                Upload First Design
+              </button>
             </div>
           </div>
         ) : (
@@ -767,9 +817,22 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             {/* Version badge */}
-                            <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold bg-yellow-500 text-gray-900 rounded">
-                              V{design.version_number}
-                            </span>
+                            <div className="flex items-center gap-1">
+                              <span className={`inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold rounded ${design.is_current_approved
+                                  ? 'bg-green-500 text-white'
+                                  : 'bg-gray-200 text-gray-700'
+                                }`}>
+                                V{design.version_number}
+                              </span>
+                              {design.is_current_approved && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold bg-green-600 text-white rounded">
+                                  LATEST
+                                </span>
+                              )}
+                              {design.is_frozen && (
+                                <FiLock className="w-3.5 h-3.5 text-yellow-600" title="Frozen" />
+                              )}
+                            </div>
                             {/* Thumbnail */}
                             {design.file_type === 'image' ? (
                               <img
@@ -852,9 +915,22 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                   <div className="flex items-start gap-3">
                     {/* Left: V-Badge + Thumbnail */}
                     <div className="flex-shrink-0 flex items-center gap-2 mt-0.5">
-                      <span className="inline-flex items-center justify-center min-w-[24px] px-1.5 py-0.5 text-xs font-bold bg-red-500 text-white rounded">
-                        V{design.version_number}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className={`inline-flex items-center justify-center min-w-[24px] px-1.5 py-0.5 text-xs font-bold rounded ${design.is_current_approved
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-200 text-gray-700'
+                          }`}>
+                          V{design.version_number}
+                        </span>
+                        {design.is_current_approved && (
+                          <span className="inline-flex items-center px-1 py-0.5 text-[9px] font-bold bg-green-600 text-white rounded">
+                            LATEST
+                          </span>
+                        )}
+                        {design.is_frozen && (
+                          <FiLock className="w-3 h-3 text-yellow-600" title="Frozen" />
+                        )}
+                      </div>
                       {design.file_type === 'image' ? (
                         <img
                           src={design.file_url}
