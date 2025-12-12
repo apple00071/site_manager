@@ -26,7 +26,7 @@ const customStorage = {
   getItem: (key: string) => {
     // Most defensive browser environment check
     const isBrowser = typeof window !== 'undefined' ||
-                     (typeof globalThis !== 'undefined' && globalThis.localStorage);
+      (typeof globalThis !== 'undefined' && globalThis.localStorage);
 
     if (!isBrowser) {
       return null;
@@ -42,7 +42,7 @@ const customStorage = {
   setItem: (key: string, value: string) => {
     // Most defensive browser environment check
     const isBrowser = typeof window !== 'undefined' ||
-                     (typeof globalThis !== 'undefined' && globalThis.localStorage);
+      (typeof globalThis !== 'undefined' && globalThis.localStorage);
 
     if (!isBrowser) {
       return;
@@ -57,7 +57,7 @@ const customStorage = {
   removeItem: (key: string) => {
     // Most defensive browser environment check
     const isBrowser = typeof window !== 'undefined' ||
-                     (typeof globalThis !== 'undefined' && globalThis.localStorage);
+      (typeof globalThis !== 'undefined' && globalThis.localStorage);
 
     if (!isBrowser) {
       return;
@@ -101,6 +101,17 @@ if (!supabaseUrl || !supabaseAnonKey) {
           const error = errorFactory();
           console.warn(error.message);
           return { error };
+        },
+        onAuthStateChange(callback: any) {
+          console.warn(missingEnvMessage);
+          // Return a mock subscription that does nothing
+          return {
+            data: {
+              subscription: {
+                unsubscribe: () => { },
+              },
+            },
+          };
         },
       },
       from() {

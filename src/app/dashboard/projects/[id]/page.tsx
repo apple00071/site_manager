@@ -57,6 +57,8 @@ const KanbanBoard = dynamic(() => import('@/components/projects/KanbanBoard').th
 const UpdatesTab = dynamic(() => import('@/components/projects/UpdatesTab').then(m => m.UpdatesTab), { ssr: false });
 const InventoryTab = dynamic(() => import('@/components/projects/InventoryTab').then(m => m.InventoryTab), { ssr: false });
 const DesignsTab = dynamic(() => import('@/components/projects/DesignsTab').then(m => m.DesignsTab), { ssr: false });
+const BOQTab = dynamic(() => import('@/components/projects/BOQTab').then(m => m.BOQTab), { ssr: false });
+const ProcurementTab = dynamic(() => import('@/components/projects/ProcurementTab').then(m => m.ProcurementTab), { ssr: false });
 
 export default function ProjectDetailsPage() {
   const { id } = useParams();
@@ -68,7 +70,7 @@ export default function ProjectDetailsPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'details' | 'workflow' | 'board' | 'updates' | 'inventory' | 'designs'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'workflow' | 'board' | 'updates' | 'inventory' | 'designs' | 'boq' | 'procurement'>('details');
   const [showTabWidget, setShowTabWidget] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -80,14 +82,14 @@ export default function ProjectDetailsPage() {
   useEffect(() => {
     const tabParam = searchParams?.get('tab');
     if (tabParam) {
-      const validTabs = ['details', 'workflow', 'board', 'updates', 'inventory', 'designs'] as const;
+      const validTabs = ['details', 'workflow', 'board', 'updates', 'inventory', 'designs', 'boq', 'procurement'] as const;
       if (validTabs.includes(tabParam as any)) {
         setActiveTab(tabParam as typeof validTabs[number]);
       }
     }
   }, [searchParams]);
 
-  const handleTabChange = (tab: 'details' | 'workflow' | 'board' | 'updates' | 'inventory' | 'designs') => {
+  const handleTabChange = (tab: 'details' | 'workflow' | 'board' | 'updates' | 'inventory' | 'designs' | 'boq' | 'procurement') => {
     setActiveTab(tab);
     router.push(`/dashboard/projects/${id}?tab=${tab}`, { scroll: false });
   };
@@ -172,6 +174,8 @@ export default function ProjectDetailsPage() {
     const headerTabs = [
       { id: 'details', label: 'Details' },
       { id: 'board', label: 'Stage Board' },
+      { id: 'boq', label: 'BOQ' },
+      { id: 'procurement', label: 'Procurement' },
       { id: 'updates', label: 'Updates' },
       { id: 'inventory', label: 'Inventory' },
       { id: 'designs', label: 'Designs' },
@@ -642,6 +646,14 @@ export default function ProjectDetailsPage() {
 
           {activeTab === 'designs' && (
             <DesignsTab projectId={project.id} />
+          )}
+
+          {activeTab === 'boq' && (
+            <BOQTab projectId={project.id} />
+          )}
+
+          {activeTab === 'procurement' && (
+            <ProcurementTab projectId={project.id} />
           )}
         </div>
       </div>

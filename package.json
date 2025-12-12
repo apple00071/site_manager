@@ -29,6 +29,7 @@
     "react-pdf": "^10.2.0",
     "react-zoom-pan-pinch": "^3.7.0",
     "wasenderapi": "^0.1.5",
+    "xlsx": "^0.18.5",
     "zod": "^4.1.12"
   },
   "devDependencies": {
