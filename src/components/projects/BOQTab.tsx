@@ -235,13 +235,15 @@ export function BOQTab({ projectId }: BOQTabProps) {
                         <div className="flex rounded-lg overflow-hidden border border-gray-200">
                             <button
                                 onClick={() => setViewMode('grid')}
-                                className={`p-2 focus:outline-none ${viewMode === 'grid' ? 'bg-amber-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                                className={`p-2 focus:outline-none ${viewMode === 'grid' ? 'text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                                style={viewMode === 'grid' ? { backgroundColor: '#f59e0b' } : {}}
                             >
                                 <FiGrid className="w-4 h-4" />
                             </button>
                             <button
                                 onClick={() => setViewMode('cards')}
-                                className={`p-2 focus:outline-none ${viewMode === 'cards' ? 'bg-amber-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                                className={`p-2 focus:outline-none ${viewMode === 'cards' ? 'text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                                style={viewMode === 'cards' ? { backgroundColor: '#f59e0b' } : {}}
                             >
                                 <FiList className="w-4 h-4" />
                             </button>
@@ -262,17 +264,18 @@ export function BOQTab({ projectId }: BOQTabProps) {
                             <>
                                 <button
                                     onClick={() => setShowImport(true)}
-                                    className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 focus:outline-none"
+                                    className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 focus:outline-none bg-white"
                                 >
                                     <FiUpload className="w-4 h-4" />
-                                    <span className="hidden sm:inline">Import</span>
+                                    <span>Import</span>
                                 </button>
                                 <button
                                     onClick={handleAddItem}
-                                    className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 shadow-sm focus:outline-none"
+                                    className="flex items-center gap-2 px-4 py-2 text-white rounded-lg font-medium shadow-sm focus:outline-none hover:opacity-90"
+                                    style={{ backgroundColor: '#f59e0b' }}
                                 >
                                     <FiPlus className="w-4 h-4" />
-                                    <span className="hidden sm:inline">Add Item</span>
+                                    <span>Add</span>
                                 </button>
                             </>
                         )}
@@ -285,14 +288,17 @@ export function BOQTab({ projectId }: BOQTabProps) {
                 <div className="flex gap-2 min-w-max items-center">
                     <button
                         onClick={() => setActiveCategory(null)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeCategory === null
-                                ? 'bg-amber-500 text-white shadow-sm'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap focus:outline-none ${activeCategory === null
+                            ? 'text-white shadow-sm'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
+                        style={activeCategory === null ? { backgroundColor: '#f59e0b' } : {}}
                     >
                         All Items
-                        <span className={`ml-2 px-1.5 py-0.5 rounded text-xs ${activeCategory === null ? 'bg-amber-600 text-white' : 'bg-white text-gray-600'
-                            }`}>
+                        <span
+                            className={`ml-2 px-1.5 py-0.5 rounded text-xs ${activeCategory === null ? 'text-white' : 'bg-white text-gray-600'}`}
+                            style={activeCategory === null ? { backgroundColor: '#d97706' } : {}}
+                        >
                             {items.length}
                         </span>
                     </button>
@@ -301,16 +307,19 @@ export function BOQTab({ projectId }: BOQTabProps) {
                         <button
                             key={cat}
                             onClick={() => setActiveCategory(cat)}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeCategory === cat
-                                    ? 'bg-amber-500 text-white shadow-sm'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap focus:outline-none ${activeCategory === cat
+                                ? 'text-white shadow-sm'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                 }`}
+                            style={activeCategory === cat ? { backgroundColor: '#f59e0b' } : {}}
                         >
                             {cat}
                             {sectionTotals[cat] && (
                                 <>
-                                    <span className={`ml-2 px-1.5 py-0.5 rounded text-xs ${activeCategory === cat ? 'bg-amber-600 text-white' : 'bg-white text-gray-600'
-                                        }`}>
+                                    <span
+                                        className={`ml-2 px-1.5 py-0.5 rounded text-xs ${activeCategory === cat ? 'text-white' : 'bg-white text-gray-600'}`}
+                                        style={activeCategory === cat ? { backgroundColor: '#d97706' } : {}}
+                                    >
                                         {sectionTotals[cat].count}
                                     </span>
                                     <span className="ml-1 text-xs opacity-75">
@@ -366,19 +375,22 @@ export function BOQTab({ projectId }: BOQTabProps) {
                     <div className="flex gap-2 flex-wrap">
                         <button
                             onClick={() => handleBulkStatusUpdate('confirmed')}
-                            className="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 focus:outline-none"
+                            className="px-3 py-1.5 text-sm text-white rounded-lg hover:opacity-90 focus:outline-none"
+                            style={{ backgroundColor: '#f59e0b' }}
                         >
                             Confirm
                         </button>
                         <button
                             onClick={() => handleBulkStatusUpdate('completed')}
-                            className="px-3 py-1.5 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 focus:outline-none"
+                            className="px-3 py-1.5 text-sm text-white rounded-lg hover:opacity-90 focus:outline-none"
+                            style={{ backgroundColor: '#d97706' }}
                         >
                             Complete
                         </button>
                         <button
                             onClick={() => setShowProposal(true)}
-                            className="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg flex items-center gap-1 hover:bg-amber-600 focus:outline-none"
+                            className="px-3 py-1.5 text-sm text-white rounded-lg flex items-center gap-1 hover:opacity-90 focus:outline-none"
+                            style={{ backgroundColor: '#f59e0b' }}
                         >
                             <FiSend className="w-3 h-3" />
                             Send Proposal
@@ -415,17 +427,18 @@ export function BOQTab({ projectId }: BOQTabProps) {
                             Start by adding items to your bill of quantities
                         </p>
                         {isAdmin && (
-                            <div className="mt-4 flex gap-2">
+                            <div className="mt-4 flex gap-3">
                                 <button
                                     onClick={() => setShowImport(true)}
-                                    className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-lg font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
+                                    className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-lg font-medium text-gray-700 hover:bg-gray-50 focus:outline-none bg-white"
                                 >
                                     <FiUpload className="w-4 h-4" />
                                     Import from Excel
                                 </button>
                                 <button
                                     onClick={handleAddItem}
-                                    className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 focus:outline-none"
+                                    className="flex items-center gap-2 px-4 py-2.5 text-white rounded-lg font-medium focus:outline-none hover:opacity-90"
+                                    style={{ backgroundColor: '#f59e0b' }}
                                 >
                                     <FiPlus className="w-4 h-4" />
                                     Add Item
