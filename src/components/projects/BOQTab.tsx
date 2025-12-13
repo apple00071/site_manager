@@ -232,16 +232,16 @@ export function BOQTab({ projectId }: BOQTabProps) {
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                         {/* View Toggle */}
-                        <div className="flex border rounded-lg overflow-hidden">
+                        <div className="flex rounded-lg overflow-hidden border border-gray-200">
                             <button
                                 onClick={() => setViewMode('grid')}
-                                className={`p-2 ${viewMode === 'grid' ? 'bg-amber-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                                className={`p-2 focus:outline-none ${viewMode === 'grid' ? 'bg-amber-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
                             >
                                 <FiGrid className="w-4 h-4" />
                             </button>
                             <button
                                 onClick={() => setViewMode('cards')}
-                                className={`p-2 ${viewMode === 'cards' ? 'bg-amber-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                                className={`p-2 focus:outline-none ${viewMode === 'cards' ? 'bg-amber-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
                             >
                                 <FiList className="w-4 h-4" />
                             </button>
@@ -250,7 +250,7 @@ export function BOQTab({ projectId }: BOQTabProps) {
                         <select
                             value={filterStatus}
                             onChange={(e) => setFilterStatus(e.target.value)}
-                            className="px-3 py-2 border rounded-lg text-sm bg-white"
+                            className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                         >
                             <option value="all">All Status</option>
                             {STATUSES.map(s => (
@@ -262,14 +262,14 @@ export function BOQTab({ projectId }: BOQTabProps) {
                             <>
                                 <button
                                     onClick={() => setShowImport(true)}
-                                    className="flex items-center gap-2 px-3 py-2 border rounded-lg text-sm hover:bg-gray-50"
+                                    className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 focus:outline-none"
                                 >
                                     <FiUpload className="w-4 h-4" />
                                     <span className="hidden sm:inline">Import</span>
                                 </button>
                                 <button
                                     onClick={handleAddItem}
-                                    className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 shadow-sm"
+                                    className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 shadow-sm focus:outline-none"
                                 >
                                     <FiPlus className="w-4 h-4" />
                                     <span className="hidden sm:inline">Add Item</span>
@@ -329,7 +329,7 @@ export function BOQTab({ projectId }: BOQTabProps) {
                                 value={newCategoryName}
                                 onChange={(e) => setNewCategoryName(e.target.value)}
                                 placeholder="Category name"
-                                className="px-3 py-2 border rounded-lg text-sm w-32"
+                                className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-32 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                                 autoFocus
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') addCategory();
@@ -339,17 +339,17 @@ export function BOQTab({ projectId }: BOQTabProps) {
                                     }
                                 }}
                             />
-                            <button onClick={addCategory} className="p-2 bg-green-500 text-white rounded-lg">
+                            <button onClick={addCategory} className="p-2 bg-amber-500 text-white rounded-lg focus:outline-none hover:bg-amber-600">
                                 <FiPlus className="w-4 h-4" />
                             </button>
-                            <button onClick={() => { setShowAddCategory(false); setNewCategoryName(''); }} className="p-2 bg-gray-200 rounded-lg">
+                            <button onClick={() => { setShowAddCategory(false); setNewCategoryName(''); }} className="p-2 bg-gray-100 text-gray-600 rounded-lg focus:outline-none hover:bg-gray-200">
                                 <FiX className="w-4 h-4" />
                             </button>
                         </div>
                     ) : (
                         <button
                             onClick={() => setShowAddCategory(true)}
-                            className="px-3 py-2 border border-dashed rounded-lg text-sm text-gray-500 hover:bg-gray-100"
+                            className="px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:bg-gray-50 focus:outline-none"
                         >
                             <FiPlus className="w-4 h-4" />
                         </button>
@@ -366,26 +366,26 @@ export function BOQTab({ projectId }: BOQTabProps) {
                     <div className="flex gap-2 flex-wrap">
                         <button
                             onClick={() => handleBulkStatusUpdate('confirmed')}
-                            className="px-3 py-1 text-sm bg-emerald-500 text-white rounded-md"
+                            className="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 focus:outline-none"
                         >
                             Confirm
                         </button>
                         <button
                             onClick={() => handleBulkStatusUpdate('completed')}
-                            className="px-3 py-1 text-sm bg-blue-500 text-white rounded-md"
+                            className="px-3 py-1.5 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 focus:outline-none"
                         >
                             Complete
                         </button>
                         <button
                             onClick={() => setShowProposal(true)}
-                            className="px-3 py-1 text-sm bg-orange-500 text-white rounded-md flex items-center gap-1"
+                            className="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg flex items-center gap-1 hover:bg-amber-600 focus:outline-none"
                         >
                             <FiSend className="w-3 h-3" />
                             Send Proposal
                         </button>
                         <button
                             onClick={() => setSelectedItems([])}
-                            className="px-3 py-1 text-sm bg-white text-gray-600 rounded-md border"
+                            className="px-3 py-1.5 text-sm bg-white text-gray-600 rounded-lg border border-gray-200 hover:bg-gray-50 focus:outline-none"
                         >
                             Clear
                         </button>
@@ -418,14 +418,14 @@ export function BOQTab({ projectId }: BOQTabProps) {
                             <div className="mt-4 flex gap-2">
                                 <button
                                     onClick={() => setShowImport(true)}
-                                    className="flex items-center gap-2 px-4 py-2 border rounded-lg font-medium hover:bg-gray-50"
+                                    className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-lg font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
                                 >
                                     <FiUpload className="w-4 h-4" />
                                     Import from Excel
                                 </button>
                                 <button
                                     onClick={handleAddItem}
-                                    className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600"
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 focus:outline-none"
                                 >
                                     <FiPlus className="w-4 h-4" />
                                     Add Item

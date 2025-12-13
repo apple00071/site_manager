@@ -103,7 +103,7 @@ export function BoqCardMobile({
             {items.map(item => (
                 <div
                     key={item.id}
-                    className={`bg-white rounded-xl border shadow-sm overflow-hidden ${selectedItems.includes(item.id) ? 'ring-2 ring-amber-400' : ''
+                    className={`bg-white rounded-xl shadow-sm overflow-hidden transition-all ${selectedItems.includes(item.id) ? 'ring-2 ring-amber-400 border-transparent' : 'border border-gray-100'
                         }`}
                 >
                     <div className="p-4">
@@ -113,7 +113,7 @@ export function BoqCardMobile({
                                     type="checkbox"
                                     checked={selectedItems.includes(item.id)}
                                     onChange={() => toggleSelect(item.id)}
-                                    className="mt-1 rounded border-gray-300 text-amber-500"
+                                    className="mt-1 rounded border-gray-300 text-amber-500 focus:ring-amber-400 focus:ring-offset-0"
                                 />
                             )}
                             <div className="flex-1 min-w-0">
@@ -153,17 +153,17 @@ export function BoqCardMobile({
 
                     {/* Actions */}
                     {isAdmin && (
-                        <div className="flex border-t divide-x">
+                        <div className="flex border-t border-gray-100 divide-x divide-gray-100">
                             <button
                                 onClick={() => openEdit(item)}
-                                className="flex-1 py-2.5 flex items-center justify-center gap-1 text-sm text-gray-600 hover:bg-gray-50"
+                                className="flex-1 py-2.5 flex items-center justify-center gap-1 text-sm text-gray-600 hover:bg-gray-50 focus:outline-none"
                             >
                                 <FiEdit2 className="w-4 h-4" />
                                 Edit
                             </button>
                             <button
                                 onClick={() => onDelete(item.id)}
-                                className="flex-1 py-2.5 flex items-center justify-center gap-1 text-sm text-red-600 hover:bg-red-50"
+                                className="flex-1 py-2.5 flex items-center justify-center gap-1 text-sm text-red-600 hover:bg-red-50 focus:outline-none"
                             >
                                 <FiTrash2 className="w-4 h-4" />
                                 Delete
@@ -212,7 +212,7 @@ export function BoqCardMobile({
                                         type="text"
                                         value={editForm.item_name}
                                         onChange={(e) => setEditForm({ ...editForm, item_name: e.target.value })}
-                                        className="w-full px-3 py-2.5 border rounded-lg"
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                                     />
                                 </div>
 
@@ -225,7 +225,7 @@ export function BoqCardMobile({
                                             type="number"
                                             value={editForm.quantity}
                                             onChange={(e) => setEditForm({ ...editForm, quantity: parseFloat(e.target.value) || 0 })}
-                                            className="w-full px-3 py-2.5 border rounded-lg"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                                         />
                                     </div>
                                     <div>
@@ -236,7 +236,7 @@ export function BoqCardMobile({
                                             type="number"
                                             value={editForm.rate}
                                             onChange={(e) => setEditForm({ ...editForm, rate: parseFloat(e.target.value) || 0 })}
-                                            className="w-full px-3 py-2.5 border rounded-lg"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                                         />
                                     </div>
                                 </div>
@@ -249,7 +249,7 @@ export function BoqCardMobile({
                                         <select
                                             value={editForm.unit}
                                             onChange={(e) => setEditForm({ ...editForm, unit: e.target.value })}
-                                            className="w-full px-3 py-2.5 border rounded-lg bg-white"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                                         >
                                             {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                                         </select>
@@ -261,7 +261,7 @@ export function BoqCardMobile({
                                         <select
                                             value={editForm.status}
                                             onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                                            className="w-full px-3 py-2.5 border rounded-lg bg-white"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                                         >
                                             {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                                         </select>
@@ -280,7 +280,7 @@ export function BoqCardMobile({
 
                                 <button
                                     onClick={saveEdit}
-                                    className="w-full py-3 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 flex items-center justify-center gap-2"
+                                    className="w-full py-3 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 focus:outline-none flex items-center justify-center gap-2"
                                 >
                                     <FiCheck className="w-5 h-5" />
                                     Save Changes
