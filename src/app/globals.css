@@ -71,7 +71,7 @@
   --mobile-padding: 1rem;
   --tablet-padding: 1.5rem;
   --desktop-padding: 2rem;
-  
+
   /* Touch target sizes */
   --touch-target-min: 44px;
   --touch-target-comfortable: 48px;
@@ -145,12 +145,12 @@ body {
 }
 
 .modern-button-primary {
-  background-color: var(--primary-500);
-  color: white;
+  background-color: #eab308 !important;
+  color: white !important;
 }
 
 .modern-button-primary:hover {
-  background-color: var(--primary-600);
+  background-color: #ca8a04 !important;
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
@@ -158,12 +158,58 @@ body {
 .modern-button-secondary {
   background-color: white;
   color: var(--gray-700);
-  border: 1px solid var(--gray-300);
+  border: 1px solid var(--gray-200) !important;
 }
 
 .modern-button-secondary:hover {
   background-color: var(--gray-50);
-  border-color: var(--gray-400);
+  border-color: var(--gray-300) !important;
+}
+
+/* Brand Button - Yellow (matches header tabs) */
+.btn-brand {
+  background-color: #eab308 !important;
+  color: white !important;
+  border: none !important;
+  outline: none !important;
+}
+
+.btn-brand:hover {
+  background-color: #ca8a04 !important;
+}
+
+.btn-brand:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.3) !important;
+}
+
+/* Secondary Button - White with light border */
+.btn-secondary {
+  background-color: white !important;
+  color: #374151 !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+.btn-secondary:hover {
+  background-color: #f9fafb !important;
+}
+
+.btn-secondary:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2) !important;
+}
+
+/* Remove black outlines globally */
+button:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none !important;
+}
+
+/* Light border utility */
+.border-light {
+  border-color: #e5e7eb !important;
 }
 
 .modern-input {
@@ -250,9 +296,13 @@ body {
     font-size: 14px;
     line-height: 1.5;
   }
-  
+
   /* Ensure minimum touch targets on small screens */
-  button, a, input, select, textarea {
+  button,
+  a,
+  input,
+  select,
+  textarea {
     min-height: var(--touch-target-min);
   }
 }
@@ -282,16 +332,17 @@ body {
 
 /* Enhanced mobile interactions */
 @media (hover: none) and (pointer: coarse) {
+
   /* Touch device specific styles */
   button:hover {
     transform: none;
   }
-  
+
   button:active {
     transform: scale(0.98);
     transition: transform 0.1s ease;
   }
-  
+
   /* Larger touch targets for mobile */
   .touch-target {
     min-height: var(--touch-target-comfortable);
@@ -318,9 +369,12 @@ html {
 
 /* Enhanced animations */
 @keyframes pulse-mobile {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.5;
   }
@@ -336,6 +390,7 @@ html {
     transform: translateY(100%);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -352,6 +407,7 @@ html {
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -368,6 +424,7 @@ html {
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -383,6 +440,7 @@ html {
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -451,6 +509,7 @@ html {
   0% {
     background-position: 200% 0;
   }
+
   100% {
     background-position: -200% 0;
   }
@@ -466,18 +525,18 @@ html {
 }
 
 /* Modern spacing utilities */
-.space-y-modern > * + * {
+.space-y-modern>*+* {
   margin-top: 1rem;
 }
 
 @media (min-width: 640px) {
-  .space-y-modern > * + * {
+  .space-y-modern>*+* {
     margin-top: 1.25rem;
   }
 }
 
 @media (min-width: 1024px) {
-  .space-y-modern > * + * {
+  .space-y-modern>*+* {
     margin-top: 1.5rem;
   }
 }
@@ -500,15 +559,15 @@ html {
   .safe-area-inset-top {
     padding-top: max(1rem, env(safe-area-inset-top));
   }
-  
+
   .safe-area-inset-bottom {
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
-  
+
   .safe-area-inset-left {
     padding-left: max(1rem, env(safe-area-inset-left));
   }
-  
+
   .safe-area-inset-right {
     padding-right: max(1rem, env(safe-area-inset-right));
   }
@@ -525,7 +584,12 @@ html {
 
 /* Ensure proper touch targets on mobile */
 @media (max-width: 768px) {
-  button, a, input, select, textarea {
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
     min-height: 44px;
     min-width: 44px;
   }
@@ -538,6 +602,8 @@ html {
 
 /* Hide scrollbar for IE, Edge and Firefox */
 .no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }

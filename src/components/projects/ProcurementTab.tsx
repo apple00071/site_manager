@@ -402,7 +402,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                         <button
                             onClick={() => setShowPoForm(true)}
                             className="flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 text-white rounded-lg font-medium text-sm focus:outline-none hover:opacity-90"
-                            style={{ backgroundColor: '#f59e0b' }}
+                            style={{ backgroundColor: '#eab308' }}
                         >
                             <FiPlus className="w-4 h-4" />
                             <span className="hidden sm:inline">New PO</span>
@@ -412,7 +412,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                         <button
                             onClick={() => setShowInvoiceForm(true)}
                             className="flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 text-white rounded-lg font-medium text-sm focus:outline-none hover:opacity-90"
-                            style={{ backgroundColor: '#f59e0b' }}
+                            style={{ backgroundColor: '#eab308' }}
                         >
                             <FiPlus className="w-4 h-4" />
                             <span className="hidden sm:inline">New Invoice</span>
@@ -422,7 +422,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                         <button
                             onClick={() => setShowPaymentForm(true)}
                             className="flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 text-white rounded-lg font-medium text-sm focus:outline-none hover:opacity-90"
-                            style={{ backgroundColor: '#f59e0b' }}
+                            style={{ backgroundColor: '#eab308' }}
                         >
                             <FiPlus className="w-4 h-4" />
                             <span className="hidden sm:inline">Record Payment</span>
