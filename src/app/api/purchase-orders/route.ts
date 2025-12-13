@@ -100,13 +100,13 @@ export async function GET(request: NextRequest) {
         }
 
         // Calculate stats
-        const pos = data || [];
+        const pos: any[] = data || [];
         const stats = {
             total: pos.length,
-            draft: pos.filter(po => po.status === 'draft').length,
-            sent: pos.filter(po => po.status === 'sent').length,
-            received: pos.filter(po => ['received', 'partially_received'].includes(po.status)).length,
-            totalValue: pos.reduce((sum, po) => sum + (po.total_amount || 0), 0),
+            draft: pos.filter((po: any) => po.status === 'draft').length,
+            sent: pos.filter((po: any) => po.status === 'sent').length,
+            received: pos.filter((po: any) => ['received', 'partially_received'].includes(po.status)).length,
+            totalValue: pos.reduce((sum: number, po: any) => sum + (po.total_amount || 0), 0),
         };
 
         return NextResponse.json({ pos, stats });
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
                 .eq('project_id', project_id)
                 .neq('status', 'cancelled');
 
-            const existingTotal = existingPos?.reduce((sum, po) => sum + (po.total_amount || 0), 0) || 0;
+            const existingTotal = existingPos?.reduce((sum: number, po: any) => sum + (po.total_amount || 0), 0) || 0;
             const newTotal = existingTotal + totalAmount;
             const budget = project.budget;
 

@@ -75,16 +75,16 @@ export async function GET(request: NextRequest) {
         }
 
         // Calculate stats
-        const invoices = data || [];
+        const invoices: any[] = data || [];
         const stats = {
             total: invoices.length,
-            pending: invoices.filter(i => i.status === 'pending').length,
-            approved: invoices.filter(i => i.status === 'approved').length,
-            paid: invoices.filter(i => i.status === 'paid').length,
-            totalValue: invoices.reduce((sum, i) => sum + (i.total_amount || 0), 0),
+            pending: invoices.filter((i: any) => i.status === 'pending').length,
+            approved: invoices.filter((i: any) => i.status === 'approved').length,
+            paid: invoices.filter((i: any) => i.status === 'paid').length,
+            totalValue: invoices.reduce((sum: number, i: any) => sum + (i.total_amount || 0), 0),
             pendingValue: invoices
-                .filter(i => i.status === 'pending')
-                .reduce((sum, i) => sum + (i.total_amount || 0), 0),
+                .filter((i: any) => i.status === 'pending')
+                .reduce((sum: number, i: any) => sum + (i.total_amount || 0), 0),
         };
 
         return NextResponse.json({ invoices, stats });

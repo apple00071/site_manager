@@ -6,8 +6,8 @@ import { FiSend, FiX, FiCheck, FiAlertCircle } from 'react-icons/fi';
 interface BOQItem {
     id: string;
     item_name: string;
-    description?: string;
-    category?: string;
+    description?: string | null;
+    category?: string | null;
     quantity: number;
     rate: number;
     amount: number;

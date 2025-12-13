@@ -305,11 +305,12 @@ export async function DELETE(request: NextRequest) {
             .single();
 
         // Revert items to draft if proposal had them as proposed
-        if (proposal?.selected_items?.length > 0) {
+        const selectedItems = proposal?.selected_items;
+        if (selectedItems && selectedItems.length > 0) {
             await supabaseAdmin
                 .from('boq_items')
                 .update({ status: 'draft' })
-                .in('id', proposal.selected_items)
+                .in('id', selectedItems)
                 .eq('status', 'proposed');
         }
 

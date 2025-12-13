@@ -73,15 +73,15 @@ export async function GET(request: NextRequest) {
         }
 
         // Calculate stats
-        const payments = data || [];
+        const payments: any[] = data || [];
         const stats = {
             total: payments.length,
-            totalAmount: payments.reduce((sum, p) => sum + (p.amount || 0), 0),
+            totalAmount: payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0),
             byMethod: {
-                bank_transfer: payments.filter(p => p.payment_method === 'bank_transfer').reduce((sum, p) => sum + p.amount, 0),
-                cheque: payments.filter(p => p.payment_method === 'cheque').reduce((sum, p) => sum + p.amount, 0),
-                cash: payments.filter(p => p.payment_method === 'cash').reduce((sum, p) => sum + p.amount, 0),
-                upi: payments.filter(p => p.payment_method === 'upi').reduce((sum, p) => sum + p.amount, 0),
+                bank_transfer: payments.filter((p: any) => p.payment_method === 'bank_transfer').reduce((sum: number, p: any) => sum + p.amount, 0),
+                cheque: payments.filter((p: any) => p.payment_method === 'cheque').reduce((sum: number, p: any) => sum + p.amount, 0),
+                cash: payments.filter((p: any) => p.payment_method === 'cash').reduce((sum: number, p: any) => sum + p.amount, 0),
+                upi: payments.filter((p: any) => p.payment_method === 'upi').reduce((sum: number, p: any) => sum + p.amount, 0),
             }
         };
 
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
                     .select('amount')
                     .eq('invoice_id', invoice_id);
 
-                const totalPaid = (allPayments || []).reduce((sum, p) => sum + p.amount, 0);
+                const totalPaid = (allPayments || []).reduce((sum: number, p: any) => sum + p.amount, 0);
 
                 if (totalPaid >= invoice.total_amount) {
                     await supabaseAdmin

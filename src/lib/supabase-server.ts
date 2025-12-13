@@ -61,13 +61,24 @@ export async function getAuthUser() {
 
     if (error || !user) {
       console.error('User authentication error:', error);
-      return { user: null, supabase: null, error: error?.message || 'User not authenticated' };
+      return { user: null, supabase: null, error: error?.message || 'User not authenticated', role: null };
     }
 
-    return { user, supabase, error: null };
+    // Get user role from database
+    let role: string | null = null;
+    if (supabaseAdmin) {
+      const { data: userData } = await supabaseAdmin
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      role = userData?.role || null;
+    }
+
+    return { user, supabase, error: null, role };
   } catch (error: any) {
     console.error('Error getting auth user:', error);
-    return { user: null, supabase: null, error: error.message };
+    return { user: null, supabase: null, error: error.message, role: null };
   }
 }
 
