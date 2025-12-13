@@ -329,100 +329,103 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-white p-4 rounded-xl border">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                            <FiPackage className="w-5 h-5 text-blue-600" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
+                <div className="bg-white p-3 md:p-4 rounded-xl border border-gray-100 shadow-sm">
+                    <div className="flex items-center gap-2 md:gap-3">
+                        <div className="p-2 bg-amber-50 rounded-lg">
+                            <FiPackage className="w-4 h-4 md:w-5 md:h-5 text-amber-600" />
                         </div>
                         <div>
-                            <p className="text-sm text-gray-500">Purchase Orders</p>
-                            <p className="text-xl font-bold">{poStats.total || 0}</p>
+                            <p className="text-xs md:text-sm text-gray-500">POs</p>
+                            <p className="text-lg md:text-xl font-bold">{poStats.total || 0}</p>
                         </div>
                     </div>
                 </div>
-                <div className="bg-white p-4 rounded-xl border">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-purple-100 rounded-lg">
-                            <FiDollarSign className="w-5 h-5 text-purple-600" />
+                <div className="bg-white p-3 md:p-4 rounded-xl border border-gray-100 shadow-sm">
+                    <div className="flex items-center gap-2 md:gap-3">
+                        <div className="p-2 bg-amber-50 rounded-lg">
+                            <FiDollarSign className="w-4 h-4 md:w-5 md:h-5 text-amber-600" />
                         </div>
                         <div>
-                            <p className="text-sm text-gray-500">PO Value</p>
-                            <p className="text-xl font-bold">{formatAmount(poStats.totalValue || 0)}</p>
+                            <p className="text-xs md:text-sm text-gray-500">PO Value</p>
+                            <p className="text-lg md:text-xl font-bold">{formatAmount(poStats.totalValue || 0)}</p>
                         </div>
                     </div>
                 </div>
-                <div className="bg-white p-4 rounded-xl border">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-yellow-100 rounded-lg">
-                            <FiClock className="w-5 h-5 text-yellow-600" />
+                <div className="bg-white p-3 md:p-4 rounded-xl border border-gray-100 shadow-sm">
+                    <div className="flex items-center gap-2 md:gap-3">
+                        <div className="p-2 bg-amber-50 rounded-lg">
+                            <FiClock className="w-4 h-4 md:w-5 md:h-5 text-amber-600" />
                         </div>
                         <div>
-                            <p className="text-sm text-gray-500">Pending Invoices</p>
-                            <p className="text-xl font-bold">{formatAmount(invoiceStats.pendingValue || 0)}</p>
+                            <p className="text-xs md:text-sm text-gray-500">Pending</p>
+                            <p className="text-lg md:text-xl font-bold">{formatAmount(invoiceStats.pendingValue || 0)}</p>
                         </div>
                     </div>
                 </div>
-                <div className="bg-white p-4 rounded-xl border">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-green-100 rounded-lg">
-                            <FiCheckCircle className="w-5 h-5 text-green-600" />
+                <div className="bg-white p-3 md:p-4 rounded-xl border border-gray-100 shadow-sm">
+                    <div className="flex items-center gap-2 md:gap-3">
+                        <div className="p-2 bg-green-50 rounded-lg">
+                            <FiCheckCircle className="w-4 h-4 md:w-5 md:h-5 text-green-600" />
                         </div>
                         <div>
-                            <p className="text-sm text-gray-500">Paid</p>
-                            <p className="text-xl font-bold">{formatAmount(paymentStats.totalAmount || 0)}</p>
+                            <p className="text-xs md:text-sm text-gray-500">Paid</p>
+                            <p className="text-lg md:text-xl font-bold">{formatAmount(paymentStats.totalAmount || 0)}</p>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 mb-4 border-b">
+            <div className="flex gap-1 md:gap-2 mb-4 border-b border-gray-200 overflow-x-auto">
                 {[
-                    { key: 'orders', label: 'Purchase Orders', count: pos.length },
+                    { key: 'orders', label: 'POs', count: pos.length },
                     { key: 'invoices', label: 'Invoices', count: invoices.length },
                     { key: 'payments', label: 'Payments', count: payments.length },
                 ].map(tab => (
                     <button
                         key={tab.key}
                         onClick={() => setActiveTab(tab.key as TabType)}
-                        className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${activeTab === tab.key
-                                ? 'border-yellow-500 text-yellow-600'
-                                : 'border-transparent text-gray-600 hover:text-gray-900'
+                        className={`px-3 md:px-4 py-2 text-xs md:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap focus:outline-none ${activeTab === tab.key
+                            ? 'border-amber-500 text-amber-600'
+                            : 'border-transparent text-gray-600 hover:text-gray-900'
                             }`}
                     >
                         {tab.label}
-                        <span className="ml-2 px-2 py-0.5 bg-gray-100 rounded-full text-xs">
+                        <span className="ml-1 md:ml-2 px-1.5 md:px-2 py-0.5 bg-gray-100 rounded-full text-xs">
                             {tab.count}
                         </span>
                     </button>
                 ))}
-                <div className="ml-auto flex gap-2">
+                <div className="ml-auto flex gap-2 flex-shrink-0">
                     {isAdmin && activeTab === 'orders' && (
                         <button
                             onClick={() => setShowPoForm(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg font-medium hover:bg-yellow-600"
+                            className="flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 text-white rounded-lg font-medium text-sm focus:outline-none hover:opacity-90"
+                            style={{ backgroundColor: '#f59e0b' }}
                         >
                             <FiPlus className="w-4 h-4" />
-                            New PO
+                            <span className="hidden sm:inline">New PO</span>
                         </button>
                     )}
                     {isAdmin && activeTab === 'invoices' && (
                         <button
                             onClick={() => setShowInvoiceForm(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg font-medium hover:bg-yellow-600"
+                            className="flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 text-white rounded-lg font-medium text-sm focus:outline-none hover:opacity-90"
+                            style={{ backgroundColor: '#f59e0b' }}
                         >
                             <FiPlus className="w-4 h-4" />
-                            New Invoice
+                            <span className="hidden sm:inline">New Invoice</span>
                         </button>
                     )}
                     {isAdmin && activeTab === 'payments' && (
                         <button
                             onClick={() => setShowPaymentForm(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg font-medium hover:bg-yellow-600"
+                            className="flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 text-white rounded-lg font-medium text-sm focus:outline-none hover:opacity-90"
+                            style={{ backgroundColor: '#f59e0b' }}
                         >
                             <FiPlus className="w-4 h-4" />
-                            Record Payment
+                            <span className="hidden sm:inline">Record Payment</span>
                         </button>
                     )}
                 </div>
@@ -440,131 +443,227 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
 
             {/* Purchase Orders Tab */}
             {activeTab === 'orders' && (
-                <div className="bg-white border rounded-xl overflow-hidden">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">PO Number</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Supplier</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Date</th>
-                                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Amount</th>
-                                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {pos.map((po) => (
-                                <tr key={po.id} className="hover:bg-gray-50">
-                                    <td className="px-4 py-3 font-medium text-gray-900">{po.po_number}</td>
-                                    <td className="px-4 py-3 text-gray-600">{po.supplier?.name || '-'}</td>
-                                    <td className="px-4 py-3 text-gray-600">{formatDate(po.po_date)}</td>
-                                    <td className="px-4 py-3 text-right font-medium">{formatAmount(po.total_amount)}</td>
-                                    <td className="px-4 py-3 text-center">{getPoStatusBadge(po.status)}</td>
-                                </tr>
-                            ))}
-                            {pos.length === 0 && (
+                <>
+                    {/* Mobile Card View */}
+                    <div className="md:hidden space-y-3">
+                        {pos.map((po) => (
+                            <div key={po.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <p className="font-semibold text-gray-900">{po.po_number}</p>
+                                        <p className="text-sm text-gray-500">{po.supplier?.name || '-'}</p>
+                                    </div>
+                                    {getPoStatusBadge(po.status)}
+                                </div>
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-gray-500">{formatDate(po.po_date)}</span>
+                                    <span className="font-bold text-gray-900">{formatAmount(po.total_amount)}</span>
+                                </div>
+                            </div>
+                        ))}
+                        {pos.length === 0 && (
+                            <div className="bg-white rounded-xl border border-gray-100 p-8 text-center text-gray-500">
+                                <FiPackage className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                                <p>No purchase orders yet</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
                                 <tr>
-                                    <td colSpan={5} className="px-4 py-12 text-center text-gray-500">
-                                        <FiPackage className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                                        <p>No purchase orders yet</p>
-                                    </td>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">PO Number</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Supplier</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Date</th>
+                                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Amount</th>
+                                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">Status</th>
                                 </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {pos.map((po) => (
+                                    <tr key={po.id} className="hover:bg-gray-50">
+                                        <td className="px-4 py-3 font-medium text-gray-900">{po.po_number}</td>
+                                        <td className="px-4 py-3 text-gray-600">{po.supplier?.name || '-'}</td>
+                                        <td className="px-4 py-3 text-gray-600">{formatDate(po.po_date)}</td>
+                                        <td className="px-4 py-3 text-right font-medium">{formatAmount(po.total_amount)}</td>
+                                        <td className="px-4 py-3 text-center">{getPoStatusBadge(po.status)}</td>
+                                    </tr>
+                                ))}
+                                {pos.length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} className="px-4 py-12 text-center text-gray-500">
+                                            <FiPackage className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                                            <p>No purchase orders yet</p>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </>
             )}
 
             {/* Invoices Tab */}
             {activeTab === 'invoices' && (
-                <div className="bg-white border rounded-xl overflow-hidden">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Invoice #</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Type</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Date</th>
-                                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Amount</th>
-                                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">Status</th>
-                                {isAdmin && (
-                                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Actions</th>
+                <>
+                    {/* Mobile Card View */}
+                    <div className="md:hidden space-y-3">
+                        {invoices.map((invoice) => (
+                            <div key={invoice.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <p className="font-semibold text-gray-900">{invoice.invoice_number || 'No #'}</p>
+                                        <p className="text-sm text-gray-500 capitalize">{invoice.invoice_type.replace(/_/g, ' ')}</p>
+                                    </div>
+                                    {getInvoiceStatusBadge(invoice.status)}
+                                </div>
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-gray-500">{formatDate(invoice.created_at)}</span>
+                                    <span className="font-bold text-gray-900">{formatAmount(invoice.total_amount)}</span>
+                                </div>
+                                {isAdmin && invoice.status === 'pending' && (
+                                    <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
+                                        <button
+                                            onClick={() => handleApproveInvoice(invoice.id, true)}
+                                            className="flex-1 py-2 text-sm text-green-600 bg-green-50 rounded-lg font-medium focus:outline-none"
+                                        >
+                                            Approve
+                                        </button>
+                                        <button
+                                            onClick={() => handleApproveInvoice(invoice.id, false)}
+                                            className="flex-1 py-2 text-sm text-red-600 bg-red-50 rounded-lg font-medium focus:outline-none"
+                                        >
+                                            Reject
+                                        </button>
+                                    </div>
                                 )}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {invoices.map((invoice) => (
-                                <tr key={invoice.id} className="hover:bg-gray-50">
-                                    <td className="px-4 py-3 font-medium text-gray-900">{invoice.invoice_number || '-'}</td>
-                                    <td className="px-4 py-3 text-gray-600 capitalize">{invoice.invoice_type.replace(/_/g, ' ')}</td>
-                                    <td className="px-4 py-3 text-gray-600">{formatDate(invoice.created_at)}</td>
-                                    <td className="px-4 py-3 text-right font-medium">{formatAmount(invoice.total_amount)}</td>
-                                    <td className="px-4 py-3 text-center">{getInvoiceStatusBadge(invoice.status)}</td>
+                            </div>
+                        ))}
+                        {invoices.length === 0 && (
+                            <div className="bg-white rounded-xl border border-gray-100 p-8 text-center text-gray-500">
+                                <FiFileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                                <p>No invoices yet</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Invoice #</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Type</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Date</th>
+                                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Amount</th>
+                                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">Status</th>
                                     {isAdmin && (
-                                        <td className="px-4 py-3 text-right">
-                                            {invoice.status === 'pending' && (
-                                                <div className="flex justify-end gap-2">
-                                                    <button
-                                                        onClick={() => handleApproveInvoice(invoice.id, true)}
-                                                        className="p-1 text-green-600 hover:bg-green-50 rounded"
-                                                        title="Approve"
-                                                    >
-                                                        <FiCheck className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleApproveInvoice(invoice.id, false)}
-                                                        className="p-1 text-red-600 hover:bg-red-50 rounded"
-                                                        title="Reject"
-                                                    >
-                                                        <FiX className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </td>
+                                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Actions</th>
                                     )}
                                 </tr>
-                            ))}
-                            {invoices.length === 0 && (
-                                <tr>
-                                    <td colSpan={isAdmin ? 6 : 5} className="px-4 py-12 text-center text-gray-500">
-                                        <FiFileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                                        <p>No invoices yet</p>
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {invoices.map((invoice) => (
+                                    <tr key={invoice.id} className="hover:bg-gray-50">
+                                        <td className="px-4 py-3 font-medium text-gray-900">{invoice.invoice_number || '-'}</td>
+                                        <td className="px-4 py-3 text-gray-600 capitalize">{invoice.invoice_type.replace(/_/g, ' ')}</td>
+                                        <td className="px-4 py-3 text-gray-600">{formatDate(invoice.created_at)}</td>
+                                        <td className="px-4 py-3 text-right font-medium">{formatAmount(invoice.total_amount)}</td>
+                                        <td className="px-4 py-3 text-center">{getInvoiceStatusBadge(invoice.status)}</td>
+                                        {isAdmin && (
+                                            <td className="px-4 py-3 text-right">
+                                                {invoice.status === 'pending' && (
+                                                    <div className="flex justify-end gap-2">
+                                                        <button
+                                                            onClick={() => handleApproveInvoice(invoice.id, true)}
+                                                            className="p-1 text-green-600 hover:bg-green-50 rounded focus:outline-none"
+                                                            title="Approve"
+                                                        >
+                                                            <FiCheck className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleApproveInvoice(invoice.id, false)}
+                                                            className="p-1 text-red-600 hover:bg-red-50 rounded focus:outline-none"
+                                                            title="Reject"
+                                                        >
+                                                            <FiX className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        )}
+                                    </tr>
+                                ))}
+                                {invoices.length === 0 && (
+                                    <tr>
+                                        <td colSpan={isAdmin ? 6 : 5} className="px-4 py-12 text-center text-gray-500">
+                                            <FiFileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                                            <p>No invoices yet</p>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </>
             )}
 
             {/* Payments Tab */}
             {activeTab === 'payments' && (
-                <div className="bg-white border rounded-xl overflow-hidden">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Date</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Method</th>
-                                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {payments.map((payment) => (
-                                <tr key={payment.id} className="hover:bg-gray-50">
-                                    <td className="px-4 py-3 font-medium text-gray-900">{formatDate(payment.payment_date)}</td>
-                                    <td className="px-4 py-3 text-gray-600 capitalize">{payment.payment_method?.replace(/_/g, ' ') || '-'}</td>
-                                    <td className="px-4 py-3 text-right font-medium text-green-600">{formatAmount(payment.amount)}</td>
-                                </tr>
-                            ))}
-                            {payments.length === 0 && (
+                <>
+                    {/* Mobile Card View */}
+                    <div className="md:hidden space-y-3">
+                        {payments.map((payment) => (
+                            <div key={payment.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <p className="font-semibold text-gray-900">{formatDate(payment.payment_date)}</p>
+                                        <p className="text-sm text-gray-500 capitalize">{payment.payment_method?.replace(/_/g, ' ') || 'Unknown'}</p>
+                                    </div>
+                                    <span className="font-bold text-green-600">{formatAmount(payment.amount)}</span>
+                                </div>
+                            </div>
+                        ))}
+                        {payments.length === 0 && (
+                            <div className="bg-white rounded-xl border border-gray-100 p-8 text-center text-gray-500">
+                                <FiDollarSign className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                                <p>No payments recorded yet</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
                                 <tr>
-                                    <td colSpan={3} className="px-4 py-12 text-center text-gray-500">
-                                        <FiDollarSign className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                                        <p>No payments recorded yet</p>
-                                    </td>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Date</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Method</th>
+                                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Amount</th>
                                 </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {payments.map((payment) => (
+                                    <tr key={payment.id} className="hover:bg-gray-50">
+                                        <td className="px-4 py-3 font-medium text-gray-900">{formatDate(payment.payment_date)}</td>
+                                        <td className="px-4 py-3 text-gray-600 capitalize">{payment.payment_method?.replace(/_/g, ' ') || '-'}</td>
+                                        <td className="px-4 py-3 text-right font-medium text-green-600">{formatAmount(payment.amount)}</td>
+                                    </tr>
+                                ))}
+                                {payments.length === 0 && (
+                                    <tr>
+                                        <td colSpan={3} className="px-4 py-12 text-center text-gray-500">
+                                            <FiDollarSign className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                                            <p>No payments recorded yet</p>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </>
             )}
 
             {/* New PO Modal */}
