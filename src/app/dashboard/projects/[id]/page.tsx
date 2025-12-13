@@ -343,6 +343,30 @@ export default function ProjectDetailsPage() {
                     📊 Stage Board
                   </button>
                   <button
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'boq'
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    onClick={() => {
+                      handleTabChange('boq');
+                      setShowTabWidget(false);
+                    }}
+                  >
+                    📄 BOQ
+                  </button>
+                  <button
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'procurement'
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    onClick={() => {
+                      handleTabChange('procurement');
+                      setShowTabWidget(false);
+                    }}
+                  >
+                    🛒 Procurement
+                  </button>
+                  <button
                     className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'updates'
                       ? 'bg-yellow-100 text-yellow-700'
                       : 'text-gray-700 hover:bg-gray-100'
