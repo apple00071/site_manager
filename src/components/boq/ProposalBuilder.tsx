@@ -121,10 +121,10 @@ export function ProposalBuilder({
     }, [items]);
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
+        <div className="fixed inset-0 bg-black/50 z-50">
+            <div className="absolute right-0 top-0 bottom-0 bg-white w-full max-w-lg flex flex-col shadow-2xl animate-slide-in-right">
                 {/* Header */}
-                <div className="px-6 py-4 border-b flex items-center justify-between">
+                <div className="px-6 py-4 flex items-center justify-between">
                     <div>
                         <h2 className="text-xl font-bold text-gray-900">Create Proposal</h2>
                         <p className="text-sm text-gray-500">Select BOQ items to include in the proposal</p>
@@ -146,7 +146,7 @@ export function ProposalBuilder({
                                 type="text"
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
-                                className="w-full px-3 py-2.5 border rounded-lg"
+                                className="w-full px-3 py-2.5 bg-gray-50 rounded-lg outline-none"
                                 placeholder="e.g., Phase 1 - Civil Works Proposal"
                             />
                         </div>
@@ -157,7 +157,7 @@ export function ProposalBuilder({
                             <textarea
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
-                                className="w-full px-3 py-2.5 border rounded-lg"
+                                className="w-full px-3 py-2.5 bg-gray-50 rounded-lg outline-none"
                                 rows={2}
                                 placeholder="Additional notes for the client..."
                             />
@@ -187,7 +187,7 @@ export function ProposalBuilder({
                             </button>
                         </div>
 
-                        <div className="border rounded-lg max-h-64 overflow-y-auto divide-y">
+                        <div className="bg-gray-50 rounded-lg max-h-64 overflow-y-auto">
                             {Object.entries(itemsByCategory).map(([category, catItems]) => (
                                 <div key={category}>
                                     <div className="px-3 py-2 bg-gray-50 text-sm font-medium text-gray-600">
@@ -196,8 +196,7 @@ export function ProposalBuilder({
                                     {catItems.map(item => (
                                         <label
                                             key={item.id}
-                                            className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50 ${selectedIds.includes(item.id) ? 'bg-amber-50' : ''
-                                                }`}
+                                            className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50"
                                         >
                                             <input
                                                 type="checkbox"
@@ -252,7 +251,7 @@ export function ProposalBuilder({
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t flex justify-between">
+                <div className="px-6 py-4 flex justify-between bg-gray-50">
                     <button
                         onClick={onClose}
                         className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"

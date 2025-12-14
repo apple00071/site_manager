@@ -54,6 +54,31 @@ export function BOQTab({ projectId }: BOQTabProps) {
     const [newCategoryName, setNewCategoryName] = useState('');
     const [sectionTotals, setSectionTotals] = useState<Record<string, { count: number; amount: number }>>({});
     const [isMobile, setIsMobile] = useState(false);
+    const [customCategories, setCustomCategories] = useState<string[]>([]);
+
+    // Load custom categories from localStorage on mount
+    useEffect(() => {
+        const storageKey = `boq_custom_categories_${projectId}`;
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {
+                    setCustomCategories(parsed);
+                }
+            } catch (e) {
+                // Invalid JSON, ignore
+            }
+        }
+    }, [projectId]);
+
+    // Save custom categories to localStorage when they change
+    useEffect(() => {
+        const storageKey = `boq_custom_categories_${projectId}`;
+        if (customCategories.length > 0) {
+            localStorage.setItem(storageKey, JSON.stringify(customCategories));
+        }
+    }, [customCategories, projectId]);
 
     // Detect mobile
     useEffect(() => {
@@ -63,17 +88,18 @@ export function BOQTab({ projectId }: BOQTabProps) {
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
-    // Dynamic categories from data
+    // Dynamic categories from data + custom categories
     const categories = useMemo(() => {
-        const cats = [...new Set(items.map(i => i.category).filter(Boolean))] as string[];
-        return cats.sort();
-    }, [items]);
+        const catsFromItems = [...new Set(items.map(i => i.category).filter(Boolean))] as string[];
+        const allCats = [...new Set([...catsFromItems, ...customCategories])];
+        return allCats.sort();
+    }, [items, customCategories]);
 
     const fetchItems = useCallback(async () => {
         try {
             setLoading(true);
             const params = new URLSearchParams({ project_id: projectId });
-            if (activeCategory) params.set('section', activeCategory);
+            // Don't filter by category at API level - fetch all items
 
             const res = await fetch(`/api/boq?${params}`);
             const data = await res.json();
@@ -86,7 +112,7 @@ export function BOQTab({ projectId }: BOQTabProps) {
         } finally {
             setLoading(false);
         }
-    }, [projectId, activeCategory]);
+    }, [projectId]);
 
     useEffect(() => {
         fetchItems();
@@ -94,10 +120,12 @@ export function BOQTab({ projectId }: BOQTabProps) {
 
     const filteredItems = useMemo(() => {
         return items.filter(item => {
+            // Filter by category if one is selected
+            if (activeCategory && item.category !== activeCategory) return false;
             if (filterStatus !== 'all' && item.status !== filterStatus) return false;
             return true;
         });
-    }, [items, filterStatus]);
+    }, [items, filterStatus, activeCategory]);
 
     const totals = useMemo(() => {
         const total = filteredItems.reduce((sum, item) => sum + (item.amount || 0), 0);
@@ -181,8 +209,14 @@ export function BOQTab({ projectId }: BOQTabProps) {
     };
 
     const addCategory = () => {
-        if (newCategoryName.trim()) {
-            setActiveCategory(newCategoryName.trim());
+        const trimmedName = newCategoryName.trim();
+        if (trimmedName) {
+            // Always add to custom categories
+            setCustomCategories(prev => {
+                if (prev.includes(trimmedName)) return prev;
+                return [...prev, trimmedName];
+            });
+            setActiveCategory(trimmedName);
             setNewCategoryName('');
             setShowAddCategory(false);
         }
@@ -455,7 +489,7 @@ export function BOQTab({ projectId }: BOQTabProps) {
                     />
                 ) : (
                     <div className="p-4 md:p-6">
-                        <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+                        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                             <BoqGrid
                                 items={filteredItems}
                                 isAdmin={isAdmin}

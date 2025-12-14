@@ -177,10 +177,10 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl">
+        <div className="fixed inset-0 bg-black/50 z-50">
+            <div className="absolute right-0 top-0 bottom-0 bg-white w-full max-w-2xl flex flex-col shadow-2xl">
                 {/* Header */}
-                <div className="px-6 py-4 border-b flex items-center justify-between">
+                <div className="px-6 py-4 flex items-center justify-between">
                     <h2 className="text-xl font-bold text-gray-900">Import BOQ Items</h2>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
                         <FiX className="w-5 h-5" />
@@ -193,7 +193,7 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
                         <div
                             onDrop={handleDrop}
                             onDragOver={(e) => e.preventDefault()}
-                            className="border-2 border-dashed rounded-xl p-12 text-center hover:border-amber-400 transition-colors"
+                            className="border-2 border-dashed border-gray-200 rounded-xl p-12 text-center hover:border-amber-400 transition-colors"
                         >
                             <FiUpload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
                             <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -249,7 +249,7 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
                             </div>
 
                             {errors.length > 0 && (
-                                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                <div className="mb-4 p-3 bg-yellow-50 rounded-lg">
                                     <div className="flex items-start gap-2">
                                         <FiAlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                                         <div>
@@ -262,8 +262,8 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
                                 </div>
                             )}
 
-                            <div className="border rounded-lg overflow-hidden max-h-96 overflow-y-auto">
-                                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                            <div className="bg-gray-50 rounded-lg overflow-hidden max-h-96 overflow-y-auto">
+                                <table className="min-w-full text-sm">
                                     <thead className="bg-gray-50 sticky top-0">
                                         <tr>
                                             <th className="px-3 py-2 text-left font-semibold text-gray-600">#</th>
@@ -275,7 +275,7 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
                                             <th className="px-3 py-2 text-right font-semibold text-gray-600">Amount</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-100">
+                                    <tbody>
                                         {preview.slice(0, 50).map((row, i) => (
                                             <tr key={i} className="hover:bg-gray-50">
                                                 <td className="px-3 py-2 text-gray-500">{i + 1}</td>
@@ -325,7 +325,7 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
 
                 {/* Footer */}
                 {step === 'preview' && (
-                    <div className="px-6 py-4 border-t flex justify-between">
+                    <div className="px-6 py-4 bg-gray-50 flex justify-between">
                         <button
                             onClick={() => { setStep('upload'); setPreview([]); setFile(null); }}
                             className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
