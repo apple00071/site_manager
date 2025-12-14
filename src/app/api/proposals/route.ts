@@ -1,21 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-// Auth helper
-async function getAuthUser() {
-    const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    const { data: { user }, error } = await supabase.auth.getUser();
-    return { user, error };
-}
+import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 
 // Get user role
 async function getUserRole(userId: string): Promise<string> {
@@ -58,7 +43,7 @@ const ProposalSchema = z.object({
     selected_items: z.array(z.string().uuid()),
 });
 
-// GET /api/proposals - List proposals for project
+// GET /api/proposals - List proposals for project or all proposals
 export async function GET(request: NextRequest) {
     try {
         const { user, error: authError } = await getAuthUser();
@@ -67,11 +52,52 @@ export async function GET(request: NextRequest) {
         }
 
         const projectId = request.nextUrl.searchParams.get('project_id');
+        const fetchAll = request.nextUrl.searchParams.get('all') === 'true';
+
+        const userRole = await getUserRole(user.id);
+
+        // If fetching all proposals, require admin role
+        if (fetchAll) {
+            if (userRole !== 'admin') {
+                return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+            }
+
+            // Fetch all proposals with project info
+            const { data, error } = await supabaseAdmin
+                .from('proposals')
+                .select(`
+                    *,
+                    created_by_user:users!proposals_created_by_fkey(id, full_name),
+                    approved_by_user:users!proposals_approved_by_fkey(id, full_name),
+                    project:projects(id, title)
+                `)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Error fetching all proposals:', error);
+                return NextResponse.json({ error: 'Failed to fetch proposals' }, { status: 500 });
+            }
+
+            // Fetch items for each proposal
+            const proposalsWithItems = await Promise.all((data || []).map(async (proposal: any) => {
+                if (proposal.selected_items?.length > 0) {
+                    const { data: items } = await supabaseAdmin
+                        .from('boq_items')
+                        .select('id, item_name, quantity, rate, amount, status')
+                        .in('id', proposal.selected_items);
+                    return { ...proposal, items: items || [] };
+                }
+                return { ...proposal, items: [] };
+            }));
+
+            return NextResponse.json({ proposals: proposalsWithItems });
+        }
+
+        // Otherwise fetch by project_id
         if (!projectId) {
             return NextResponse.json({ error: 'project_id is required' }, { status: 400 });
         }
 
-        const userRole = await getUserRole(user.id);
         const hasAccess = await checkProjectAccess(user.id, projectId, userRole);
         if (!hasAccess) {
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
@@ -93,7 +119,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Get items for each proposal
-        const proposalsWithItems = await Promise.all((data || []).map(async (proposal) => {
+        const proposalsWithItems = await Promise.all((data || []).map(async (proposal: any) => {
             if (proposal.selected_items?.length > 0) {
                 const { data: items } = await supabaseAdmin
                     .from('boq_items')
@@ -145,7 +171,7 @@ export async function POST(request: NextRequest) {
             .select('id, amount')
             .in('id', selected_items);
 
-        const totalAmount = items?.reduce((sum, i) => sum + (i.amount || 0), 0) || 0;
+        const totalAmount = items?.reduce((sum: number, i: { amount?: number }) => sum + (i.amount || 0), 0) || 0;
 
         // Create proposal
         const { data: proposal, error: createError } = await supabaseAdmin
@@ -256,7 +282,7 @@ export async function PATCH(request: NextRequest) {
                     .from('boq_items')
                     .select('amount')
                     .in('id', selected_items);
-                updates.total_amount = items?.reduce((sum, i) => sum + (i.amount || 0), 0) || 0;
+                updates.total_amount = items?.reduce((sum: number, i: { amount?: number }) => sum + (i.amount || 0), 0) || 0;
             }
         }
 

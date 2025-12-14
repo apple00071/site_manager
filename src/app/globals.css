@@ -587,11 +587,18 @@ html {
 
   button,
   a,
-  input,
+  input:not([type="checkbox"]):not([type="radio"]),
   select,
   textarea {
     min-height: 44px;
     min-width: 44px;
+  }
+
+  /* Allow checkboxes and radios to be smaller for compact layouts */
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: unset;
+    min-width: unset;
   }
 }
 
@@ -606,4 +613,33 @@ html {
   /* IE and Edge */
   scrollbar-width: none;
   /* Firefox */
+}
+
+/* Slide animations */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-left {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+.animate-slide-left {
+  animation: slide-left 0.3s ease-out;
 }

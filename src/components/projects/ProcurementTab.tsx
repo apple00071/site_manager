@@ -66,6 +66,14 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
     const [showPoForm, setShowPoForm] = useState(false);
     const [showInvoiceForm, setShowInvoiceForm] = useState(false);
     const [showPaymentForm, setShowPaymentForm] = useState(false);
+    const [showSupplierForm, setShowSupplierForm] = useState(false);
+    const [supplierForm, setSupplierForm] = useState({
+        name: '',
+        contact_name: '',
+        contact_phone: '',
+        contact_email: '',
+        gst_number: '',
+    });
 
     const [poStats, setPoStats] = useState<any>({});
     const [invoiceStats, setInvoiceStats] = useState<any>({});
@@ -77,6 +85,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
         delivery_date: '',
         delivery_address: '',
         notes: '',
+        gst_rate: 18,
         line_items: [{ boq_item_id: '', description: '', unit: '', quantity: 0, rate: 0 }],
     });
 
@@ -146,7 +155,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
             style: 'currency',
             currency: 'INR',
             maximumFractionDigits: 0,
-        }).format(amount);
+        }).format(amount).replace(/^(\D+)/, '₹');
     };
 
     const formatDate = (date: string) => {
@@ -156,6 +165,36 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
             year: 'numeric',
         });
     };
+
+    const handleCreateSupplier = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            const res = await fetch('/api/suppliers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(supplierForm),
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+
+            // Refresh suppliers list
+            const suppliersRes = await fetch(`/api/suppliers?active=true`);
+            const suppliersData = await suppliersRes.json();
+            setSuppliers(suppliersData.suppliers || []);
+
+            // Auto-select the new supplier
+            setPoForm({ ...poForm, supplier_id: data.supplier.id });
+
+            // Reset form and close
+            setSupplierForm({ name: '', contact_name: '', contact_phone: '', contact_email: '', gst_number: '' });
+            setShowSupplierForm(false);
+        } catch (err) {
+            alert(err instanceof Error ? err.message : 'Failed to create supplier');
+        }
+    };
+
+    // Get confirmed BOQ items ready for PO
+    const confirmedItems = boqItems.filter((item: any) => item.status === 'confirmed');
 
     const getPoStatusBadge = (status: string) => {
         const styles: Record<string, string> = {
@@ -207,6 +246,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                 delivery_date: '',
                 delivery_address: '',
                 notes: '',
+                gst_rate: 18,
                 line_items: [{ boq_item_id: '', description: '', unit: '', quantity: 0, rate: 0 }],
             });
         } catch (err) {
@@ -377,7 +417,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-1 md:gap-2 mb-4 border-b border-gray-200 overflow-x-auto">
+            <div className="flex gap-1 md:gap-2 mb-4 border-b border-gray-200 overflow-x-auto no-scrollbar">
                 {[
                     { key: 'orders', label: 'POs', count: pos.length },
                     { key: 'invoices', label: 'Invoices', count: invoices.length },
@@ -444,6 +484,56 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
             {/* Purchase Orders Tab */}
             {activeTab === 'orders' && (
                 <>
+                    {/* Ready for PO Section - Approved BOQ Items */}
+                    {confirmedItems.length > 0 && (
+                        <div className="mb-6 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                    <div className="p-2 bg-green-500 rounded-lg">
+                                        <FiCheck className="w-4 h-4 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-gray-900">Ready for Purchase Order</h3>
+                                        <p className="text-sm text-gray-600">{confirmedItems.length} approved items awaiting PO</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowPoForm(true)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium text-sm hover:bg-green-700"
+                                >
+                                    <FiPlus className="w-4 h-4" />
+                                    Create PO
+                                </button>
+                            </div>
+                            <div className="space-y-2">
+                                {confirmedItems.slice(0, 5).map((item: any) => (
+                                    <div key={item.id} className="flex justify-between items-center py-2 px-3 bg-white/70 rounded-lg">
+                                        <div className="flex-1">
+                                            <p className="font-medium text-gray-900">{item.item_name}</p>
+                                            <p className="text-xs text-gray-500">
+                                                {item.quantity} {item.unit || 'units'} × ₹{(item.rate || 0).toLocaleString('en-IN')}
+                                            </p>
+                                        </div>
+                                        <span className="font-medium text-green-700">
+                                            ₹{(item.amount || 0).toLocaleString('en-IN')}
+                                        </span>
+                                    </div>
+                                ))}
+                                {confirmedItems.length > 5 && (
+                                    <p className="text-sm text-gray-500 text-center pt-2">
+                                        +{confirmedItems.length - 5} more items
+                                    </p>
+                                )}
+                            </div>
+                            <div className="flex justify-between items-center mt-3 pt-3 border-t border-green-200">
+                                <span className="font-medium text-gray-700">Total Approved Value</span>
+                                <span className="text-lg font-bold text-green-700">
+                                    ₹{confirmedItems.reduce((sum: number, i: any) => sum + (i.amount || 0), 0).toLocaleString('en-IN')}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Mobile Card View */}
                     <div className="md:hidden space-y-3">
                         {pos.map((po) => (
@@ -666,20 +756,36 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                 </>
             )}
 
-            {/* New PO Modal */}
+            {/* New PO Modal/Bottom Sheet */}
             {showPoForm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                        <div className="p-6">
+                <div className="fixed inset-0 bg-black/50 flex items-end md:items-stretch justify-end z-50">
+                    {/* Backdrop */}
+                    <div className="absolute inset-0" onClick={() => setShowPoForm(false)} />
+
+                    {/* Sheet/Side Panel */}
+                    <div className="relative bg-white rounded-t-2xl md:rounded-none w-full md:w-[500px] md:max-w-xl max-h-[85vh] md:max-h-full overflow-y-auto md:shadow-2xl animate-slide-up md:animate-slide-left">
+                        {/* Handle (mobile only) */}
+                        <div className="md:hidden w-12 h-1 bg-gray-300 rounded mx-auto my-3" />
+
+                        <div className="p-4 md:p-6 pb-6">
                             <h3 className="text-lg font-bold mb-4">Create Purchase Order</h3>
                             <form onSubmit={handleCreatePO} className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Supplier</label>
+                                        <div className="flex justify-between items-center mb-1">
+                                            <label className="block text-sm font-medium text-gray-700">Supplier</label>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowSupplierForm(true)}
+                                                className="text-xs text-amber-600 font-medium hover:text-amber-700 focus:outline-none"
+                                            >
+                                                + Add New
+                                            </button>
+                                        </div>
                                         <select
                                             value={poForm.supplier_id}
                                             onChange={(e) => setPoForm({ ...poForm, supplier_id: e.target.value })}
-                                            className="w-full px-3 py-2 border rounded-lg"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                                         >
                                             <option value="">Select Supplier</option>
                                             {suppliers.map(s => (
@@ -688,25 +794,25 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Delivery Date</label>
+                                        <label className="block text-sm font-medium mb-1 text-gray-700">Delivery Date</label>
                                         <input
                                             type="date"
                                             value={poForm.delivery_date}
                                             onChange={(e) => setPoForm({ ...poForm, delivery_date: e.target.value })}
-                                            className="w-full px-3 py-2 border rounded-lg"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                                         />
                                     </div>
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Line Items</label>
+                                    <label className="block text-sm font-medium mb-2 text-gray-700">Line Items</label>
                                     {poForm.line_items.map((item, index) => (
                                         <div key={index} className="grid grid-cols-12 gap-2 mb-2">
-                                            <div className="col-span-4">
+                                            <div className="col-span-12 md:col-span-4">
                                                 <select
                                                     value={item.boq_item_id}
                                                     onChange={(e) => updateLineItem(index, 'boq_item_id', e.target.value)}
-                                                    className="w-full px-2 py-1 border rounded text-sm"
+                                                    className="w-full px-2 py-2 border border-gray-200 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                                                 >
                                                     <option value="">Select from BOQ</option>
                                                     {boqItems.map(b => (
@@ -714,41 +820,41 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                                     ))}
                                                 </select>
                                             </div>
-                                            <div className="col-span-2">
+                                            <div className="col-span-3 md:col-span-2">
                                                 <input
                                                     type="text"
                                                     placeholder="Unit"
                                                     value={item.unit}
                                                     onChange={(e) => updateLineItem(index, 'unit', e.target.value)}
-                                                    className="w-full px-2 py-1 border rounded text-sm"
+                                                    className="w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                                                 />
                                             </div>
-                                            <div className="col-span-2">
+                                            <div className="col-span-3 md:col-span-2">
                                                 <input
                                                     type="number"
                                                     placeholder="Qty"
                                                     value={item.quantity || ''}
                                                     onChange={(e) => updateLineItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                                                    className="w-full px-2 py-1 border rounded text-sm"
+                                                    className="w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                                                 />
                                             </div>
-                                            <div className="col-span-2">
+                                            <div className="col-span-4 md:col-span-2">
                                                 <input
                                                     type="number"
                                                     placeholder="Rate"
                                                     value={item.rate || ''}
                                                     onChange={(e) => updateLineItem(index, 'rate', parseFloat(e.target.value) || 0)}
-                                                    className="w-full px-2 py-1 border rounded text-sm"
+                                                    className="w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                                                 />
                                             </div>
-                                            <div className="col-span-2 flex items-center justify-between">
-                                                <span className="text-sm font-medium">
-                                                    {formatAmount(item.quantity * item.rate)}
+                                            <div className="col-span-2 flex items-center justify-end gap-1">
+                                                <span className="text-xs md:text-sm font-medium truncate">
+                                                    ₹{(item.quantity * item.rate).toFixed(0)}
                                                 </span>
                                                 <button
                                                     type="button"
                                                     onClick={() => removeLineItem(index)}
-                                                    className="p-1 text-red-500 hover:bg-red-50 rounded"
+                                                    className="p-1 text-red-500 hover:bg-red-50 rounded flex-shrink-0"
                                                 >
                                                     <FiX className="w-4 h-4" />
                                                 </button>
@@ -764,38 +870,52 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                     </button>
                                 </div>
 
-                                <div className="bg-gray-50 p-3 rounded-lg">
+                                <div className="bg-amber-50 p-3 md:p-4 rounded-lg">
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm text-gray-600">Subtotal</span>
                                         <span className="font-medium">
                                             {formatAmount(poForm.line_items.reduce((sum, i) => sum + (i.quantity * i.rate), 0))}
                                         </span>
                                     </div>
-                                    <div className="flex justify-between items-center mt-1">
-                                        <span className="text-sm text-gray-600">GST (18%)</span>
+                                    <div className="flex justify-between items-center mt-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm text-gray-600">GST</span>
+                                            <select
+                                                value={poForm.gst_rate}
+                                                onChange={(e) => setPoForm({ ...poForm, gst_rate: parseInt(e.target.value) })}
+                                                className="px-2 py-1 text-sm border border-gray-200 rounded-lg bg-white"
+                                            >
+                                                <option value={0}>0%</option>
+                                                <option value={5}>5%</option>
+                                                <option value={12}>12%</option>
+                                                <option value={18}>18%</option>
+                                                <option value={28}>28%</option>
+                                            </select>
+                                        </div>
                                         <span className="font-medium">
-                                            {formatAmount(poForm.line_items.reduce((sum, i) => sum + (i.quantity * i.rate), 0) * 0.18)}
+                                            {formatAmount(poForm.line_items.reduce((sum, i) => sum + (i.quantity * i.rate), 0) * (poForm.gst_rate / 100))}
                                         </span>
                                     </div>
-                                    <div className="flex justify-between items-center mt-2 pt-2 border-t">
+                                    <div className="flex justify-between items-center mt-2 pt-2 border-t border-amber-200">
                                         <span className="font-medium">Total</span>
-                                        <span className="text-lg font-bold">
-                                            {formatAmount(poForm.line_items.reduce((sum, i) => sum + (i.quantity * i.rate), 0) * 1.18)}
+                                        <span className="text-lg font-bold text-amber-900">
+                                            {formatAmount(poForm.line_items.reduce((sum, i) => sum + (i.quantity * i.rate), 0) * (1 + poForm.gst_rate / 100))}
                                         </span>
                                     </div>
                                 </div>
 
-                                <div className="flex justify-end gap-3 pt-4">
+                                <div className="flex gap-3 pt-4">
                                     <button
                                         type="button"
                                         onClick={() => setShowPoForm(false)}
-                                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                                        className="flex-1 px-4 py-2.5 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
-                                        className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg font-medium hover:bg-yellow-600"
+                                        className="flex-1 px-4 py-2.5 text-white rounded-lg font-medium shadow-sm"
+                                        style={{ backgroundColor: '#eab308' }}
                                     >
                                         Create PO
                                     </button>
@@ -931,6 +1051,94 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                     </button>
                                     <button type="submit" className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg font-medium">
                                         Record Payment
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Supplier Form */}
+            {showSupplierForm && (
+                <div className="fixed inset-0 z-50">
+                    <div className="fixed inset-0 bg-black/50" onClick={() => setShowSupplierForm(false)} />
+                    <div className="fixed bottom-0 left-0 right-0 md:top-0 md:left-auto md:right-0 md:w-[400px] bg-white rounded-t-2xl md:rounded-none shadow-2xl animate-slide-up md:animate-slide-left">
+                        <div className="w-12 h-1 bg-gray-300 rounded mx-auto my-3 md:hidden" />
+                        <div className="p-4 md:p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-bold">Add New Supplier</h3>
+                                <button onClick={() => setShowSupplierForm(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                                    <FiX className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <form onSubmit={handleCreateSupplier} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1 text-gray-700">Supplier Name *</label>
+                                    <input
+                                        type="text"
+                                        value={supplierForm.name}
+                                        onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })}
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                        placeholder="Enter supplier name"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1 text-gray-700">Contact Person</label>
+                                    <input
+                                        type="text"
+                                        value={supplierForm.contact_name}
+                                        onChange={(e) => setSupplierForm({ ...supplierForm, contact_name: e.target.value })}
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                        placeholder="Contact person name"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1 text-gray-700">Phone</label>
+                                        <input
+                                            type="tel"
+                                            value={supplierForm.contact_phone}
+                                            onChange={(e) => setSupplierForm({ ...supplierForm, contact_phone: e.target.value })}
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                            placeholder="Phone number"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1 text-gray-700">Email</label>
+                                        <input
+                                            type="email"
+                                            value={supplierForm.contact_email}
+                                            onChange={(e) => setSupplierForm({ ...supplierForm, contact_email: e.target.value })}
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                            placeholder="Email address"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1 text-gray-700">GST Number</label>
+                                    <input
+                                        type="text"
+                                        value={supplierForm.gst_number}
+                                        onChange={(e) => setSupplierForm({ ...supplierForm, gst_number: e.target.value })}
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                        placeholder="GST registration number"
+                                    />
+                                </div>
+                                <div className="flex gap-3 pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowSupplierForm(false)}
+                                        className="flex-1 px-4 py-2.5 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="flex-1 px-4 py-2.5 bg-amber-500 text-white hover:bg-amber-600 rounded-lg font-medium"
+                                    >
+                                        Add Supplier
                                     </button>
                                 </div>
                             </form>

@@ -165,7 +165,12 @@ export function BoqGrid({
     };
 
     const startEdit = (rowId: string, field: string, currentValue: any) => {
-        if (!isAdmin || field === 'amount' || field === 'item_code') return;
+        console.log('startEdit called:', { rowId, field, currentValue });
+        if (field === 'amount' || field === 'item_code') {
+            console.warn('Cannot edit: Field is readonly', field);
+            return;
+        }
+        console.log('Setting editing cell');
         setEditingCell({ rowId, field, value: String(currentValue ?? '') });
     };
 
@@ -224,14 +229,21 @@ export function BoqGrid({
         return () => document.removeEventListener('paste', handlePaste);
     }, [handlePaste]);
 
+    const hasSelectedRef = useRef(false);
+
     useEffect(() => {
         if (editingCell && inputRef.current) {
             inputRef.current.focus();
-            if (inputRef.current instanceof HTMLInputElement) {
+            // Only select text once when first entering edit mode
+            if (inputRef.current instanceof HTMLInputElement && !hasSelectedRef.current) {
                 inputRef.current.select();
+                hasSelectedRef.current = true;
             }
+        } else {
+            // Reset when not editing
+            hasSelectedRef.current = false;
         }
-    }, [editingCell]);
+    }, [editingCell?.rowId, editingCell?.field]); // Only run when row/field changes, not on value updates
 
     const toggleSelectAll = () => {
         const allItems = Object.values(filteredGroupedItems).flat();

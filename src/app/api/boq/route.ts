@@ -13,6 +13,7 @@ const boqItemSchema = z.object({
     unit: z.string().min(1, 'Unit is required'),
     quantity: z.number().min(0).default(0),
     rate: z.number().min(0).default(0),
+    amount: z.number().min(0).optional(),
     status: z.enum(['draft', 'confirmed', 'completed']).optional(),
     sort_order: z.number().optional(),
     remarks: z.string().optional().nullable(),
@@ -270,9 +271,12 @@ export async function PATCH(request: NextRequest) {
             );
         }
 
+        // Remove amount from updates - it's a generated column calculated by the database
+        const { amount, ...finalUpdates } = validationResult.data;
+
         const { data, error } = await supabaseAdmin
             .from('boq_items')
-            .update(validationResult.data)
+            .update(finalUpdates)
             .eq('id', id)
             .select()
             .single();

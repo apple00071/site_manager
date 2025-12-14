@@ -249,7 +249,7 @@ export function BOQTab({ projectId }: BOQTabProps) {
     }
 
     return (
-        <div className="flex flex-col h-full bg-gray-50">
+        <div className="flex flex-col h-full bg-white">
             {/* Header */}
             <div className="px-4 md:px-6 py-4 border-b bg-white">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -269,15 +269,17 @@ export function BOQTab({ projectId }: BOQTabProps) {
                         <div className="flex rounded-lg overflow-hidden border border-gray-200">
                             <button
                                 onClick={() => setViewMode('grid')}
-                                className={`p-2 focus:outline-none ${viewMode === 'grid' ? 'text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                                className={`p-2 focus:outline-none min-w-[44px] min-h-[44px] flex items-center justify-center ${viewMode === 'grid' ? 'text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
                                 style={viewMode === 'grid' ? { backgroundColor: '#eab308' } : {}}
+                                aria-label="Grid view"
                             >
                                 <FiGrid className="w-4 h-4" />
                             </button>
                             <button
                                 onClick={() => setViewMode('cards')}
-                                className={`p-2 focus:outline-none ${viewMode === 'cards' ? 'text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                                className={`p-2 focus:outline-none min-w-[44px] min-h-[44px] flex items-center justify-center ${viewMode === 'cards' ? 'text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
                                 style={viewMode === 'cards' ? { backgroundColor: '#eab308' } : {}}
+                                aria-label="Cards view"
                             >
                                 <FiList className="w-4 h-4" />
                             </button>
@@ -286,7 +288,7 @@ export function BOQTab({ projectId }: BOQTabProps) {
                         <select
                             value={filterStatus}
                             onChange={(e) => setFilterStatus(e.target.value)}
-                            className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                            className="px-2 md:px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent min-h-[44px]"
                         >
                             <option value="all">All Status</option>
                             {STATUSES.map(s => (
@@ -298,17 +300,19 @@ export function BOQTab({ projectId }: BOQTabProps) {
                             <>
                                 <button
                                     onClick={() => setShowImport(true)}
-                                    className="btn-secondary flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium"
+                                    className="btn-secondary flex items-center gap-1 md:gap-2 px-2 md:px-3 py-2 rounded-lg text-sm font-medium min-h-[44px]"
+                                    aria-label="Import BOQ"
                                 >
-                                    <FiUpload className="w-4 h-4" />
-                                    <span>Import</span>
+                                    <FiUpload className="w-4 h-4 flex-shrink-0" />
+                                    <span className="hidden md:inline">Import</span>
                                 </button>
                                 <button
                                     onClick={handleAddItem}
-                                    className="btn-brand flex items-center gap-2 px-4 py-2 rounded-lg font-medium shadow-sm"
+                                    className="btn-brand flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 rounded-lg font-medium shadow-sm min-h-[44px]"
+                                    aria-label="Add item"
                                 >
-                                    <FiPlus className="w-4 h-4" />
-                                    <span>Add</span>
+                                    <FiPlus className="w-4 h-4 flex-shrink-0" />
+                                    <span className="hidden md:inline">Add</span>
                                 </button>
                             </>
                         )}
@@ -316,12 +320,12 @@ export function BOQTab({ projectId }: BOQTabProps) {
                 </div>
             </div>
 
-            {/* Category Tabs */}
-            <div className="px-4 md:px-6 py-3 bg-white border-b overflow-x-auto">
+            {/* Category Tabs - Desktop only */}
+            <div className="hidden md:block px-4 md:px-6 py-3 bg-white border-b overflow-x-auto no-scrollbar">
                 <div className="flex gap-2 min-w-max items-center">
                     <button
                         onClick={() => setActiveCategory(null)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap focus:outline-none ${activeCategory === null
+                        className={`px-3 md:px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap focus:outline-none min-h-[44px] flex items-center ${activeCategory === null
                             ? 'text-white shadow-sm'
                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
@@ -340,7 +344,7 @@ export function BOQTab({ projectId }: BOQTabProps) {
                         <button
                             key={cat}
                             onClick={() => setActiveCategory(cat)}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap focus:outline-none ${activeCategory === cat
+                            className={`px-3 md:px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap focus:outline-none min-h-[44px] flex items-center ${activeCategory === cat
                                 ? 'text-white shadow-sm'
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                 }`}
@@ -355,7 +359,7 @@ export function BOQTab({ projectId }: BOQTabProps) {
                                     >
                                         {sectionTotals[cat].count}
                                     </span>
-                                    <span className="ml-1 text-xs opacity-75">
+                                    <span className="ml-1 text-xs opacity-75 hidden md:inline">
                                         {formatAmount(sectionTotals[cat].amount)}
                                     </span>
                                 </>
@@ -371,7 +375,7 @@ export function BOQTab({ projectId }: BOQTabProps) {
                                 value={newCategoryName}
                                 onChange={(e) => setNewCategoryName(e.target.value)}
                                 placeholder="Category name"
-                                className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-32 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                                className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-32 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent min-h-[44px]"
                                 autoFocus
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') addCategory();
@@ -381,22 +385,47 @@ export function BOQTab({ projectId }: BOQTabProps) {
                                     }
                                 }}
                             />
-                            <button onClick={addCategory} className="p-2 bg-amber-500 text-white rounded-lg focus:outline-none hover:bg-amber-600">
+                            <button
+                                onClick={addCategory}
+                                className="p-2 bg-amber-500 text-white rounded-lg focus:outline-none hover:bg-amber-600 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                                aria-label="Add category"
+                            >
                                 <FiPlus className="w-4 h-4" />
                             </button>
-                            <button onClick={() => { setShowAddCategory(false); setNewCategoryName(''); }} className="p-2 bg-gray-100 text-gray-600 rounded-lg focus:outline-none hover:bg-gray-200">
+                            <button
+                                onClick={() => { setShowAddCategory(false); setNewCategoryName(''); }}
+                                className="p-2 bg-gray-100 text-gray-600 rounded-lg focus:outline-none hover:bg-gray-200 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                                aria-label="Cancel"
+                            >
                                 <FiX className="w-4 h-4" />
                             </button>
                         </div>
                     ) : (
                         <button
                             onClick={() => setShowAddCategory(true)}
-                            className="px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:bg-gray-50 focus:outline-none"
+                            className="px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:bg-gray-50 focus:outline-none min-w-[44px] min-h-[44px] flex items-center justify-center"
+                            aria-label="Add new category"
                         >
                             <FiPlus className="w-4 h-4" />
                         </button>
                     )}
                 </div>
+            </div>
+
+            {/* Category Dropdown - Mobile only */}
+            <div className="md:hidden px-2 py-3 bg-white border-b">
+                <select
+                    value={activeCategory || '__all__'}
+                    onChange={(e) => setActiveCategory(e.target.value === '__all__' ? null : e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                >
+                    <option value="__all__">All Items ({items.length})</option>
+                    {categories.map(cat => (
+                        <option key={cat} value={cat}>
+                            {cat} ({sectionTotals[cat]?.count || 0})
+                        </option>
+                    ))}
+                </select>
             </div>
 
             {/* Bulk Actions */}

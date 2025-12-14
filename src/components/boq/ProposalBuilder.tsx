@@ -109,16 +109,16 @@ export function ProposalBuilder({
         }
     };
 
-    // Group items by category
+    // Group items by category - show draft items and any pre-selected items
     const itemsByCategory = useMemo(() => {
         const grouped: Record<string, BOQItem[]> = {};
-        items.filter(i => i.status === 'draft').forEach(item => {
+        items.filter(i => i.status === 'draft' || selectedIds.includes(i.id)).forEach(item => {
             const cat = item.category || 'Uncategorized';
             if (!grouped[cat]) grouped[cat] = [];
             grouped[cat].push(item);
         });
         return grouped;
-    }, [items]);
+    }, [items, selectedIds]);
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50">

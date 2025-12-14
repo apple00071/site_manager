@@ -7,7 +7,7 @@ import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import '@/styles/calendar-custom.css';
-import { FiCheck, FiFilter, FiPlus, FiUser, FiAlertTriangle, FiChevronLeft, FiChevronRight, FiUserX, FiX, FiClock, FiList } from 'react-icons/fi';
+import { FiCheck, FiFilter, FiPlus, FiUser, FiAlertTriangle, FiChevronLeft, FiChevronRight, FiUserX, FiX, FiClock, FiList, FiFileText, FiCheckCircle, FiXCircle } from 'react-icons/fi';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useToast } from '@/components/ui/Toast';
 
@@ -168,7 +168,7 @@ export default function TasksPage() {
   const { showToast } = useToast();
 
   // Sidebar category state
-  const [activeCategory, setActiveCategory] = useState<'for-me' | 'by-me' | 'all'>('for-me');
+  const [activeCategory, setActiveCategory] = useState<'for-me' | 'by-me' | 'all' | 'proposals'>('for-me');
   const [showSidebar, setShowSidebar] = useState(true);
 
   // Check for mobile viewport
@@ -336,6 +336,79 @@ export default function TasksPage() {
       all: tasks.length
     };
   }, [tasks, user]);
+
+  // Proposals state
+  const [proposals, setProposals] = useState<any[]>([]);
+  const [loadingProposals, setLoadingProposals] = useState(false);
+
+  const fetchProposals = async () => {
+    try {
+      setLoadingProposals(true);
+      // Fetch all proposals (we'll filter to sent ones)
+      const res = await fetch('/api/proposals?all=true');
+      if (!res.ok) {
+        // If 403, user is not admin - just don't show proposals section
+        if (res.status === 403 || res.status === 401) {
+          setProposals([]);
+          return;
+        }
+        throw new Error('Failed to fetch proposals');
+      }
+      const data = await res.json();
+      // Filter to only pending/sent proposals
+      const pending = (data.proposals || []).filter((p: any) => p.status === 'sent');
+      setProposals(pending);
+    } catch (err) {
+      console.error('Failed to fetch proposals:', err);
+      setProposals([]);
+    } finally {
+      setLoadingProposals(false);
+    }
+  };
+
+  // Fetch proposals on mount and when category changes
+  useEffect(() => {
+    fetchProposals();
+  }, []);
+
+  useEffect(() => {
+    if (activeCategory === 'proposals') {
+      fetchProposals();
+    }
+  }, [activeCategory]);
+
+  const handleApproveProposal = async (proposalId: string) => {
+    try {
+      const res = await fetch('/api/proposals', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: proposalId, action: 'approve' }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast('success', 'Proposal approved - items have been confirmed');
+      fetchProposals();
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Failed to approve');
+    }
+  };
+
+  const handleRejectProposal = async (proposalId: string) => {
+    const reason = prompt('Enter rejection reason (optional):');
+    try {
+      const res = await fetch('/api/proposals', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: proposalId, action: 'reject', reason }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast('success', 'Proposal rejected - items reverted to draft');
+      fetchProposals();
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Failed to reject');
+    }
+  };
 
   // Filter tasks by active category
   const filteredTasksByCategory = useMemo(() => {
@@ -1149,6 +1222,27 @@ export default function TasksPage() {
                 {categoryCounts.all}
               </span>
             </button>
+
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => setActiveCategory('proposals')}
+                className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeCategory === 'proposals'
+                  ? 'bg-amber-500 text-white'
+                  : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+              >
+                <div className="flex items-center gap-3">
+                  <FiFileText className="w-5 h-5" />
+                  <span>Proposals</span>
+                </div>
+                {proposals.length > 0 && (
+                  <span className={`inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded ${activeCategory === 'proposals' ? 'bg-white text-amber-700' : 'bg-amber-100 text-amber-700'
+                    }`}>
+                    {proposals.length}
+                  </span>
+                )}
+              </button>
+            </div>
           </nav>
         </aside>
       )}
@@ -1156,248 +1250,353 @@ export default function TasksPage() {
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
         <div className="space-y-4 p-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
-            <div className="hidden sm:flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setModalOpen(true)}
-                className="inline-flex items-center px-3 py-2 rounded-md bg-yellow-500 text-gray-900 font-medium hover:bg-yellow-600"
-              >
-                <FiPlus className="h-4 w-4 mr-1" />
-                New Task
-              </button>
-            </div>
-          </div>
-
-          <div className="tasks-calendar-card bg-white border border-gray-200 rounded-lg p-3 shadow-sm" role="region" aria-label="Tasks calendar" aria-live="polite">
-            <div className="flex flex-wrap items-center gap-3 mb-3">
-              <div className="inline-flex items-center gap-2">
-                <FiFilter className="h-4 w-4 text-gray-600" />
-                <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)} className="px-2 py-1 border border-gray-300 rounded-md text-sm">
-                  <option value="all">All assignees</option>
-                  {assignees.map(a => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
+          {activeCategory === 'proposals' ? (
+            <>
+              <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-bold text-gray-900">Pending Proposals</h1>
               </div>
-              <div className="inline-flex items-center gap-2">
-                <FiUser className="h-4 w-4 text-gray-600" />
-                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)} className="px-2 py-1 border border-gray-300 rounded-md text-sm">
-                  <option value="all">All status</option>
-                  <option value="todo">To Do</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="blocked">Blocked</option>
-                  <option value="done">Completed</option>
-                </select>
-              </div>
-            </div>
 
-            <div className="rounded-lg border border-gray-200">
-              <Calendar
-                localizer={localizer}
-                events={events}
-                startAccessor="start"
-                endAccessor="end"
-                view={view}
-                date={date}
-                min={minTime}
-                max={maxTime}
-                step={30}
-                timeslots={2}
-                showAllDayEventRow={false}
-                onView={(v: CalendarViewType) => setView(v)}
-                onNavigate={(d: Date) => setDate(d)}
-                formats={customFormats}
-                selectable
-                onSelectSlot={(slotInfo: any) => {
-                  console.log('Slot selected:', slotInfo);
-                  // For week/day view, slotInfo.start should contain the exact time
-                  // slotInfo.slots[0] might also contain the first slot time
-                  const selectedTime = slotInfo.start instanceof Date
-                    ? slotInfo.start
-                    : new Date(slotInfo.start);
-                  console.log('Selected time hours:', selectedTime.getHours(), 'minutes:', selectedTime.getMinutes());
-                  openCreateAt(selectedTime);
-                }}
-                onSelectEvent={(event: any) => {
-                  const task: CalendarTask | undefined = event.resource;
-                  if (task) {
-                    openViewTask(task);
-                  }
-                }}
-                components={{
-                  event: (props: any) => <EventComp {...props} view={view} onSelectEvent={onSelectEvent} />,
-                  toolbar: TasksToolbar,
-                  month: {
-                    dateHeader: ({ date, label }: { date: Date; label: string }) => {
-                      let isToday = false;
-                      try {
-                        isToday = format(new Date(), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
-                      } catch (e) {
-                        // Ignore format errors
-                      }
-                      return (
-                        <div className="rbc-date-cell">
-                          <div className={`rbc-date-cell-content ${isToday ? 'rbc-now' : ''}`}>
-                            {label}
+              {loadingProposals ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500" />
+                </div>
+              ) : proposals.length === 0 ? (
+                <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                  <FiFileText className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+                  <p className="text-gray-500">No pending proposals</p>
+                  <p className="text-sm text-gray-400 mt-1">Proposals sent from BOQ will appear here for approval</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {proposals.map((proposal: any) => (
+                    <div key={proposal.id} className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+                      {/* Header */}
+                      <div className="p-4 border-b border-gray-100">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              {proposal.project?.title && (
+                                <span className="text-xs font-medium px-2 py-0.5 bg-amber-100 text-amber-800 rounded">
+                                  {proposal.project.title}
+                                </span>
+                              )}
+                            </div>
+                            <h3 className="font-semibold text-gray-900 text-lg">{proposal.title}</h3>
+                            {proposal.description && (
+                              <p className="text-sm text-gray-500 mt-1">{proposal.description}</p>
+                            )}
+                            <div className="flex flex-wrap gap-3 mt-3 text-sm">
+                              <span className="text-gray-600">
+                                <span className="font-medium">Sent by:</span> {proposal.created_by_user?.full_name || 'Unknown'}
+                              </span>
+                              <span className="text-gray-600">
+                                <span className="font-medium">Date:</span> {new Date(proposal.sent_at || proposal.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-2 ml-4">
+                            <button
+                              onClick={() => handleApproveProposal(proposal.id)}
+                              className="inline-flex items-center gap-1 px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600"
+                            >
+                              <FiCheckCircle className="w-4 h-4" />
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleRejectProposal(proposal.id)}
+                              className="inline-flex items-center gap-1 px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200"
+                            >
+                              <FiXCircle className="w-4 h-4" />
+                              Reject
+                            </button>
                           </div>
                         </div>
-                      );
-                    }
-                  }
-                }}
-                style={{
-                  height: '100%',
-                  minHeight: '600px',
-                  '--rbc-today-bg': '#f0f9ff',
-                  '--rbc-off-range-bg': '#f9fafb',
-                  '--rbc-event-bg': '#4f46e5',
-                  '--rbc-event-color': '#fff',
-                  '--rbc-current-time-indicator': '#4f46e5',
-                } as React.CSSProperties}
-                popup
-                messages={{
-                  showMore: (count: number) => `+${count} more` as any,
-                  noEventsInRange: loading ? 'Loading...' : 'No tasks'
-                }}
-                className="tasks-calendar"
-              />
-            </div>
-          </div>
+                      </div>
 
-          <button
-            type="button"
-            onClick={() => openCreateAt(new Date())}
-            className="fixed bottom-20 right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-yellow-500 text-gray-900 shadow-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 sm:hidden"
-            aria-label="Add new task"
-          >
-            <FiPlus className="h-7 w-7" />
-          </button>
+                      {/* Item Details */}
+                      <div className="p-4 bg-gray-50">
+                        <h4 className="text-sm font-medium text-gray-700 mb-3">
+                          Items ({proposal.selected_items?.length || 0})
+                        </h4>
+                        {proposal.items && proposal.items.length > 0 ? (
+                          <div className="space-y-2">
+                            {proposal.items.map((item: any) => (
+                              <div key={item.id} className="flex justify-between items-center py-2 px-3 bg-white rounded border border-gray-100">
+                                <div className="flex-1">
+                                  <p className="font-medium text-gray-900">{item.item_name}</p>
+                                  <p className="text-xs text-gray-500">
+                                    {item.quantity} × ₹{(item.rate || 0).toLocaleString('en-IN')}
+                                  </p>
+                                </div>
+                                <span className="font-medium text-gray-900">
+                                  ₹{(item.amount || 0).toLocaleString('en-IN')}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-400 italic">Item details not loaded</p>
+                        )}
 
-          {
-            error && (
-              <div className="bg-red-50 border-l-4 border-red-500 p-3 text-sm text-red-700 rounded">{error}</div>
-            )
-          }
+                        {/* Total */}
+                        <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-200">
+                          <span className="font-semibold text-gray-700">Total Amount</span>
+                          <span className="text-xl font-bold text-amber-700">
+                            ₹{(proposal.total_amount || 0).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
+                <div className="hidden sm:flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setModalOpen(true)}
+                    className="inline-flex items-center px-3 py-2 rounded-md bg-yellow-500 text-gray-900 font-medium hover:bg-yellow-600"
+                  >
+                    <FiPlus className="h-4 w-4 mr-1" />
+                    New Task
+                  </button>
+                </div>
+              </div>
 
-          {/* Mobile: BottomSheet for View Task */}
-          <BottomSheet
-            isOpen={viewModalOpen && isMobile}
-            onClose={() => { setViewModalOpen(false); setViewTask(null); }}
-            title="Task Details"
-          >
-            <ViewTaskContent />
-          </BottomSheet>
-
-          {/* Desktop: Modal for View Task */}
-          {
-            viewModalOpen && !isMobile && viewTask && (
-              <div
-                className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
-                onClick={() => { setViewModalOpen(false); setViewTask(null); }}
-              >
-                <div
-                  className="bg-white rounded-lg shadow-xl w-full max-w-lg p-5"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-lg font-semibold text-gray-900">Task Details</h2>
-                    <button
-                      onClick={() => { setViewModalOpen(false); setViewTask(null); }}
-                      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-                    >
-                      <FiX className="w-5 h-5" />
-                    </button>
+              <div className="tasks-calendar-card bg-white border border-gray-200 rounded-lg p-3 shadow-sm" role="region" aria-label="Tasks calendar" aria-live="polite">
+                <div className="flex flex-wrap items-center gap-3 mb-3">
+                  <div className="inline-flex items-center gap-2">
+                    <FiFilter className="h-4 w-4 text-gray-600" />
+                    <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)} className="px-2 py-1 border border-gray-300 rounded-md text-sm">
+                      <option value="all">All assignees</option>
+                      {assignees.map(a => (
+                        <option key={a.id} value={a.id}>{a.name}</option>
+                      ))}
+                    </select>
                   </div>
-                  <ViewTaskContent />
-                </div>
-              </div>
-            )
-          }
-
-          {/* Mobile: BottomSheet for Create/Edit Task */}
-          <BottomSheet
-            isOpen={modalOpen && isMobile}
-            onClose={() => { setModalOpen(false); setEditingTask(null); }}
-            title={isEditing ? 'Edit Task' : 'Create Task'}
-          >
-            <TaskFormContent />
-          </BottomSheet>
-
-          {/* Desktop: Modal for Create/Edit Task */}
-          {
-            modalOpen && !isMobile && (
-              <div
-                className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-3 sm:px-0"
-                onClick={() => { setModalOpen(false); setEditingTask(null); }}
-              >
-                <div
-                  className="bg-white rounded-lg shadow-xl w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto p-3 sm:p-5"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-lg font-semibold text-gray-900">{isEditing ? 'Edit Task' : 'Create Task'}</h2>
-                    <button
-                      onClick={() => { setModalOpen(false); setEditingTask(null); }}
-                      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-                    >
-                      <FiX className="w-5 h-5" />
-                    </button>
+                  <div className="inline-flex items-center gap-2">
+                    <FiUser className="h-4 w-4 text-gray-600" />
+                    <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)} className="px-2 py-1 border border-gray-300 rounded-md text-sm">
+                      <option value="all">All status</option>
+                      <option value="todo">To Do</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="blocked">Blocked</option>
+                      <option value="done">Completed</option>
+                    </select>
                   </div>
-                  <TaskFormContent />
                 </div>
-              </div>
-            )
-          }
 
-          {/* Mobile Bottom Navigation */}
-          {
-            isMobile && (
-              <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-30">
-                <div className="flex justify-around">
-                  <button
-                    onClick={() => setActiveCategory('for-me')}
-                    className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'for-me' ? 'text-yellow-600' : 'text-gray-600'
-                      }`}
-                  >
-                    <FiUser className="w-5 h-5" />
-                    <span className="text-xs">For Me</span>
-                    {categoryCounts.forMe > 0 && (
-                      <span className="absolute top-1 right-1/4 bg-yellow-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                        {categoryCounts.forMe}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setActiveCategory('by-me')}
-                    className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'by-me' ? 'text-yellow-600' : 'text-gray-600'
-                      }`}
-                  >
-                    <FiClock className="w-5 h-5" />
-                    <span className="text-xs">By Me</span>
-                    {categoryCounts.byMe > 0 && (
-                      <span className="absolute top-1 right-1/4 bg-yellow-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                        {categoryCounts.byMe}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setActiveCategory('all')}
-                    className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'all' ? 'text-yellow-600' : 'text-gray-600'
-                      }`}
-                  >
-                    <FiList className="w-5 h-5" />
-                    <span className="text-xs">All</span>
-                    {categoryCounts.all > 0 && (
-                      <span className="absolute top-1 right-1/4 bg-yellow-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                        {categoryCounts.all}
-                      </span>
-                    )}
-                  </button>
+                <div className="rounded-lg border border-gray-200">
+                  <Calendar
+                    localizer={localizer}
+                    events={events}
+                    startAccessor="start"
+                    endAccessor="end"
+                    view={view}
+                    date={date}
+                    min={minTime}
+                    max={maxTime}
+                    step={30}
+                    timeslots={2}
+                    showAllDayEventRow={false}
+                    onView={(v: CalendarViewType) => setView(v)}
+                    onNavigate={(d: Date) => setDate(d)}
+                    formats={customFormats}
+                    selectable
+                    onSelectSlot={(slotInfo: any) => {
+                      console.log('Slot selected:', slotInfo);
+                      // For week/day view, slotInfo.start should contain the exact time
+                      // slotInfo.slots[0] might also contain the first slot time
+                      const selectedTime = slotInfo.start instanceof Date
+                        ? slotInfo.start
+                        : new Date(slotInfo.start);
+                      console.log('Selected time hours:', selectedTime.getHours(), 'minutes:', selectedTime.getMinutes());
+                      openCreateAt(selectedTime);
+                    }}
+                    onSelectEvent={(event: any) => {
+                      const task: CalendarTask | undefined = event.resource;
+                      if (task) {
+                        openViewTask(task);
+                      }
+                    }}
+                    components={{
+                      event: (props: any) => <EventComp {...props} view={view} onSelectEvent={onSelectEvent} />,
+                      toolbar: TasksToolbar,
+                      month: {
+                        dateHeader: ({ date, label }: { date: Date; label: string }) => {
+                          let isToday = false;
+                          try {
+                            isToday = format(new Date(), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
+                          } catch (e) {
+                            // Ignore format errors
+                          }
+                          return (
+                            <div className="rbc-date-cell">
+                              <div className={`rbc-date-cell-content ${isToday ? 'rbc-now' : ''}`}>
+                                {label}
+                              </div>
+                            </div>
+                          );
+                        }
+                      }
+                    }}
+                    style={{
+                      height: '100%',
+                      minHeight: '600px',
+                      '--rbc-today-bg': '#f0f9ff',
+                      '--rbc-off-range-bg': '#f9fafb',
+                      '--rbc-event-bg': '#4f46e5',
+                      '--rbc-event-color': '#fff',
+                      '--rbc-current-time-indicator': '#4f46e5',
+                    } as React.CSSProperties}
+                    popup
+                    messages={{
+                      showMore: (count: number) => `+${count} more` as any,
+                      noEventsInRange: loading ? 'Loading...' : 'No tasks'
+                    }}
+                    className="tasks-calendar"
+                  />
                 </div>
               </div>
-            )}
+
+              <button
+                type="button"
+                onClick={() => openCreateAt(new Date())}
+                className="fixed bottom-20 right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-yellow-500 text-gray-900 shadow-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 sm:hidden"
+                aria-label="Add new task"
+              >
+                <FiPlus className="h-7 w-7" />
+              </button>
+
+              {
+                error && (
+                  <div className="bg-red-50 border-l-4 border-red-500 p-3 text-sm text-red-700 rounded">{error}</div>
+                )
+              }
+
+              {/* Mobile: BottomSheet for View Task */}
+              <BottomSheet
+                isOpen={viewModalOpen && isMobile}
+                onClose={() => { setViewModalOpen(false); setViewTask(null); }}
+                title="Task Details"
+              >
+                <ViewTaskContent />
+              </BottomSheet>
+
+              {/* Desktop: Modal for View Task */}
+              {
+                viewModalOpen && !isMobile && viewTask && (
+                  <div
+                    className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
+                    onClick={() => { setViewModalOpen(false); setViewTask(null); }}
+                  >
+                    <div
+                      className="bg-white rounded-lg shadow-xl w-full max-w-lg p-5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-lg font-semibold text-gray-900">Task Details</h2>
+                        <button
+                          onClick={() => { setViewModalOpen(false); setViewTask(null); }}
+                          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                        >
+                          <FiX className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <ViewTaskContent />
+                    </div>
+                  </div>
+                )
+              }
+
+              {/* Mobile: BottomSheet for Create/Edit Task */}
+              <BottomSheet
+                isOpen={modalOpen && isMobile}
+                onClose={() => { setModalOpen(false); setEditingTask(null); }}
+                title={isEditing ? 'Edit Task' : 'Create Task'}
+              >
+                <TaskFormContent />
+              </BottomSheet>
+
+              {/* Desktop: Modal for Create/Edit Task */}
+              {
+                modalOpen && !isMobile && (
+                  <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-3 sm:px-0"
+                    onClick={() => { setModalOpen(false); setEditingTask(null); }}
+                  >
+                    <div
+                      className="bg-white rounded-lg shadow-xl w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto p-3 sm:p-5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-lg font-semibold text-gray-900">{isEditing ? 'Edit Task' : 'Create Task'}</h2>
+                        <button
+                          onClick={() => { setModalOpen(false); setEditingTask(null); }}
+                          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                        >
+                          <FiX className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <TaskFormContent />
+                    </div>
+                  </div>
+                )
+              }
+
+              {/* Mobile Bottom Navigation */}
+              {
+                isMobile && (
+                  <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-30">
+                    <div className="flex justify-around">
+                      <button
+                        onClick={() => setActiveCategory('for-me')}
+                        className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'for-me' ? 'text-yellow-600' : 'text-gray-600'
+                          }`}
+                      >
+                        <FiUser className="w-5 h-5" />
+                        <span className="text-xs">For Me</span>
+                        {categoryCounts.forMe > 0 && (
+                          <span className="absolute top-1 right-1/4 bg-yellow-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                            {categoryCounts.forMe}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setActiveCategory('by-me')}
+                        className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'by-me' ? 'text-yellow-600' : 'text-gray-600'
+                          }`}
+                      >
+                        <FiClock className="w-5 h-5" />
+                        <span className="text-xs">By Me</span>
+                        {categoryCounts.byMe > 0 && (
+                          <span className="absolute top-1 right-1/4 bg-yellow-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                            {categoryCounts.byMe}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setActiveCategory('all')}
+                        className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'all' ? 'text-yellow-600' : 'text-gray-600'
+                          }`}
+                      >
+                        <FiList className="w-5 h-5" />
+                        <span className="text-xs">All</span>
+                        {categoryCounts.all > 0 && (
+                          <span className="absolute top-1 right-1/4 bg-yellow-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                            {categoryCounts.all}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+            </>
+          )}
         </div>
       </div>
     </div>
