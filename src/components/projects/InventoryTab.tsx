@@ -562,22 +562,22 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {items.map((item) => (
                     <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-3 py-3 whitespace-nowrap">
                         <span className="text-sm font-medium text-gray-900">{item.item_name}</span>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">
                         {item.quantity || '-'}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">
                         {item.supplier_name || '-'}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">
                         {item.date_purchased ? formatDateIST(item.date_purchased) : '-'}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-3 py-3 whitespace-nowrap">
                         {getStatusBadge(item.bill_approval_status)}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-right relative">
+                      <td className="px-3 py-3 whitespace-nowrap text-right relative">
                         <button
                           onClick={() => setOpenMenuId(openMenuId === item.id ? null : item.id)}
                           className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
@@ -722,3 +722,4 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
 }
 
 export default InventoryTab;
+

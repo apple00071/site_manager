@@ -791,22 +791,22 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Name of File
                       </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Type of File
                       </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Uploaded By
                       </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Uploaded On
                       </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -814,13 +814,13 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredDesigns.map((design) => (
                       <tr key={design.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-3 py-3 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             {/* Version badge */}
                             <div className="flex items-center gap-1">
                               <span className={`inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold rounded ${design.is_current_approved
-                                  ? 'bg-green-500 text-white'
-                                  : 'bg-gray-200 text-gray-700'
+                                ? 'bg-green-500 text-white'
+                                : 'bg-gray-200 text-gray-700'
                                 }`}>
                                 V{design.version_number}
                               </span>
@@ -851,7 +851,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-3 py-3 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             {/* Comment count */}
                             {design.comments && design.comments.length > 0 && (
@@ -869,16 +869,16 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                        <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-700">
                           {design.uploaded_by_user?.full_name || 'Unknown'}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">
                           {formatDateTimeReadable(design.created_at)}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-3 py-3 whitespace-nowrap">
                           {getStatusBadge(design.approval_status)}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-right relative">
+                        <td className="px-3 py-3 whitespace-nowrap text-right relative">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -917,8 +917,8 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                     <div className="flex-shrink-0 flex items-center gap-2 mt-0.5">
                       <div className="flex items-center gap-1">
                         <span className={`inline-flex items-center justify-center min-w-[24px] px-1.5 py-0.5 text-xs font-bold rounded ${design.is_current_approved
-                            ? 'bg-green-500 text-white'
-                            : 'bg-gray-200 text-gray-700'
+                          ? 'bg-green-500 text-white'
+                          : 'bg-gray-200 text-gray-700'
                           }`}>
                           V{design.version_number}
                         </span>
@@ -1185,3 +1185,4 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
 }
 
 export default DesignsTab;
+

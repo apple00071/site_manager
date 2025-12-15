@@ -145,11 +145,11 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-24 sm:pb-0">
       <ProjectsListHeader user={user ? { name: user.full_name || user.email?.split('@')[0] || 'User', email: user.email } : null} />
 
       {/* Tab Navigation Bar with Add Button */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm mx-4 sm:mx-6">
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm mx-2 sm:mx-6">
         <div className="flex items-center justify-between px-2">
           {/* Tabs */}
           <div className="flex overflow-x-auto">
@@ -185,7 +185,7 @@ export default function ProjectsPage() {
       </div>
 
       {/* Projects Table */}
-      <div className="bg-white shadow-card overflow-visible rounded-xl border border-gray-100 mx-4 sm:mx-6">
+      <div className="bg-white shadow-card overflow-visible rounded-xl border border-gray-100 mx-2 sm:mx-6">
         {/* Mobile view - cards */}
         <div className="lg:hidden">
           {filteredProjects.map((project, index) => (
@@ -292,28 +292,28 @@ export default function ProjectsPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-3 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-12">
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
                   #
                 </th>
-                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Project Name
                 </th>
-                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Customer
                 </th>
-                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Flat No
                 </th>
-                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Phone
                 </th>
-                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Est. Completion
                 </th>
-                <th scope="col" className="px-4 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                <th scope="col" className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -329,16 +329,16 @@ export default function ProjectsPage() {
                   <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-4 py-4">
                     <div className="text-sm font-semibold text-gray-900">{project.title}</div>
                   </td>
-                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-4 py-4 whitespace-nowrap">
+                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{project.customer_name || 'N/A'}</div>
                   </td>
-                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-4 py-4 whitespace-nowrap">
+                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{project.flat_number || '-'}</div>
                   </td>
-                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-4 py-4 whitespace-nowrap">
+                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{project.phone_number || '-'}</div>
                   </td>
-                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-4 py-4 whitespace-nowrap">
+                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap">
                     {(() => {
                       const statusConfig = getStatusConfig(project);
                       return (
@@ -348,10 +348,10 @@ export default function ProjectsPage() {
                       );
                     })()}
                   </td>
-                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
                     {project.estimated_completion_date ? formatDateIST(project.estimated_completion_date) : '-'}
                   </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <td className="px-3 py-3 whitespace-nowrap text-right text-sm font-medium">
                     <div className="relative">
                       <button
                         onClick={(e) => {

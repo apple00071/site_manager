@@ -217,9 +217,11 @@ function DashboardLayoutContent({
         </button>
 
         {/* Notification bell - floating (mobile only) */}
-        <div className="lg:hidden fixed top-4 right-4 z-30">
-          <OptimizedNotificationBell />
-        </div>
+        {!isCustomHeaderPage && (
+          <div className="lg:hidden fixed top-4 right-4 z-30">
+            <OptimizedNotificationBell />
+          </div>
+        )}
 
         {/* Desktop header only - HIDDEN on Project Details Page */}
         {!isCustomHeaderPage && (
@@ -290,7 +292,7 @@ function DashboardLayoutContent({
 
         {/* Main content area with minimal padding */}
         <main className="flex-1 bg-white">
-          <div className={`${isCustomHeaderPage ? 'pt-0' : 'pt-16 lg:pt-0'} h-full flex flex-col min-h-0 ${isCustomHeaderPage ? '' : 'px-2 sm:px-3 lg:px-4 py-3'}`}>
+          <div className={`pt-16 lg:pt-0 h-full flex flex-col min-h-0 ${isCustomHeaderPage ? '' : 'px-2 sm:px-3 lg:px-4 py-3'}`}>
             {children}
           </div>
         </main>

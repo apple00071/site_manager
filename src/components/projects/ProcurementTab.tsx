@@ -564,21 +564,21 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">PO Number</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Supplier</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Date</th>
-                                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Amount</th>
-                                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">Status</th>
+                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PO Number</th>
+                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
+                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {pos.map((po) => (
                                     <tr key={po.id} className="hover:bg-gray-50">
-                                        <td className="px-4 py-3 font-medium text-gray-900">{po.po_number}</td>
-                                        <td className="px-4 py-3 text-gray-600">{po.supplier?.name || '-'}</td>
-                                        <td className="px-4 py-3 text-gray-600">{formatDate(po.po_date)}</td>
-                                        <td className="px-4 py-3 text-right font-medium">{formatAmount(po.total_amount)}</td>
-                                        <td className="px-4 py-3 text-center">{getPoStatusBadge(po.status)}</td>
+                                        <td className="px-3 py-3 font-medium text-gray-900">{po.po_number}</td>
+                                        <td className="px-3 py-3 text-gray-600">{po.supplier?.name || '-'}</td>
+                                        <td className="px-3 py-3 text-gray-600">{formatDate(po.po_date)}</td>
+                                        <td className="px-3 py-3 text-right font-medium">{formatAmount(po.total_amount)}</td>
+                                        <td className="px-3 py-3 text-center">{getPoStatusBadge(po.status)}</td>
                                     </tr>
                                 ))}
                                 {pos.length === 0 && (
@@ -644,24 +644,24 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Invoice #</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Type</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Date</th>
-                                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Amount</th>
-                                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">Status</th>
+                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice #</th>
+                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                     {isAdmin && (
-                                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Actions</th>
+                                        <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                     )}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {invoices.map((invoice) => (
                                     <tr key={invoice.id} className="hover:bg-gray-50">
-                                        <td className="px-4 py-3 font-medium text-gray-900">{invoice.invoice_number || '-'}</td>
-                                        <td className="px-4 py-3 text-gray-600 capitalize">{invoice.invoice_type.replace(/_/g, ' ')}</td>
-                                        <td className="px-4 py-3 text-gray-600">{formatDate(invoice.created_at)}</td>
-                                        <td className="px-4 py-3 text-right font-medium">{formatAmount(invoice.total_amount)}</td>
-                                        <td className="px-4 py-3 text-center">{getInvoiceStatusBadge(invoice.status)}</td>
+                                        <td className="px-3 py-3 font-medium text-gray-900">{invoice.invoice_number || '-'}</td>
+                                        <td className="px-3 py-3 text-gray-600 capitalize">{invoice.invoice_type.replace(/_/g, ' ')}</td>
+                                        <td className="px-3 py-3 text-gray-600">{formatDate(invoice.created_at)}</td>
+                                        <td className="px-3 py-3 text-right font-medium">{formatAmount(invoice.total_amount)}</td>
+                                        <td className="px-3 py-3 text-center">{getInvoiceStatusBadge(invoice.status)}</td>
                                         {isAdmin && (
                                             <td className="px-4 py-3 text-right">
                                                 {invoice.status === 'pending' && (
@@ -729,17 +729,17 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Date</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Method</th>
-                                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Amount</th>
+                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
+                                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {payments.map((payment) => (
                                     <tr key={payment.id} className="hover:bg-gray-50">
-                                        <td className="px-4 py-3 font-medium text-gray-900">{formatDate(payment.payment_date)}</td>
-                                        <td className="px-4 py-3 text-gray-600 capitalize">{payment.payment_method?.replace(/_/g, ' ') || '-'}</td>
-                                        <td className="px-4 py-3 text-right font-medium text-green-600">{formatAmount(payment.amount)}</td>
+                                        <td className="px-3 py-3 font-medium text-gray-900">{formatDate(payment.payment_date)}</td>
+                                        <td className="px-3 py-3 text-gray-600 capitalize">{payment.payment_method?.replace(/_/g, ' ') || '-'}</td>
+                                        <td className="px-3 py-3 text-right font-medium text-green-600">{formatAmount(payment.amount)}</td>
                                     </tr>
                                 ))}
                                 {payments.length === 0 && (
@@ -1151,3 +1151,5 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
 }
 
 export default ProcurementTab;
+
+

@@ -76,7 +76,9 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
                                                 : 'bg-gray-200 text-gray-500'
                                         }
                                     `}>
-                                        {(state === 'completed' || state === 'current') ? <FiCheck className="w-3 h-3" /> : (index + 1)}
+                                        {(state === 'completed' || state === 'current') ? <FiCheck className="w-3 h-3" /> : (
+                                            <div className="w-1.5 h-1.5 rounded-full bg-current opacity-40" />
+                                        )}
                                     </span>
                                     <span className={`text-sm font-medium ${state === 'current' ? 'text-gray-900' : 'text-gray-500'
                                         }`}>{stage.label}</span>
@@ -138,7 +140,7 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
                                 ) : state === 'current' ? (
                                     <span className="w-1 h-1 bg-white rounded-full animate-pulse" />
                                 ) : (
-                                    <span>{index + 1}</span>
+                                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
                                 )}
                             </span>
                             <span className="whitespace-nowrap">{stage.label}</span>
