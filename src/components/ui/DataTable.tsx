@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
+import { FiSearch, FiChevronDown, FiX } from 'react-icons/fi';
 
 // ============================================================================
 // Types
@@ -21,6 +22,10 @@ export interface Column<T = any> {
     sortable?: boolean;
     /** Whether to hide on mobile */
     hideOnMobile?: boolean;
+    /** Enable filtering for this column */
+    filterable?: boolean;
+    /** Filter options for select dropdown (if not provided, uses text search) */
+    filterOptions?: string[];
 }
 
 export interface DataTableProps<T = any> {
@@ -48,6 +53,8 @@ export interface DataTableProps<T = any> {
     className?: string;
     /** Compact mode - less padding */
     compact?: boolean;
+    /** Show filter row below headers */
+    showFilters?: boolean;
 }
 
 // ============================================================================
@@ -95,7 +102,11 @@ export function DataTable<T extends Record<string, any>>({
     stickyHeader = false,
     className = '',
     compact = false,
+    showFilters = false,
 }: DataTableProps<T>) {
+    // Filter state
+    const [filters, setFilters] = useState<Record<string, string>>({});
+
     // Padding classes based on compact mode
     const cellPadding = compact ? 'px-2 py-2' : 'px-3 py-3';
     const headerPadding = compact ? 'px-2 py-2' : 'px-3 py-3';
@@ -104,6 +115,24 @@ export function DataTable<T extends Record<string, any>>({
     const getValue = (row: T, key: string): any => {
         return key.split('.').reduce((obj, k) => obj?.[k], row as any);
     };
+
+    // Filter data based on current filters
+    const filteredData = useMemo(() => {
+        if (!showFilters || Object.keys(filters).length === 0) return data;
+
+        return data.filter(row => {
+            return Object.entries(filters).every(([key, filterValue]) => {
+                if (!filterValue) return true;
+                const value = getValue(row, key);
+                if (value === null || value === undefined) return false;
+                return String(value).toLowerCase().includes(filterValue.toLowerCase());
+            });
+        });
+    }, [data, filters, showFilters]);
+
+    const hasActiveFilters = Object.values(filters).some(v => v && v.trim());
+
+    const clearFilters = () => setFilters({});
 
     // Handle select all
     const handleSelectAll = () => {
@@ -170,6 +199,49 @@ export function DataTable<T extends Record<string, any>>({
                             </th>
                         ))}
                     </tr>
+
+                    {/* Filter Row */}
+                    {showFilters && (
+                        <tr className="bg-white border-b border-gray-200">
+                            {selectable && <th className="px-2 py-2" />}
+                            {columns.map((col) => (
+                                <th
+                                    key={`filter-${col.key}`}
+                                    className={`px-2 py-2 ${col.hideOnMobile ? 'hidden md:table-cell' : ''}`}
+                                >
+                                    {col.filterable !== false ? (
+                                        col.filterOptions ? (
+                                            // Dropdown select for predefined options
+                                            <select
+                                                value={filters[col.key] || ''}
+                                                onChange={(e) => setFilters({ ...filters, [col.key]: e.target.value })}
+                                                className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                            >
+                                                <option value="">All</option>
+                                                {col.filterOptions.map((opt) => (
+                                                    <option key={opt} value={opt}>{opt}</option>
+                                                ))}
+                                            </select>
+                                        ) : (
+                                            // Text search input
+                                            <div className="relative">
+                                                <FiSearch className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search..."
+                                                    value={filters[col.key] || ''}
+                                                    onChange={(e) => setFilters({ ...filters, [col.key]: e.target.value })}
+                                                    className="w-full pl-6 pr-2 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                                />
+                                            </div>
+                                        )
+                                    ) : (
+                                        <span className="text-gray-300 text-xs">-</span>
+                                    )}
+                                </th>
+                            ))}
+                        </tr>
+                    )}
                 </thead>
 
                 {/* Body */}
@@ -179,15 +251,15 @@ export function DataTable<T extends Record<string, any>>({
                         Array.from({ length: 5 }).map((_, i) => (
                             <SkeletonRow key={i} columns={columns} />
                         ))
-                    ) : data.length === 0 ? (
+                    ) : filteredData.length === 0 ? (
                         // Empty state
                         <EmptyState
-                            message={emptyMessage}
+                            message={hasActiveFilters ? 'No results match your filters' : emptyMessage}
                             colSpan={columns.length + (selectable ? 1 : 0)}
                         />
                     ) : (
                         // Data rows
-                        data.map((row, rowIndex) => {
+                        filteredData.map((row, rowIndex) => {
                             const rowKey = String(row[keyField]);
                             const isSelected = selectedKeys.includes(rowKey);
 

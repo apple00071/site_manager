@@ -62,6 +62,7 @@ const ProcurementTab = dynamic(() => import('@/components/projects/ProcurementTa
 
 import { ProjectHeader } from '@/components/projects/navigation/ProjectHeader';
 import { StageNavigator, StageId } from '@/components/projects/navigation/StageNavigator';
+import { SubTabNav, STAGE_SUB_TABS, getDefaultSubTab } from '@/components/projects/navigation/SubTabNav';
 
 export default function ProjectDetailsPage() {
   const { id } = useParams();
@@ -93,17 +94,8 @@ export default function ProjectDetailsPage() {
 
   const handleStageChange = (stage: StageId) => {
     setActiveStage(stage);
-    // Set default sub-tab for the stage
-    const defaultTabs: Record<StageId, string> = {
-      'visit': 'details',
-      'design': 'designs',
-      'boq': 'boq',
-      'orders': 'procurement',
-      'work_progress': 'board',
-      'snag': 'snag_list',
-      'finance': 'finance_overview'
-    };
-    setActiveSubTab(defaultTabs[stage]);
+    // Set default sub-tab for the stage using centralized config
+    setActiveSubTab(getDefaultSubTab(stage));
     router.push(`/dashboard/projects/${id}?stage=${stage}`, { scroll: false });
   };
 
@@ -241,23 +233,15 @@ export default function ProjectDetailsPage() {
         completedStages={[]} // TODO: Logic to calculate completed stages based on workflow
       />
 
-      {/* 3. Sub-Tab Content Area */}
+      {/* 3. Sub-Tab Navigation */}
+      <SubTabNav
+        tabs={STAGE_SUB_TABS[activeStage] || []}
+        activeTab={activeSubTab}
+        onTabChange={setActiveSubTab}
+      />
+
+      {/* 4. Content Area */}
       <div className="flex-1 overflow-hidden flex flex-col h-full relative px-2 sm:px-3 lg:px-4 pb-20 sm:pb-0">
-        {/* Optional: Secondary Tab Bar for stages with multiple views (e.g. Visit -> Details | Updates) */}
-        {activeStage === 'visit' && (
-          <div className="flex border-b border-gray-100 px-4">
-            {['details', 'updates'].map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveSubTab(tab)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeSubTab === tab ? 'border-amber-500 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}
-              >
-                {tab === 'details' ? 'Project Details' : 'Updates & Timeline'}
-              </button>
-            ))}
-          </div>
-        )}
 
 
 
