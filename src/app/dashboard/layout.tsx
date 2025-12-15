@@ -96,6 +96,11 @@ function DashboardLayoutContent({
     );
   }
 
+  // Check if we are on the Project Details page OR Projects List page to hide the global header
+  // logic: exact match '/dashboard/projects' OR '/dashboard/projects/[id]' 
+  // We exclude '/new' if we want the global header there, or include it. Let's include it for consistency.
+  const isCustomHeaderPage = pathname === '/dashboard/projects' || (/^\/dashboard\/projects\/[^/]+$/.test(pathname));
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Mobile sidebar overlay */}
@@ -216,74 +221,76 @@ function DashboardLayoutContent({
           <OptimizedNotificationBell />
         </div>
 
-        {/* Desktop header only */}
-        <header className="bg-white shadow-sm border-b border-gray-200 hidden lg:block min-h-14">
-          <div className="px-6 py-3 flex items-center justify-between h-full">
-            {/* Left side: Title with tabs */}
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <h2 className="text-lg font-bold text-gray-900 whitespace-nowrap">{pageTitle}</h2>
+        {/* Desktop header only - HIDDEN on Project Details Page */}
+        {!isCustomHeaderPage && (
+          <header className="bg-white shadow-sm border-b border-gray-200 hidden lg:block min-h-14">
+            <div className="px-6 py-3 flex items-center justify-between h-full">
+              {/* Left side: Title with tabs */}
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <h2 className="text-lg font-bold text-gray-900 whitespace-nowrap">{pageTitle}</h2>
 
-              {/* Tab pills (if any) */}
-              {tabs.length > 0 && (
-                <>
-                  <span className="text-gray-300 text-lg">/</span>
-                  <div className="flex items-center gap-1 overflow-x-auto">
-                    {tabs.map((tab) => (
-                      <button
-                        key={tab.id}
-                        onClick={() => onTabChange?.(tab.id)}
-                        className={`
-                          px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200
-                          ${activeTab === tab.id
-                            ? 'bg-yellow-500 text-gray-900'
-                            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                          }
-                        `}
-                      >
-                        {tab.icon && <span className="mr-1.5">{tab.icon}</span>}
-                        {tab.label}
-                      </button>
-                    ))}
+                {/* Tab pills (if any) */}
+                {tabs.length > 0 && (
+                  <>
+                    <span className="text-gray-300 text-lg">/</span>
+                    <div className="flex items-center gap-1 overflow-x-auto">
+                      {tabs.map((tab) => (
+                        <button
+                          key={tab.id}
+                          onClick={() => onTabChange?.(tab.id)}
+                          className={`
+                            px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200
+                            ${activeTab === tab.id
+                              ? 'bg-yellow-500 text-gray-900'
+                              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                            }
+                          `}
+                        >
+                          {tab.icon && <span className="mr-1.5">{tab.icon}</span>}
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Right side: Status + Actions + Notification */}
+              <div className="flex items-center gap-3 ml-4">
+                {/* Project Status */}
+                {subtitle && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-gray-500">Project Status:</span>
+                    <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium text-xs">
+                      {subtitle}
+                    </span>
                   </div>
-                </>
-              )}
+                )}
+                {actions.map((action) => (
+                  <button
+                    key={action.id}
+                    onClick={action.onClick}
+                    className={`
+                      flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
+                      ${action.variant === 'primary'
+                        ? 'bg-yellow-500 hover:bg-yellow-600 text-gray-900'
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      }
+                    `}
+                  >
+                    {action.icon}
+                    {action.label}
+                  </button>
+                ))}
+                <OptimizedNotificationBell />
+              </div>
             </div>
+          </header>
+        )}
 
-            {/* Right side: Status + Actions + Notification */}
-            <div className="flex items-center gap-3 ml-4">
-              {/* Project Status */}
-              {subtitle && (
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-gray-500">Project Status:</span>
-                  <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium text-xs">
-                    {subtitle}
-                  </span>
-                </div>
-              )}
-              {actions.map((action) => (
-                <button
-                  key={action.id}
-                  onClick={action.onClick}
-                  className={`
-                    flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
-                    ${action.variant === 'primary'
-                      ? 'bg-yellow-500 hover:bg-yellow-600 text-gray-900'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                    }
-                  `}
-                >
-                  {action.icon}
-                  {action.label}
-                </button>
-              ))}
-              <OptimizedNotificationBell />
-            </div>
-          </div>
-        </header>
-
-        {/* Main content area with proper padding */}
+        {/* Main content area with minimal padding */}
         <main className="flex-1 bg-white">
-          <div className="pt-16 lg:pt-0 px-4 sm:px-6 lg:px-8 py-6 h-full flex flex-col min-h-0">
+          <div className={`${isCustomHeaderPage ? 'pt-0' : 'pt-16 lg:pt-0'} h-full flex flex-col min-h-0 ${isCustomHeaderPage ? '' : 'px-2 sm:px-3 lg:px-4 py-3'}`}>
             {children}
           </div>
         </main>

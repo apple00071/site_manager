@@ -10,6 +10,7 @@ import { BoqGrid } from '@/components/boq/BoqGrid';
 import { BoqCardMobile } from '@/components/boq/BoqCardMobile';
 import { BoqImport } from '@/components/boq/BoqImport';
 import { ProposalBuilder } from '@/components/boq/ProposalBuilder';
+import { BoqEditModal } from '@/components/boq/BoqEditModal';
 
 interface BOQItem {
     id: string;
@@ -55,6 +56,8 @@ export function BOQTab({ projectId }: BOQTabProps) {
     const [sectionTotals, setSectionTotals] = useState<Record<string, { count: number; amount: number }>>({});
     const [isMobile, setIsMobile] = useState(false);
     const [customCategories, setCustomCategories] = useState<string[]>([]);
+    const [editingItem, setEditingItem] = useState<BOQItem | null>(null);
+    const [showEditModal, setShowEditModal] = useState(false);
 
     // Load custom categories from localStorage on mount
     useEffect(() => {
@@ -143,10 +146,17 @@ export function BOQTab({ projectId }: BOQTabProps) {
             const data = await res.json();
             if (data.error) throw new Error(data.error);
 
-            // Update local state
-            setItems(prev => prev.map(item =>
-                item.id === id ? { ...item, [field]: value } : item
-            ));
+            // Update local state with the full item from API (includes recalculated amount)
+            if (data.item) {
+                setItems(prev => prev.map(item =>
+                    item.id === id ? { ...item, ...data.item } : item
+                ));
+            } else {
+                // Fallback if API doesn't return the item
+                setItems(prev => prev.map(item =>
+                    item.id === id ? { ...item, [field]: value } : item
+                ));
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Update failed');
         }
@@ -164,25 +174,55 @@ export function BOQTab({ projectId }: BOQTabProps) {
         }
     };
 
-    const handleAddItem = async () => {
+    // Open modal to add new item
+    const handleAddItem = () => {
+        setEditingItem(null); // null means new item
+        setShowEditModal(true);
+    };
+
+    // Open modal to edit existing item
+    const handleEditItem = (item: BOQItem) => {
+        setEditingItem(item);
+        setShowEditModal(true);
+    };
+
+    // Save item (new or update)
+    const handleSaveItem = async (formData: Partial<BOQItem>) => {
+        console.log('handleSaveItem called:', { editingItem, formData });
         try {
-            const res = await fetch('/api/boq', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    project_id: projectId,
-                    category: activeCategory || 'Uncategorized',
-                    item_name: 'New Item',
-                    unit: 'Nos',
-                    quantity: 0,
-                    rate: 0,
-                }),
-            });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            fetchItems();
+            if (editingItem) {
+                // Update existing item
+                console.log('Updating existing item:', editingItem.id);
+                const res = await fetch('/api/boq', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: editingItem.id, ...formData }),
+                });
+                const data = await res.json();
+                console.log('Update response:', data);
+                if (data.error) throw new Error(data.error);
+            } else {
+                // Create new item
+                console.log('Creating new item');
+                const res = await fetch('/api/boq', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        project_id: projectId,
+                        ...formData,
+                    }),
+                });
+                const data = await res.json();
+                console.log('Create response:', data);
+                if (data.error) throw new Error(data.error);
+            }
+            console.log('Fetching items after save...');
+            await fetchItems();
+            setShowEditModal(false);
+            setEditingItem(null);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Add failed');
+            console.error('Save error:', err);
+            setError(err instanceof Error ? err.message : 'Save failed');
         }
     };
 
@@ -251,7 +291,7 @@ export function BOQTab({ projectId }: BOQTabProps) {
     return (
         <div className="flex flex-col h-full bg-white">
             {/* Header */}
-            <div className="px-4 md:px-6 py-4 border-b bg-white">
+            <div className="px-2 md:px-3 py-3 border-b border-gray-100 bg-white">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h2 className="text-xl font-bold text-gray-900">Bill of Quantities</h2>
@@ -307,6 +347,14 @@ export function BOQTab({ projectId }: BOQTabProps) {
                                     <span className="hidden md:inline">Import</span>
                                 </button>
                                 <button
+                                    onClick={() => setShowProposal(true)}
+                                    className="btn-secondary flex items-center gap-1 md:gap-2 px-2 md:px-3 py-2 rounded-lg text-sm font-medium min-h-[44px]"
+                                    aria-label="Create Proposal"
+                                >
+                                    <FiSend className="w-4 h-4 flex-shrink-0" />
+                                    <span className="hidden md:inline">Proposal</span>
+                                </button>
+                                <button
                                     onClick={handleAddItem}
                                     className="btn-brand flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 rounded-lg font-medium shadow-sm min-h-[44px]"
                                     aria-label="Add item"
@@ -321,7 +369,7 @@ export function BOQTab({ projectId }: BOQTabProps) {
             </div>
 
             {/* Category Tabs - Desktop only */}
-            <div className="hidden md:block px-4 md:px-6 py-3 bg-white border-b overflow-x-auto no-scrollbar">
+            <div className="hidden md:block px-2 md:px-3 py-2 bg-white border-b border-gray-100 overflow-x-auto no-scrollbar">
                 <div className="flex gap-2 min-w-max items-center">
                     <button
                         onClick={() => setActiveCategory(null)}
@@ -429,53 +477,57 @@ export function BOQTab({ projectId }: BOQTabProps) {
             </div>
 
             {/* Bulk Actions */}
-            {selectedItems.length > 0 && isAdmin && (
-                <div className="px-4 md:px-6 py-2 bg-amber-50 border-b flex items-center gap-4 flex-wrap">
-                    <span className="text-sm font-medium text-amber-800">
-                        {selectedItems.length} selected
-                    </span>
-                    <div className="flex gap-2 flex-wrap">
-                        <button
-                            onClick={() => handleBulkStatusUpdate('confirmed')}
-                            className="px-3 py-1.5 text-sm text-white rounded-lg hover:opacity-90 focus:outline-none"
-                            style={{ backgroundColor: '#eab308' }}
-                        >
-                            Confirm
-                        </button>
-                        <button
-                            onClick={() => handleBulkStatusUpdate('completed')}
-                            className="px-3 py-1.5 text-sm text-white rounded-lg hover:opacity-90 focus:outline-none"
-                            style={{ backgroundColor: '#ca8a04' }}
-                        >
-                            Complete
-                        </button>
-                        <button
-                            onClick={() => setShowProposal(true)}
-                            className="px-3 py-1.5 text-sm text-white rounded-lg flex items-center gap-1 hover:opacity-90 focus:outline-none"
-                            style={{ backgroundColor: '#eab308' }}
-                        >
-                            <FiSend className="w-3 h-3" />
-                            Send Proposal
-                        </button>
-                        <button
-                            onClick={() => setSelectedItems([])}
-                            className="px-3 py-1.5 text-sm bg-white text-gray-600 rounded-lg border border-gray-200 hover:bg-gray-50 focus:outline-none"
-                        >
-                            Clear
+            {
+                selectedItems.length > 0 && isAdmin && (
+                    <div className="px-2 md:px-3 py-2 bg-amber-50 border-b border-gray-100 flex items-center gap-4 flex-wrap">
+                        <span className="text-sm font-medium text-amber-800">
+                            {selectedItems.length} selected
+                        </span>
+                        <div className="flex gap-2 flex-wrap">
+                            <button
+                                onClick={() => handleBulkStatusUpdate('confirmed')}
+                                className="px-3 py-1.5 text-sm text-white rounded-lg hover:opacity-90 focus:outline-none"
+                                style={{ backgroundColor: '#eab308' }}
+                            >
+                                Confirm
+                            </button>
+                            <button
+                                onClick={() => handleBulkStatusUpdate('completed')}
+                                className="px-3 py-1.5 text-sm text-white rounded-lg hover:opacity-90 focus:outline-none"
+                                style={{ backgroundColor: '#ca8a04' }}
+                            >
+                                Complete
+                            </button>
+                            <button
+                                onClick={() => setShowProposal(true)}
+                                className="px-3 py-1.5 text-sm text-white rounded-lg flex items-center gap-1 hover:opacity-90 focus:outline-none"
+                                style={{ backgroundColor: '#eab308' }}
+                            >
+                                <FiSend className="w-3 h-3" />
+                                Send Proposal
+                            </button>
+                            <button
+                                onClick={() => setSelectedItems([])}
+                                className="px-3 py-1.5 text-sm bg-white text-gray-600 rounded-lg border border-gray-200 hover:bg-gray-50 focus:outline-none"
+                            >
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                )
+            }
+
+            {
+                error && (
+                    <div className="mx-2 md:mx-3 mt-3 p-2 bg-red-50 text-red-700 rounded-lg flex items-center gap-2">
+                        <FiAlertCircle className="w-4 h-4 flex-shrink-0" />
+                        <span className="text-sm flex-1">{error}</span>
+                        <button onClick={() => setError(null)} className="p-1 hover:bg-red-100 rounded">
+                            <FiX className="w-4 h-4" />
                         </button>
                     </div>
-                </div>
-            )}
-
-            {error && (
-                <div className="mx-4 md:mx-6 mt-4 p-3 bg-red-50 text-red-700 rounded-lg flex items-center gap-2">
-                    <FiAlertCircle className="w-4 h-4 flex-shrink-0" />
-                    <span className="text-sm flex-1">{error}</span>
-                    <button onClick={() => setError(null)} className="p-1 hover:bg-red-100 rounded">
-                        <FiX className="w-4 h-4" />
-                    </button>
-                </div>
-            )}
+                )
+            }
 
             {/* Content */}
             <div className="flex-1 overflow-auto">
@@ -517,8 +569,8 @@ export function BOQTab({ projectId }: BOQTabProps) {
                         onDelete={handleDelete}
                     />
                 ) : (
-                    <div className="p-4 md:p-6">
-                        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div className="p-2 md:p-3">
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                             <BoqGrid
                                 items={filteredItems}
                                 isAdmin={isAdmin}
@@ -527,6 +579,11 @@ export function BOQTab({ projectId }: BOQTabProps) {
                                 onUpdate={handleInlineUpdate}
                                 onDelete={handleDelete}
                                 onAdd={handleAddItem}
+                                onEdit={handleEditItem}
+                                onSendProposal={(itemIds) => {
+                                    setSelectedItems(itemIds);
+                                    setShowProposal(true);
+                                }}
                                 categories={categories}
                             />
 
@@ -545,27 +602,40 @@ export function BOQTab({ projectId }: BOQTabProps) {
             </div>
 
             {/* Modals */}
-            {showImport && (
-                <BoqImport
-                    projectId={projectId}
-                    onImportComplete={fetchItems}
-                    onClose={() => setShowImport(false)}
-                />
-            )}
+            {
+                showImport && (
+                    <BoqImport
+                        projectId={projectId}
+                        onImportComplete={fetchItems}
+                        onClose={() => setShowImport(false)}
+                    />
+                )
+            }
 
-            {showProposal && (
-                <ProposalBuilder
-                    projectId={projectId}
-                    items={items}
-                    selectedItemIds={selectedItems}
-                    onClose={() => setShowProposal(false)}
-                    onSuccess={() => {
-                        fetchItems();
-                        setSelectedItems([]);
-                    }}
-                />
-            )}
-        </div>
+            {
+                showProposal && (
+                    <ProposalBuilder
+                        projectId={projectId}
+                        items={items}
+                        selectedItemIds={selectedItems}
+                        onClose={() => setShowProposal(false)}
+                        onSuccess={() => {
+                            fetchItems();
+                            setSelectedItems([]);
+                        }}
+                    />
+                )
+            }
+
+            {/* BOQ Edit Modal */}
+            <BoqEditModal
+                item={editingItem}
+                categories={categories}
+                isOpen={showEditModal}
+                onClose={() => { setShowEditModal(false); setEditingItem(null); }}
+                onSave={handleSaveItem}
+            />
+        </div >
     );
 }
 

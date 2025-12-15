@@ -24,6 +24,7 @@ export function CustomSelect({
     const [isOpen, setIsOpen] = useState(true); // Start open for immediate editing
     const containerRef = useRef<HTMLDivElement>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
     const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
     // Calculate dropdown position when opened
@@ -34,15 +35,20 @@ export function CustomSelect({
                 position: 'fixed',
                 top: rect.bottom + 2,
                 left: rect.left,
+                minWidth: rect.width,
                 zIndex: 9999
             });
         }
     }, [isOpen]);
 
-    // Close on click outside
+    // Close on click outside - check both container AND dropdown portal
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+            const target = e.target as Node;
+            const clickedInsideContainer = containerRef.current?.contains(target);
+            const clickedInsideDropdown = dropdownRef.current?.contains(target);
+
+            if (!clickedInsideContainer && !clickedInsideDropdown) {
                 setIsOpen(false);
                 onBlur?.();
             }
@@ -54,14 +60,14 @@ export function CustomSelect({
     const handleSelect = (opt: string) => {
         onChange(opt);
         setIsOpen(false);
-        onBlur?.();
     };
 
     const displayValue = value ? value.replace(/_/g, ' ') : placeholder;
 
     const dropdownContent = isOpen ? (
         <div
-            className="bg-white rounded-lg shadow-xl py-1 max-h-48 overflow-auto"
+            ref={dropdownRef}
+            className="bg-white rounded-lg shadow-xl border border-gray-200 py-1 max-h-48 overflow-auto"
             style={dropdownStyle}
         >
             <button

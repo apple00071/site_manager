@@ -293,11 +293,15 @@ export default function TasksPage() {
       setLoading(true);
       setError(null);
       const rangeStart = new Date(date);
-      rangeStart.setDate(1);
+      rangeStart.setDate(1); // Start of current month
+      rangeStart.setMonth(rangeStart.getMonth() - 1); // Go back one month
       rangeStart.setHours(0, 0, 0, 0);
-      const rangeEnd = new Date(rangeStart);
-      rangeEnd.setMonth(rangeEnd.getMonth() + 1);
-      rangeEnd.setDate(0);
+
+      const rangeEnd = new Date(date);
+      rangeEnd.setDate(1); // Start of current month
+      rangeEnd.setMonth(rangeEnd.getMonth() + 2); // Go forward two months (to end of next month)
+      rangeEnd.setDate(0); // Last day of next month
+      rangeEnd.setHours(23, 59, 59, 999);
       rangeEnd.setHours(23, 59, 59, 999);
 
       console.log('Fetching tasks for range:', rangeStart.toISOString(), 'to', rangeEnd.toISOString());

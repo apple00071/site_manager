@@ -139,7 +139,7 @@ export function BoqCardMobile({
     };
 
     return (
-        <div className="space-y-3 px-2 md:px-6 pt-4">
+        <div className="space-y-2 px-1.5 md:px-3 pt-3">
             {items.map(item => (
                 <div
                     key={item.id}

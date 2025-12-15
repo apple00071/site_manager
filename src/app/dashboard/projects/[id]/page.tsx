@@ -60,41 +60,54 @@ const DesignsTab = dynamic(() => import('@/components/projects/DesignsTab').then
 const BOQTab = dynamic(() => import('@/components/projects/BOQTab').then(m => m.BOQTab), { ssr: false });
 const ProcurementTab = dynamic(() => import('@/components/projects/ProcurementTab').then(m => m.ProcurementTab), { ssr: false });
 
+import { ProjectHeader } from '@/components/projects/navigation/ProjectHeader';
+import { StageNavigator, StageId } from '@/components/projects/navigation/StageNavigator';
+
 export default function ProjectDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { setTitle, setSubtitle, setTabs, setActions, clearHeader } = useHeaderTitle();
+  // Removed internal HeaderTitleContext usage as we are using a custom header now
 
   const { user, isAdmin, isLoading: authLoading } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'details' | 'workflow' | 'board' | 'updates' | 'inventory' | 'designs' | 'boq' | 'procurement'>('details');
-  const [showTabWidget, setShowTabWidget] = useState(false);
+
+  // Navigation State
+  const [activeStage, setActiveStage] = useState<StageId>('visit');
+  const [activeSubTab, setActiveSubTab] = useState<string>('details');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Initialize active tab from ?tab= query param if present
+  // Sync Stage from URL query param ?stage=
   useEffect(() => {
-    const tabParam = searchParams?.get('tab');
-    if (tabParam) {
-      const validTabs = ['details', 'workflow', 'board', 'updates', 'inventory', 'designs', 'boq', 'procurement'] as const;
-      if (validTabs.includes(tabParam as any)) {
-        setActiveTab(tabParam as typeof validTabs[number]);
-      }
+    const stageParam = searchParams?.get('stage');
+    if (stageParam && ['visit', 'design', 'boq', 'orders', 'work_progress', 'snag', 'finance'].includes(stageParam)) {
+      setActiveStage(stageParam as StageId);
     }
   }, [searchParams]);
 
-  const handleTabChange = (tab: 'details' | 'workflow' | 'board' | 'updates' | 'inventory' | 'designs' | 'boq' | 'procurement') => {
-    setActiveTab(tab);
-    router.push(`/dashboard/projects/${id}?tab=${tab}`, { scroll: false });
+  const handleStageChange = (stage: StageId) => {
+    setActiveStage(stage);
+    // Set default sub-tab for the stage
+    const defaultTabs: Record<StageId, string> = {
+      'visit': 'details',
+      'design': 'designs',
+      'boq': 'boq',
+      'orders': 'procurement',
+      'work_progress': 'board',
+      'snag': 'snag_list',
+      'finance': 'finance_overview'
+    };
+    setActiveSubTab(defaultTabs[stage]);
+    router.push(`/dashboard/projects/${id}?stage=${stage}`, { scroll: false });
   };
 
-  // Function to fetch project data
+  // ... [Keep existing fetchProject logic] ...
   const fetchProject = async () => {
     try {
       setIsLoading(true);
@@ -140,25 +153,9 @@ export default function ProjectDetailsPage() {
         throw new Error('Project not found');
       }
 
-
       setProject(projectData as Project);
-      setTitle(projectData.title);
+      // NOTE: We no longer set title/subtitle in context, the header consumes project data directly
 
-      // Set workflow stage as subtitle for header status display
-      const stageLabels: Record<string, string> = {
-        recce: 'Recce',
-        design: 'Design',
-        boq: 'BOQ',
-        order: 'Order',
-        work_progress: 'Work Progress',
-        snag: 'Snag',
-        finance: 'Finance',
-        design_approved: 'Design Approved',
-        design_rejected: 'Design Rejected',
-        in_progress: 'In Progress',
-        completed: 'Completed',
-      };
-      setSubtitle(stageLabels[projectData.workflow_stage] || projectData.workflow_stage || 'Recce');
     } catch (err: any) {
       console.error('Error fetching project:', err);
       setError(err.message || 'Failed to load project');
@@ -167,48 +164,17 @@ export default function ProjectDetailsPage() {
     }
   };
 
-  // Register tabs in header when project loads
-  useEffect(() => {
-    if (!project) return;
-
-    const headerTabs = [
-      { id: 'details', label: 'Details' },
-      { id: 'board', label: 'Stage Board' },
-      { id: 'boq', label: 'BOQ' },
-      { id: 'procurement', label: 'Procurement' },
-      { id: 'updates', label: 'Updates' },
-      { id: 'inventory', label: 'Inventory' },
-      { id: 'designs', label: 'Designs' },
-    ];
-
-    setTabs(headerTabs, activeTab, (tabId) => {
-      handleTabChange(tabId as any);
-    });
-
-    // Don't clear header on tab changes - only when component unmounts
-  }, [project, activeTab]);
-
-  // Cleanup header only when component unmounts (not on tab changes)
-  useEffect(() => {
-    return () => {
-      clearHeader();
-    };
-  }, []); // Empty dependency array = only runs on mount/unmount
-
   // Initial fetch
   useEffect(() => {
     if (authLoading) return;
-
-    // Redirect to login if not authenticated
     if (!user) {
       router.push('/login');
       return;
     }
-
     fetchProject();
   }, [id, user, isAdmin, authLoading, router]);
 
-  // Set up event listener for page focus to refresh data
+  // [Keep visibility change logic]
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -216,24 +182,18 @@ export default function ProjectDetailsPage() {
         fetchProject();
       }
     };
-
-    // Listen for visibility changes
     document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    // Also refresh when the route changes (e.g., coming back from edit)
     const handleRouteChange = () => {
       console.log('Route changed, refreshing project data...');
       fetchProject();
     };
-
     window.addEventListener('popstate', handleRouteChange);
-
-    // Cleanup
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('popstate', handleRouteChange);
     };
   }, [id]);
+
 
   if (authLoading) {
     return (
@@ -249,435 +209,151 @@ export default function ProjectDetailsPage() {
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-gray-200 rounded w-1/3"></div>
           <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-          <div className="h-4 bg-gray-200 rounded w-2/3"></div>
         </div>
       </div>
     );
   }
 
-  if (error) {
+  if (error || !project) {
     return (
       <div className="p-6">
         <div className="bg-red-50 border-l-4 border-red-400 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-          </div>
+          <p className="text-sm text-red-700">{error || 'Project not found'}</p>
         </div>
-      </div>
-    );
-  }
-
-  if (!project) {
-    return (
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-6">Project Not Found</h1>
-        <p className="text-gray-600">The requested project could not be found.</p>
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-3 sm:space-y-6 safe-area-inset-bottom lg:pt-0 h-full flex flex-col min-h-0 overflow-hidden">
+    <div className="flex flex-col h-full bg-white">
+      {/* 1. New Project Header */}
+      <ProjectHeader
+        title={project.title}
+        status={project.status}
+        customerName={project.customer_name}
+        user={user ? { name: user.full_name || user.email?.split('@')[0] || 'User', email: user.email } : null}
+      />
 
-      {/* Mobile-only compact header */}
-      <div className="lg:hidden -mx-4 -mt-4 px-4 pt-2 pb-3 bg-white border-b border-gray-100">
-        <h1 className="text-lg font-bold text-gray-900 truncate">{project.title}</h1>
-        <div className="flex items-center justify-between mt-1">
-          <p className="text-sm text-gray-600 truncate flex-1">{project.customer_name}</p>
-          <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${project.status === 'completed'
-            ? 'bg-green-100 text-green-700'
-            : project.status === 'in_progress'
-              ? 'bg-blue-100 text-blue-700'
-              : 'bg-yellow-100 text-yellow-700'
-            }`}>
-            {project.status.replace('_', ' ').toUpperCase()}
-          </span>
-        </div>
-      </div>
+      {/* 2. Pipeline Navigator */}
+      <StageNavigator
+        currentStage={activeStage}
+        onStageSelect={handleStageChange}
+        completedStages={[]} // TODO: Logic to calculate completed stages based on workflow
+      />
 
-      {/* Mobile Tab Widget - Floating Action Button */}
-      {mounted && (
-        <div className="lg:hidden fixed right-6 bottom-24 z-50">
-          <div className="relative">
-            <button
-              onClick={() => setShowTabWidget(!showTabWidget)}
-              className="w-14 h-14 bg-yellow-500 hover:bg-yellow-600 text-gray-900 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 touch-target"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-
-            {showTabWidget && (
-              <div className="absolute bottom-16 right-0 bg-white rounded-2xl shadow-xl border border-gray-200 p-2 min-w-48">
-                <div className="space-y-1">
-                  <button
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'details'
-                      ? 'bg-yellow-100 text-yellow-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    onClick={() => {
-                      setActiveTab('details');
-                      setShowTabWidget(false);
-                    }}
-                  >
-                    📋 Project Details
-                  </button>
-                  <button
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'board'
-                      ? 'bg-yellow-100 text-yellow-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    onClick={() => {
-                      handleTabChange('board');
-                      setShowTabWidget(false);
-                    }}
-                  >
-                    📊 Stage Board
-                  </button>
-                  <button
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'boq'
-                      ? 'bg-yellow-100 text-yellow-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    onClick={() => {
-                      handleTabChange('boq');
-                      setShowTabWidget(false);
-                    }}
-                  >
-                    📄 BOQ
-                  </button>
-                  <button
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'procurement'
-                      ? 'bg-yellow-100 text-yellow-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    onClick={() => {
-                      handleTabChange('procurement');
-                      setShowTabWidget(false);
-                    }}
-                  >
-                    🛒 Procurement
-                  </button>
-                  <button
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'updates'
-                      ? 'bg-yellow-100 text-yellow-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    onClick={() => {
-                      handleTabChange('updates');
-                      setShowTabWidget(false);
-                    }}
-                  >
-                    📝 Updates
-                  </button>
-                  <button
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'inventory'
-                      ? 'bg-yellow-100 text-yellow-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    onClick={() => {
-                      handleTabChange('inventory');
-                      setShowTabWidget(false);
-                    }}
-                  >
-                    📦 Inventory
-                  </button>
-                  <button
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === 'designs'
-                      ? 'bg-yellow-100 text-yellow-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    onClick={() => {
-                      handleTabChange('designs');
-                      setShowTabWidget(false);
-                    }}
-                  >
-                    🎨 Designs
-                  </button>
-                </div>
-              </div>
-            )}
+      {/* 3. Sub-Tab Content Area */}
+      <div className="flex-1 overflow-hidden flex flex-col px-4 sm:px-6 lg:px-8">
+        {/* Optional: Secondary Tab Bar for stages with multiple views (e.g. Visit -> Details | Updates) */}
+        {activeStage === 'visit' && (
+          <div className="flex border-b border-gray-100 px-4">
+            {['details', 'updates'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveSubTab(tab)}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeSubTab === tab ? 'border-amber-500 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+              >
+                {tab === 'details' ? 'Project Details' : 'Updates & Timeline'}
+              </button>
+            ))}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Tab Content */}
-      <div className="pt-4 sm:pt-6 flex-1 min-h-0 overflow-hidden">
-        <div className="h-full overflow-y-auto">
-          {activeTab === 'details' && (
-            <div className="space-y-6">
-              {/* Project Information */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Project Information</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                  <div className="space-y-4">
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500 mb-1">Description</dt>
-                      <dd className="text-sm text-gray-900">{project.description || 'No description provided.'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500 mb-1">Customer</dt>
-                      <dd className="text-sm text-gray-900">{project.customer_name}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500 mb-1">Phone Number</dt>
-                      <dd className="text-sm text-gray-900">
-                        <a href={`tel:${project.phone_number}`} className="text-blue-600 hover:text-blue-800">
-                          {project.phone_number}
-                        </a>
-                        {project.alt_phone_number && (
-                          <div className="text-gray-500 text-sm mt-1">
-                            Alt: <a href={`tel:${project.alt_phone_number}`} className="text-blue-600 hover:text-blue-800">
-                              {project.alt_phone_number}
-                            </a>
-                          </div>
-                        )}
-                      </dd>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500 mb-1">Start Date</dt>
-                      <dd className="text-sm text-gray-900">{formatDateIST(project.start_date)}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500 mb-1">Estimated Completion</dt>
-                      <dd className="text-sm text-gray-900">{formatDateIST(project.estimated_completion_date)}</dd>
-                    </div>
-                    {isAdmin && project.project_budget != null && (
-                      <div>
-                        <dt className="text-sm font-medium text-gray-500 mb-1">Project Budget</dt>
-                        <dd className="text-sm text-gray-900">₹{project.project_budget.toLocaleString()}</dd>
+        {['work_progress'].includes(activeStage) && (
+          <div className="flex border-b border-gray-100 px-4">
+            {['board', 'inventory'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveSubTab(tab)}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeSubTab === tab ? 'border-amber-500 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+              >
+                {tab === 'board' ? 'Stage Board' : 'Inventory'}
+              </button>
+            ))}
+          </div>
+        )}
+
+
+        <div className="flex-1 overflow-y-auto bg-gray-50/50">
+          {/* STAGE: VISIT */}
+          {activeStage === 'visit' && (
+            <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+              {activeSubTab === 'details' ? (
+                <div className="space-y-6 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                  {/* Reusing existing Details UI */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Project Information</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                      <div className="space-y-4">
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500 mb-1">Description</dt>
+                          <dd className="text-sm text-gray-900">{project.description || 'No description provided.'}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500 mb-1">Customer</dt>
+                          <dd className="text-sm text-gray-900">{project.customer_name}</dd>
+                        </div>
                       </div>
-                    )}
+                      <div className="space-y-4">
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500 mb-1">Start Date</dt>
+                          <dd className="text-sm text-gray-900">{formatDateIST(project.start_date)}</dd>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <dt className="text-sm font-medium text-gray-500 mb-1">Address</dt>
+                      <dd className="text-sm text-gray-900 whitespace-pre-line">{project.address}</dd>
+                    </div>
                   </div>
                 </div>
-
-                <div className="mt-4">
-                  <dt className="text-sm font-medium text-gray-500 mb-1">Address</dt>
-                  <dd className="text-sm text-gray-900 whitespace-pre-line">{project.address}</dd>
-                </div>
-
-                {/* Property Details */}
-                {(project.property_type || project.apartment_name || project.area_sqft) && (
-                  <div className="mt-6 border-t border-gray-200 pt-4">
-                    <h4 className="text-md font-semibold text-gray-900 mb-3">Property Details</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      {project.property_type && (
-                        <div>
-                          <dt className="text-sm font-medium text-gray-500 mb-1">Property Type</dt>
-                          <dd className="text-sm text-gray-900 capitalize">{project.property_type.replace(/_/g, ' ')}</dd>
-                        </div>
-                      )}
-                      {project.apartment_name && (
-                        <div>
-                          <dt className="text-sm font-medium text-gray-500 mb-1">Apartment/Building</dt>
-                          <dd className="text-sm text-gray-900">{project.apartment_name}</dd>
-                        </div>
-                      )}
-                      {project.area_sqft && (
-                        <div>
-                          <dt className="text-sm font-medium text-gray-500 mb-1">Area</dt>
-                          <dd className="text-sm text-gray-900">{project.area_sqft} sq ft</dd>
-                        </div>
-                      )}
-                      {project.block_number && (
-                        <div>
-                          <dt className="text-sm font-medium text-gray-500 mb-1">Block</dt>
-                          <dd className="text-sm text-gray-900">{project.block_number}</dd>
-                        </div>
-                      )}
-                      {project.flat_number && (
-                        <div>
-                          <dt className="text-sm font-medium text-gray-500 mb-1">Flat</dt>
-                          <dd className="text-sm text-gray-900">{project.flat_number}</dd>
-                        </div>
-                      )}
-                      {project.floor_number && (
-                        <div>
-                          <dt className="text-sm font-medium text-gray-500 mb-1">Floor</dt>
-                          <dd className="text-sm text-gray-900">{project.floor_number}</dd>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Requirements PDF */}
-                {project.requirements_pdf_url && (
-                  <div className="mt-4">
-                    <dt className="text-sm font-medium text-gray-500 mb-1">Requirements Document</dt>
-                    <dd className="text-sm">
-                      <a
-                        href={project.requirements_pdf_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center text-blue-600 hover:text-blue-800"
-                      >
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
-                        View Requirements PDF
-                      </a>
-                    </dd>
-                  </div>
-                )}
-
-                {project.project_notes && (
-                  <div className="mt-4">
-                    <dt className="text-sm font-medium text-gray-500 mb-1">Project Notes</dt>
-                    <dd className="text-sm text-gray-900 whitespace-pre-line">{project.project_notes}</dd>
-                  </div>
-                )}
-              </div>
-
-              {/* Team Details */}
-              <div className="border-t border-gray-200 pt-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Team Details</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                  {project.assigned_employee && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500 mb-1">Assigned Designer</dt>
-                      <dd className="text-sm text-gray-900">
-                        {project.assigned_employee.name}
-                        <div className="text-gray-500 text-sm">{project.assigned_employee.email}</div>
-                        {project.assigned_employee.designation && (
-                          <div className="text-gray-500 text-xs">{project.assigned_employee.designation}</div>
-                        )}
-                      </dd>
-                    </div>
-                  )}
-
-                  {project.carpenter_name && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500 mb-1">Carpenter</dt>
-                      <dd className="text-sm text-gray-900">
-                        {project.carpenter_name}
-                        {project.carpenter_phone && (
-                          <div className="text-gray-500 text-sm">
-                            <a href={`tel:${project.carpenter_phone}`} className="text-blue-600 hover:text-blue-800">
-                              {project.carpenter_phone}
-                            </a>
-                          </div>
-                        )}
-                      </dd>
-                    </div>
-                  )}
-
-                  {project.electrician_name && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500 mb-1">Electrician</dt>
-                      <dd className="text-sm text-gray-900">
-                        {project.electrician_name}
-                        {project.electrician_phone && (
-                          <div className="text-gray-500 text-sm">
-                            <a href={`tel:${project.electrician_phone}`} className="text-blue-600 hover:text-blue-800">
-                              {project.electrician_phone}
-                            </a>
-                          </div>
-                        )}
-                      </dd>
-                    </div>
-                  )}
-
-                  {project.plumber_name && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500 mb-1">Plumber</dt>
-                      <dd className="text-sm text-gray-900">
-                        {project.plumber_name}
-                        {project.plumber_phone && (
-                          <div className="text-gray-500 text-sm">
-                            <a href={`tel:${project.plumber_phone}`} className="text-blue-600 hover:text-blue-800">
-                              {project.plumber_phone}
-                            </a>
-                          </div>
-                        )}
-                      </dd>
-                    </div>
-                  )}
-
-                  {project.painter_name && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500 mb-1">Painter</dt>
-                      <dd className="text-sm text-gray-900">
-                        {project.painter_name}
-                        {project.painter_phone && (
-                          <div className="text-gray-500 text-sm">
-                            <a href={`tel:${project.painter_phone}`} className="text-blue-600 hover:text-blue-800">
-                              {project.painter_phone}
-                            </a>
-                          </div>
-                        )}
-                      </dd>
-                    </div>
-                  )}
-
-                  {project.granite_worker_name && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500 mb-1">Granite Worker</dt>
-                      <dd className="text-sm text-gray-900">
-                        {project.granite_worker_name}
-                        {project.granite_worker_phone && (
-                          <div className="text-gray-500 text-sm">
-                            <a href={`tel:${project.granite_worker_phone}`} className="text-blue-600 hover:text-blue-800">
-                              {project.granite_worker_phone}
-                            </a>
-                          </div>
-                        )}
-                      </dd>
-                    </div>
-                  )}
-
-                  {project.glass_worker_name && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500 mb-1">Glass Worker</dt>
-                      <dd className="text-sm text-gray-900">
-                        {project.glass_worker_name}
-                        {project.glass_worker_phone && (
-                          <div className="text-gray-500 text-sm">
-                            <a href={`tel:${project.glass_worker_phone}`} className="text-blue-600 hover:text-blue-800">
-                              {project.glass_worker_phone}
-                            </a>
-                          </div>
-                        )}
-                      </dd>
-                    </div>
-                  )}
-                </div>
-              </div>
+              ) : (
+                <UpdatesTab projectId={project.id} />
+              )}
             </div>
           )}
 
-          {activeTab === 'board' && (
-            <KanbanBoard projectId={project.id} />
-          )}
-
-          {activeTab === 'updates' && user && (
-            <UpdatesTab projectId={project.id} />
-          )}
-
-          {activeTab === 'inventory' && (
-            <InventoryTab projectId={project.id} />
-          )}
-
-          {activeTab === 'designs' && (
+          {/* STAGE: DESIGN */}
+          {activeStage === 'design' && (
             <DesignsTab projectId={project.id} />
           )}
 
-          {activeTab === 'boq' && (
-            <BOQTab projectId={project.id} />
+          {/* STAGE: BOQ */}
+          {activeStage === 'boq' && (
+            <div className="h-full flex flex-col">
+              <BOQTab projectId={project.id} />
+            </div>
           )}
 
-          {activeTab === 'procurement' && (
-            <ProcurementTab projectId={project.id} />
+          {/* STAGE: ORDERS */}
+          {activeStage === 'orders' && (
+            <div className="h-full flex flex-col">
+              <ProcurementTab projectId={project.id} />
+            </div>
+          )}
+
+          {/* STAGE: WORK PROGRESS */}
+          {activeStage === 'work_progress' && (
+            <div className="h-full">
+              {activeSubTab === 'board' ? <KanbanBoard projectId={project.id} /> : <InventoryTab projectId={project.id} />}
+            </div>
+          )}
+
+          {/* STAGE: SNAG (Placeholder) */}
+          {activeStage === 'snag' && (
+            <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+              <FiLayers className="w-12 h-12 mb-2 text-gray-300" />
+              <p>Snag List Module Coming Soon</p>
+            </div>
+          )}
+
+          {/* STAGE: FINANCE (Placeholder) */}
+          {activeStage === 'finance' && (
+            <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+              <FiLayers className="w-12 h-12 mb-2 text-gray-300" />
+              <p>Finance Module Coming Soon</p>
+            </div>
           )}
         </div>
       </div>

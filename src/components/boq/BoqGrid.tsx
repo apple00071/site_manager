@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { FiTrash2, FiPlus, FiCheck, FiX, FiChevronDown, FiChevronRight, FiSearch } from 'react-icons/fi';
+import { FiTrash2, FiPlus, FiCheck, FiX, FiChevronDown, FiChevronRight, FiSearch, FiEdit2, FiMoreVertical, FiCheckCircle, FiSend } from 'react-icons/fi';
 import { CustomSelect } from '@/components/ui/CustomSelect';
 
 interface BOQItem {
@@ -33,6 +33,8 @@ interface BoqGridProps {
     onUpdate: (id: string, field: string, value: any) => Promise<void>;
     onDelete: (id: string) => void;
     onAdd: () => void;
+    onEdit?: (item: any) => void;
+    onSendProposal?: (itemIds: string[]) => void;
     categories: string[];
 }
 
@@ -57,14 +59,14 @@ export function BoqGrid({
     onUpdate,
     onDelete,
     onAdd,
+    onEdit,
+    onSendProposal,
     categories
 }: BoqGridProps) {
-    const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
-    const [focusedCell, setFocusedCell] = useState<{ row: number; col: number } | null>(null);
     const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['All']));
     const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
     const [showFilters, setShowFilters] = useState(false);
-    const inputRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null);
+    const [actionMenuId, setActionMenuId] = useState<string | null>(null);
     const tableRef = useRef<HTMLTableElement>(null);
 
     const columns = [
@@ -164,86 +166,18 @@ export function BoqGrid({
         });
     };
 
-    const startEdit = (rowId: string, field: string, currentValue: any) => {
-        console.log('startEdit called:', { rowId, field, currentValue });
-        if (field === 'amount' || field === 'item_code') {
-            console.warn('Cannot edit: Field is readonly', field);
-            return;
-        }
-        console.log('Setting editing cell');
-        setEditingCell({ rowId, field, value: String(currentValue ?? '') });
-    };
-
-    const saveEdit = async () => {
-        if (!editingCell) return;
-        const { rowId, field, value } = editingCell;
-
-        let parsedValue: any = value;
-        if (['quantity', 'rate', 'draft_quantity'].includes(field)) {
-            parsedValue = parseFloat(value) || 0;
-        }
-
-        await onUpdate(rowId, field, parsedValue);
-        setEditingCell(null);
-    };
-
-    const cancelEdit = () => {
-        setEditingCell(null);
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (editingCell) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                saveEdit();
-            } else if (e.key === 'Escape') {
-                e.preventDefault();
-                cancelEdit();
-            } else if (e.key === 'Tab') {
-                e.preventDefault();
-                saveEdit();
-            }
-        }
-    };
-
-    // Handle paste from clipboard
-    const handlePaste = useCallback((e: ClipboardEvent) => {
-        if (!isAdmin || !focusedCell) return;
-
-        const pastedText = e.clipboardData?.getData('text');
-        if (!pastedText) return;
-
-        const rows = pastedText.split('\n').map(row => row.split('\t'));
-        if (rows.length === 0) return;
-
-        const allItems = Object.values(filteredGroupedItems).flat();
-        const item = allItems[focusedCell.row];
-        const col = columns[focusedCell.col];
-        if (col.type !== 'readonly' && rows[0][0] && item) {
-            onUpdate(item.id, col.key, rows[0][0]);
-        }
-    }, [focusedCell, isAdmin, filteredGroupedItems, columns, onUpdate]);
-
+    // Close action menu when clicking outside
     useEffect(() => {
-        document.addEventListener('paste', handlePaste);
-        return () => document.removeEventListener('paste', handlePaste);
-    }, [handlePaste]);
+        const handleClickOutside = (e: MouseEvent) => {
+            if (actionMenuId) {
+                setActionMenuId(null);
+            }
+        };
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, [actionMenuId]);
 
     const hasSelectedRef = useRef(false);
-
-    useEffect(() => {
-        if (editingCell && inputRef.current) {
-            inputRef.current.focus();
-            // Only select text once when first entering edit mode
-            if (inputRef.current instanceof HTMLInputElement && !hasSelectedRef.current) {
-                inputRef.current.select();
-                hasSelectedRef.current = true;
-            }
-        } else {
-            // Reset when not editing
-            hasSelectedRef.current = false;
-        }
-    }, [editingCell?.rowId, editingCell?.field]); // Only run when row/field changes, not on value updates
 
     const toggleSelectAll = () => {
         const allItems = Object.values(filteredGroupedItems).flat();
@@ -274,26 +208,12 @@ export function BoqGrid({
         }
     };
 
-    const renderCell = (item: BOQItem, col: typeof columns[0], rowIdx: number, colIdx: number) => {
-        const isEditing = editingCell?.rowId === item.id && editingCell?.field === col.key;
-        const isFocused = focusedCell?.row === rowIdx && focusedCell?.col === colIdx;
-
-
+    // Display-only renderCell (no inline editing)
+    const renderCell = (item: BOQItem, col: typeof columns[0]) => {
+        const value = (item as any)[col.key];
 
         // Item name with description
         if (col.key === 'item_name') {
-            if (isEditing) {
-                return (
-                    <input
-                        ref={inputRef as any}
-                        type="text"
-                        value={editingCell.value}
-                        onChange={(e) => setEditingCell({ ...editingCell, value: e.target.value })}
-                        onBlur={saveEdit}
-                        className="w-full px-2 py-1 text-sm border-0 bg-gray-50 rounded outline-none"
-                    />
-                );
-            }
             return (
                 <div>
                     <span className="font-medium text-gray-900">{item.item_name}</span>
@@ -301,37 +221,6 @@ export function BoqGrid({
                         <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{item.description}</p>
                     )}
                 </div>
-            );
-        }
-
-        const value = (item as any)[col.key];
-
-        if (isEditing) {
-            if (col.type === 'select') {
-                return (
-                    <CustomSelect
-                        value={editingCell.value}
-                        options={col.options || []}
-                        onChange={(val) => {
-                            setEditingCell({ ...editingCell, value: val });
-                            // Auto-save on selection
-                            onUpdate(editingCell.rowId, editingCell.field, val);
-                            setEditingCell(null);
-                        }}
-                        onBlur={() => setEditingCell(null)}
-                    />
-                );
-            }
-            return (
-                <input
-                    ref={inputRef as any}
-                    type={col.type === 'number' ? 'number' : 'text'}
-                    value={editingCell.value}
-                    onChange={(e) => setEditingCell({ ...editingCell, value: e.target.value })}
-                    onBlur={saveEdit}
-                    className="w-full px-2 py-1 text-sm border-0 bg-gray-50 rounded outline-none"
-                    step={col.type === 'number' ? '0.01' : undefined}
-                />
             );
         }
 
@@ -361,9 +250,9 @@ export function BoqGrid({
     const hasActiveFilters = Object.values(columnFilters).some(v => v.trim());
 
     return (
-        <div className="overflow-visible" onKeyDown={handleKeyDown} tabIndex={0}>
+        <div className="overflow-visible">
             {/* Filter Toggle & Clear */}
-            <div className="flex items-center justify-between px-3 py-2 bg-white">
+            <div className="flex items-center justify-between px-2 py-1.5 bg-white border-b border-gray-100">
                 <button
                     onClick={() => setShowFilters(!showFilters)}
                     className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors ${showFilters || hasActiveFilters
@@ -390,8 +279,8 @@ export function BoqGrid({
                 )}
             </div>
 
-            <table ref={tableRef} className="min-w-full text-sm">
-                <thead className="bg-white sticky top-0 z-10">
+            <table ref={tableRef} className="min-w-full text-[13px]">
+                <thead className="bg-gray-50 sticky top-0 z-10 border-b border-gray-200">
                     <tr>
                         {isAdmin && (
                             <th className="px-2 py-3 w-10">
@@ -407,7 +296,7 @@ export function BoqGrid({
                         {columns.map(col => (
                             <th
                                 key={col.key}
-                                className={`px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider ${col.width}`}
+                                className={`px-2 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider ${col.width}`}
                             >
                                 {col.label}
                             </th>
@@ -506,7 +395,7 @@ export function BoqGrid({
                                     return (
                                         <tr
                                             key={item.id}
-                                            className="hover:bg-gray-50 transition-colors"
+                                            className="hover:bg-gray-50 transition-colors border-b border-gray-50"
                                         >
                                             {isAdmin && (
                                                 <td className="px-2 py-2.5">
@@ -519,28 +408,94 @@ export function BoqGrid({
                                                 </td>
                                             )}
                                             <td className="px-2 py-2.5"></td>
-                                            {columns.map((col, colIdx) => (
+                                            {columns.map((col) => (
                                                 <td
                                                     key={col.key}
-                                                    className={`px-3 py-2.5 cursor-pointer ${col.type === 'number' || col.key === 'amount' ? 'text-right' : ''}`}
-                                                    onClick={() => {
-                                                        setFocusedCell({ row: globalRowIdx, col: colIdx });
-                                                        if (col.type !== 'readonly') {
-                                                            startEdit(item.id, col.key, (item as any)[col.key]);
-                                                        }
-                                                    }}
+                                                    className={`px-3 py-2.5 ${col.type === 'number' || col.key === 'amount' ? 'text-right' : ''}`}
                                                 >
-                                                    {renderCell(item, col, globalRowIdx, colIdx)}
+                                                    {renderCell(item, col)}
                                                 </td>
                                             ))}
                                             {isAdmin && (
-                                                <td className="px-2 py-2.5">
+                                                <td className="px-2 py-2.5 relative">
                                                     <button
-                                                        onClick={() => onDelete(item.id)}
-                                                        className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setActionMenuId(actionMenuId === item.id ? null : item.id);
+                                                        }}
+                                                        className="p-1.5 text-gray-500 hover:bg-gray-100 rounded transition-colors"
                                                     >
-                                                        <FiTrash2 className="w-4 h-4" />
+                                                        <FiMoreVertical className="w-4 h-4" />
                                                     </button>
+                                                    {/* Action dropdown menu */}
+                                                    {actionMenuId === item.id && (
+                                                        <div className="absolute right-0 bottom-full mb-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[140px]">
+                                                            {onEdit && (
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        onEdit(item);
+                                                                        setActionMenuId(null);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                                                >
+                                                                    <FiEdit2 className="w-4 h-4" />
+                                                                    Edit
+                                                                </button>
+                                                            )}
+                                                            {item.status !== 'confirmed' && (
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        onUpdate(item.id, 'status', 'confirmed');
+                                                                        setActionMenuId(null);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-amber-600 hover:bg-amber-50"
+                                                                >
+                                                                    <FiCheck className="w-4 h-4" />
+                                                                    Confirm
+                                                                </button>
+                                                            )}
+                                                            {item.status !== 'completed' && (
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        onUpdate(item.id, 'status', 'completed');
+                                                                        setActionMenuId(null);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-green-600 hover:bg-green-50"
+                                                                >
+                                                                    <FiCheckCircle className="w-4 h-4" />
+                                                                    Complete
+                                                                </button>
+                                                            )}
+                                                            {onSendProposal && (
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        onSendProposal([item.id]);
+                                                                        setActionMenuId(null);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50"
+                                                                >
+                                                                    <FiSend className="w-4 h-4" />
+                                                                    Send Proposal
+                                                                </button>
+                                                            )}
+                                                            <div className="border-t border-gray-100 my-1"></div>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    onDelete(item.id);
+                                                                    setActionMenuId(null);
+                                                                }}
+                                                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                                                            >
+                                                                <FiTrash2 className="w-4 h-4" />
+                                                                Delete
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </td>
                                             )}
                                         </tr>
@@ -554,7 +509,7 @@ export function BoqGrid({
 
             {/* Add Row Button */}
             {isAdmin && (
-                <div className="border-t p-3 bg-gray-50">
+                <div className="border-t border-gray-100 p-2 bg-gray-50">
                     <button
                         onClick={onAdd}
                         className="flex items-center gap-2 text-sm text-amber-600 hover:text-amber-700 font-medium px-3 py-2 hover:bg-amber-50 rounded-lg transition-colors"
