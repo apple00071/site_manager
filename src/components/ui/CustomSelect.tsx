@@ -82,7 +82,7 @@ export function CustomSelect({
                     key={opt}
                     type="button"
                     onClick={() => handleSelect(opt)}
-                    className={`block px-3 py-1.5 text-left text-sm hover:bg-amber-50 whitespace-nowrap ${value === opt ? 'bg-amber-100 text-amber-800 font-medium' : 'text-gray-700'
+                    className={`block px-3 py-1.5 text-left text-sm hover:bg-yellow-50 whitespace-nowrap ${value === opt ? 'bg-yellow-100 text-yellow-800 font-medium' : 'text-gray-700'
                         }`}
                 >
                     {opt.replace(/_/g, ' ')}

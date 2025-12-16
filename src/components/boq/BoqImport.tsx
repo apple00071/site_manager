@@ -193,7 +193,7 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
                         <div
                             onDrop={handleDrop}
                             onDragOver={(e) => e.preventDefault()}
-                            className="border-2 border-dashed border-gray-200 rounded-xl p-12 text-center hover:border-amber-400 transition-colors"
+                            className="border-2 border-dashed border-gray-200 rounded-xl p-12 text-center hover:border-yellow-400 transition-colors"
                         >
                             <FiUpload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
                             <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -211,7 +211,7 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
                             />
                             <button
                                 onClick={() => fileInputRef.current?.click()}
-                                className="px-4 py-2 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600"
+                                className="px-4 py-2 bg-yellow-500 text-white rounded-lg font-medium hover:bg-yellow-600"
                             >
                                 Choose File
                             </button>
@@ -335,7 +335,7 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
                         <button
                             onClick={handleImport}
                             disabled={importing}
-                            className="px-6 py-2 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 disabled:opacity-50"
+                            className="px-6 py-2 bg-yellow-500 text-white rounded-lg font-medium hover:bg-yellow-600 disabled:opacity-50"
                         >
                             {importing ? 'Importing...' : `Import ${preview.length} Items`}
                         </button>

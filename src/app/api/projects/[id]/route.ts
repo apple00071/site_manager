@@ -13,25 +13,42 @@ const isBuildContext = process.env.NEXT_PHASE === 'phase-production-build';
 
 const updateProjectSchema = z.object({
     // Project Info
-    description: z.string().optional(),
+    description: z.string().nullable().optional(),
     status: z.string().optional(),
-    workflow_stage: z.string().optional(),
+    workflow_stage: z.string().nullable().optional(),
     project_budget: z.number().nullable().optional(),
     project_notes: z.string().nullable().optional(),
+    start_date: z.string().nullable().optional(),
+    estimated_completion_date: z.string().nullable().optional(),
+    actual_completion_date: z.string().nullable().optional(),
 
     // Customer Details
     customer_name: z.string().optional(),
     phone_number: z.string().optional(),
     alt_phone_number: z.string().nullable().optional(),
-    address: z.string().optional(),
+    address: z.string().nullable().optional(),
 
     // Property Details
-    property_type: z.string().optional(),
+    property_type: z.string().nullable().optional(),
     apartment_name: z.string().nullable().optional(),
     block_number: z.string().nullable().optional(),
     flat_number: z.string().nullable().optional(),
     floor_number: z.string().nullable().optional(),
     area_sqft: z.number().nullable().optional(),
+
+    // Worker Details
+    carpenter_name: z.string().nullable().optional(),
+    carpenter_phone: z.string().nullable().optional(),
+    electrician_name: z.string().nullable().optional(),
+    electrician_phone: z.string().nullable().optional(),
+    plumber_name: z.string().nullable().optional(),
+    plumber_phone: z.string().nullable().optional(),
+    painter_name: z.string().nullable().optional(),
+    painter_phone: z.string().nullable().optional(),
+    granite_worker_name: z.string().nullable().optional(),
+    granite_worker_phone: z.string().nullable().optional(),
+    glass_worker_name: z.string().nullable().optional(),
+    glass_worker_phone: z.string().nullable().optional(),
 });
 
 export async function PATCH(

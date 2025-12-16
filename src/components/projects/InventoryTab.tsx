@@ -10,7 +10,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { SidePanel } from '@/components/ui/SidePanel';
 import { DesignViewer } from '@/components/projects/DesignViewer';
 import {
-  FiEdit2, FiTrash2, FiEye, FiPlus, FiMoreVertical, FiCheck, FiX, FiUpload, FiPackage
+  FiEdit2, FiTrash2, FiEye, FiPlus, FiMoreVertical, FiCheck, FiX, FiUpload, FiPackage, FiSearch, FiChevronDown
 } from 'react-icons/fi';
 
 type InventoryItem = {
@@ -158,6 +158,15 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // Filter state
+  const [filters, setFilters] = useState({
+    name: '',
+    quantity: '',
+    supplier: '',
+    date: '',
+    status: '',
+  });
+
   // Form state
   const [saving, setSaving] = useState(false);
   const [uploadingBill, setUploadingBill] = useState(false);
@@ -211,6 +220,18 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
       setLoading(false);
     }
   };
+
+  // Filtered items
+  const filteredItems = items.filter(item => {
+    const matchName = !filters.name || item.item_name.toLowerCase().includes(filters.name.toLowerCase());
+    const matchQty = !filters.quantity || (item.quantity?.toString() || '').includes(filters.quantity);
+    const matchSupplier = !filters.supplier || (item.supplier_name || '').toLowerCase().includes(filters.supplier.toLowerCase());
+    const itemDate = item.date_purchased ? formatDateIST(item.date_purchased).toLowerCase() : '-';
+    const matchDate = !filters.date || itemDate.includes(filters.date.toLowerCase());
+    const matchStatus = !filters.status || (item.bill_approval_status || 'pending') === filters.status;
+
+    return matchName && matchQty && matchSupplier && matchDate && matchStatus;
+  });
 
   const resetForm = () => {
     setForm({ item_name: '', quantity: '', supplier_name: '', date_purchased: '', bill_url: '' });
@@ -537,30 +558,103 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 </button>
               </div>
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+                <thead className="bg-white border-b border-gray-200">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Item Name
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Qty
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Supplier
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Date
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
+                  {/* Inline Filter Row */}
+                  <tr className="bg-white border-b border-gray-200">
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-400 p-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                        </span>
+                        <div className="relative w-full">
+                          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2">
+                            <FiSearch className="w-3 h-3 text-gray-400" />
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="Search Item"
+                            value={filters.name}
+                            onChange={(e) => setFilters(prev => ({ ...prev, name: e.target.value }))}
+                            className="w-full pl-7 pr-2 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white"
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="relative w-full">
+                        <input
+                          type="text"
+                          placeholder="Qty"
+                          value={filters.quantity}
+                          onChange={(e) => setFilters(prev => ({ ...prev, quantity: e.target.value }))}
+                          className="w-full px-2 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white"
+                        />
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="relative w-full">
+                        <input
+                          type="text"
+                          placeholder="Filter Supplier"
+                          value={filters.supplier}
+                          onChange={(e) => setFilters(prev => ({ ...prev, supplier: e.target.value }))}
+                          className="w-full px-2 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white"
+                        />
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="relative w-full">
+                        <input
+                          type="text"
+                          placeholder="Filter Date"
+                          value={filters.date}
+                          onChange={(e) => setFilters(prev => ({ ...prev, date: e.target.value }))}
+                          className="w-full px-2 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white"
+                        />
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="relative w-full">
+                        <select
+                          value={filters.status}
+                          onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                          className="w-full px-2 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white appearance-none"
+                        >
+                          <option value="">Status</option>
+                          <option value="pending">Pending</option>
+                          <option value="approved">Approved</option>
+                          <option value="rejected">Rejected</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                          <FiChevronDown className="w-3 h-3" />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2"></td>
+                  </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {items.map((item) => (
+                  {filteredItems.map((item) => (
                     <tr key={item.id} className="hover:bg-gray-50">
                       <td className="px-3 py-3 whitespace-nowrap">
                         <span className="text-sm font-medium text-gray-900">{item.item_name}</span>

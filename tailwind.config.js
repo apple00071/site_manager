@@ -16,7 +16,7 @@ module.exports = {
         'xl': '1280px',  // Large laptops
         '2xl': '1536px', // Desktop
       },
-      
+
       // Enhanced spacing for mobile touch targets
       spacing: {
         '18': '4.5rem',  // 72px - Good for touch targets
@@ -24,7 +24,7 @@ module.exports = {
         '88': '22rem',   // 352px
         '128': '32rem',  // 512px
       },
-      
+
       // Mobile-optimized typography
       fontSize: {
         'xs': ['0.75rem', { lineHeight: '1rem' }],
@@ -38,7 +38,7 @@ module.exports = {
         '5xl': ['3rem', { lineHeight: '1' }],
         '6xl': ['3.75rem', { lineHeight: '1' }],
       },
-      
+
       // Enhanced color palette for better accessibility
       colors: {
         primary: {
@@ -47,7 +47,7 @@ module.exports = {
           200: '#fef08a',
           300: '#fde047',
           400: '#facc15',
-          500: '#eab308',
+          500: '#eab308', // Standard Yellow (User Requested)
           600: '#ca8a04',
           700: '#a16207',
           800: '#854d0e',
@@ -68,7 +68,7 @@ module.exports = {
           950: '#030712',
         },
       },
-      
+
       // Enhanced shadows for depth
       boxShadow: {
         'mobile': '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
@@ -76,7 +76,7 @@ module.exports = {
         'card': '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)',
         'card-hover': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)',
       },
-      
+
       // Animation for better mobile interactions
       animation: {
         'fade-in': 'fadeIn 0.5s ease-in-out',
@@ -84,7 +84,7 @@ module.exports = {
         'slide-down': 'slideDown 0.3s ease-out',
         'scale-in': 'scaleIn 0.2s ease-out',
       },
-      
+
       keyframes: {
         fadeIn: {
           '0%': { opacity: '0' },
@@ -103,7 +103,7 @@ module.exports = {
           '100%': { transform: 'scale(1)', opacity: '1' },
         },
       },
-      
+
       // Border radius for modern mobile design
       borderRadius: {
         'xl': '0.75rem',

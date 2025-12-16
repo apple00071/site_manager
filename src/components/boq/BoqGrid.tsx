@@ -65,24 +65,22 @@ export function BoqGrid({
 }: BoqGridProps) {
     const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['All']));
     const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
-    const [showFilters, setShowFilters] = useState(false);
+    const [showFilters, setShowFilters] = useState(true); // Default to true as per "give this format" request
     const [actionMenuId, setActionMenuId] = useState<string | null>(null);
     const tableRef = useRef<HTMLTableElement>(null);
 
     const columns = [
-        { key: 'item_name', label: 'Element Name & Description', type: 'text', width: 'w-64', searchable: true },
-        { key: 'order_status', label: 'Order Status', type: 'select', options: ORDER_STATUSES, width: 'w-28', searchable: true },
-        { key: 'item_type', label: 'Item Type', type: 'select', options: ITEM_TYPES, width: 'w-28', searchable: true },
-        { key: 'source', label: 'Source', type: 'select', options: SOURCES, width: 'w-28', searchable: true },
-        { key: 'status', label: 'Status', type: 'select', options: STATUSES, width: 'w-24', searchable: true },
-        { key: 'quantity', label: 'Qty', type: 'number', width: 'w-20', searchable: false },
-        { key: 'unit', label: 'UOM', type: 'select', options: UNITS, width: 'w-24', searchable: true },
-        { key: 'draft_quantity', label: 'Draft Qty', type: 'number', width: 'w-24', searchable: false },
-        { key: 'rate', label: 'Rate', type: 'number', width: 'w-24', searchable: false },
-        { key: 'amount', label: 'Final Amount', type: 'readonly', width: 'w-28', searchable: false },
+        { key: 'item_name', label: 'Item Name', type: 'text', searchable: true },
+        { key: 'item_type', label: 'Type', type: 'select', options: ITEM_TYPES, searchable: true },
+        { key: 'source', label: 'Source', type: 'select', options: SOURCES, searchable: true },
+        { key: 'status', label: 'Status', type: 'select', options: STATUSES, searchable: true },
+        { key: 'quantity', label: 'Qty', type: 'number', searchable: false },
+        { key: 'unit', label: 'UOM', type: 'select', options: UNITS, searchable: true },
+        { key: 'rate', label: 'Rate', type: 'number', searchable: false },
+        { key: 'amount', label: 'Amount', type: 'readonly', searchable: false },
     ];
 
-    // Group items by category
+    // Group items by category (Memoized as before)
     const groupedItems = useMemo(() => {
         const groups: Record<string, BOQItem[]> = {};
         items.forEach(item => {
@@ -93,7 +91,7 @@ export function BoqGrid({
         return groups;
     }, [items]);
 
-    // Calculate section totals
+    // Calculate section totals (Memoized as before)
     const sectionTotals = useMemo(() => {
         const totals: Record<string, { count: number; amount: number }> = {};
         Object.entries(groupedItems).forEach(([cat, catItems]) => {
@@ -105,8 +103,7 @@ export function BoqGrid({
         return totals;
     }, [groupedItems]);
 
-
-    // Filter items based on column filters
+    // Filter items (Memoized as before)
     const filteredGroupedItems = useMemo(() => {
         const hasFilters = Object.values(columnFilters).some(v => v.trim());
         if (!hasFilters) return groupedItems;
@@ -143,15 +140,15 @@ export function BoqGrid({
 
     const getStatusColor = (status: string) => {
         const colors: Record<string, string> = {
-            draft: 'bg-slate-100 text-slate-600',
-            confirmed: 'bg-emerald-50 text-emerald-700',
-            completed: 'bg-blue-50 text-blue-700',
-            pending: 'bg-yellow-50 text-yellow-700',
-            ordered: 'bg-purple-50 text-purple-700',
-            received: 'bg-green-50 text-green-700',
-            cancelled: 'bg-red-50 text-red-700',
+            draft: 'bg-yellow-50 text-yellow-700 border border-yellow-100',
+            confirmed: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
+            completed: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
+            pending: 'bg-gray-50 text-gray-600 border border-gray-100',
+            rejected: 'bg-red-50 text-red-600 border border-red-100',
+            ordered: 'bg-purple-50 text-purple-600 border border-purple-100',
+            received: 'bg-green-50 text-green-600 border border-green-100',
         };
-        return colors[status] || 'bg-gray-100 text-gray-600';
+        return colors[status] || 'bg-gray-50 text-gray-600 border border-gray-100';
     };
 
     const toggleCategory = (category: string) => {
@@ -208,18 +205,18 @@ export function BoqGrid({
         }
     };
 
-    // Display-only renderCell (no inline editing)
     const renderCell = (item: BOQItem, col: typeof columns[0]) => {
         const value = (item as any)[col.key];
 
-        // Item name with description
         if (col.key === 'item_name') {
             return (
-                <div>
-                    <span className="font-medium text-gray-900">{item.item_name}</span>
-                    {item.description && (
-                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{item.description}</p>
-                    )}
+                <div className="flex items-center gap-2">
+                    <div>
+                        <span className="font-medium text-gray-900 block">{item.item_name}</span>
+                        {item.description && (
+                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{item.description}</p>
+                        )}
+                    </div>
                 </div>
             );
         }
@@ -230,17 +227,17 @@ export function BoqGrid({
 
         if (['status', 'order_status'].includes(col.key)) {
             return (
-                <span className={`px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(value || 'draft')}`}>
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium inline-block ${getStatusColor(value || 'draft')}`}>
                     {(value || 'draft').replace(/_/g, ' ')}
                 </span>
             );
         }
 
         if (col.type === 'number') {
-            return <span className="text-gray-700">{value ?? 0}</span>;
+            return <span className="text-gray-600 font-medium">{value ?? 0}</span>;
         }
 
-        return <span className="truncate text-gray-700">{value?.toString().replace(/_/g, ' ') || '-'}</span>;
+        return <span className="text-gray-600 block truncate max-w-[150px]">{value?.toString().replace(/_/g, ' ') || '-'}</span>;
     };
 
     const clearFilters = () => {
@@ -250,84 +247,95 @@ export function BoqGrid({
     const hasActiveFilters = Object.values(columnFilters).some(v => v.trim());
 
     return (
-        <div className="overflow-visible">
-            {/* Filter Toggle & Clear */}
-            <div className="flex items-center justify-between px-2 py-1.5 bg-white border-b border-gray-100">
-                <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors ${showFilters || hasActiveFilters
-                        ? 'bg-amber-100 text-amber-700'
-                        : 'bg-white text-gray-600 hover:bg-gray-100'
-                        }`}
-                >
-                    <FiSearch className="w-4 h-4" />
-                    <span>Column Filters</span>
-                    {hasActiveFilters && (
-                        <span className="bg-amber-500 text-white text-xs px-1.5 py-0.5 rounded-full">
-                            {Object.values(columnFilters).filter(v => v.trim()).length}
-                        </span>
-                    )}
-                </button>
-                {hasActiveFilters && (
-                    <button
-                        onClick={clearFilters}
-                        className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
-                    >
-                        <FiX className="w-3 h-3" />
-                        Clear filters
-                    </button>
-                )}
-            </div>
+        <div className="overflow-visible bg-white border border-gray-200 md:rounded-lg shadow-sm">
+            <div className="overflow-visible">
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-white">
+                        <tr>
+                            {isAdmin && (
+                                <th scope="col" className="px-4 py-3 text-left w-10">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedItems.length === items.length && items.length > 0}
+                                        onChange={toggleSelectAll}
+                                        className="h-4 w-4 rounded border-gray-300 text-yellow-500 focus:ring-yellow-500"
+                                    />
+                                </th>
+                            )}
+                            <th scope="col" className="px-4 py-3 text-left w-10"></th> {/* Expand arrow column */}
 
-            <table ref={tableRef} className="min-w-full text-[13px]">
-                <thead className="bg-gray-50 sticky top-0 z-10 border-b border-gray-200">
-                    <tr>
-                        {isAdmin && (
-                            <th className="px-2 py-3 w-10">
-                                <input
-                                    type="checkbox"
-                                    checked={selectedItems.length === items.length && items.length > 0}
-                                    onChange={toggleSelectAll}
-                                    className="rounded border-gray-300 text-amber-500 focus:ring-0"
-                                />
-                            </th>
-                        )}
-                        <th className="px-2 py-3 w-10"></th>
-                        {columns.map(col => (
-                            <th
-                                key={col.key}
-                                className={`px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${col.width}`}
-                            >
-                                {col.label}
-                            </th>
-                        ))}
-                        {isAdmin && <th className="px-2 py-3 w-10"></th>}
-                    </tr>
-                    {/* Column filter row */}
-                    {showFilters && (
-                        <tr className="bg-white">
-                            {isAdmin && <th className="px-2 py-2"></th>}
-                            <th className="px-2 py-2"></th>
                             {columns.map(col => (
-                                <th key={col.key} className="px-2 py-2">
-                                    {col.searchable ? (
-                                        <input
-                                            type="text"
-                                            placeholder={`Search ${col.label.toLowerCase()}...`}
-                                            value={columnFilters[col.key] || ''}
-                                            onChange={(e) => setColumnFilters({ ...columnFilters, [col.key]: e.target.value })}
-                                            className="w-full px-2 py-1.5 text-xs border-0 bg-white rounded outline-none placeholder-gray-400"
-                                        />
-                                    ) : (
-                                        <span className="text-gray-400 text-xs">-</span>
-                                    )}
+                                <th
+                                    key={col.key}
+                                    scope="col"
+                                    className={`px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${col.type === 'number' || col.key === 'amount' ? 'text-right' : ''
+                                        }`}
+                                >
+                                    {col.label}
                                 </th>
                             ))}
-                            {isAdmin && <th className="px-2 py-2"></th>}
+
+                            {isAdmin && (
+                                <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Actions
+                                </th>
+                            )}
                         </tr>
-                    )}
-                </thead>
-                <tbody className="bg-white">
+
+                        {/* Filter Row */}
+                        {showFilters && (
+                            <tr className="bg-white border-b border-gray-200">
+                                {isAdmin && <th className="px-4 py-2 w-10"></th>}
+                                <th className="px-4 py-2 w-10"></th>
+
+                                {columns.map(col => (
+                                    <th key={col.key} className="px-4 py-2">
+                                        {col.searchable ? (
+                                            <div className="relative">
+                                                {col.type === 'select' ? (
+                                                    <div className="relative w-full">
+                                                        <select
+                                                            value={columnFilters[col.key] || ''}
+                                                            onChange={(e) => setColumnFilters({ ...columnFilters, [col.key]: e.target.value })}
+                                                            className="w-full pl-3 pr-8 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white appearance-none"
+                                                        >
+                                                            <option value="">Select</option>
+                                                            {col.options?.map(opt => (
+                                                                <option key={opt} value={opt}>{opt.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
+                                                            ))}
+                                                        </select>
+                                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                                                            <FiChevronDown className="w-3 h-3" />
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="relative w-full">
+                                                        {col.key === 'item_name' && (
+                                                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5">
+                                                                <FiSearch className="w-3 h-3 text-gray-400" />
+                                                            </div>
+                                                        )}
+                                                        <input
+                                                            type="text"
+                                                            placeholder={col.key === 'item_name' ? 'Search Name...' : 'Search'}
+                                                            value={columnFilters[col.key] || ''}
+                                                            onChange={(e) => setColumnFilters({ ...columnFilters, [col.key]: e.target.value })}
+                                                            className={`w-full py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white ${col.key === 'item_name' ? 'pl-8' : 'pl-3'}`}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="h-7"></div>
+                                        )}
+                                    </th>
+                                ))}
+                                {isAdmin && <th className="px-4 py-2"></th>}
+                            </tr>
+                        )}
+                    </thead>
+
+                    {/* Table Body - Grouped by Category */}
                     {Object.entries(filteredGroupedItems).map(([category, catItems]) => {
                         const isExpanded = expandedCategories.has(category);
                         const catTotal = sectionTotals[category] || { count: 0, amount: 0 };
@@ -335,209 +343,126 @@ export function BoqGrid({
                         const allCatSelected = catItemIds.length > 0 && catItemIds.every(id => selectedItems.includes(id));
                         const someCatSelected = catItemIds.some(id => selectedItems.includes(id));
 
+                        // Calculate colSpan: columns.length + spacer + checkbox(if admin)
+                        const totalColSpan = columns.length + 1 + (isAdmin ? 2 : 0);
+
                         return (
-                            <React.Fragment key={category}>
+                            <tbody key={category} className="bg-white">
                                 {/* Category Header Row */}
-                                <tr className="bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 transition-colors">
-                                    {isAdmin && (
-                                        <td className="px-2 py-3">
-                                            <input
-                                                type="checkbox"
-                                                checked={allCatSelected}
-                                                ref={el => {
-                                                    if (el) el.indeterminate = someCatSelected && !allCatSelected;
-                                                }}
-                                                onChange={() => toggleSelectCategory(category)}
-                                                className="rounded border-gray-300 text-amber-500 focus:ring-0"
-                                            />
-                                        </td>
-                                    )}
-                                    <td className="px-2 py-3">
-                                        <button
-                                            onClick={() => toggleCategory(category)}
-                                            className="p-1 hover:bg-amber-200 rounded transition-colors"
-                                        >
-                                            {isExpanded ? (
-                                                <FiChevronDown className="w-4 h-4 text-amber-700" />
-                                            ) : (
-                                                <FiChevronRight className="w-4 h-4 text-amber-700" />
-                                            )}
-                                        </button>
-                                    </td>
-                                    <td colSpan={columns.length} className="px-3 py-3">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <span className="font-semibold text-gray-900">{category}</span>
-                                                <span className="px-2 py-0.5 bg-amber-200 text-amber-800 text-xs font-medium rounded-full">
-                                                    {catTotal.count} items
-                                                </span>
-                                            </div>
-                                            <span className="text-sm font-semibold text-amber-800">
-                                                Section Total: {formatAmount(catTotal.amount)}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    {isAdmin && <td className="px-2 py-3"></td>}
-                                </tr>
-
-                                {/* Category Items */}
-                                {isExpanded && catItems.map((item, itemIdx) => {
-                                    // Calculate global row index for focus tracking
-                                    let globalRowIdx = 0;
-                                    for (const [cat, items] of Object.entries(filteredGroupedItems)) {
-                                        if (cat === category) {
-                                            globalRowIdx += itemIdx;
-                                            break;
-                                        }
-                                        globalRowIdx += items.length;
-                                    }
-
-                                    return (
-                                        <tr
-                                            key={item.id}
-                                            className="hover:bg-gray-50 transition-colors border-b border-gray-50"
-                                        >
+                                <tr
+                                    className="bg-gray-50 border-b border-gray-200 cursor-pointer hover:bg-gray-100"
+                                    onClick={() => toggleCategory(category)}
+                                >
+                                    <td colSpan={totalColSpan} className="px-0 py-0">
+                                        <div className="flex items-center min-w-full py-3">
                                             {isAdmin && (
-                                                <td className="px-2 py-2.5">
+                                                <div className="px-4 w-10 flex items-center justify-center" onClick={e => e.stopPropagation()}>
                                                     <input
                                                         type="checkbox"
-                                                        checked={selectedItems.includes(item.id)}
-                                                        onChange={() => toggleSelectItem(item.id)}
-                                                        className="rounded border-gray-300 text-amber-500 focus:ring-0"
-                                                    />
-                                                </td>
-                                            )}
-                                            <td className="px-2 py-2.5"></td>
-                                            {columns.map((col) => (
-                                                <td
-                                                    key={col.key}
-                                                    className={`px-3 py-2.5 ${col.type === 'number' || col.key === 'amount' ? 'text-right' : ''}`}
-                                                >
-                                                    {renderCell(item, col)}
-                                                </td>
-                                            ))}
-                                            {isAdmin && (
-                                                <td className="px-2 py-2.5 relative">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setActionMenuId(actionMenuId === item.id ? null : item.id);
+                                                        checked={allCatSelected}
+                                                        ref={el => {
+                                                            if (el) el.indeterminate = someCatSelected && !allCatSelected;
                                                         }}
-                                                        className="p-1.5 text-gray-500 hover:bg-gray-100 rounded transition-colors"
-                                                    >
-                                                        <FiMoreVertical className="w-4 h-4" />
-                                                    </button>
-                                                    {/* Action dropdown menu */}
-                                                    {actionMenuId === item.id && (
-                                                        <div className="absolute right-0 bottom-full mb-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[140px]">
+                                                        onChange={() => toggleSelectCategory(category)}
+                                                        className="h-4 w-4 rounded border-gray-300 text-yellow-500 focus:ring-yellow-500"
+                                                    />
+                                                </div>
+                                            )}
+
+                                            <div className="px-4 w-10 flex items-center justify-center text-gray-400">
+                                                <FiChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                                            </div>
+
+                                            <div className="flex-1 px-4 flex items-center gap-3">
+                                                <span className="font-bold text-gray-800 text-sm">{category}</span>
+                                                <span className="bg-white text-gray-600 text-[10px] font-bold px-2 py-0.5 rounded border border-gray-200 shadow-sm">
+                                                    {catTotal.count} Items
+                                                </span>
+                                            </div>
+
+                                            <div className="px-4 text-sm font-semibold text-gray-900 pr-8">
+                                                {formatAmount(catTotal.amount)}
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                {/* Items */}
+                                {isExpanded && catItems.map((item) => (
+                                    <tr key={item.id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
+                                        {isAdmin && (
+                                            <td className="px-4 py-4 w-10 align-middle">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedItems.includes(item.id)}
+                                                    onChange={() => toggleSelectItem(item.id)}
+                                                    className="h-4 w-4 rounded border-gray-300 text-yellow-500 focus:ring-yellow-500"
+                                                />
+                                            </td>
+                                        )}
+
+                                        <td className="px-4 py-4 w-10"></td> {/* Spacer for expand arrow */}
+
+                                        {columns.map(col => (
+                                            <td
+                                                key={col.key}
+                                                className={`px-4 py-4 text-sm text-gray-500 ${col.type === 'number' || col.key === 'amount' ? 'text-right whitespace-nowrap' : 'text-left'
+                                                    } ${col.key !== 'item_name' ? 'whitespace-nowrap' : ''}`}
+                                            >
+                                                {renderCell(item, col)}
+                                            </td>
+                                        ))}
+
+                                        {isAdmin && (
+                                            <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium relative">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setActionMenuId(actionMenuId === item.id ? null : item.id);
+                                                    }}
+                                                    className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
+                                                >
+                                                    <FiMoreVertical className="w-5 h-5" />
+                                                </button>
+
+                                                {/* Action Menu - Positioning needs to be improved for table usually, 
+                                                    but relative container works if overflowing isn't hidden 
+                                                */}
+                                                {actionMenuId === item.id && (
+                                                    <div className="absolute right-8 top-8 mt-2 w-48 rounded-md shadow-lg bg-white border border-gray-100 z-50">
+                                                        <div className="py-1" role="menu">
                                                             {onEdit && (
                                                                 <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        onEdit(item);
-                                                                        setActionMenuId(null);
-                                                                    }}
-                                                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                                                    onClick={(e) => { e.stopPropagation(); onEdit(item); setActionMenuId(null); }}
+                                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
                                                                 >
-                                                                    <FiEdit2 className="w-4 h-4" />
-                                                                    Edit
+                                                                    <FiEdit2 className="w-4 h-4" /> Edit
                                                                 </button>
                                                             )}
-                                                            {item.status !== 'confirmed' && (
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        onUpdate(item.id, 'status', 'confirmed');
-                                                                        setActionMenuId(null);
-                                                                    }}
-                                                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-amber-600 hover:bg-amber-50"
-                                                                >
-                                                                    <FiCheck className="w-4 h-4" />
-                                                                    Confirm
-                                                                </button>
-                                                            )}
-                                                            {item.status !== 'completed' && (
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        onUpdate(item.id, 'status', 'completed');
-                                                                        setActionMenuId(null);
-                                                                    }}
-                                                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-green-600 hover:bg-green-50"
-                                                                >
-                                                                    <FiCheckCircle className="w-4 h-4" />
-                                                                    Complete
-                                                                </button>
-                                                            )}
-                                                            {onSendProposal && (
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        onSendProposal([item.id]);
-                                                                        setActionMenuId(null);
-                                                                    }}
-                                                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50"
-                                                                >
-                                                                    <FiSend className="w-4 h-4" />
-                                                                    Send Proposal
-                                                                </button>
-                                                            )}
-                                                            <div className="border-t border-gray-100 my-1"></div>
                                                             <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    onDelete(item.id);
-                                                                    setActionMenuId(null);
-                                                                }}
-                                                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                                                                onClick={(e) => { e.stopPropagation(); onDelete(item.id); setActionMenuId(null); }}
+                                                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                                                             >
-                                                                <FiTrash2 className="w-4 h-4" />
-                                                                Delete
+                                                                <FiTrash2 className="w-4 h-4" /> Delete
                                                             </button>
                                                         </div>
-                                                    )}
-                                                </td>
-                                            )}
-                                        </tr>
-                                    );
-                                })}
-                            </React.Fragment>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        )}
+                                    </tr>
+                                ))}
+                            </tbody>
                         );
                     })}
-                </tbody>
-            </table>
-
-            {/* Add Row Button */}
-            {isAdmin && (
-                <div className="border-t border-gray-100 p-2 bg-gray-50">
-                    <button
-                        onClick={onAdd}
-                        className="flex items-center gap-2 text-sm text-amber-600 hover:text-amber-700 font-medium px-3 py-2 hover:bg-amber-50 rounded-lg transition-colors"
-                    >
-                        <FiPlus className="w-4 h-4" />
-                        Add Row
-                    </button>
-                </div>
-            )}
-
-            {/* Empty State */}
-            {Object.keys(filteredGroupedItems).length === 0 && (
-                <div className="text-center py-12 text-gray-500">
-                    {hasActiveFilters ? (
-                        <div>
-                            <p className="mb-2">No items match your filters</p>
-                            <button
-                                onClick={clearFilters}
-                                className="text-amber-600 hover:text-amber-700 font-medium"
-                            >
-                                Clear all filters
-                            </button>
-                        </div>
-                    ) : (
-                        <p>No items in this view</p>
-                    )}
-                </div>
-            )}
+                </table>
+                {/* Empty State */}
+                {Object.keys(filteredGroupedItems).length === 0 && (
+                    <div className="text-center py-16 text-gray-400 bg-white border-t border-gray-200">
+                        <p>No items found.</p>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

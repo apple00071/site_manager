@@ -49,7 +49,7 @@ export function SubTabNav({ tabs, activeTab, onTabChange, className = '' }: SubT
                         className={`
               relative px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0
               ${activeTab === tab.id
-                                ? 'text-amber-600'
+                                ? 'text-yellow-600'
                                 : 'text-gray-500 hover:text-gray-700'
                             }
             `}
@@ -57,7 +57,7 @@ export function SubTabNav({ tabs, activeTab, onTabChange, className = '' }: SubT
                         {tab.label}
                         {/* Active indicator */}
                         {activeTab === tab.id && (
-                            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500" />
+                            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-yellow-500" />
                         )}
                     </button>
                 ))}
@@ -70,11 +70,9 @@ export function SubTabNav({ tabs, activeTab, onTabChange, className = '' }: SubT
 export const STAGE_SUB_TABS: Record<string, SubTab[]> = {
     visit: [
         { id: 'details', label: 'Project Details' },
+        { id: 'workers', label: 'Worker Details' },
     ],
-    design: [
-        { id: 'designs', label: 'Designs' },
-        { id: 'site_photos', label: 'Site Photos' },
-    ],
+    design: [],
     boq: [
         { id: 'boq', label: 'BOQ Items' },
     ],

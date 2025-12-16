@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
             .select(`
         *,
         supplier:suppliers(id, name),
-        line_items:po_line_items(quantity, rate, amount)
+        line_items:po_line_items(boq_item_id, description, unit, quantity, rate, amount)
       `)
             .eq('project_id', projectId)
             .order('created_at', { ascending: false });

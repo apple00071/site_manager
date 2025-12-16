@@ -130,7 +130,7 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
                             type="text"
                             value={form.item_name || ''}
                             onChange={e => setForm({ ...form, item_name: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
                             placeholder="Enter item name"
                             required
                         />
@@ -143,7 +143,7 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
                             <select
                                 value={form.category || ''}
                                 onChange={e => setForm({ ...form, category: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
                             >
                                 {categories.map(cat => (
                                     <option key={cat} value={cat}>{cat}</option>
@@ -155,7 +155,7 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
                             <select
                                 value={form.unit || 'Nos'}
                                 onChange={e => setForm({ ...form, unit: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
                             >
                                 {UNITS.map(u => (
                                     <option key={u} value={u}>{u}</option>
@@ -172,7 +172,7 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
                                 type="number"
                                 value={form.quantity || 0}
                                 onChange={e => setForm({ ...form, quantity: parseFloat(e.target.value) || 0 })}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
                                 min="0"
                                 step="0.01"
                             />
@@ -183,7 +183,7 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
                                 type="number"
                                 value={form.rate || 0}
                                 onChange={e => setForm({ ...form, rate: parseFloat(e.target.value) || 0 })}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
                                 min="0"
                                 step="0.01"
                             />
@@ -196,7 +196,7 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
                         <select
                             value={form.gst || 18}
                             onChange={e => setForm({ ...form, gst: parseFloat(e.target.value) || 0 })}
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
                         >
                             <option value={0}>0% (Exempt)</option>
                             <option value={5}>5%</option>
@@ -207,7 +207,7 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
                     </div>
 
                     {/* Amount Display with GST */}
-                    <div className="bg-amber-50 rounded-lg p-3 space-y-2">
+                    <div className="bg-yellow-50 rounded-lg p-3 space-y-2">
                         <div className="flex justify-between items-center text-sm">
                             <span className="text-gray-600">Base Amount</span>
                             <span className="text-gray-700">₹{baseAmount.toLocaleString('en-IN')}</span>
@@ -216,9 +216,9 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
                             <span className="text-gray-600">GST ({form.gst || 0}%)</span>
                             <span className="text-gray-700">₹{gstAmount.toLocaleString('en-IN')}</span>
                         </div>
-                        <div className="border-t border-amber-200 pt-2 flex justify-between items-center">
+                        <div className="border-t border-yellow-200 pt-2 flex justify-between items-center">
                             <span className="text-sm font-medium text-gray-700">Total Amount</span>
-                            <span className="text-lg font-bold text-amber-600">₹{totalAmount.toLocaleString('en-IN')}</span>
+                            <span className="text-lg font-bold text-yellow-600">₹{totalAmount.toLocaleString('en-IN')}</span>
                         </div>
                     </div>
 
@@ -229,7 +229,7 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
                             <select
                                 value={form.item_type || 'material'}
                                 onChange={e => setForm({ ...form, item_type: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
                             >
                                 {ITEM_TYPES.map(t => (
                                     <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
@@ -241,7 +241,7 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
                             <select
                                 value={form.source || 'bought_out'}
                                 onChange={e => setForm({ ...form, source: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
                             >
                                 {SOURCES.map(s => (
                                     <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
@@ -257,7 +257,7 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
                             <select
                                 value={form.status || 'draft'}
                                 onChange={e => setForm({ ...form, status: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
                             >
                                 {STATUSES.map(s => (
                                     <option key={s} value={s}>{s}</option>
@@ -269,7 +269,7 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
                             <select
                                 value={form.order_status || 'pending'}
                                 onChange={e => setForm({ ...form, order_status: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
                             >
                                 {ORDER_STATUSES.map(s => (
                                     <option key={s} value={s}>{s}</option>
@@ -285,7 +285,7 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
                             type="number"
                             value={form.draft_quantity || 0}
                             onChange={e => setForm({ ...form, draft_quantity: parseFloat(e.target.value) || 0 })}
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
                             min="0"
                             step="0.01"
                         />
@@ -305,7 +305,7 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
                         type="submit"
                         onClick={handleSubmit}
                         disabled={saving || !form.item_name?.trim()}
-                        className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg disabled:opacity-50"
+                        className="px-4 py-2 text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 rounded-lg disabled:opacity-50"
                     >
                         {saving ? 'Saving...' : (item ? 'Update' : 'Add Item')}
                     </button>

@@ -5,8 +5,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
     FiPlus, FiEdit2, FiTrash2, FiCheck, FiX, FiDownload, FiMail,
     FiFileText, FiAlertCircle, FiMoreVertical, FiDollarSign,
-    FiTruck, FiClock, FiCheckCircle, FiPackage
+    FiTruck, FiClock, FiCheckCircle, FiPackage, FiSearch, FiChevronDown, FiEye
 } from 'react-icons/fi';
+import { POViewModal } from './POViewModal';
 
 interface Supplier {
     id: string;
@@ -79,6 +80,11 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
     const [invoiceStats, setInvoiceStats] = useState<any>({});
     const [paymentStats, setPaymentStats] = useState<any>({});
 
+    // Filter states
+    const [poFilters, setPoFilters] = useState({ number: '', supplier: '', date: '', status: '' });
+    const [invoiceFilters, setInvoiceFilters] = useState({ number: '', type: '', date: '', status: '' });
+    const [paymentFilters, setPaymentFilters] = useState({ date: '', method: '', amount: '' });
+
     // Form states
     const [poForm, setPoForm] = useState({
         supplier_id: '',
@@ -110,6 +116,10 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
         reference_number: '',
         notes: '',
     });
+
+    // View PO State
+    const [viewPo, setViewPo] = useState<any>(null);
+    const [showPoView, setShowPoView] = useState(false);
 
     const fetchData = async () => {
         try {
@@ -145,6 +155,39 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
             setLoading(false);
         }
     };
+
+    // Filtered lists
+    const filteredPos = useMemo(() => {
+        return pos.filter(po => {
+            const matchNumber = !poFilters.number || po.po_number.toLowerCase().includes(poFilters.number.toLowerCase());
+            const matchSupplier = !poFilters.supplier || (po.supplier?.name || '').toLowerCase().includes(poFilters.supplier.toLowerCase());
+            const poDate = new Date(po.po_date).toLocaleDateString();
+            const matchDate = !poFilters.date || poDate.includes(poFilters.date);
+            const matchStatus = !poFilters.status || po.status === poFilters.status;
+            return matchNumber && matchSupplier && matchDate && matchStatus;
+        });
+    }, [pos, poFilters]);
+
+    const filteredInvoices = useMemo(() => {
+        return invoices.filter(inv => {
+            const matchNumber = !invoiceFilters.number || (inv.invoice_number || '').toLowerCase().includes(invoiceFilters.number.toLowerCase());
+            const matchType = !invoiceFilters.type || inv.invoice_type === invoiceFilters.type;
+            const invDate = new Date(inv.created_at).toLocaleDateString();
+            const matchDate = !invoiceFilters.date || invDate.includes(invoiceFilters.date);
+            const matchStatus = !invoiceFilters.status || inv.status === invoiceFilters.status;
+            return matchNumber && matchType && matchDate && matchStatus;
+        });
+    }, [invoices, invoiceFilters]);
+
+    const filteredPayments = useMemo(() => {
+        return payments.filter(pay => {
+            const payDate = new Date(pay.payment_date).toLocaleDateString();
+            const matchDate = !paymentFilters.date || payDate.includes(paymentFilters.date);
+            const matchMethod = !paymentFilters.method || (pay.payment_method || '').includes(paymentFilters.method);
+            const matchAmount = !paymentFilters.amount || pay.amount.toString().includes(paymentFilters.amount);
+            return matchDate && matchMethod && matchAmount;
+        });
+    }, [payments, paymentFilters]);
 
     useEffect(() => {
         fetchData();
@@ -194,7 +237,21 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
     };
 
     // Get confirmed BOQ items ready for PO
-    const confirmedItems = boqItems.filter((item: any) => item.status === 'confirmed');
+    const orderedBoqItemIds = useMemo(() => {
+        const ids = new Set<string>();
+        pos.forEach(po => {
+            if (po.status !== 'cancelled' && po.line_items) {
+                po.line_items.forEach((item: any) => {
+                    if (item.boq_item_id) ids.add(item.boq_item_id);
+                });
+            }
+        });
+        return ids;
+    }, [pos]);
+
+    const confirmedItems = boqItems.filter((item: any) =>
+        item.status === 'confirmed' && !orderedBoqItemIds.has(item.id)
+    );
 
     const getPoStatusBadge = (status: string) => {
         const styles: Record<string, string> = {
@@ -372,8 +429,8 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
                 <div className="bg-white p-3 md:p-4 rounded-xl border border-gray-100 shadow-sm">
                     <div className="flex items-center gap-2 md:gap-3">
-                        <div className="p-2 bg-amber-50 rounded-lg">
-                            <FiPackage className="w-4 h-4 md:w-5 md:h-5 text-amber-600" />
+                        <div className="p-2 bg-yellow-50 rounded-lg">
+                            <FiPackage className="w-4 h-4 md:w-5 md:h-5 text-yellow-600" />
                         </div>
                         <div>
                             <p className="text-xs md:text-sm text-gray-500">POs</p>
@@ -383,8 +440,8 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                 </div>
                 <div className="bg-white p-3 md:p-4 rounded-xl border border-gray-100 shadow-sm">
                     <div className="flex items-center gap-2 md:gap-3">
-                        <div className="p-2 bg-amber-50 rounded-lg">
-                            <FiDollarSign className="w-4 h-4 md:w-5 md:h-5 text-amber-600" />
+                        <div className="p-2 bg-yellow-50 rounded-lg">
+                            <FiDollarSign className="w-4 h-4 md:w-5 md:h-5 text-yellow-600" />
                         </div>
                         <div>
                             <p className="text-xs md:text-sm text-gray-500">PO Value</p>
@@ -394,8 +451,8 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                 </div>
                 <div className="bg-white p-3 md:p-4 rounded-xl border border-gray-100 shadow-sm">
                     <div className="flex items-center gap-2 md:gap-3">
-                        <div className="p-2 bg-amber-50 rounded-lg">
-                            <FiClock className="w-4 h-4 md:w-5 md:h-5 text-amber-600" />
+                        <div className="p-2 bg-yellow-50 rounded-lg">
+                            <FiClock className="w-4 h-4 md:w-5 md:h-5 text-yellow-600" />
                         </div>
                         <div>
                             <p className="text-xs md:text-sm text-gray-500">Pending</p>
@@ -427,7 +484,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                         key={tab.key}
                         onClick={() => setActiveTab(tab.key as TabType)}
                         className={`px-3 md:px-4 py-2 text-xs md:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap focus:outline-none ${activeTab === tab.key
-                            ? 'border-amber-500 text-amber-600'
+                            ? 'border-yellow-500 text-yellow-600'
                             : 'border-transparent text-gray-600 hover:text-gray-900'
                             }`}
                     >
@@ -562,23 +619,101 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                     {/* Desktop Table View */}
                     <div className="hidden md:block bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
                         <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
+                            <thead className="bg-white border-b border-gray-200">
                                 <tr>
                                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PO Number</th>
                                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
                                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                                     <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                     <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                                {/* Inline Filter Row */}
+                                <tr className="bg-white border-b border-gray-100">
+                                    <td className="px-3 py-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-gray-400 p-1">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                                            </span>
+                                            <div className="relative w-full">
+                                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2">
+                                                    <FiSearch className="w-3 h-3 text-gray-400" />
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search PO #"
+                                                    value={poFilters.number}
+                                                    onChange={(e) => setPoFilters(prev => ({ ...prev, number: e.target.value }))}
+                                                    className="w-full pl-7 pr-2 py-1.5 text-xs bg-white border border-gray-100 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white"
+                                                />
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-3 py-2">
+                                        <div className="relative w-full">
+                                            <input
+                                                type="text"
+                                                placeholder="Filter Supplier"
+                                                value={poFilters.supplier}
+                                                onChange={(e) => setPoFilters(prev => ({ ...prev, supplier: e.target.value }))}
+                                                className="w-full px-2 py-1.5 text-xs bg-white border border-gray-100 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white"
+                                            />
+                                        </div>
+                                    </td>
+                                    <td className="px-3 py-2">
+                                        <div className="relative w-full">
+                                            <input
+                                                type="text"
+                                                placeholder="Filter Date"
+                                                value={poFilters.date}
+                                                onChange={(e) => setPoFilters(prev => ({ ...prev, date: e.target.value }))}
+                                                className="w-full px-2 py-1.5 text-xs bg-white border border-gray-100 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white"
+                                            />
+                                        </div>
+                                    </td>
+                                    <td className="px-3 py-2"></td>
+                                    <td className="px-3 py-2">
+                                        <div className="relative w-full">
+                                            <select
+                                                value={poFilters.status}
+                                                onChange={(e) => setPoFilters(prev => ({ ...prev, status: e.target.value }))}
+                                                className="w-full pl-2 pr-6 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white appearance-none"
+                                            >
+                                                <option value="">All Status</option>
+                                                <option value="draft">Draft</option>
+                                                <option value="sent">Sent</option>
+                                                <option value="acknowledged">Acknowledged</option>
+                                                <option value="partially_received">Partial</option>
+                                                <option value="received">Received</option>
+                                                <option value="cancelled">Cancelled</option>
+                                            </select>
+                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                                                <FiChevronDown className="w-3 h-3" />
+                                            </div>
+                                        </div>
+                                    </td>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {pos.map((po) => (
+                                {filteredPos.map((po) => (
                                     <tr key={po.id} className="hover:bg-gray-50">
                                         <td className="px-3 py-3 font-medium text-gray-900">{po.po_number}</td>
                                         <td className="px-3 py-3 text-gray-600">{po.supplier?.name || '-'}</td>
                                         <td className="px-3 py-3 text-gray-600">{formatDate(po.po_date)}</td>
                                         <td className="px-3 py-3 text-right font-medium">{formatAmount(po.total_amount)}</td>
                                         <td className="px-3 py-3 text-center">{getPoStatusBadge(po.status)}</td>
+                                        <td className="px-3 py-3 text-right">
+                                            <button
+                                                onClick={() => {
+                                                    setViewPo(po);
+                                                    setShowPoView(true);
+                                                }}
+                                                className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                                title="View PO"
+                                            >
+                                                <FiEye className="w-4 h-4" />
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))}
                                 {pos.length === 0 && (
@@ -642,7 +777,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                     {/* Desktop Table View */}
                     <div className="hidden md:block bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
                         <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
+                            <thead className="bg-white border-b border-gray-200">
                                 <tr>
                                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice #</th>
                                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
@@ -653,9 +788,79 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                         <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                     )}
                                 </tr>
+                                {/* Inline Filter Row */}
+                                <tr className="bg-white border-b border-gray-100">
+                                    <td className="px-3 py-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-gray-400 p-1">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                                            </span>
+                                            <div className="relative w-full">
+                                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2">
+                                                    <FiSearch className="w-3 h-3 text-gray-400" />
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search Invoice #"
+                                                    value={invoiceFilters.number}
+                                                    onChange={(e) => setInvoiceFilters(prev => ({ ...prev, number: e.target.value }))}
+                                                    className="w-full pl-7 pr-2 py-1.5 text-xs bg-white border border-gray-100 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white"
+                                                />
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-3 py-2">
+                                        <div className="relative w-full">
+                                            <select
+                                                value={invoiceFilters.type}
+                                                onChange={(e) => setInvoiceFilters(prev => ({ ...prev, type: e.target.value }))}
+                                                className="w-full pl-2 pr-6 py-1.5 text-xs bg-white border border-gray-100 rounded-lg text-gray-600 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white appearance-none"
+                                            >
+                                                <option value="">All Types</option>
+                                                <option value="advance">Advance</option>
+                                                <option value="ra_bill">RA Bill</option>
+                                                <option value="final_bill">Final Bill</option>
+                                            </select>
+                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                                                <FiChevronDown className="w-3 h-3" />
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-3 py-2">
+                                        <div className="relative w-full">
+                                            <input
+                                                type="text"
+                                                placeholder="Filter Date"
+                                                value={invoiceFilters.date}
+                                                onChange={(e) => setInvoiceFilters(prev => ({ ...prev, date: e.target.value }))}
+                                                className="w-full px-2 py-1.5 text-xs bg-gray-50 border border-gray-100 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:bg-white"
+                                            />
+                                        </div>
+                                    </td>
+                                    <td className="px-3 py-2"></td>
+                                    <td className="px-3 py-2">
+                                        <div className="relative w-full">
+                                            <select
+                                                value={invoiceFilters.status}
+                                                onChange={(e) => setInvoiceFilters(prev => ({ ...prev, status: e.target.value }))}
+                                                className="w-full pl-2 pr-6 py-1.5 text-xs bg-gray-50 border border-gray-100 rounded-lg text-gray-600 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:bg-white appearance-none"
+                                            >
+                                                <option value="">Status</option>
+                                                <option value="pending">Pending</option>
+                                                <option value="approved">Approved</option>
+                                                <option value="paid">Paid</option>
+                                                <option value="rejected">Rejected</option>
+                                            </select>
+                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                                                <FiChevronDown className="w-3 h-3" />
+                                            </div>
+                                        </div>
+                                    </td>
+                                    {isAdmin && <td className="px-3 py-2"></td>}
+                                </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {invoices.map((invoice) => (
+                                {filteredInvoices.map((invoice) => (
                                     <tr key={invoice.id} className="hover:bg-gray-50">
                                         <td className="px-3 py-3 font-medium text-gray-900">{invoice.invoice_number || '-'}</td>
                                         <td className="px-3 py-3 text-gray-600 capitalize">{invoice.invoice_type.replace(/_/g, ' ')}</td>
@@ -725,17 +930,68 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                     </div>
 
                     {/* Desktop Table View */}
-                    <div className="hidden md:block bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
+                            <thead className="bg-white border-b border-gray-200">
                                 <tr>
-                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
-                                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                    <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Method</th>
+                                    <th className="px-3 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Amount</th>
+                                </tr>
+                                {/* Inline Filter Row */}
+                                <tr className="bg-white border-b border-gray-100">
+                                    <td className="px-3 py-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-gray-400 p-1">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                                            </span>
+                                            <div className="relative w-full">
+                                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2">
+                                                    <FiSearch className="w-3 h-3 text-gray-400" />
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search Date"
+                                                    value={paymentFilters.date}
+                                                    onChange={(e) => setPaymentFilters(prev => ({ ...prev, date: e.target.value }))}
+                                                    className="w-full pl-7 pr-2 py-1.5 text-xs bg-gray-50 border border-gray-100 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:bg-white"
+                                                />
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-3 py-2">
+                                        <div className="relative w-full">
+                                            <select
+                                                value={paymentFilters.method}
+                                                onChange={(e) => setPaymentFilters(prev => ({ ...prev, method: e.target.value }))}
+                                                className="w-full pl-2 pr-6 py-1.5 text-xs bg-gray-50 border border-gray-100 rounded-lg text-gray-600 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:bg-white appearance-none"
+                                            >
+                                                <option value="">All Methods</option>
+                                                <option value="bank_transfer">Bank Transfer</option>
+                                                <option value="upi">UPI</option>
+                                                <option value="cash">Cash</option>
+                                                <option value="cheque">Cheque</option>
+                                            </select>
+                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                                                <FiChevronDown className="w-3 h-3" />
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-3 py-2">
+                                        <div className="relative w-full">
+                                            <input
+                                                type="text"
+                                                placeholder="Filter Amount"
+                                                value={paymentFilters.amount}
+                                                onChange={(e) => setPaymentFilters(prev => ({ ...prev, amount: e.target.value }))}
+                                                className="w-full px-2 py-1.5 text-xs bg-gray-50 border border-gray-100 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:bg-white"
+                                            />
+                                        </div>
+                                    </td>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {payments.map((payment) => (
+                                {filteredPayments.map((payment) => (
                                     <tr key={payment.id} className="hover:bg-gray-50">
                                         <td className="px-3 py-3 font-medium text-gray-900">{formatDate(payment.payment_date)}</td>
                                         <td className="px-3 py-3 text-gray-600 capitalize">{payment.payment_method?.replace(/_/g, ' ') || '-'}</td>
@@ -777,7 +1033,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                             <button
                                                 type="button"
                                                 onClick={() => setShowSupplierForm(true)}
-                                                className="text-xs text-amber-600 font-medium hover:text-amber-700 focus:outline-none"
+                                                className="text-xs text-yellow-600 font-medium hover:text-yellow-700 focus:outline-none"
                                             >
                                                 + Add New
                                             </button>
@@ -785,7 +1041,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                         <select
                                             value={poForm.supplier_id}
                                             onChange={(e) => setPoForm({ ...poForm, supplier_id: e.target.value })}
-                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                                         >
                                             <option value="">Select Supplier</option>
                                             {suppliers.map(s => (
@@ -799,7 +1055,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                             type="date"
                                             value={poForm.delivery_date}
                                             onChange={(e) => setPoForm({ ...poForm, delivery_date: e.target.value })}
-                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                                         />
                                     </div>
                                 </div>
@@ -812,7 +1068,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                                 <select
                                                     value={item.boq_item_id}
                                                     onChange={(e) => updateLineItem(index, 'boq_item_id', e.target.value)}
-                                                    className="w-full px-2 py-2 border border-gray-200 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                                                    className="w-full px-2 py-2 border border-gray-200 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                                                 >
                                                     <option value="">Select from BOQ</option>
                                                     {boqItems.map(b => (
@@ -826,7 +1082,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                                     placeholder="Unit"
                                                     value={item.unit}
                                                     onChange={(e) => updateLineItem(index, 'unit', e.target.value)}
-                                                    className="w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                                                    className="w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                                                 />
                                             </div>
                                             <div className="col-span-3 md:col-span-2">
@@ -835,7 +1091,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                                     placeholder="Qty"
                                                     value={item.quantity || ''}
                                                     onChange={(e) => updateLineItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                                                    className="w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                                                    className="w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                                                 />
                                             </div>
                                             <div className="col-span-4 md:col-span-2">
@@ -844,7 +1100,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                                     placeholder="Rate"
                                                     value={item.rate || ''}
                                                     onChange={(e) => updateLineItem(index, 'rate', parseFloat(e.target.value) || 0)}
-                                                    className="w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                                                    className="w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                                                 />
                                             </div>
                                             <div className="col-span-2 flex items-center justify-end gap-1">
@@ -870,7 +1126,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                     </button>
                                 </div>
 
-                                <div className="bg-amber-50 p-3 md:p-4 rounded-lg">
+                                <div className="bg-yellow-50 p-3 md:p-4 rounded-lg">
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm text-gray-600">Subtotal</span>
                                         <span className="font-medium">
@@ -896,9 +1152,9 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                             {formatAmount(poForm.line_items.reduce((sum, i) => sum + (i.quantity * i.rate), 0) * (poForm.gst_rate / 100))}
                                         </span>
                                     </div>
-                                    <div className="flex justify-between items-center mt-2 pt-2 border-t border-amber-200">
-                                        <span className="font-medium">Total</span>
-                                        <span className="text-lg font-bold text-amber-900">
+                                    <div className="flex justify-between items-center mt-2 pt-2 border-t border-yellow-200">
+                                        <span className="text-lg font-bold text-yellow-900">Total</span>
+                                        <span className="text-lg font-bold text-yellow-900">
                                             {formatAmount(poForm.line_items.reduce((sum, i) => sum + (i.quantity * i.rate), 0) * (1 + poForm.gst_rate / 100))}
                                         </span>
                                     </div>
@@ -1079,7 +1335,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                         type="text"
                                         value={supplierForm.name}
                                         onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })}
-                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
                                         placeholder="Enter supplier name"
                                         required
                                     />
@@ -1090,7 +1346,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                         type="text"
                                         value={supplierForm.contact_name}
                                         onChange={(e) => setSupplierForm({ ...supplierForm, contact_name: e.target.value })}
-                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
                                         placeholder="Contact person name"
                                     />
                                 </div>
@@ -1101,7 +1357,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                             type="tel"
                                             value={supplierForm.contact_phone}
                                             onChange={(e) => setSupplierForm({ ...supplierForm, contact_phone: e.target.value })}
-                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
                                             placeholder="Phone number"
                                         />
                                     </div>
@@ -1111,7 +1367,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                             type="email"
                                             value={supplierForm.contact_email}
                                             onChange={(e) => setSupplierForm({ ...supplierForm, contact_email: e.target.value })}
-                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
                                             placeholder="Email address"
                                         />
                                     </div>
@@ -1122,7 +1378,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                         type="text"
                                         value={supplierForm.gst_number}
                                         onChange={(e) => setSupplierForm({ ...supplierForm, gst_number: e.target.value })}
-                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
                                         placeholder="GST registration number"
                                     />
                                 </div>
@@ -1136,7 +1392,7 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                     </button>
                                     <button
                                         type="submit"
-                                        className="flex-1 px-4 py-2.5 bg-amber-500 text-white hover:bg-amber-600 rounded-lg font-medium"
+                                        className="flex-1 px-4 py-2.5 bg-yellow-500 text-white hover:bg-yellow-600 rounded-lg font-medium"
                                     >
                                         Add Supplier
                                     </button>
@@ -1146,6 +1402,12 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                     </div>
                 </div>
             )}
+            {/* PO View Modal */}
+            <POViewModal
+                isOpen={showPoView}
+                onClose={() => setShowPoView(false)}
+                po={viewPo}
+            />
         </div>
     );
 }

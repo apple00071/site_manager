@@ -1,7 +1,6 @@
-'use client';
-
-import React, { useRef, useEffect } from 'react';
-import { FiCheck, FiClock, FiCircle } from 'react-icons/fi';
+// ... imports
+import React, { useRef, useEffect, useState } from 'react';
+import { FiCheck, FiClock, FiCircle, FiChevronDown } from 'react-icons/fi';
 
 export type StageId = 'visit' | 'design' | 'boq' | 'orders' | 'work_progress' | 'snag' | 'finance';
 
@@ -11,14 +10,29 @@ interface Stage {
     status: 'completed' | 'current' | 'upcoming';
 }
 
+export interface ActionItem {
+    label: string;
+    onClick: () => void;
+    icon?: React.ReactNode;
+    variant?: 'primary' | 'danger' | 'default';
+}
+
+export interface StageStatus {
+    label: string;
+    value: string;
+    color: 'orange' | 'green' | 'blue' | 'gray';
+}
+
 interface StageNavigatorProps {
     currentStage: StageId;
     onStageSelect: (stage: StageId) => void;
     completedStages?: StageId[];
+    actions?: ActionItem[];
+    stageStatus?: StageStatus;
 }
-
+// ... STAGES constant
 const STAGES: { id: StageId; label: string }[] = [
-    { id: 'visit', label: 'Visit' },
+    { id: 'visit', label: 'Details' },
     { id: 'design', label: 'Design' },
     { id: 'boq', label: 'BOQ' },
     { id: 'orders', label: 'Orders' },
@@ -27,20 +41,23 @@ const STAGES: { id: StageId; label: string }[] = [
     { id: 'finance', label: 'Finance' },
 ];
 
-export function StageNavigator({ currentStage, onStageSelect, completedStages = [] }: StageNavigatorProps) {
+export function StageNavigator({ currentStage, onStageSelect, completedStages = [], actions = [], stageStatus }: StageNavigatorProps) {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [showActions, setShowActions] = useState(false);
+    const actionsRef = useRef<HTMLDivElement>(null);
 
-    // Auto-scroll to active stage on mount/change
-    useEffect(() => {
-        if (scrollContainerRef.current) {
-            const activeElement = scrollContainerRef.current.querySelector(`[data-stage="${currentStage}"]`);
-            if (activeElement) {
-                const container = scrollContainerRef.current;
-                const scrollLeft = (activeElement as HTMLElement).offsetLeft - container.offsetWidth / 2 + (activeElement as HTMLElement).offsetWidth / 2;
-                container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
-            }
-        }
-    }, [currentStage]);
+    // ... useEffects
+
+    // Helper for status colors
+    const getStatusColors = (color: string) => {
+        const map: Record<string, string> = {
+            orange: 'bg-orange-50 text-orange-700',
+            green: 'bg-green-50 text-green-700',
+            blue: 'bg-blue-50 text-blue-700',
+            gray: 'bg-gray-50 text-gray-700',
+        };
+        return map[color] || map.gray;
+    };
 
     return (
         <div className="bg-white border-b border-gray-200 w-full max-w-full sticky top-0 z-10 transition-all duration-200">
@@ -88,9 +105,67 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
                     })}
                 </div>
 
-                {/* Optional Right Action Area - Can be re-enabled later if needed */}
+                {/* Right Action Area */}
                 <div className="hidden lg:flex items-center gap-4 pl-4 border-l border-gray-200 ml-4">
-                    {/* Placeholder for future status/actions if needed */}
+                    {/* Dynamic Status Badge */}
+                    {stageStatus && (
+                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${getStatusColors(stageStatus.color)}`}>
+                            <span className="text-xs font-medium opacity-75">{stageStatus.label}:</span>
+                            <span className="text-xs font-bold flex items-center gap-1">
+                                {stageStatus.value}
+                                <FiClock className="w-3 h-3" />
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Comment Button */}
+                    <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors">
+                        <span className="sr-only">Comments</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                    </button>
+
+                    {/* Primary Actions Dropdown - Brand Color */}
+                    <div className="relative" ref={actionsRef}>
+                        <button
+                            onClick={() => setShowActions(!showActions)}
+                            className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
+                        >
+                            <span className="flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                                    <polyline points="10 17 15 12 10 7"></polyline>
+                                    <line x1="15" y1="12" x2="3" y2="12"></line>
+                                </svg>
+                                Actions
+                            </span>
+                            <FiChevronDown className={`w-4 h-4 transition-transform ${showActions ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {/* Dropdown Menu */}
+                        {showActions && (
+                            <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50 animate-in fade-in zoom-in-95 duration-100">
+                                {actions.length === 0 ? (
+                                    <div className="px-4 py-2 text-xs text-gray-400">No actions available</div>
+                                ) : (
+                                    actions.map((action, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => {
+                                                action.onClick();
+                                                setShowActions(false);
+                                            }}
+                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                                        >
+                                            {action.icon}
+                                            {action.label}
+                                        </button>
+                                    ))
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 

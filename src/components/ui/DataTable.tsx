@@ -170,7 +170,7 @@ export function DataTable<T extends Record<string, any>>({
             <table className="w-full border-collapse">
                 {/* Header */}
                 <thead className={stickyHeader ? 'sticky top-0 z-10' : ''}>
-                    <tr className="bg-gray-50 border-b border-gray-200">
+                    <tr className="bg-white border-b border-gray-200">
                         {/* Selection checkbox column */}
                         {selectable && (
                             <th className={`${headerPadding} w-10`}>
@@ -178,7 +178,7 @@ export function DataTable<T extends Record<string, any>>({
                                     type="checkbox"
                                     checked={data.length > 0 && selectedKeys.length === data.length}
                                     onChange={handleSelectAll}
-                                    className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                                    className="w-4 h-4 rounded border-gray-300 text-yellow-500 focus:ring-yellow-500"
                                 />
                             </th>
                         )}
@@ -215,7 +215,7 @@ export function DataTable<T extends Record<string, any>>({
                                             <select
                                                 value={filters[col.key] || ''}
                                                 onChange={(e) => setFilters({ ...filters, [col.key]: e.target.value })}
-                                                className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                                className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-yellow-400"
                                             >
                                                 <option value="">All</option>
                                                 {col.filterOptions.map((opt) => (
@@ -231,7 +231,7 @@ export function DataTable<T extends Record<string, any>>({
                                                     placeholder="Search..."
                                                     value={filters[col.key] || ''}
                                                     onChange={(e) => setFilters({ ...filters, [col.key]: e.target.value })}
-                                                    className="w-full pl-6 pr-2 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                                    className="w-full pl-6 pr-2 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-yellow-400"
                                                 />
                                             </div>
                                         )
@@ -270,7 +270,7 @@ export function DataTable<T extends Record<string, any>>({
                                     className={`
                     transition-colors
                     ${onRowClick ? 'cursor-pointer' : ''}
-                    ${isSelected ? 'bg-amber-50' : 'hover:bg-gray-50'}
+                    ${isSelected ? 'bg-yellow-50' : 'hover:bg-gray-50'}
                   `}
                                 >
                                     {/* Selection checkbox */}
@@ -281,7 +281,7 @@ export function DataTable<T extends Record<string, any>>({
                                                 checked={isSelected}
                                                 onClick={(e) => handleSelectRow(rowKey, e)}
                                                 onChange={() => { }}
-                                                className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                                                className="w-4 h-4 rounded border-gray-300 text-yellow-500 focus:ring-yellow-500"
                                             />
                                         </td>
                                     )}

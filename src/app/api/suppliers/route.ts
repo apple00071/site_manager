@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 const supplierSchema = z.object({
     name: z.string().min(1, 'Name is required'),
     contact_name: z.string().optional().nullable(),
-    contact_email: z.string().email().optional().nullable(),
+    contact_email: z.union([z.string().email(), z.literal('')]).optional().nullable(),
     contact_phone: z.string().optional().nullable(),
     gst_number: z.string().optional().nullable(),
     pan_number: z.string().optional().nullable(),

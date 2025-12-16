@@ -143,7 +143,7 @@ export function BoqCardMobile({
             {items.map(item => (
                 <div
                     key={item.id}
-                    className={`bg-white rounded-xl shadow-sm overflow-visible transition-all relative ${selectedItems.includes(item.id) ? 'ring-2 ring-amber-400 border-transparent' : 'border border-gray-100'
+                    className={`bg-white rounded-xl shadow-sm overflow-visible transition-all relative ${selectedItems.includes(item.id) ? 'ring-2 ring-yellow-400 border-transparent' : 'border border-gray-100'
                         }`}
                 >
                     <div className="p-3">
@@ -153,7 +153,7 @@ export function BoqCardMobile({
                                     type="checkbox"
                                     checked={selectedItems.includes(item.id)}
                                     onChange={() => toggleSelect(item.id)}
-                                    className="mt-1 w-[18px] h-[18px] flex-shrink-0 rounded border-gray-300 text-amber-500 focus:ring-amber-400 focus:ring-offset-0 cursor-pointer"
+                                    className="mt-1 w-[18px] h-[18px] flex-shrink-0 rounded border-gray-300 text-yellow-500 focus:ring-yellow-400 focus:ring-offset-0 cursor-pointer"
                                 />
                             )}
                             <div className="flex-1 min-w-0 overflow-hidden">
@@ -277,7 +277,7 @@ export function BoqCardMobile({
                                         type="text"
                                         value={editForm.item_name}
                                         onChange={(e) => setEditForm({ ...editForm, item_name: e.target.value })}
-                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                                     />
                                 </div>
 
@@ -290,7 +290,7 @@ export function BoqCardMobile({
                                             type="number"
                                             value={editForm.quantity}
                                             onChange={(e) => setEditForm({ ...editForm, quantity: parseFloat(e.target.value) || 0 })}
-                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                                         />
                                     </div>
                                     <div>
@@ -301,7 +301,7 @@ export function BoqCardMobile({
                                             type="number"
                                             value={editForm.rate}
                                             onChange={(e) => setEditForm({ ...editForm, rate: parseFloat(e.target.value) || 0 })}
-                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                                         />
                                     </div>
                                 </div>
@@ -313,7 +313,7 @@ export function BoqCardMobile({
                                     <textarea
                                         value={editForm.description}
                                         onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                                         rows={2}
                                         placeholder="Add item description..."
                                     />
@@ -327,7 +327,7 @@ export function BoqCardMobile({
                                         <select
                                             value={editForm.order_status}
                                             onChange={(e) => setEditForm({ ...editForm, order_status: e.target.value })}
-                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                                         >
                                             {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                                         </select>
@@ -339,7 +339,7 @@ export function BoqCardMobile({
                                         <select
                                             value={editForm.item_type}
                                             onChange={(e) => setEditForm({ ...editForm, item_type: e.target.value })}
-                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                                         >
                                             {ITEM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                         </select>
@@ -354,7 +354,7 @@ export function BoqCardMobile({
                                         <select
                                             value={editForm.source}
                                             onChange={(e) => setEditForm({ ...editForm, source: e.target.value })}
-                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                                         >
                                             {SOURCES.map(src => <option key={src} value={src}>{src.replace(/_/g, ' ')}</option>)}
                                         </select>
@@ -366,7 +366,7 @@ export function BoqCardMobile({
                                         <select
                                             value={editForm.status}
                                             onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                                         >
                                             {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                                         </select>
@@ -374,10 +374,10 @@ export function BoqCardMobile({
                                 </div>
 
                                 {/* Amount Preview */}
-                                <div className="bg-amber-50 p-4 rounded-xl">
+                                <div className="bg-yellow-50 p-4 rounded-xl">
                                     <div className="flex justify-between items-center">
-                                        <span className="text-amber-800">Amount</span>
-                                        <span className="text-2xl font-bold text-amber-900">
+                                        <span className="text-yellow-800">Amount</span>
+                                        <span className="text-2xl font-bold text-yellow-900">
                                             {formatAmount(editForm.quantity * editForm.rate)}
                                         </span>
                                     </div>
@@ -385,7 +385,7 @@ export function BoqCardMobile({
 
                                 <button
                                     onClick={saveEdit}
-                                    className="w-full py-3 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 focus:outline-none flex items-center justify-center gap-2"
+                                    className="w-full py-3 bg-yellow-500 text-white rounded-lg font-medium hover:bg-yellow-600 focus:outline-none flex items-center justify-center gap-2"
                                 >
                                     <FiCheck className="w-5 h-5" />
                                     Save Changes

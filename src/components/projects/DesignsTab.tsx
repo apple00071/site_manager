@@ -11,7 +11,7 @@ import { DesignViewer } from '@/components/projects/DesignViewer';
 import {
   FiUpload, FiFileText, FiPaperclip, FiEye, FiPlus,
   FiMoreVertical, FiEdit, FiTrash2, FiDownload, FiCheck, FiX, FiClock, FiAlertCircle, FiLock, FiUnlock,
-  FiMessageCircle, FiMapPin
+  FiMessageCircle, FiMapPin, FiSearch, FiChevronDown
 } from 'react-icons/fi';
 
 type DesignFile = {
@@ -91,7 +91,7 @@ const DesignUploadForm = ({ uploadForm, setUploadForm, onClose, onUpload, upload
           const file = e.target.files?.[0] || null;
           setUploadForm(prev => ({ ...prev, file }));
         }}
-        className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"
+        className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-yellow-500"
       />
       {uploadForm.file && (
         <p className="mt-2 text-sm text-gray-600">Selected: {uploadForm.file.name}</p>
@@ -157,7 +157,17 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
   const [mobileActionDesign, setMobileActionDesign] = useState<DesignFile | null>(null);
   const [approvalDesign, setApprovalDesign] = useState<DesignFile | null>(null);
   const [approvalAction, setApprovalAction] = useState<'reject' | 'needs_changes' | null>(null);
+
   const [approvalComment, setApprovalComment] = useState('');
+
+  // Filter state
+  const [filters, setFilters] = useState({
+    name: '',
+    type: '',
+    uploadedBy: '',
+    uploadedOn: '',
+    status: '',
+  });
 
   // Freeze state
   const [isFrozen, setIsFrozen] = useState(false);
@@ -336,8 +346,27 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
     }
   }, [categories, selectedCategory]);
 
-  // Get designs for the selected category
-  const filteredDesigns = selectedCategory ? (groupedDesigns[selectedCategory] || []) : [];
+  // Get designs for the selected category and apply filters
+  const filteredDesigns = useMemo(() => {
+    let result = selectedCategory ? (groupedDesigns[selectedCategory] || []) : [];
+
+    // Apply inline filters
+    if (filters.name || filters.type || filters.uploadedBy || filters.uploadedOn || filters.status) {
+      result = result.filter(d => {
+        const matchName = !filters.name || d.file_name.toLowerCase().includes(filters.name.toLowerCase());
+        const matchType = !filters.type || d.file_type === filters.type;
+        const uploaderName = d.uploaded_by_user?.full_name || 'Unknown';
+        const matchUploader = !filters.uploadedBy || uploaderName.toLowerCase().includes(filters.uploadedBy.toLowerCase());
+        const uploadDate = formatDateTimeReadable(d.created_at).split(',')[0];
+        const matchDate = !filters.uploadedOn || uploadDate.toLowerCase().includes(filters.uploadedOn.toLowerCase());
+        const matchStatus = !filters.status || d.approval_status === filters.status;
+
+        return matchName && matchType && matchUploader && matchDate && matchStatus;
+      });
+    }
+
+    return result;
+  }, [groupedDesigns, selectedCategory, filters]);
 
   // Helper to check if design has pinned comments
   const hasPinnedComments = (design: DesignFile) => {
@@ -521,9 +550,9 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
   if (loading) {
     return (
       <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-        {/* Header skeleton */}
-        <div className="px-4 py-3 border-b border-gray-200 animate-pulse">
-          <div className="flex items-center justify-between">
+        {/* Table Header */}
+        <div className="bg-white border-b border-gray-200 flex text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <div className="flex items-center justify-between w-full px-4 py-3">
             <div className="flex gap-2">
               <div className="h-8 w-20 bg-gray-200 rounded"></div>
               <div className="h-8 w-20 bg-gray-200 rounded"></div>
@@ -548,7 +577,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
             </div>
           ))}
         </div>
-      </div>
+      </div >
     );
   }
 
@@ -736,7 +765,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                   <select
                     value={selectedCategory || ''}
                     onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-yellow-500"
+                    className="w-full px-4 py-2 bg-white border-b-2 border-transparent text-sm font-medium focus:outline-none text-gray-500"
                   >
                     {categories.map((category) => {
                       const count = groupedDesigns[category]?.length || 0;
@@ -758,13 +787,13 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                       <button
                         key={category}
                         onClick={() => setSelectedCategory(category)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${isActive
-                          ? 'bg-yellow-500 text-gray-900'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        className={`relative px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 ${isActive
+                          ? 'text-yellow-600 border-b-2 border-yellow-500'
+                          : 'text-gray-500 hover:text-gray-700 border-b-2 border-transparent hover:border-gray-200'
                           }`}
                       >
                         {category}
-                        <span className={`inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold rounded ${isActive ? 'bg-gray-900 text-white' : 'bg-gray-300 text-gray-700'
+                        <span className={`ml-2 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold rounded-full ${isActive ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
                           }`}>
                           {count}
                         </span>
@@ -789,26 +818,109 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
               {/* Flat Design Table - Desktop Only */}
               <div className="hidden md:block overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-white border-b border-gray-200">
                     <tr>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                         Name of File
                       </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                         Type of File
                       </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                         Uploaded By
                       </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                         Uploaded On
                       </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
+                    </tr>
+                    {/* Inline Filter Row */}
+                    <tr className="bg-white border-b border-gray-200">
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400 p-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                          </span>
+                          <div className="relative w-full">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2">
+                              <FiSearch className="w-3 h-3 text-gray-400" />
+                            </div>
+                            <input
+                              type="text"
+                              placeholder="Search Name of File"
+                              value={filters.name}
+                              onChange={(e) => setFilters(prev => ({ ...prev, name: e.target.value }))}
+                              className="w-full pl-7 pr-2 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white"
+                            />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="relative w-full">
+                          <select
+                            value={filters.type}
+                            onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
+                            className="w-full pl-2 pr-6 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white appearance-none"
+                          >
+                            <option value="">Select</option>
+                            <option value="image">Image</option>
+                            <option value="pdf">PDF</option>
+                            <option value="other">Other</option>
+                          </select>
+                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                            <FiChevronDown className="w-3 h-3" />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="relative w-full">
+                          <input
+                            type="text"
+                            placeholder="Select Uploaded by"
+                            value={filters.uploadedBy}
+                            onChange={(e) => setFilters(prev => ({ ...prev, uploadedBy: e.target.value }))}
+                            className="w-full px-2 py-1.5 text-xs bg-gray-50 border border-gray-100 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:bg-white"
+                          />
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="relative w-full">
+                          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2">
+                            <FiClock className="w-3 h-3 text-gray-400" />
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="Uploaded on"
+                            value={filters.uploadedOn}
+                            onChange={(e) => setFilters(prev => ({ ...prev, uploadedOn: e.target.value }))}
+                            className="w-full pl-7 pr-2 py-1.5 text-xs bg-gray-50 border border-gray-100 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:bg-white"
+                          />
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="relative w-full">
+                          <select
+                            value={filters.status}
+                            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                            className="w-full pl-2 pr-6 py-1.5 text-xs bg-gray-50 border border-gray-100 rounded-lg text-gray-600 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:bg-white appearance-none"
+                          >
+                            <option value="">Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="needs_changes">Changes</option>
+                          </select>
+                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                            <FiChevronDown className="w-3 h-3" />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2"></td>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">

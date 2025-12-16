@@ -259,7 +259,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
         const colors = [
             'bg-red-500',
             'bg-orange-500',
-            'bg-amber-500',
+            'bg-yellow-500',
             'bg-yellow-500',
             'bg-lime-500',
             'bg-green-500',
@@ -321,7 +321,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                 <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-gray-900">Project Users</h3>
                     <button
-                        className="text-amber-600 hover:text-amber-700 text-sm font-medium flex items-center gap-1"
+                        className="text-yellow-600 hover:text-yellow-700 text-sm font-medium flex items-center gap-1"
                         onClick={handleOpenModal}
                     >
                         <FiPlus className="w-4 h-4" />
@@ -333,7 +333,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                 <div className="max-h-[calc(100vh-300px)] overflow-y-auto">
                     {isLoading ? (
                         <div className="px-4 py-6 text-center">
-                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-amber-500 mx-auto"></div>
+                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-yellow-500 mx-auto"></div>
                             <p className="text-sm text-gray-500 mt-2">Loading users...</p>
                         </div>
                     ) : allUsers.length === 0 ? (
@@ -367,7 +367,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                                             {user.phone_number && (
                                                 <a
                                                     href={`tel:${user.phone_number}`}
-                                                    className="text-xs text-amber-600 hover:text-amber-700 flex items-center gap-1 mt-1"
+                                                    className="text-xs text-yellow-600 hover:text-yellow-700 flex items-center gap-1 mt-1"
                                                 >
                                                     <FiPhone className="w-3 h-3" />
                                                     {user.phone_number}
@@ -406,7 +406,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                                             <div className="flex items-center gap-1 ml-2">
                                                 <button
                                                     onClick={() => handleEditUser(user)}
-                                                    className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors"
+                                                    className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
                                                     title="Edit permissions"
                                                 >
                                                     <FiEdit2 className="w-3.5 h-3.5" />
@@ -476,7 +476,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                                         placeholder="Search users..."
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                                        className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                                     />
                                 </div>
                             )}
@@ -500,7 +500,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                                                     key={user.id}
                                                     onClick={() => setSelectedUser(user.id)}
                                                     className={`w-full flex items-center gap-3 p-2 rounded-lg text-left transition-colors ${selectedUser === user.id
-                                                        ? 'bg-amber-50 border-amber-200 border'
+                                                        ? 'bg-yellow-50 border-yellow-200 border'
                                                         : 'hover:bg-gray-50 border border-transparent'
                                                         }`}
                                                 >
@@ -516,7 +516,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                                                         </p>
                                                     </div>
                                                     {selectedUser === user.id && (
-                                                        <FiCheck className="w-5 h-5 text-amber-600" />
+                                                        <FiCheck className="w-5 h-5 text-yellow-600" />
                                                     )}
                                                 </button>
                                             ))
@@ -536,7 +536,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                                             type="checkbox"
                                             checked={permissions.view}
                                             onChange={(e) => setPermissions(p => ({ ...p, view: e.target.checked }))}
-                                            className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+                                            className="w-4 h-4 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500"
                                         />
                                         <span className="text-sm text-gray-700">View - Can view project details</span>
                                     </label>
@@ -545,7 +545,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                                             type="checkbox"
                                             checked={permissions.edit}
                                             onChange={(e) => setPermissions(p => ({ ...p, edit: e.target.checked }))}
-                                            className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+                                            className="w-4 h-4 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500"
                                         />
                                         <span className="text-sm text-gray-700">Edit - Can edit BOQ items</span>
                                     </label>
@@ -554,7 +554,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                                             type="checkbox"
                                             checked={permissions.upload}
                                             onChange={(e) => setPermissions(p => ({ ...p, upload: e.target.checked }))}
-                                            className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+                                            className="w-4 h-4 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500"
                                         />
                                         <span className="text-sm text-gray-700">Upload - Can upload files</span>
                                     </label>
@@ -563,7 +563,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                                             type="checkbox"
                                             checked={permissions.mark_done}
                                             onChange={(e) => setPermissions(p => ({ ...p, mark_done: e.target.checked }))}
-                                            className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+                                            className="w-4 h-4 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500"
                                         />
                                         <span className="text-sm text-gray-700">Mark Done - Can mark items complete</span>
                                     </label>
@@ -589,7 +589,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                             <button
                                 onClick={editingUser ? handleUpdateUser : handleAddUser}
                                 disabled={(!editingUser && !selectedUser) || isSaving}
-                                className="px-4 py-2 text-sm font-medium bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                                className="px-4 py-2 text-sm font-medium bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                             >
                                 {isSaving ? (
                                     <>

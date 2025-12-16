@@ -65,10 +65,10 @@ export function ProjectHeader({ title, jobId, status, customerName, onBack, user
                     <div className="flex items-center gap-2 text-xs">
                         <span className="text-gray-500">Project Status :</span>
                         <span className={`font-semibold flex items-center gap-1 ${status === 'completed' ? 'text-green-600' :
-                            status === 'in_progress' ? 'text-teal-600' : 'text-amber-600'
+                            status === 'in_progress' ? 'text-teal-600' : 'text-yellow-600'
                             }`}>
                             {displayStatus}
-                            <FiClock className="w-3.5 h-3.5" />
+                            {status === 'completed' ? <FiCheckCircle className="w-3.5 h-3.5" /> : <FiClock className="w-3.5 h-3.5" />}
                         </span>
                     </div>
 
@@ -76,7 +76,7 @@ export function ProjectHeader({ title, jobId, status, customerName, onBack, user
 
                     {user && (
                         <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
-                            <div className="h-6 w-6 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold text-[10px]">
+                            <div className="h-6 w-6 rounded-full bg-yellow-500 flex items-center justify-center text-white font-bold text-[10px]">
                                 {getInitials(user.name)}
                             </div>
                             <div className="flex flex-col">

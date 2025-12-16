@@ -179,7 +179,7 @@ export function ProposalBuilder({
                                         setSelectedIds(draftIds);
                                     }
                                 }}
-                                className="text-sm text-amber-600 hover:underline"
+                                className="text-sm text-yellow-600 hover:underline"
                             >
                                 {selectedIds.length === items.filter(i => i.status === 'draft').length
                                     ? 'Deselect All'
@@ -202,7 +202,7 @@ export function ProposalBuilder({
                                                 type="checkbox"
                                                 checked={selectedIds.includes(item.id)}
                                                 onChange={() => toggleItem(item.id)}
-                                                className="rounded border-gray-300 text-amber-500"
+                                                className="rounded border-gray-300 text-yellow-500"
                                             />
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium text-gray-900 truncate">
@@ -230,13 +230,13 @@ export function ProposalBuilder({
                     </div>
 
                     {/* Summary */}
-                    <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-100">
+                    <div className="bg-gradient-to-r from-yellow-50 to-orange-50 p-4 rounded-xl border border-yellow-100">
                         <div className="flex justify-between items-center">
                             <div>
-                                <p className="text-sm text-amber-800">Proposal Total</p>
-                                <p className="text-xs text-amber-600">{selectedIds.length} items selected</p>
+                                <p className="text-sm text-yellow-800">Proposal Total</p>
+                                <p className="text-xs text-yellow-600">{selectedIds.length} items selected</p>
                             </div>
-                            <span className="text-2xl font-bold text-amber-900">
+                            <span className="text-2xl font-bold text-yellow-900">
                                 {formatAmount(totalAmount)}
                             </span>
                         </div>
@@ -261,7 +261,7 @@ export function ProposalBuilder({
                     <button
                         onClick={handleSend}
                         disabled={sending || selectedIds.length === 0}
-                        className="flex items-center gap-2 px-6 py-2 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 disabled:opacity-50"
+                        className="flex items-center gap-2 px-6 py-2 bg-yellow-500 text-white rounded-lg font-medium hover:bg-yellow-600 disabled:opacity-50"
                     >
                         <FiSend className="w-4 h-4" />
                         {sending ? 'Sending...' : 'Create & Send Proposal'}
