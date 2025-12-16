@@ -44,7 +44,7 @@ export default function UsersPage() {
     };
 
     fetchUsers();
-    
+
     // Refresh users every 5 seconds (optional, for testing)
     // const interval = setInterval(fetchUsers, 5000);
     // return () => clearInterval(interval);
@@ -83,7 +83,7 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="space-y-4 lg:space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <h1 className="text-xl lg:text-2xl font-bold text-gray-900 lg:hidden">User Management</h1>
         <Link
@@ -108,9 +108,8 @@ export default function UsersPage() {
                     <p className="text-xs text-gray-500 mt-1">{user.phone_number}</p>
                   )}
                   <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                      user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'
-                    }`}>
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'
+                      }`}>
                       {user.role}
                     </span>
                     <span>{formatDateIST(user.created_at)}</span>
@@ -184,9 +183,8 @@ export default function UsersPage() {
                     <div className="text-sm text-gray-900">{user.phone_number || '—'}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'
-                    }`}>
+                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'
+                      }`}>
                       {user.role}
                     </span>
                   </td>

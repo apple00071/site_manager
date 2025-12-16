@@ -96,13 +96,12 @@ function DashboardLayoutContent({
     );
   }
 
-  // Check if we are on the Project Details page OR Projects List page to hide the global header
-  // logic: exact match '/dashboard/projects' OR '/dashboard/projects/[id]' 
-  // We exclude '/new' if we want the global header there, or include it. Let's include it for consistency.
-  const isCustomHeaderPage = pathname === '/dashboard/projects' || (/^\/dashboard\/projects\/[^/]+$/.test(pathname));
+  // Check if we are on the Project Details page to hide the global header
+  // Only project detail pages get custom headers, the projects list uses standard layout header
+  const isCustomHeaderPage = /^\/dashboard\/projects\/[^/]+$/.test(pathname) && pathname !== '/dashboard/projects/new';
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 w-full max-w-[100vw] overflow-x-hidden">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -205,7 +204,7 @@ function DashboardLayoutContent({
       </div>
 
       {/* Main content - allow natural page scroll (no overflow-hidden here) */}
-      <div className="flex-1 flex flex-col bg-white">
+      <div className="flex-1 flex flex-col bg-white min-w-0 max-w-full overflow-x-hidden">
 
         {/* Mobile menu button - floating */}
         <button
@@ -225,11 +224,11 @@ function DashboardLayoutContent({
 
         {/* Desktop header only - HIDDEN on Project Details Page */}
         {!isCustomHeaderPage && (
-          <header className="bg-white shadow-sm border-b border-gray-200 hidden lg:block min-h-14">
-            <div className="px-6 py-3 flex items-center justify-between h-full">
+          <header className="bg-white shadow-sm border-b border-gray-200 hidden lg:block">
+            <div className="px-4 py-1 flex items-center justify-between">
               {/* Left side: Title with tabs */}
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                <h2 className="text-lg font-bold text-gray-900 whitespace-nowrap">{pageTitle}</h2>
+                <h2 className="text-sm font-semibold text-gray-900 whitespace-nowrap">{pageTitle}</h2>
 
                 {/* Tab pills (if any) */}
                 {tabs.length > 0 && (
@@ -285,14 +284,24 @@ function DashboardLayoutContent({
                   </button>
                 ))}
                 <OptimizedNotificationBell />
+
+                {/* User avatar with name - matching Projects header style */}
+                {user && (
+                  <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
+                    <div className="h-6 w-6 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold text-[10px] shadow-sm">
+                      {(user.full_name || 'U').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">{user.full_name || user.email?.split('@')[0] || 'User'}</span>
+                  </div>
+                )}
               </div>
             </div>
           </header>
         )}
 
         {/* Main content area with minimal padding */}
-        <main className="flex-1 bg-white">
-          <div className={`pt-16 lg:pt-0 h-full flex flex-col min-h-0 ${isCustomHeaderPage ? '' : 'px-2 sm:px-3 lg:px-4 py-3'}`}>
+        <main className="flex-1 bg-white overflow-x-hidden max-w-full">
+          <div className={`pt-16 lg:pt-2 h-full flex flex-col min-h-0 max-w-full ${isCustomHeaderPage ? '' : 'px-2 sm:px-3 lg:px-4 pb-6'}`}>
             {children}
           </div>
         </main>

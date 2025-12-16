@@ -22,14 +22,32 @@ export function SubTabNav({ tabs, activeTab, onTabChange, className = '' }: SubT
     if (tabs.length === 0) return null;
 
     return (
-        <div className={`flex border-b border-gray-200 bg-white overflow-x-auto ${className}`}>
-            <div className="flex gap-0 px-4">
+        <div
+            className={`border-b border-gray-200 bg-white scroll-x-mobile ${className}`}
+            style={{
+                overflowX: 'scroll',
+                overflowY: 'hidden',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+                WebkitOverflowScrolling: 'touch',
+                width: '100%',
+                position: 'relative'
+            }}
+        >
+            <div
+                className="flex gap-0 px-4"
+                style={{
+                    display: 'inline-flex',
+                    minWidth: '100%',
+                    width: 'max-content'
+                }}
+            >
                 {tabs.map((tab) => (
                     <button
                         key={tab.id}
                         onClick={() => onTabChange(tab.id)}
                         className={`
-              relative px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors
+              relative px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0
               ${activeTab === tab.id
                                 ? 'text-amber-600'
                                 : 'text-gray-500 hover:text-gray-700'
@@ -52,7 +70,6 @@ export function SubTabNav({ tabs, activeTab, onTabChange, className = '' }: SubT
 export const STAGE_SUB_TABS: Record<string, SubTab[]> = {
     visit: [
         { id: 'details', label: 'Project Details' },
-        { id: 'updates', label: 'Updates' },
     ],
     design: [
         { id: 'designs', label: 'Designs' },
@@ -70,6 +87,7 @@ export const STAGE_SUB_TABS: Record<string, SubTab[]> = {
     ],
     work_progress: [
         { id: 'inventory', label: 'Inventory' },
+        { id: 'updates', label: 'Updates' },
     ],
     snag: [
         { id: 'snag_list', label: 'Snag List' },

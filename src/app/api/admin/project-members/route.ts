@@ -101,7 +101,7 @@ export async function POST(req: Request) {
                 `👋 You were added to project "${projectData.title}" with new permissions.\n\nOpen: ${link}`
               );
             }
-          } catch (_) {}
+          } catch (_) { }
 
           // Notify admin if they're not the one making the change
           if (projectData.created_by !== user_id) {
@@ -128,7 +128,7 @@ export async function POST(req: Request) {
                   `👥 Project Member Updated\n\n${userData.full_name} was added/updated in project "${projectData.title}"\n\nOpen: ${link}`
                 );
               }
-            } catch (_) {}
+            } catch (_) { }
           }
 
           console.log('Project member notifications sent');
@@ -157,7 +157,116 @@ export async function POST(req: Request) {
         { status: 200 }
       );
     }
-    
+
+    const handled = handleApiError(err);
+    return NextResponse.json(handled.error, { status: handled.status });
+  }
+}
+
+export async function GET(req: Request) {
+  // During build, return a dummy response
+  if (isBuildContext) {
+    return NextResponse.json(
+      { success: true, members: [], message: 'Build time response - API not available during build' },
+      { status: 200 }
+    );
+  }
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const projectId = searchParams.get('project_id');
+
+    if (!projectId) {
+      return NextResponse.json(
+        { error: 'project_id is required' },
+        { status: 400 }
+      );
+    }
+
+    // Fetch project members with user details using admin client
+    const { data: members, error } = await supabaseAdmin
+      .from('project_members')
+      .select(`
+        user_id,
+        permissions,
+        users:user_id (
+          id,
+          full_name,
+          email,
+          phone_number,
+          designation,
+          role
+        )
+      `)
+      .eq('project_id', projectId);
+
+    if (error) {
+      return NextResponse.json(
+        { error: sanitizeErrorMessage(error.message) },
+        { status: 500 }
+      );
+    }
+
+    return createNoCacheResponse({ success: true, members: members || [] });
+  } catch (err: any) {
+    // During build, return a success response to prevent build failures
+    if (isBuildContext) {
+      return NextResponse.json(
+        { success: true, members: [], message: 'Build time error handled' },
+        { status: 200 }
+      );
+    }
+
+    const handled = handleApiError(err);
+    return NextResponse.json(handled.error, { status: handled.status });
+  }
+}
+
+export async function DELETE(req: Request) {
+  // During build, return a dummy response
+  if (isBuildContext) {
+    return NextResponse.json(
+      { success: true, message: 'Build time response - API not available during build' },
+      { status: 200 }
+    );
+  }
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const projectId = searchParams.get('project_id');
+    const userId = searchParams.get('user_id');
+
+    if (!projectId || !userId) {
+      return NextResponse.json(
+        { error: 'project_id and user_id are required' },
+        { status: 400 }
+      );
+    }
+
+    // Delete the project member
+    const { error } = await supabaseAdmin
+      .from('project_members')
+      .delete()
+      .eq('project_id', projectId)
+      .eq('user_id', userId);
+
+    if (error) {
+      return NextResponse.json(
+        { error: sanitizeErrorMessage(error.message) },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (err: any) {
+    // During build, return a success response to prevent build failures
+    if (isBuildContext) {
+      return NextResponse.json(
+        { success: true, message: 'Build time error handled' },
+        { status: 200 }
+      );
+    }
+
     const handled = handleApiError(err);
     return NextResponse.json(handled.error, { status: handled.status });
   }

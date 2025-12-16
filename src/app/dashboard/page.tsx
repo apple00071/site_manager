@@ -175,22 +175,13 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div className="flex-1 min-w-0">
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 truncate">
             Welcome, {user?.full_name || 'User'}
           </h1>
         </div>
-        {isAdmin && (
-          <Link
-            href="/dashboard/projects/new"
-            className="px-4 sm:px-5 py-3 sm:py-2.5 bg-yellow-500 text-gray-900 rounded-xl flex items-center justify-center hover:bg-yellow-600 active:bg-yellow-700 transition-all duration-200 shadow-sm font-bold text-sm sm:text-base touch-target"
-          >
-            <FiPlus className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-            <span className="whitespace-nowrap">New Project</span>
-          </Link>
-        )}
       </div>
 
       {/* Stats */}

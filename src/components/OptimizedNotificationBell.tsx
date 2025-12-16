@@ -27,7 +27,7 @@ export function OptimizedNotificationBell() {
   const [isLoading, setIsLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const dropdownRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const realtimeChannelRef = useRef<any>(null);
@@ -45,7 +45,7 @@ export function OptimizedNotificationBell() {
 
     const now = Date.now();
     const cacheKey = `notifications_${user.id}`;
-    
+
     // Rate limiting - don't fetch more than once per 30 seconds unless forced
     if (!forceRefresh && (now - lastFetchTime.current) < 30000) {
       console.log('⏭️ Notification fetch rate limited');
@@ -80,25 +80,25 @@ export function OptimizedNotificationBell() {
 
       if (response.ok) {
         const data: Notification[] = await response.json();
-        
+
         // Cache for 2 minutes
         notificationCache.set(cacheKey, data, 2 * 60 * 1000);
-        
+
         // Detect new notifications for sound
         const newCount = data.filter(n => !n.is_read).length;
         const hasNewNotifications = newCount > lastNotificationCount.current;
-        
+
         setNotifications(data);
         setUnreadCount(newCount);
-        
+
         // Play sound for new notifications (only if tab is active)
         if (hasNewNotifications && mounted && isActiveTab.current) {
           console.log(`🔔 ${newCount - lastNotificationCount.current} new notification(s)`);
           playNotificationSound();
         }
-        
+
         lastNotificationCount.current = newCount;
-        
+
         console.log(`✅ Fetched ${data.length} notifications (${newCount} unread)`);
       } else if (response.status === 401) {
         console.error('❌ Unauthorized - session expired');
@@ -122,7 +122,7 @@ export function OptimizedNotificationBell() {
     const handleVisibilityChange = () => {
       console.log('handleVisibilityChange triggered. document.hidden:', document.hidden);
       isActiveTab.current = !document.hidden;
-      
+
       if (isActiveTab.current) {
         console.log('👁️ Tab became active - refreshing notifications');
         fetchNotifications(true);
@@ -183,14 +183,14 @@ export function OptimizedNotificationBell() {
             (payload: { new: Notification; old: Notification | null }) => {
               console.log('🔔 Real-time notification received');
               const newNotification = payload.new as Notification;
-              
+
               // Update local state immediately
               setNotifications(prev => [newNotification, ...prev]);
               setUnreadCount(prev => prev + 1);
-              
+
               // Invalidate cache
               cacheInvalidation.invalidateNotifications();
-              
+
               // Play sound
               if (mounted && isActiveTab.current) {
                 playNotificationSound();
@@ -208,25 +208,25 @@ export function OptimizedNotificationBell() {
             (payload: { new: Notification; old: Notification | null }) => {
               console.log('🔄 Notification updated via real-time');
               const updatedNotification = payload.new as Notification;
-              
+
               setNotifications(prev =>
                 prev.map(n => n.id === updatedNotification.id ? updatedNotification : n)
               );
-              
+
               // Recalculate unread count
               setNotifications(prev => {
                 const newUnreadCount = prev.filter(n => !n.is_read).length;
                 setUnreadCount(newUnreadCount);
                 return prev;
               });
-              
+
               // Invalidate cache
               cacheInvalidation.invalidateNotifications();
             }
           )
           .subscribe((status: string) => {
             console.log('📡 Realtime status:', status);
-            
+
             if (status === 'SUBSCRIBED') {
               console.log('✅ Real-time notifications active');
               // Reduce polling frequency since real-time is working
@@ -267,11 +267,11 @@ export function OptimizedNotificationBell() {
 
     return () => {
       console.log('🧹 Cleaning up notification system...');
-      
+
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
       }
-      
+
       if (realtimeChannelRef.current) {
         supabase.removeChannel(realtimeChannelRef.current);
       }
@@ -416,10 +416,10 @@ export function OptimizedNotificationBell() {
       {/* Bell Icon Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500 rounded-full transition-colors"
+        className="relative p-1 text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500 rounded-full transition-colors"
         aria-label="Notifications"
       >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -430,7 +430,7 @@ export function OptimizedNotificationBell() {
 
         {/* Unread Count Badge */}
         {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full">
+          <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-red-600 rounded-full border-2 border-white">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -503,9 +503,8 @@ export function OptimizedNotificationBell() {
                 {notifications.map(notification => (
                   <div
                     key={notification.id}
-                    className={`px-4 py-3 hover:bg-gray-50 transition-colors ${
-                      !notification.is_read ? 'bg-yellow-50' : ''
-                    }`}
+                    className={`px-4 py-3 hover:bg-gray-50 transition-colors ${!notification.is_read ? 'bg-yellow-50' : ''
+                      }`}
                   >
                     <div className="flex items-start gap-3">
                       <span className="text-2xl flex-shrink-0">

@@ -7,8 +7,6 @@ import { supabase } from '@/lib/supabase';
 import { FiPlus, FiEdit2, FiTrash2, FiEye, FiMoreVertical } from 'react-icons/fi';
 import { formatDateIST } from '@/lib/dateUtils';
 
-import { ProjectsListHeader } from '@/components/projects/navigation/ProjectsListHeader';
-
 export default function ProjectsPage() {
   const { user, isAdmin } = useAuth();
   const [projects, setProjects] = useState<any[]>([]);
@@ -146,10 +144,8 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-4 pb-24 sm:pb-0">
-      <ProjectsListHeader user={user ? { name: user.full_name || user.email?.split('@')[0] || 'User', email: user.email } : null} />
-
       {/* Tab Navigation Bar with Add Button */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm mx-2 sm:mx-6">
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
         <div className="flex items-center justify-between px-2">
           {/* Tabs */}
           <div className="flex overflow-x-auto">
@@ -185,7 +181,7 @@ export default function ProjectsPage() {
       </div>
 
       {/* Projects Table */}
-      <div className="bg-white shadow-card overflow-visible rounded-xl border border-gray-100 mx-2 sm:mx-6">
+      <div className="bg-white shadow-card overflow-visible rounded-xl border border-gray-100">
         {/* Mobile view - cards */}
         <div className="lg:hidden">
           {filteredProjects.map((project, index) => (

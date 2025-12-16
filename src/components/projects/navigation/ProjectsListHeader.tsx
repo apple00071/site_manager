@@ -24,17 +24,17 @@ export function ProjectsListHeader({ user }: ProjectsListHeaderProps) {
     return (
         <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
             {/* DESKTOP HEADER (md+) */}
-            <div className="hidden md:flex items-center justify-between px-6 py-4">
+            <div className="hidden md:flex items-center justify-between px-4 py-1.5">
                 <div className="flex items-center gap-4">
-                    <h1 className="text-gray-900 font-bold text-lg">Projects</h1>
+                    <h1 className="text-gray-900 font-semibold text-sm">Projects</h1>
                 </div>
 
-                <div className="flex items-center gap-6">
+                <div className="flex items-center gap-4">
                     <OptimizedNotificationBell />
 
                     {user && (
-                        <div className="flex items-center gap-2 pl-4 border-l border-gray-200">
-                            <div className="h-8 w-8 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold text-xs shadow-sm">
+                        <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
+                            <div className="h-6 w-6 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold text-[10px] shadow-sm">
                                 {getInitials(user.name)}
                             </div>
                             <div className="flex flex-col">

@@ -43,7 +43,7 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
     }, [currentStage]);
 
     return (
-        <div className="bg-white border-b border-gray-200 w-full sticky top-0 z-10 transition-all duration-200">
+        <div className="bg-white border-b border-gray-200 w-full max-w-full sticky top-0 z-10 transition-all duration-200">
             {/* DESKTOP PIPELINE (md+) */}
             <div className="hidden md:flex items-center justify-between px-6 py-3">
                 <div className="flex-1 flex items-center">
@@ -97,56 +97,69 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
             {/* MOBILE SCROLL (md-) */}
             <div
                 ref={scrollContainerRef}
-                className="flex md:hidden overflow-x-auto px-4 py-3 gap-2 w-full"
+                className="block md:hidden scroll-x-mobile"
                 style={{
+                    overflowX: 'scroll',
+                    overflowY: 'hidden',
                     scrollbarWidth: 'none',
                     msOverflowStyle: 'none',
-                    WebkitOverflowScrolling: 'touch'
+                    WebkitOverflowScrolling: 'touch',
+                    width: '100%',
+                    position: 'relative'
                 }}
             >
-                {STAGES.map((stage, index) => {
-                    const isActive = currentStage === stage.id;
-                    const isCompleted = completedStages.includes(stage.id);
-                    // Removed isPassed logic to prevent auto-completion visual
+                <div
+                    className="flex gap-2 px-4 py-3"
+                    style={{
+                        display: 'inline-flex',
+                        minWidth: '100%',
+                        width: 'max-content'
+                    }}
+                >
+                    {STAGES.map((stage, index) => {
+                        const isActive = currentStage === stage.id;
+                        const isCompleted = completedStages.includes(stage.id);
+                        // Removed isPassed logic to prevent auto-completion visual
 
-                    const state = isActive ? 'current' : isCompleted ? 'completed' : 'upcoming';
+                        const state = isActive ? 'current' : isCompleted ? 'completed' : 'upcoming';
 
-                    return (
-                        <button
-                            key={stage.id}
-                            data-stage={stage.id}
-                            onClick={() => onStageSelect(stage.id)}
-                            className={`
+                        return (
+                            <button
+                                key={stage.id}
+                                data-stage={stage.id}
+                                onClick={() => onStageSelect(stage.id)}
+                                className={`
                                 flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200
                                 ${state === 'current'
-                                    ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-600 ring-offset-1'
-                                    : state === 'completed'
-                                        ? 'bg-green-50 text-green-700 hover:bg-green-100'
-                                        : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
-                                }
+                                        ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-600 ring-offset-1'
+                                        : state === 'completed'
+                                            ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                                            : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                                    }
                             `}
-                        >
-                            <span className={`
+                            >
+                                <span className={`
                                 flex items-center justify-center w-4 h-4 rounded-full text-[10px]
                                 ${state === 'current'
-                                    ? 'bg-blue-600 text-white'
-                                    : state === 'completed'
-                                        ? 'bg-green-600 text-white'
-                                        : 'bg-gray-200 text-gray-500'
-                                }
+                                        ? 'bg-blue-600 text-white'
+                                        : state === 'completed'
+                                            ? 'bg-green-600 text-white'
+                                            : 'bg-gray-200 text-gray-500'
+                                    }
                             `}>
-                                {state === 'completed' ? (
-                                    <FiCheck className="w-2.5 h-2.5" />
-                                ) : state === 'current' ? (
-                                    <span className="w-1 h-1 bg-white rounded-full animate-pulse" />
-                                ) : (
-                                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
-                                )}
-                            </span>
-                            <span className="whitespace-nowrap">{stage.label}</span>
-                        </button>
-                    );
-                })}
+                                    {state === 'completed' ? (
+                                        <FiCheck className="w-2.5 h-2.5" />
+                                    ) : state === 'current' ? (
+                                        <span className="w-1 h-1 bg-white rounded-full animate-pulse" />
+                                    ) : (
+                                        <span className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
+                                    )}
+                                </span>
+                                <span className="whitespace-nowrap">{stage.label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
             </div>
         </div>
     );

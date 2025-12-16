@@ -50,37 +50,37 @@ export function ProjectHeader({ title, jobId, status, customerName, onBack, user
         <div className="bg-white border-b border-gray-200">
 
             {/* DESKTOP HEADER (md+) */}
-            <div className="hidden md:flex items-center justify-between px-6 py-4">
+            <div className="hidden md:flex items-center justify-between px-4 py-1.5">
                 <div className="flex items-center gap-4">
-                    <div className="flex items-center text-gray-500 text-sm font-medium">
+                    <div className="flex items-center text-gray-500 text-xs font-medium">
                         <span className="cursor-pointer hover:text-gray-700" onClick={() => router.push('/dashboard')}>All Projects</span>
                         <span className="mx-2">/</span>
-                        <span className="text-gray-900 font-bold text-lg">{title}</span>
+                        <span className="text-gray-900 font-semibold text-sm">{title}</span>
                     </div>
 
 
                 </div>
 
-                <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2 text-sm">
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 text-xs">
                         <span className="text-gray-500">Project Status :</span>
-                        <span className={`font-semibold flex items-center gap-1.5 ${status === 'completed' ? 'text-green-600' :
+                        <span className={`font-semibold flex items-center gap-1 ${status === 'completed' ? 'text-green-600' :
                             status === 'in_progress' ? 'text-teal-600' : 'text-amber-600'
                             }`}>
                             {displayStatus}
-                            <FiClock className="w-4 h-4" />
+                            <FiClock className="w-3.5 h-3.5" />
                         </span>
                     </div>
 
                     <OptimizedNotificationBell />
 
                     {user && (
-                        <div className="flex items-center gap-2 pl-4 border-l border-gray-200">
-                            <div className="h-8 w-8 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold text-xs">
+                        <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
+                            <div className="h-6 w-6 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold text-[10px]">
                                 {getInitials(user.name)}
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-sm font-medium text-gray-700 leading-tight">{user.name}</span>
+                                <span className="text-xs font-medium text-gray-700 leading-tight">{user.name}</span>
                             </div>
                         </div>
                     )}
@@ -107,12 +107,6 @@ export function ProjectHeader({ title, jobId, status, customerName, onBack, user
                             </span>
                         </div>
                     </div>
-                </div>
-
-                <div className="flex items-center pl-2">
-                    <button className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-full">
-                        <FiMoreVertical className="w-5 h-5" />
-                    </button>
                 </div>
             </div>
         </div>

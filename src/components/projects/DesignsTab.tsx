@@ -553,7 +553,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
   }
 
   return (
-    <div className="bg-white shadow sm:rounded-lg">
+    <div className="bg-white shadow sm:rounded-lg overflow-hidden max-w-full">
       {/* Desktop Side Panel for Upload */}
       <SidePanel
         isOpen={isAddingNew && !isMobile}
@@ -727,7 +727,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
           </div>
         ) : (
           <>
-            <div>
+            <div className="overflow-hidden max-w-full">
               {/* Action bar above table */}
               <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
                 {/* Category Tabs */}
@@ -909,7 +909,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
             </div>
 
             {/* Mobile List */}
-            <div className="md:hidden divide-y divide-gray-200">
+            <div className="md:hidden divide-y divide-gray-200 overflow-hidden">
               {filteredDesigns.map((design) => (
                 <div key={design.id} className="p-3">
                   <div className="flex items-start gap-3">
@@ -945,9 +945,9 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                     </div>
 
                     {/* Right: Content */}
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 overflow-hidden">
                       <div className="flex justify-between items-start">
-                        <p className="text-sm font-medium text-gray-900 break-words leading-tight pr-2">
+                        <p className="text-sm font-medium text-gray-900 truncate leading-tight pr-2 max-w-full">
                           {design.file_name}
                         </p>
                         <button

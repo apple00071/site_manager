@@ -628,6 +628,17 @@ html {
   /* Firefox */
 }
 
+/* Force horizontal scroll on mobile */
+.scroll-x-mobile {
+  overflow-x: scroll !important;
+  -webkit-overflow-scrolling: touch !important;
+  scroll-behavior: smooth;
+}
+
+.scroll-x-mobile::-webkit-scrollbar {
+  display: none;
+}
+
 /* Slide animations */
 @keyframes slide-up {
   from {
