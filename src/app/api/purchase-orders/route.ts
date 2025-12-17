@@ -146,10 +146,11 @@ export async function POST(request: NextRequest) {
         const taxAmount = subtotal * 0.18; // 18% GST
         const totalAmount = subtotal + taxAmount;
 
-        // BUDGET WARNING CHECK
-        let budgetWarning = null;
+        // BUDGET & VALIDATION WARNINGS
+        let budgetWarning: any = null;
+        const warnings: string[] = [];
 
-        // Get project budget
+        // 1. Check Project Budget
         const { data: project } = await supabaseAdmin
             .from('projects')
             .select('budget')
@@ -166,19 +167,60 @@ export async function POST(request: NextRequest) {
 
             const existingTotal = existingPos?.reduce((sum: number, po: any) => sum + (po.total_amount || 0), 0) || 0;
             const newTotal = existingTotal + totalAmount;
-            const budget = project.budget;
 
-            if (newTotal > budget) {
-                budgetWarning = {
-                    warning: 'order_exceeds_budget',
-                    budget: budget,
-                    existing_total: existingTotal,
-                    new_po_amount: totalAmount,
-                    projected_total: newTotal,
-                    over_amount: newTotal - budget,
-                    allowed: true, // Still allow creation but warn
-                };
+            if (newTotal > project.budget) {
+                warnings.push(`Project Budget Exceeded: Total POs (₹${newTotal.toLocaleString()}) > Budget (₹${project.budget.toLocaleString()})`);
             }
+        }
+
+        // 2. Check Item Rates & Quantities
+        const boqItemIds = line_items?.map(i => i.boq_item_id).filter(Boolean) as string[] || [];
+        if (boqItemIds.length > 0) {
+            const { data: boqItems } = await supabaseAdmin
+                .from('boq_items')
+                .select('id, rate, quantity, item_name')
+                .in('id', boqItemIds);
+
+            // Fetch existing ordered quantities for these items
+            const { data: existingLines } = await supabaseAdmin
+                .from('po_line_items')
+                .select(`
+                    boq_item_id, 
+                    quantity,
+                    po:purchase_orders!inner(status)
+                `)
+                .in('boq_item_id', boqItemIds)
+                .neq('po.status', 'cancelled');
+
+            const orderedMap: Record<string, number> = {};
+            existingLines?.forEach((line: any) => {
+                orderedMap[line.boq_item_id] = (orderedMap[line.boq_item_id] || 0) + (line.quantity || 0);
+            });
+
+            line_items?.forEach(item => {
+                if (!item.boq_item_id) return;
+                const boqItem = boqItems?.find((b: any) => b.id === item.boq_item_id);
+                if (!boqItem) return;
+
+                // Rate Check (allow 5% variance before warning)
+                if (item.rate > boqItem.rate * 1.05) {
+                    warnings.push(`Rate Warning: '${boqItem.item_name}' rate (₹${item.rate}) is higher than BOQ rate (₹${boqItem.rate})`);
+                }
+
+                // Quantity Check
+                const previouslyOrdered = orderedMap[item.boq_item_id] || 0;
+                const newTotalQty = previouslyOrdered + item.quantity;
+                if (newTotalQty > boqItem.quantity) {
+                    warnings.push(`Quantity Warning: '${boqItem.item_name}' total ordered (${newTotalQty}) exceeds BOQ quantity (${boqItem.quantity})`);
+                }
+            });
+        }
+
+        if (warnings.length > 0) {
+            budgetWarning = {
+                warning: 'validation_warnings',
+                messages: warnings
+            };
         }
 
         // Generate PO number

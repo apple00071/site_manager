@@ -1,16 +1,25 @@
 'use client';
 
-import React from 'react';
-import { FiX, FiPrinter, FiDownload } from 'react-icons/fi';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { FiX, FiPrinter, FiDownload, FiCheckCircle } from 'react-icons/fi';
 
 interface POViewModalProps {
-    isOpen: boolean;
-    onClose: () => void;
     po: any;
+    onClose: () => void;
+    onUpdateStatus?: (status: string) => Promise<void>;
+    projectAddress?: string;
 }
 
-export function POViewModal({ isOpen, onClose, po }: POViewModalProps) {
-    if (!isOpen || !po) return null;
+export function POViewModal({ po, onClose, onUpdateStatus, projectAddress }: POViewModalProps) {
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+        return () => setMounted(false);
+    }, []);
+
+    if (!po || !mounted) return null;
 
     const handlePrint = () => {
         window.print();
@@ -32,31 +41,79 @@ export function POViewModal({ isOpen, onClose, po }: POViewModalProps) {
         }).format(amount);
     };
 
-    return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 print:p-0 print:bg-white">
-            <div className="bg-white w-full max-w-4xl rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto print:fixed print:inset-0 print:w-full print:max-w-none print:h-full print:rounded-none print:shadow-none">
-                {/* Header Actions - Hidden on Print */}
-                <div className="flex justify-between items-center p-4 border-b border-gray-100 print:hidden">
-                    <h3 className="text-lg font-bold text-gray-900">Purchase Order Details</h3>
+    const content = (
+        <div id="po-modal-overlay" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm print:p-0 print:bg-white print:static print:block">
+            <style type="text/css" media="print">
+                {`
+                @page { size: auto; margin: 15mm; }
+                
+                html, body {
+                    height: initial !important;
+                    overflow: initial !important;
+                    background-color: white;
+                }
+                
+                /* Hide the main app root and everything else */
+                body > *:not(#po-modal-overlay) {
+                    display: none !important;
+                }
+
+                /* Ensure our portal is visible and positioned correctly */
+                #po-modal-overlay {
+                    display: block !important;
+                    position: absolute !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 100% !important;
+                    height: auto !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    background: white !important;
+                    visibility: visible !important;
+                }
+
+                #po-print-container {
+                    box-shadow: none !important;
+                    max-width: 100% !important;
+                    width: 100% !important;
+                    overflow: visible !important;
+                }
+                
+                ::-webkit-scrollbar { display: none; }
+                `}
+            </style>
+            <div id="po-print-container" className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl shadow-2xl print:shadow-none print:max-h-none print:w-full print:max-w-none print:overflow-visible text-left">
+                {/* Header Actions - Hidden in Print */}
+                <div className="sticky top-0 z-10 flex items-center justify-between p-4 bg-white border-b border-gray-100 print:hidden">
+                    <h3 className="font-bold text-gray-900">Purchase Order Details</h3>
                     <div className="flex gap-2">
+                        {po.status === 'draft' && onUpdateStatus && (
+                            <button
+                                onClick={() => onUpdateStatus('sent')}
+                                className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors flex items-center gap-2"
+                            >
+                                <FiCheckCircle className="w-4 h-4" />
+                                Mark as Sent
+                            </button>
+                        )}
                         <button
                             onClick={handlePrint}
-                            className="flex items-center gap-2 px-3 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-2"
                         >
-                            <FiPrinter className="w-4 h-4" />
+                            <span className="text-lg"><FiPrinter /></span>
                             Print / PDF
                         </button>
                         <button
                             onClick={onClose}
-                            className="p-2 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
+                            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
                         >
                             <FiX className="w-5 h-5" />
                         </button>
                     </div>
                 </div>
 
-                {/* PO Document Content */}
-                <div className="p-8 space-y-8" id="po-content">
+                {/* Printable Content */}
+                <div className="p-8 md:p-12 print:p-8" id="po-content">
                     {/* Document Header */}
                     <div className="flex justify-between items-start">
                         <div>
@@ -94,7 +151,7 @@ export function POViewModal({ isOpen, onClose, po }: POViewModalProps) {
                         <div>
                             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ship To</h4>
                             <p className="font-bold text-gray-900 text-lg">Project Site</p>
-                            <p className="text-gray-600 whitespace-pre-line">{po.delivery_address || 'Address not specified'}</p>
+                            <p className="text-gray-600 whitespace-pre-line">{po.delivery_address || projectAddress || 'Address not specified'}</p>
                             {po.delivery_date && <p className="text-gray-600 mt-2">Delivery Expected: {formatDate(po.delivery_date)}</p>}
                         </div>
                     </div>
@@ -170,4 +227,6 @@ export function POViewModal({ isOpen, onClose, po }: POViewModalProps) {
             </div>
         </div>
     );
+
+    return createPortal(content, document.body);
 }

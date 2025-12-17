@@ -116,12 +116,13 @@ export async function GET(request: NextRequest) {
         const items: any[] = data || [];
         const itemIds = items.map((i: any) => i.id);
 
-        let linkedPosMap: Record<string, { id: string; po_number: string; status: string }[]> = {};
+        let linkedPosMap: Record<string, { pos: { id: string; po_number: string; status: string }[]; ordered_quantity: number }> = {};
         if (itemIds.length > 0) {
             const { data: lineItems } = await supabaseAdmin
                 .from('po_line_items')
                 .select(`
                     boq_item_id,
+                    quantity,
                     po:purchase_orders!po_line_items_po_id_fkey(id, po_number, status)
                 `)
                 .in('boq_item_id', itemIds);
@@ -130,24 +131,31 @@ export async function GET(request: NextRequest) {
             (lineItems || []).forEach((li: any) => {
                 if (li.boq_item_id && li.po) {
                     if (!linkedPosMap[li.boq_item_id]) {
-                        linkedPosMap[li.boq_item_id] = [];
+                        linkedPosMap[li.boq_item_id] = { pos: [], ordered_quantity: 0 };
                     }
-                    // Avoid duplicates
-                    if (!linkedPosMap[li.boq_item_id].find((p: any) => p.id === li.po.id)) {
-                        linkedPosMap[li.boq_item_id].push({
+
+                    // Add PO info if unique
+                    if (!linkedPosMap[li.boq_item_id].pos.find((p: any) => p.id === li.po.id)) {
+                        linkedPosMap[li.boq_item_id].pos.push({
                             id: li.po.id,
                             po_number: li.po.po_number,
                             status: li.po.status
                         });
                     }
+
+                    // Sum quantity if PO is not cancelled
+                    if (li.po.status !== 'cancelled') {
+                        linkedPosMap[li.boq_item_id].ordered_quantity += (li.quantity || 0);
+                    }
                 }
             });
         }
 
-        // Attach linked_pos to items
+        // Attach linked_pos and ordered_quantity to items
         const itemsWithPos = items.map((item: any) => ({
             ...item,
-            linked_pos: linkedPosMap[item.id] || []
+            linked_pos: linkedPosMap[item.id]?.pos || [],
+            ordered_quantity: linkedPosMap[item.id]?.ordered_quantity || 0
         }));
 
         // Calculate totals

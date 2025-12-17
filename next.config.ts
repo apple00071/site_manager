@@ -24,6 +24,19 @@ const nextConfig = {
   // Server external packages (moved from experimental in Next.js 16)
   serverExternalPackages: ['@supabase/supabase-js'],
 
+  // Image Configuration
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'uswdtcmemgfqlkzmfkxs.supabase.co',
+        port: '',
+        pathname: '/storage/v1/object/public/**',
+      },
+    ],
+  },
+
+
   // Compiler options
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production' ? true : false,

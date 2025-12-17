@@ -62,6 +62,7 @@ const InventoryTab = dynamic(() => import('@/components/projects/InventoryTab').
 const DesignsTab = dynamic(() => import('@/components/projects/DesignsTab').then(m => m.DesignsTab), { ssr: false });
 const BOQTab = dynamic(() => import('@/components/projects/BOQTab').then(m => m.BOQTab), { ssr: false });
 const ProcurementTab = dynamic(() => import('@/components/projects/ProcurementTab').then(m => m.ProcurementTab), { ssr: false });
+const SnagTab = dynamic(() => import('@/components/projects/SnagTab'), { ssr: false });
 const ProposalBuilder = dynamic(() => import('@/components/boq/ProposalBuilder').then(m => m.ProposalBuilder), { ssr: false });
 
 import { ProjectHeader } from '@/components/projects/navigation/ProjectHeader';
@@ -214,7 +215,7 @@ export default function ProjectDetailsPage() {
     fetchProject();
   }, [id, user, isAdmin, authLoading, router]);
 
-  const handleSaveProject = async (data: any) => {
+  const onSaveProject = async (data: any) => {
     setIsSaving(true);
     try {
       const { ...updateData } = data;
@@ -623,7 +624,7 @@ export default function ProjectDetailsPage() {
           {activeStage === 'orders' && (
             <div className="h-full flex flex-col">
               {activeSubTab === 'my_scope' ? (
-                <ProcurementTab projectId={project.id} />
+                <ProcurementTab projectId={project.id} projectAddress={project.address} />
               ) : activeSubTab === 'proposals' ? (
                 <div className="flex flex-col items-center justify-center h-64 text-gray-500">
                   <FiSend className="w-12 h-12 mb-3 text-gray-300" />
@@ -655,9 +656,8 @@ export default function ProjectDetailsPage() {
 
           {/* STAGE: SNAG (Placeholder) */}
           {activeStage === 'snag' && (
-            <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-              <FiLayers className="w-12 h-12 mb-2 text-gray-300" />
-              <p>Snag List Module Coming Soon</p>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 min-h-[600px]">
+              <SnagTab projectId={project.id} userId={user?.id || ''} userRole={isAdmin ? 'admin' : 'user'} />
             </div>
           )}
 
@@ -675,7 +675,7 @@ export default function ProjectDetailsPage() {
       <EditProjectModal
         isOpen={!!editSection}
         onClose={() => setEditSection(null)}
-        onSave={handleSaveProject}
+        onSave={onSaveProject}
         section={editSection}
         initialData={project}
         isSaving={isSaving}

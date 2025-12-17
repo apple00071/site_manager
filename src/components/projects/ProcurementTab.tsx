@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
     FiPlus, FiEdit2, FiTrash2, FiCheck, FiX, FiDownload, FiMail,
     FiFileText, FiAlertCircle, FiMoreVertical, FiDollarSign,
-    FiTruck, FiClock, FiCheckCircle, FiPackage, FiSearch, FiChevronDown, FiEye
+    FiTruck, FiClock, FiCheckCircle, FiPackage, FiSearch, FiChevronDown, FiEye, FiPrinter
 } from 'react-icons/fi';
 import { POViewModal } from './POViewModal';
 
@@ -48,11 +48,12 @@ interface Payment {
 
 interface ProcurementTabProps {
     projectId: string;
+    projectAddress?: string;
 }
 
 type TabType = 'orders' | 'invoices' | 'payments';
 
-export function ProcurementTab({ projectId }: ProcurementTabProps) {
+export function ProcurementTab({ projectId, projectAddress }: ProcurementTabProps) {
     const { isAdmin } = useAuth();
     const [activeTab, setActiveTab] = useState<TabType>('orders');
     const [loading, setLoading] = useState(true);
@@ -236,21 +237,36 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
         }
     };
 
-    // Get confirmed BOQ items ready for PO
-    const orderedBoqItemIds = useMemo(() => {
-        const ids = new Set<string>();
-        pos.forEach(po => {
-            if (po.status !== 'cancelled' && po.line_items) {
-                po.line_items.forEach((item: any) => {
-                    if (item.boq_item_id) ids.add(item.boq_item_id);
-                });
-            }
-        });
-        return ids;
-    }, [pos]);
+    const handleUpdatePoStatus = async (status: string) => {
+        if (!viewPo) return;
+        try {
+            const response = await fetch('/api/purchase-orders', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: viewPo.id, status }),
+            });
 
+            if (!response.ok) throw new Error('Failed to update status');
+
+            const { po } = await response.json();
+
+            // Update local state
+            setPos((prev: any[]) => prev.map(p => p.id === po.id ? { ...p, status: po.status } : p));
+            setViewPo((prev: any) => prev ? { ...prev, status: po.status } : null);
+
+            if (status === 'sent') {
+                // Ideally show a success toast here
+                // alert('PO marked as sent');
+            }
+        } catch (error) {
+            console.error('Error updating PO status:', error);
+            alert('Failed to update status');
+        }
+    };
+
+    // Get confirmed BOQ items ready for PO (Partial Ordering Supported)
     const confirmedItems = boqItems.filter((item: any) =>
-        item.status === 'confirmed' && !orderedBoqItemIds.has(item.id)
+        item.status === 'confirmed' && (item.ordered_quantity || 0) < item.quantity
     );
 
     const getPoStatusBadge = (status: string) => {
@@ -296,12 +312,22 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
             });
             const data = await res.json();
             if (data.error) throw new Error(data.error);
+            if (data.budget_warning) {
+                if (data.budget_warning.warning === 'validation_warnings') {
+                    alert(`PO Created with Warnings:\n\n${data.budget_warning.messages.join('\n')}`);
+                } else if (data.budget_warning.warning === 'order_exceeds_budget') {
+                    alert(`PO Created but Project Budget Exceeded!\n\nOver by: ₹${data.budget_warning.over_amount.toLocaleString()}`);
+                }
+            } else {
+                // Success toast or subtle notification could go here
+            }
+
             fetchData();
             setShowPoForm(false);
             setPoForm({
                 supplier_id: '',
                 delivery_date: '',
-                delivery_address: '',
+                delivery_address: projectAddress || '',
                 notes: '',
                 gst_rate: 18,
                 line_items: [{ boq_item_id: '', description: '', unit: '', quantity: 0, rate: 0 }],
@@ -384,11 +410,13 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
         if (field === 'boq_item_id' && value) {
             const boqItem = boqItems.find(b => b.id === value);
             if (boqItem) {
+                const remainingQty = Math.max(0, boqItem.quantity - (boqItem.ordered_quantity || 0));
                 newItems[index] = {
                     ...newItems[index],
                     description: boqItem.item_name,
                     unit: boqItem.unit,
                     rate: boqItem.rate,
+                    quantity: remainingQty,
                 };
             }
         }
@@ -567,13 +595,26 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                     <div key={item.id} className="flex justify-between items-center py-2 px-3 bg-white/70 rounded-lg">
                                         <div className="flex-1">
                                             <p className="font-medium text-gray-900">{item.item_name}</p>
+                                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                <span>
+                                                    Qty: {item.quantity} {item.unit}
+                                                </span>
+                                                <span className="text-gray-300">|</span>
+                                                <span className={item.ordered_quantity > 0 ? 'text-yellow-600' : ''}>
+                                                    Ordered: {item.ordered_quantity || 0}
+                                                </span>
+                                                <span className="text-gray-300">|</span>
+                                                <span>Rate: ₹{item.rate}</span>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-medium text-green-700">
+                                                ₹{(item.amount || 0).toLocaleString('en-IN')}
+                                            </p>
                                             <p className="text-xs text-gray-500">
-                                                {item.quantity} {item.unit || 'units'} × ₹{(item.rate || 0).toLocaleString('en-IN')}
+                                                Rem: {(item.quantity - (item.ordered_quantity || 0))} {item.unit}
                                             </p>
                                         </div>
-                                        <span className="font-medium text-green-700">
-                                            ₹{(item.amount || 0).toLocaleString('en-IN')}
-                                        </span>
                                     </div>
                                 ))}
                                 {confirmedItems.length > 5 && (
@@ -602,9 +643,21 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                                     </div>
                                     {getPoStatusBadge(po.status)}
                                 </div>
-                                <div className="flex justify-between items-center text-sm">
+                                <div className="flex justify-between items-center text-sm mb-3">
                                     <span className="text-gray-500">{formatDate(po.po_date)}</span>
                                     <span className="font-bold text-gray-900">{formatAmount(po.total_amount)}</span>
+                                </div>
+                                <div className="flex justify-end pt-3 border-t border-gray-100">
+                                    <button
+                                        onClick={() => {
+                                            setViewPo(po);
+                                            setShowPoView(true);
+                                        }}
+                                        className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                                    >
+                                        <FiEye className="w-3 h-3" />
+                                        View Details
+                                    </button>
                                 </div>
                             </div>
                         ))}
@@ -1403,15 +1456,16 @@ export function ProcurementTab({ projectId }: ProcurementTabProps) {
                 </div>
             )}
             {/* PO View Modal */}
-            <POViewModal
-                isOpen={showPoView}
-                onClose={() => setShowPoView(false)}
-                po={viewPo}
-            />
+            {showPoView && viewPo && (
+                <POViewModal
+                    po={viewPo}
+                    onClose={() => setShowPoView(false)}
+                    onUpdateStatus={handleUpdatePoStatus}
+                    projectAddress={projectAddress}
+                />
+            )}
         </div>
     );
 }
-
-export default ProcurementTab;
 
 
