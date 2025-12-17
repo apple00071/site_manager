@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 // GET /api/rbac/roles/[id]/permissions - Get permissions for a role
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const { user, error: authError } = await getAuthUser();
@@ -14,7 +14,7 @@ export async function GET(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const roleId = params.id;
+        const { id: roleId } = await params;
 
         const { data: rolePermissions, error } = await supabaseAdmin
             .from('role_permissions')
@@ -38,7 +38,7 @@ export async function GET(
 // PUT /api/rbac/roles/[id]/permissions - Update permissions for a role
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const { user, error: authError, role } = await getAuthUser();
@@ -50,7 +50,7 @@ export async function PUT(
             return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
         }
 
-        const roleId = params.id;
+        const { id: roleId } = await params;
         const { permission_ids } = await request.json();
 
         // Check if role is system role
