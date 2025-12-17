@@ -17,14 +17,14 @@ export type HeaderAction = {
 };
 
 type HeaderTitleContextType = {
-    title: string | null;
-    subtitle: string | null;
+    title: string | ReactNode | null;
+    subtitle: string | ReactNode | null;
     tabs: HeaderTab[];
     activeTab: string | null;
     onTabChange: ((tabId: string) => void) | null;
     actions: HeaderAction[];
-    setTitle: (title: string | null) => void;
-    setSubtitle: (subtitle: string | null) => void;
+    setTitle: (title: string | ReactNode | null) => void;
+    setSubtitle: (subtitle: string | ReactNode | null) => void;
     setTabs: (tabs: HeaderTab[], activeTab: string | null, onTabChange: (id: string) => void) => void;
     setActions: (actions: HeaderAction[]) => void;
     clearHeader: () => void;
@@ -33,8 +33,8 @@ type HeaderTitleContextType = {
 const HeaderTitleContext = createContext<HeaderTitleContextType | undefined>(undefined);
 
 export function HeaderTitleProvider({ children }: { children: ReactNode }) {
-    const [title, setTitle] = useState<string | null>(null);
-    const [subtitle, setSubtitle] = useState<string | null>(null);
+    const [title, setTitle] = useState<string | ReactNode | null>(null);
+    const [subtitle, setSubtitle] = useState<string | ReactNode | null>(null);
     const [tabs, setTabsState] = useState<HeaderTab[]>([]);
     const [activeTab, setActiveTab] = useState<string | null>(null);
     const [onTabChange, setOnTabChange] = useState<((tabId: string) => void) | null>(null);

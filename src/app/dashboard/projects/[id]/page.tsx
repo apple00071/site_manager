@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { formatDateIST } from '@/lib/dateUtils';
-import { FiClock, FiLayers, FiImage, FiEdit2, FiTrash2, FiX, FiPlus, FiUpload, FiSend, FiColumns } from 'react-icons/fi';
+import { FiClock, FiLayers, FiImage, FiEdit2, FiTrash2, FiX, FiPlus, FiUpload, FiSend, FiColumns, FiCheckCircle, FiArrowLeft } from 'react-icons/fi';
 import { EditProjectModal } from '@/components/projects/EditProjectModal';
 import type { BOQTabHandle } from '@/components/projects/BOQTab';
 
@@ -65,7 +65,7 @@ const ProcurementTab = dynamic(() => import('@/components/projects/ProcurementTa
 const SnagTab = dynamic(() => import('@/components/projects/SnagTab'), { ssr: false });
 const ProposalBuilder = dynamic(() => import('@/components/boq/ProposalBuilder').then(m => m.ProposalBuilder), { ssr: false });
 
-import { ProjectHeader } from '@/components/projects/navigation/ProjectHeader';
+// Removed ProjectHeader import
 import { StageNavigator, StageId, ActionItem, StageStatus } from '@/components/projects/navigation/StageNavigator';
 import { SubTabNav, STAGE_SUB_TABS, getDefaultSubTab } from '@/components/projects/navigation/SubTabNav';
 import { ProjectUsersPanel } from '@/components/projects/ProjectUsersPanel';
@@ -74,7 +74,7 @@ export default function ProjectDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Removed internal HeaderTitleContext usage as we are using a custom header now
+  const { setTitle, setSubtitle, clearHeader } = useHeaderTitle();
 
   const { user, isAdmin, isLoading: authLoading } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
@@ -90,6 +90,50 @@ export default function ProjectDetailsPage() {
   const [mounted, setMounted] = useState(false);
 
   const boqRef = useRef<BOQTabHandle>(null);
+
+  // Header Context Logic
+  useEffect(() => {
+    if (project) {
+      const getStatusColor = (s: string) => {
+        switch (s?.toLowerCase()) {
+          case 'completed': return 'bg-green-100 text-green-700';
+          case 'in_progress': return 'bg-blue-100 text-blue-700';
+          default: return 'bg-yellow-100 text-yellow-700';
+        }
+      };
+      const status = project.status;
+      const displayStatus = status?.replace(/_/g, ' ').toUpperCase() || 'UNKNOWN';
+      const StatusBadge = (
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-gray-500">Project Status:</span>
+          <span className={`px-2 py-0.5 rounded-full font-medium text-xs flex items-center gap-1 ${getStatusColor(status)}`}>
+            {displayStatus}
+            {status === 'completed' ? <FiCheckCircle className="w-3 h-3" /> : <FiClock className="w-3 h-3" />}
+          </span>
+        </div>
+      );
+
+      const TitleComponent = (
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push('/dashboard/projects')}
+            className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-700 transition-colors"
+            title="Back to Projects"
+          >
+            <FiArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="flex items-center text-gray-900 text-sm font-semibold">
+            {project.title}
+          </div>
+        </div>
+      );
+
+      setTitle(TitleComponent);
+      setSubtitle(StatusBadge);
+    }
+
+    return () => clearHeader();
+  }, [project, setTitle, setSubtitle, clearHeader, router]);
 
   const stageActions = useMemo<ActionItem[]>(() => {
     if (activeStage === 'boq') {
@@ -340,13 +384,7 @@ export default function ProjectDetailsPage() {
 
   return (
     <div className="flex flex-col min-h-full bg-white overflow-x-hidden w-full max-w-full min-w-0">
-      {/* 1. New Project Header */}
-      <ProjectHeader
-        title={project.title}
-        status={project.status}
-        customerName={project.customer_name}
-        user={user ? { name: user.full_name || user.email?.split('@')[0] || 'User', email: user.email } : null}
-      />
+
 
       {/* 2. Pipeline Navigator */}
       <StageNavigator

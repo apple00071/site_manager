@@ -29,8 +29,9 @@ function DashboardLayoutContent({
 
   // Use useMemo to ensure title updates when customTitle changes
   const pageTitle = useMemo(() => {
-    // Prioritize custom title set by pages (like project name)
-    if (customTitle && customTitle.trim()) {
+    // Prioritize custom title
+    if (customTitle) {
+      if (typeof customTitle === 'string' && !customTitle.trim()) return 'Dashboard'; // Handle empty strings
       return customTitle;
     }
 
@@ -56,39 +57,28 @@ function DashboardLayoutContent({
       if (pathname.includes('/users/')) return 'New User';
     }
     return 'Dashboard';
-  }, [customTitle, pathname]); // Re-compute when customTitle or pathname changes
-
+  }, [customTitle, pathname]);
 
   const handleSignOut = async () => {
     try {
       await signOut();
-      // Use router.replace to avoid 404 issues
       router.replace('/login');
     } catch (error) {
       console.error('Error during logout:', error);
-      // Force redirect even if signOut fails
       router.replace('/login');
     }
   };
 
-  // Move useEffect before conditional return to maintain hook order
   useEffect(() => {
     setMounted(true);
-
     const handleScroll = () => {
       const scrollTop = window.scrollY;
       setScrolled(scrollTop > 50);
     };
-
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Removed automatic redirect check - middleware already handles authentication
-  // The middleware ensures only authenticated users can reach this page
-
-  // Show loading state while AuthContext initializes
-  // Middleware already authenticated the user, so we just wait for AuthContext to sync
   if (isLoading || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -97,9 +87,8 @@ function DashboardLayoutContent({
     );
   }
 
-  // Check if we are on the Project Details page to hide the global header
-  // Only project detail pages get custom headers, the projects list uses standard layout header
-  const isCustomHeaderPage = /^\/dashboard\/projects\/[^/]+$/.test(pathname) && pathname !== '/dashboard/projects/new';
+  // Header is now always shown, functionality handled by context
+  const isCustomHeaderPage = false;
 
   return (
     <div className="flex min-h-screen bg-gray-50 w-full max-w-[100vw] overflow-x-hidden">
@@ -163,13 +152,13 @@ function DashboardLayoutContent({
             </Link>
             {isAdmin && (
               <Link
-                href="/dashboard/users"
+                href="/dashboard/organization"
                 className="flex items-center justify-start pl-[14px] sm:pl-[18px] lg:pl-[14px] pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
                 onClick={() => setSidebarOpen(false)}
-                title="Users"
+                title="Org"
               >
                 <FiUsers className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
-                <span className="ml-3 text-xs font-medium hidden group-hover:block whitespace-nowrap">Users</span>
+                <span className="ml-3 text-xs font-medium hidden group-hover:block whitespace-nowrap">Org</span>
               </Link>
             )}
             <div className="lg:hidden">
@@ -209,141 +198,145 @@ function DashboardLayoutContent({
       {/* Main content - allow natural page scroll (no overflow-hidden here) */}
       <div className="flex-1 flex flex-col bg-white min-w-0 max-w-full overflow-x-hidden lg:ml-14">
 
-        {/* Mobile menu button - floating */}
-        <button
-          onClick={() => setSidebarOpen(true)}
-          className="lg:hidden fixed top-4 left-4 z-30 p-3 rounded-xl text-gray-600 hover:text-gray-900 hover:bg-white hover:shadow-md bg-white/80 backdrop-blur-sm border border-gray-200 transition-all duration-200 touch-target"
-          aria-label="Open navigation menu"
-        >
-          <FiMenu className="h-6 w-6" />
-        </button>
+        {/* Global Header - Responsive */}
+        <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
+          <div className="px-4 py-1.5 flex items-center justify-between min-h-[50px]">
+            {/* Left side: Hamburger + Title + Tabs */}
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              {/* Mobile Menu Button */}
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden p-1.5 -ml-1.5 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"
+                aria-label="Open navigation menu"
+              >
+                <FiMenu className="h-6 w-6" />
+              </button>
 
-        {/* Notification bell - floating (mobile only) */}
-        {!isCustomHeaderPage && (
-          <div className="lg:hidden fixed top-4 right-4 z-30">
-            <OptimizedNotificationBell />
-          </div>
-        )}
+              <div className="text-sm font-semibold text-gray-900 whitespace-nowrap truncate">{pageTitle}</div>
 
-        {/* Desktop header only - HIDDEN on Project Details Page */}
-        {!isCustomHeaderPage && (
-          <header className="bg-white shadow-sm border-b border-gray-200 hidden lg:block">
-            <div className="px-4 py-1 flex items-center justify-between">
-              {/* Left side: Title with tabs */}
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <h2 className="text-sm font-semibold text-gray-900 whitespace-nowrap">{pageTitle}</h2>
-
-                {/* Tab pills (if any) */}
-                {tabs.length > 0 && (
-                  <>
-                    <span className="text-gray-300 text-lg">/</span>
-                    <div className="flex items-center gap-1 overflow-x-auto">
-                      {tabs.map((tab) => (
-                        <button
-                          key={tab.id}
-                          onClick={() => onTabChange?.(tab.id)}
-                          className={`
+              {/* Tab pills (Desktop Only for space, or scrollable on mobile?) */}
+              {tabs.length > 0 && (
+                <div className="hidden sm:flex items-center gap-1 overflow-x-auto no-scrollbar">
+                  <span className="text-gray-300 text-lg">/</span>
+                  <div className="flex items-center gap-1">
+                    {tabs.map((tab) => (
+                      <button
+                        key={tab.id}
+                        onClick={() => onTabChange?.(tab.id)}
+                        className={`
                             px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200
                             ${activeTab === tab.id
-                              ? 'bg-yellow-500 text-gray-900'
-                              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                            }
+                            ? 'bg-yellow-500 text-gray-900'
+                            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                          }
                           `}
-                        >
-                          {tab.icon && <span className="mr-1.5">{tab.icon}</span>}
-                          {tab.label}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Right side: Status + Actions + Notification */}
-              <div className="flex items-center gap-3 ml-4">
-                {/* Project Status */}
-                {subtitle && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-500">Project Status:</span>
-                    <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium text-xs">
-                      {subtitle}
-                    </span>
+                      >
+                        {tab.icon && <span className="mr-1.5">{tab.icon}</span>}
+                        {tab.label}
+                      </button>
+                    ))}
                   </div>
-                )}
+                </div>
+              )}
+            </div>
+
+            {/* Right side: Status + Actions + Notification */}
+            <div className="flex items-center gap-2 sm:gap-3 ml-2 sm:ml-4 shrink-0">
+              {/* Project Status or Subtitle */}
+              {subtitle && (
+                <div className="flex items-center gap-2 text-sm">
+                  {typeof subtitle === 'string' ? (
+                    <>
+                      <span className="hidden sm:inline text-gray-500">Project Status:</span>
+                      <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium text-xs">
+                        {subtitle}
+                      </span>
+                    </>
+                  ) : (
+                    subtitle
+                  )}
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="hidden sm:flex items-center gap-2">
                 {actions.map((action) => (
                   <button
                     key={action.id}
                     onClick={action.onClick}
                     className={`
-                      flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
-                      ${action.variant === 'primary'
-                        ? 'bg-yellow-500 hover:bg-yellow-600 text-gray-900'
-                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                            px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200
+                            ${action.variant === 'primary'
+                        ? 'bg-yellow-500 text-gray-900 hover:bg-yellow-600'
+                        : 'text-gray-600 hover:bg-gray-100'
                       }
-                    `}
+                        `}
                   >
-                    {action.icon}
+                    {action.icon && <span className="mr-1.5">{action.icon}</span>}
                     {action.label}
                   </button>
                 ))}
-                <OptimizedNotificationBell />
-
-                {/* User avatar with name - matching Projects header style */}
-                {user && (
-                  <div className="relative ml-2">
-                    <button
-                      onClick={() => setUserMenuOpen(!userMenuOpen)}
-                      className="flex items-center gap-2 pl-3 border-l border-gray-200 hover:opacity-80 transition-opacity"
-                    >
-                      <div className="h-8 w-8 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-2 ring-white">
-                        {(user.full_name || 'U').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                      </div>
-                      <span className="text-sm font-medium text-gray-700 hidden xl:block">{user.full_name || user.email?.split('@')[0] || 'User'}</span>
-                    </button>
-
-                    {/* User Dropdown */}
-                    {userMenuOpen && (
-                      <>
-                        <div
-                          className="fixed inset-0 z-10"
-                          onClick={() => setUserMenuOpen(false)}
-                        />
-                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-20 animate-in fade-in zoom-in-95 duration-200">
-                          <div className="px-4 py-3 border-b border-gray-100">
-                            <p className="text-sm font-medium text-gray-900 truncate">{user.full_name || 'User'}</p>
-                            <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                          </div>
-
-                          <Link
-                            href="/dashboard/settings"
-                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                            onClick={() => setUserMenuOpen(false)}
-                          >
-                            <FiSettings className="w-4 h-4 text-gray-400" />
-                            Settings
-                          </Link>
-
-                          <div className="border-t border-gray-100 my-1"></div>
-
-                          <button
-                            onClick={() => {
-                              setUserMenuOpen(false);
-                              handleSignOut();
-                            }}
-                            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                          >
-                            <FiLogOut className="w-4 h-4" />
-                            Sign out
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
               </div>
+
+              <OptimizedNotificationBell />
+
+              {/* User Avatar with Dropdown */}
+              {user && (
+                <div className="relative ml-2">
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="flex items-center gap-2 pl-3 border-l border-gray-200 hover:opacity-80 transition-opacity"
+                  >
+                    <div className="h-8 w-8 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-2 ring-white">
+                      {(user.full_name || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </div>
+                    <span className="text-sm font-medium text-gray-700 hidden xl:block">{user.full_name || user.email?.split('@')[0] || 'User'}</span>
+                  </button>
+
+                  {/* User Dropdown */}
+                  {userMenuOpen && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-10"
+                        onClick={() => setUserMenuOpen(false)}
+                      />
+                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-20 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="px-4 py-3 border-b border-gray-100">
+                          <p className="text-sm font-medium text-gray-900 truncate">{user.full_name || 'User'}</p>
+                          <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                        </div>
+
+                        <Link
+                          href="/dashboard/settings"
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <FiSettings className="w-4 h-4 text-gray-400" />
+                          Settings
+                        </Link>
+
+                        <div className="border-t border-gray-100 my-1"></div>
+
+                        <button
+                          onClick={() => {
+                            setUserMenuOpen(false);
+                            handleSignOut();
+                          }}
+                          className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <FiLogOut className="w-4 h-4" />
+                          Sign out
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
-          </header>
-        )}
+          </div>
+
+        </header>
+
 
         {/* Main content area with minimal padding */}
         <main className="flex-1 bg-white overflow-x-hidden max-w-full">
@@ -352,10 +345,9 @@ function DashboardLayoutContent({
           </div>
         </main>
       </div>
-
       {/* PWA Install Prompt */}
-      <PWAInstallPrompt />
-    </div>
+      < PWAInstallPrompt />
+    </div >
   );
 }
 
