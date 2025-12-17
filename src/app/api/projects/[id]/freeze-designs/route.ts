@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { verifyPermission, PERMISSION_NODES } from '@/lib/rbac';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -7,7 +8,7 @@ export const dynamic = 'force-dynamic';
 /**
  * POST /api/projects/[id]/freeze-designs
  * Freeze all designs in a project (prevents uploads/modifications)
- * RBAC: admin or project_manager only
+ * RBAC: Requires design.freeze permission
  */
 export async function POST(
     request: NextRequest,
@@ -22,23 +23,10 @@ export async function POST(
         const { id: projectId } = await params;
         const userId = user.id;
 
-        // Get user role
-        const { data: userData, error: userError } = await supabaseAdmin
-            .from('users')
-            .select('role')
-            .eq('id', userId)
-            .single();
-
-        if (userError || !userData) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
-
-        // RBAC: Only admin or project_manager can freeze
-        if (!['admin', 'project_manager'].includes(userData.role)) {
-            return NextResponse.json(
-                { error: 'Forbidden: Only admins and project managers can freeze designs' },
-                { status: 403 }
-            );
+        // RBAC: Check design.freeze permission
+        const permResult = await verifyPermission(userId, PERMISSION_NODES.DESIGN_FREEZE, projectId);
+        if (!permResult.allowed) {
+            return NextResponse.json({ error: permResult.message }, { status: 403 });
         }
 
         // Check project exists
@@ -86,7 +74,7 @@ export async function POST(
 /**
  * DELETE /api/projects/[id]/freeze-designs
  * Unfreeze all designs in a project (allow uploads/modifications again)
- * RBAC: admin or project_manager only
+ * RBAC: Requires design.freeze permission
  */
 export async function DELETE(
     request: NextRequest,
@@ -101,23 +89,10 @@ export async function DELETE(
         const { id: projectId } = await params;
         const userId = user.id;
 
-        // Get user role
-        const { data: userData, error: userError } = await supabaseAdmin
-            .from('users')
-            .select('role')
-            .eq('id', userId)
-            .single();
-
-        if (userError || !userData) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
-
-        // RBAC: Only admin or project_manager can unfreeze
-        if (!['admin', 'project_manager'].includes(userData.role)) {
-            return NextResponse.json(
-                { error: 'Forbidden: Only admins and project managers can unfreeze designs' },
-                { status: 403 }
-            );
+        // RBAC: Check design.freeze permission
+        const permResult = await verifyPermission(userId, PERMISSION_NODES.DESIGN_FREEZE, projectId);
+        if (!permResult.allowed) {
+            return NextResponse.json({ error: permResult.message }, { status: 403 });
         }
 
         // Unfreeze all designs in the project

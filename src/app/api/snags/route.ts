@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { verifyPermission, hasAnyPermission, PERMISSION_NODES } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,6 +94,12 @@ export async function POST(request: NextRequest) {
 
         const { project_id, assigned_to_user_id, ...snagData } = validationResult.data;
 
+        // RBAC: Check snag.create permission
+        const permResult = await verifyPermission(user.id, PERMISSION_NODES.SNAG_CREATE, project_id);
+        if (!permResult.allowed) {
+            return NextResponse.json({ error: permResult.message }, { status: 403 });
+        }
+
         // Create Snag
         const { data, error } = await supabaseAdmin
             .from('snags')
@@ -146,10 +153,15 @@ export async function PATCH(request: NextRequest) {
 
         let finalUpdates = { ...updates };
 
-        // Handle Status Transitions
+        // Handle Status Transitions with RBAC checks
         if (action === 'assign' && updates.assigned_to_user_id) {
             finalUpdates.status = 'assigned';
         } else if (action === 'resolve') {
+            // RBAC: Check snag.resolve permission
+            const canResolve = await hasAnyPermission(user.id, [PERMISSION_NODES.SNAG_RESOLVE, PERMISSION_NODES.SNAG_VERIFY], existing.project_id);
+            if (!canResolve) {
+                return NextResponse.json({ error: 'Permission denied: snag.resolve required' }, { status: 403 });
+            }
             finalUpdates.status = 'resolved';
             finalUpdates.resolved_at = new Date().toISOString();
             if (updates.resolved_photos) {
@@ -159,13 +171,17 @@ export async function PATCH(request: NextRequest) {
                 finalUpdates.resolved_description = updates.resolved_description;
             }
         } else if (action === 'verify') {
-            if (role !== 'admin') {
-                return NextResponse.json({ error: 'Only admin can verify snags' }, { status: 403 });
+            // RBAC: Check snag.verify permission
+            const permResult = await verifyPermission(user.id, PERMISSION_NODES.SNAG_VERIFY, existing.project_id);
+            if (!permResult.allowed) {
+                return NextResponse.json({ error: permResult.message }, { status: 403 });
             }
             finalUpdates.status = 'verified';
         } else if (action === 'close') {
-            if (role !== 'admin') {
-                return NextResponse.json({ error: 'Only admin can close snags' }, { status: 403 });
+            // RBAC: Check snag.verify permission (close is a verify-level action)
+            const permResult = await verifyPermission(user.id, PERMISSION_NODES.SNAG_VERIFY, existing.project_id);
+            if (!permResult.allowed) {
+                return NextResponse.json({ error: permResult.message }, { status: 403 });
             }
             finalUpdates.status = 'closed';
             finalUpdates.closed_at = new Date().toISOString();

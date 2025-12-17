@@ -24,15 +24,18 @@ interface PermissionLevel {
     label: string;
 }
 
-// Module permissions based on actual codebase structure
+// Module permissions based on granular RBAC system
+// Permission IDs map to PERMISSION_NODES in src/lib/rbac.ts
 const MODULE_PERMISSIONS: ModulePermission[] = [
     {
-        module: 'Project Details',
+        module: 'Project Management',
         icon: '📋',
         permissions: [
-            { id: 'view_basic', label: 'View only basic project details' },
-            { id: 'view_all', label: 'View all project details including attachments and cost' },
-            { id: 'edit_all', label: 'Edit all project details and project status' }
+            { id: 'project.view', label: 'View project details' },
+            { id: 'project.view_budget', label: 'View project budget and financials' },
+            { id: 'project.edit', label: 'Edit project details' },
+            { id: 'project.create', label: 'Create new projects' },
+            { id: 'project.delete', label: 'Delete projects' }
         ],
         notifications: ['Project updates', 'Project comments']
     },
@@ -40,9 +43,9 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         module: 'Site Visit',
         icon: '🏗️',
         permissions: [
-            { id: 'view_only', label: 'View only' },
-            { id: 'view_edit', label: 'View, edit, upload and create' },
-            { id: 'full_access', label: 'View, edit, upload, create and approve' }
+            { id: 'site_visit.view', label: 'View site visit reports' },
+            { id: 'site_visit.create', label: 'Create and upload site visits' },
+            { id: 'site_visit.approve', label: 'Approve site visit reports (without create)' }
         ],
         notifications: ['Site visit creation', 'Site visit start', 'Site visit update']
     },
@@ -50,11 +53,11 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         module: 'Design',
         icon: '🎨',
         permissions: [
-            { id: 'view_approved', label: 'View and download - approved files' },
-            { id: 'view_all', label: 'View and download - all files' },
-            { id: 'edit_upload', label: 'View, edit and upload - all files' },
-            { id: 'approve', label: 'View, edit, upload and approve - all files' },
-            { id: 'full', label: 'View, edit, upload, approve and freeze - all files' }
+            { id: 'design.view_approved', label: 'View approved designs only' },
+            { id: 'design.view_all', label: 'View all designs' },
+            { id: 'design.upload', label: 'Upload design files' },
+            { id: 'design.approve', label: 'Approve/Reject designs (without upload)' },
+            { id: 'design.freeze', label: 'Freeze/Unfreeze designs' }
         ],
         notifications: ['Design approve', 'Design freeze', 'New version uploaded', 'New version external uploaded']
     },
@@ -62,9 +65,10 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         module: 'BOQ',
         icon: '📊',
         permissions: [
-            { id: 'view_only', label: 'View only' },
-            { id: 'create_edit', label: 'View, create, edit and read' },
-            { id: 'import', label: 'View, create, edit, import and approve' }
+            { id: 'boq.view', label: 'View BOQ items' },
+            { id: 'boq.create', label: 'Create and edit BOQ items' },
+            { id: 'boq.import', label: 'Import BOQ from Excel' },
+            { id: 'boq.approve', label: 'Approve BOQ items (without create)' }
         ],
         notifications: ['BOQ created', 'BOQ updated', 'BOQ approved']
     },
@@ -72,9 +76,9 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         module: 'Proposals for Client',
         icon: '📝',
         permissions: [
-            { id: 'view_only', label: 'View only' },
-            { id: 'create_edit', label: 'View, create, edit and send' },
-            { id: 'approve', label: 'View, create, edit, send and approve' }
+            { id: 'proposal.view', label: 'View proposals' },
+            { id: 'proposal.create', label: 'Create and send proposals' },
+            { id: 'proposal.approve', label: 'Approve/Reject proposals (without create)' }
         ],
         notifications: ['Proposal rejected', 'Proposal sent', 'Proposal approved']
     },
@@ -82,9 +86,11 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         module: 'Orders & Payments',
         icon: '💰',
         permissions: [
-            { id: 'view_only', label: 'View only' },
-            { id: 'create', label: 'Create orders and invoices' },
-            { id: 'approve', label: 'Approve orders and payments' }
+            { id: 'order.view', label: 'View orders and payments' },
+            { id: 'order.create', label: 'Create purchase orders' },
+            { id: 'order.approve', label: 'Approve purchase orders (without create)' },
+            { id: 'payment.create', label: 'Record payments' },
+            { id: 'payment.approve', label: 'Approve payments' }
         ],
         notifications: ['Order created', 'Invoice created', 'Payment received']
     },
@@ -92,8 +98,9 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         module: 'Inventory',
         icon: '📦',
         permissions: [
-            { id: 'view_only', label: 'View only' },
-            { id: 'add_remove', label: 'View, add and remove items' }
+            { id: 'inventory.view', label: 'View inventory' },
+            { id: 'inventory.add', label: 'Add inventory items' },
+            { id: 'inventory.remove', label: 'Remove/Adjust inventory' }
         ],
         notifications: ['Inventory low', 'Inventory added']
     },
@@ -101,12 +108,24 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         module: 'Snag & Audit',
         icon: '🔍',
         permissions: [
-            { id: 'view_only', label: 'View only' },
-            { id: 'create', label: 'View and create snags' },
-            { id: 'resolve', label: 'View, create and resolve snags' },
-            { id: 'verify', label: 'View, create, resolve and verify snags' }
+            { id: 'snag.view', label: 'View snags' },
+            { id: 'snag.create', label: 'Create snags' },
+            { id: 'snag.resolve', label: 'Resolve snags (without create)' },
+            { id: 'snag.verify', label: 'Verify resolved snags' }
         ],
         notifications: ['Snag created', 'Snag resolved', 'Snag verified']
+    },
+    {
+        module: 'User & Role Management',
+        icon: '👥',
+        permissions: [
+            { id: 'user.view', label: 'View team members' },
+            { id: 'user.create', label: 'Add new users' },
+            { id: 'user.edit', label: 'Edit user details' },
+            { id: 'user.delete', label: 'Remove users' },
+            { id: 'role.manage', label: 'Manage roles and permissions' }
+        ],
+        notifications: ['New user added', 'User role changed']
     }
 ];
 
@@ -389,14 +408,15 @@ export default function RolesTab() {
                                         value={roleName}
                                         onChange={(e) => setRoleName(e.target.value)}
                                         placeholder="Enter role name"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                        disabled={editingRole?.is_system}
+                                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg ${editingRole?.is_system ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
                                     />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Role Type *</label>
                                     <input
                                         type="text"
-                                        value="Custom"
+                                        value={editingRole?.is_system ? 'System' : 'Custom'}
                                         disabled
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
                                     />

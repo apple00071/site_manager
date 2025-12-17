@@ -4,6 +4,7 @@ import { NotificationService } from '@/lib/notificationService';
 import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
+import { verifyPermission, PERMISSION_NODES } from '@/lib/rbac';
 
 // Optimize caching for projects API
 export const dynamic = 'force-dynamic';
@@ -79,13 +80,13 @@ export async function GET(request: NextRequest) {
     console.log('🚀 Admin projects API called');
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('id');
-    
+
     console.log('📋 Request details:', {
       url: request.url,
       projectId,
       method: request.method
     });
-    
+
     // Get current user using lightweight authentication
     const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
@@ -95,13 +96,13 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       );
     }
-    
+
     const userId = user.id;
     const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
     const isAdmin = userRole === 'admin';
-    
+
     console.log(`Fetching projects for ${isAdmin ? 'admin' : 'user'}:`, user.email);
-    
+
     let projectsQuery = supabaseAdmin
       .from('projects')
       .select(`
@@ -147,12 +148,12 @@ export async function GET(request: NextRequest) {
           designation
         )
       `);
-    
+
     // If requesting a specific project, add ID filter
     if (projectId) {
       projectsQuery = projectsQuery.eq('id', projectId);
     }
-    
+
     // If user is not admin, only fetch projects they are assigned to
     if (!isAdmin) {
       // Get project IDs the user is a member of via project_members table
@@ -217,19 +218,19 @@ export async function GET(request: NextRequest) {
       // Filter projects by the ones the user has access to
       projectsQuery = projectsQuery.in('id', allProjectIds);
     }
-    
+
     // Add ordering and execute the query
     let query = projectsQuery;
     if (!projectId) {
       query = query.order('created_at', { ascending: false });
     }
-    
-    const { data: projects, error } = projectId 
+
+    const { data: projects, error } = projectId
       ? await query.single()
       : await query;
-    
+
     console.log('Query result:', { projects, error, projectId });
-    
+
     if (error) {
       console.error('Error fetching projects:', error);
       return NextResponse.json(
@@ -251,9 +252,9 @@ export async function GET(request: NextRequest) {
         responseData = rest;
       }
     }
-    
+
     return NextResponse.json(responseData);
-    
+
   } catch (error) {
     console.error('Unexpected error in GET /api/admin/projects:', error);
     return NextResponse.json(
@@ -267,7 +268,7 @@ export async function GET(request: NextRequest) {
 export async function POST(req: Request) {
   try {
     console.log('Creating new project...');
-    
+
     // Get current user using lightweight authentication
     const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
@@ -277,24 +278,24 @@ export async function POST(req: Request) {
         { status: 401 }
       );
     }
-    
-    const userId = user.id;
-    const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
 
-    // Check if user is admin
-    if (userRole !== 'admin') {
+    const userId = user.id;
+
+    // RBAC: Check project.create permission
+    const permResult = await verifyPermission(userId, PERMISSION_NODES.PROJECT_CREATE);
+    if (!permResult.allowed) {
       return NextResponse.json(
-        { error: { message: 'Not authorized', code: 'FORBIDDEN' } },
+        { error: { message: permResult.message, code: 'FORBIDDEN' } },
         { status: 403 }
       );
     }
-    
+
     // Parse and validate the request body
     const body = await req.json();
     console.log('Request body:', body);
-    
+
     const parsed = projectSchema.safeParse(body);
-    
+
     if (!parsed.success) {
       console.error('Validation error:', parsed.error);
       return NextResponse.json(
@@ -302,14 +303,14 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    
+
     if (!user) {
       return NextResponse.json(
         { error: { message: 'User not found' } },
         { status: 404 }
       );
     }
-    
+
     const budget = parseBudget(parsed.data.project_budget);
     if (parsed.data.project_budget && budget === null) {
       return NextResponse.json(
@@ -354,14 +355,14 @@ export async function POST(req: Request) {
       created_by: userId,
       updated_by: userId,
     };
-    
+
     // Insert the new project
     const { data: project, error: insertError } = await supabaseAdmin
       .from('projects')
       .insert([projectData])
       .select()
       .single();
-      
+
     if (insertError) {
       console.error('Error creating project:', insertError);
       return NextResponse.json(
@@ -369,7 +370,7 @@ export async function POST(req: Request) {
         { status: 500 }
       );
     }
-    
+
     // Add the current user as a project member with admin role
     const { error: memberError } = await supabaseAdmin
       .from('project_members')
@@ -381,7 +382,7 @@ export async function POST(req: Request) {
           created_by: userId,
         },
       ]);
-      
+
     if (memberError) {
       console.error('Error adding project member:', memberError);
       // Don't fail the request if we can't add the member
@@ -400,7 +401,7 @@ export async function POST(req: Request) {
             created_by: user.id,
           },
         ]);
-        
+
       if (assigneeError) {
         console.error('Error adding assigned employee to project:', assigneeError);
         // Don't fail the request if we can't add the assignee
@@ -435,7 +436,7 @@ export async function POST(req: Request) {
               `🆕 New Project Assigned\n\nYou have been assigned to project "${parsed.data.title}" for customer ${parsed.data.customer_name}\n\nOpen: ${link}`
             );
           }
-        } catch (_) {}
+        } catch (_) { }
       } catch (notificationError) {
         console.error('Failed to send assignment notification:', notificationError);
         // Don't fail the main operation if notification fails
@@ -444,17 +445,17 @@ export async function POST(req: Request) {
 
     console.log('Project created successfully:', project);
     return NextResponse.json(
-      { 
-        success: true, 
+      {
+        success: true,
         project: project
-      }, 
+      },
       { status: 201 }
     );
-    
+
   } catch (error) {
     console.error('Unexpected error in projects API:', error);
     return NextResponse.json(
-      { 
+      {
         error: {
           message: 'Internal server error',
           code: 'INTERNAL_SERVER_ERROR'

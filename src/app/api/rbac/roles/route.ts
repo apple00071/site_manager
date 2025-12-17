@@ -156,9 +156,11 @@ export async function PATCH(request: NextRequest) {
             .eq('id', roleId)
             .single();
 
-        if (existingRole?.is_system) {
-            return NextResponse.json({ error: 'Cannot edit system roles' }, { status: 403 });
-        }
+        // Allow editing system roles, but maybe restrict Name changes in frontend if needed.
+        // For backend, we trust the Admin to know what they are doing.
+        // if (existingRole?.is_system) {
+        //     return NextResponse.json({ error: 'Cannot edit system roles' }, { status: 403 });
+        // }
 
         const { data: updatedRole, error } = await supabaseAdmin
             .from('roles')
