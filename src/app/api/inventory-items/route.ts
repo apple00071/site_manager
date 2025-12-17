@@ -17,6 +17,7 @@ const createInventoryItemSchema = z.object({
   date_purchased: z.string().optional(),
   bill_url: z.string().url('Invalid bill URL').optional(),
   total_cost: z.number().min(0, 'Total cost must be positive').optional(),
+  po_id: z.string().uuid().optional(), // Added po_id
 });
 
 const updateInventoryItemSchema = z.object({
@@ -95,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const parsed = createInventoryItemSchema.safeParse(body);
-    
+
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invalid input', details: parsed.error.format() },
@@ -103,7 +104,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { project_id, item_name, quantity, supplier_name, date_purchased, bill_url, total_cost } = parsed.data;
+    const { project_id, item_name, quantity, supplier_name, date_purchased, bill_url, total_cost, po_id } = parsed.data;
 
     const { data: item, error } = await supabaseAdmin
       .from('inventory_items')
@@ -127,6 +128,19 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Error creating inventory item:', error);
       return NextResponse.json({ error: 'Failed to create inventory item' }, { status: 500 });
+    }
+
+    // Update PO status if po_id is provided
+    if (po_id) {
+      const { error: poError } = await supabaseAdmin
+        .from('purchase_orders')
+        .update({ status: 'received' })
+        .eq('id', po_id);
+
+      if (poError) {
+        console.error('Failed to update PO status:', poError);
+        // Non-critical, so we don't return error
+      }
     }
 
     // Notify admin of new inventory item
@@ -163,7 +177,7 @@ export async function POST(request: NextRequest) {
               `📦 Inventory Added\n\n${userFullName} added "${item_name}"${quantityText} to project "${projectData.title}"\n\nOpen: ${link}`
             );
           }
-        } catch (_) {}
+        } catch (_) { }
       }
     } catch (notificationError) {
       console.error('Failed to send inventory notification:', notificationError);

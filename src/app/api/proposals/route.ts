@@ -107,8 +107,8 @@ export async function GET(request: NextRequest) {
             .from('proposals')
             .select(`
                 *,
-                created_by_user:users!proposals_created_by_fkey(id, name),
-                approved_by_user:users!proposals_approved_by_fkey(id, name)
+                created_by_user:users!proposals_created_by_fkey(id, full_name),
+                approved_by_user:users!proposals_approved_by_fkey(id, full_name)
             `)
             .eq('project_id', projectId)
             .order('created_at', { ascending: false });

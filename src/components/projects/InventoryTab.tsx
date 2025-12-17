@@ -43,6 +43,7 @@ interface InventoryItemFormProps {
     supplier_name: string;
     date_purchased: string;
     bill_url: string;
+    po_id: string;
   };
   setForm: React.Dispatch<React.SetStateAction<{
     item_name: string;
@@ -50,6 +51,7 @@ interface InventoryItemFormProps {
     supplier_name: string;
     date_purchased: string;
     bill_url: string;
+    po_id: string;
   }>>;
   onClose: () => void;
   onSubmit: () => Promise<void>;
@@ -57,86 +59,218 @@ interface InventoryItemFormProps {
   saving: boolean;
   uploadingBill: boolean;
   isEditing: boolean;
+  projectId: string; // Added prop
 }
 
 const InventoryItemForm = ({
-  form, setForm, onClose, onSubmit, onBillUpload, saving, uploadingBill, isEditing
-}: InventoryItemFormProps) => (
-  <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Item Name *</label>
-      <input
-        type="text"
-        value={form.item_name}
-        onChange={(e) => setForm(prev => ({ ...prev, item_name: e.target.value }))}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-        placeholder="Enter item name"
-      />
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-      <input
-        type="number"
-        value={form.quantity}
-        onChange={(e) => setForm(prev => ({ ...prev, quantity: e.target.value }))}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-        placeholder="Enter quantity"
-      />
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
-      <input
-        type="text"
-        value={form.supplier_name}
-        onChange={(e) => setForm(prev => ({ ...prev, supplier_name: e.target.value }))}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-        placeholder="Enter supplier name"
-      />
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Date Purchased</label>
-      <input
-        type="date"
-        value={form.date_purchased}
-        onChange={(e) => setForm(prev => ({ ...prev, date_purchased: e.target.value }))}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-      />
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Bill/Invoice</label>
-      <input
-        type="file"
-        accept="image/*,application/pdf"
-        onChange={(e) => {
-          e.stopPropagation();
-          onBillUpload(e);
-        }}
-        disabled={uploadingBill}
-        className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-yellow-50 file:text-yellow-700"
-      />
-      {form.bill_url && (
-        <p className="mt-1 text-xs text-green-600">✓ Bill uploaded</p>
+  form, setForm, onClose, onSubmit, onBillUpload, saving, uploadingBill, isEditing, projectId
+}: InventoryItemFormProps) => {
+  const [usePO, setUsePO] = useState(false);
+  const [pos, setPos] = useState<any[]>([]);
+  const [selectedPO, setSelectedPO] = useState<string>('');
+  const [loadingPOs, setLoadingPOs] = useState(false);
+
+  // Fetch POs when usePO is toggled
+  useEffect(() => {
+    if (usePO && pos.length === 0) {
+      const fetchPOs = async () => {
+        try {
+          setLoadingPOs(true);
+          const res = await fetch(`/api/purchase-orders?project_id=${projectId}`);
+          const data = await res.json();
+          if (data.pos) {
+            // Filter only sent/received POs
+            const activePos = data.pos.filter((p: any) => ['sent', 'received', 'partially_received'].includes(p.status));
+            setPos(activePos);
+          }
+        } catch (e) {
+          console.error('Failed to fetch POs', e);
+        } finally {
+          setLoadingPOs(false);
+        }
+      };
+      fetchPOs();
+    }
+  }, [usePO, projectId]);
+
+  const handlePOSelect = (poId: string) => {
+    setSelectedPO(poId);
+    const po = pos.find(p => p.id === poId);
+    if (po) {
+      setForm(prev => ({
+        ...prev,
+        supplier_name: po.supplier?.name || '',
+        po_id: poId
+      }));
+    }
+  };
+
+  const handleLineItemSelect = (poId: string, itemIdx: number) => {
+    const po = pos.find(p => p.id === poId);
+    if (po && po.line_items && po.line_items[itemIdx]) {
+      const item = po.line_items[itemIdx];
+      setForm(prev => ({
+        ...prev,
+        item_name: item.description || '',
+        quantity: (item.quantity || '').toString(),
+      }));
+    }
+  };
+
+  return (
+    <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
+
+      {!isEditing && (
+        <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <input
+              type="checkbox"
+              id="usePO"
+              checked={usePO}
+              onChange={(e) => setUsePO(e.target.checked)}
+              className="rounded text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="usePO" className="text-sm font-medium text-blue-900 cursor-pointer">
+              Import from Purchase Order
+            </label>
+          </div>
+
+          {usePO && (
+            <div className="space-y-3 mt-3 animate-in fade-in slide-in-from-top-2">
+              {loadingPOs ? (
+                <div className="text-xs text-blue-600">Loading POs...</div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-xs font-medium text-blue-800 mb-1">Select PO</label>
+                    <select
+                      className="w-full text-sm border-blue-200 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      value={selectedPO}
+                      onChange={(e) => handlePOSelect(e.target.value)}
+                    >
+                      <option value="">-- Choose PO --</option>
+                      {pos.map(po => (
+                        <option key={po.id} value={po.id}>
+                          {po.po_number} - {po.supplier?.name} ({new Date(po.created_at).toLocaleDateString()})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {selectedPO && (
+                    <div>
+                      <label className="block text-xs font-medium text-blue-800 mb-1">Select Item</label>
+                      <select
+                        className="w-full text-sm border-blue-200 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white"
+                        onChange={(e) => handleLineItemSelect(selectedPO, parseInt(e.target.value))}
+                      >
+                        <option value="">-- Choose Item --</option>
+                        {pos.find(p => p.id === selectedPO)?.line_items?.map((item: any, idx: number) => (
+                          <option key={idx} value={idx}>
+                            {item.description} (Qty: {item.quantity} {item.unit})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
       )}
-    </div>
-    <div className="flex gap-3 pt-2">
-      <button
-        type="button"
-        onClick={onClose}
-        className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-      >
-        Cancel
-      </button>
-      <button
-        type="button"
-        onClick={onSubmit}
-        disabled={saving}
-        className="flex-1 px-4 py-2 bg-yellow-500 text-gray-900 font-medium rounded-lg hover:bg-yellow-600 disabled:opacity-50"
-      >
-        {saving ? 'Saving...' : isEditing ? 'Update' : 'Add Item'}
-      </button>
-    </div>
-  </form>
-);
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Item Name *</label>
+        <input
+          type="text"
+          value={form.item_name}
+          onChange={(e) => setForm(prev => ({ ...prev, item_name: e.target.value }))}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
+          placeholder="Enter item name"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+        <input
+          type="number"
+          value={form.quantity}
+          onChange={(e) => setForm(prev => ({ ...prev, quantity: e.target.value }))}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
+          placeholder="Enter quantity"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+        <input
+          type="text"
+          value={form.supplier_name}
+          onChange={(e) => setForm(prev => ({ ...prev, supplier_name: e.target.value }))}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
+          placeholder="Enter supplier name"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Date Purchased</label>
+        <input
+          type="date"
+          value={form.date_purchased}
+          onChange={(e) => setForm(prev => ({ ...prev, date_purchased: e.target.value }))}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Bill/Invoice</label>
+        <input
+          type="file"
+          accept="image/*,application/pdf"
+          onChange={(e) => {
+            e.stopPropagation();
+            onBillUpload(e);
+          }}
+          disabled={uploadingBill}
+          className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-yellow-50 file:text-yellow-700"
+        />
+        {form.bill_url && (
+          <p className="mt-1 text-xs text-green-600">✓ Bill uploaded</p>
+        )}
+      </div>
+      <div className="flex gap-3 pt-2">
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={saving}
+          className="flex-1 px-4 py-2 bg-yellow-500 text-gray-900 font-medium rounded-lg hover:bg-yellow-600 disabled:opacity-50"
+        >
+          {saving ? 'Saving...' : isEditing ? 'Update' : 'Add Item'}
+        </button>
+      </div>
+    </form>
+  );
+};
+
+// Update usages of InventoryItemForm to pass projectId
+// Usage in desktop panel
+/*
+        <InventoryItemForm
+          form={form}
+          setForm={setForm}
+          onClose={() => { setIsAddingNew(false); resetForm(); }}
+          onSubmit={handleSubmit}
+          onBillUpload={handleBillUpload}
+          saving={saving}
+          uploadingBill={uploadingBill}
+          isEditing={!!editingItem}
+          projectId={projectId}
+        />
+*/
+
 
 type InventoryTabProps = {
   projectId: string;
@@ -176,6 +310,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
     supplier_name: '',
     date_purchased: '',
     bill_url: '',
+    po_id: '', // Add po_id to state
   });
 
   // Check for mobile viewport
@@ -234,7 +369,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
   });
 
   const resetForm = () => {
-    setForm({ item_name: '', quantity: '', supplier_name: '', date_purchased: '', bill_url: '' });
+    setForm({ item_name: '', quantity: '', supplier_name: '', date_purchased: '', bill_url: '', po_id: '' });
     setEditingItem(null);
   };
 
@@ -289,6 +424,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
           supplier_name: form.supplier_name || undefined,
           date_purchased: form.date_purchased || undefined,
           bill_url: form.bill_url || undefined,
+          po_id: form.po_id || undefined, // Send selected PO ID
         }),
       });
 
@@ -336,6 +472,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
       supplier_name: item.supplier_name || '',
       date_purchased: item.date_purchased || '',
       bill_url: item.bill_url || '',
+      po_id: '', // Reset PO ID on edit as we don't store it on the item yet
     });
     setIsAddingNew(true);
     setOpenMenuId(null);
@@ -429,6 +566,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
           saving={saving}
           uploadingBill={uploadingBill}
           isEditing={!!editingItem}
+          projectId={projectId}
         />
       </SidePanel>
 
@@ -447,6 +585,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
           saving={saving}
           uploadingBill={uploadingBill}
           isEditing={!!editingItem}
+          projectId={projectId}
         />
       </BottomSheet>
 
@@ -488,7 +627,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
               <FiEdit2 className="w-5 h-5 text-gray-500" /> Edit Item
             </button>
 
-            {user?.role === 'admin' && mobileActionItem.bill_url && mobileActionItem.bill_approval_status === 'pending' && (
+            {user?.role === 'admin' && mobileActionItem.bill_approval_status === 'pending' && (
               <>
                 <button
                   onClick={() => {
@@ -497,7 +636,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                   }}
                   className="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium text-green-700 hover:bg-green-50 rounded-lg"
                 >
-                  <FiCheck className="w-5 h-5" /> Approve Bill
+                  <FiCheck className="w-5 h-5" /> Approve
                 </button>
                 <button
                   onClick={() => {
@@ -506,7 +645,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                   }}
                   className="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium text-red-700 hover:bg-red-50 rounded-lg"
                 >
-                  <FiX className="w-5 h-5" /> Reject Bill
+                  <FiX className="w-5 h-5" /> Reject
                 </button>
               </>
             )}
@@ -712,7 +851,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                               Edit
                             </button>
 
-                            {user?.role === 'admin' && item.bill_url && item.bill_approval_status === 'pending' && (
+                            {user?.role === 'admin' && item.bill_approval_status === 'pending' && (
                               <>
                                 <div className="border-t border-gray-100 my-1"></div>
                                 <button
@@ -720,14 +859,14 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                                   className="w-full flex items-center gap-2 px-4 py-2 text-sm text-green-700 hover:bg-green-50"
                                 >
                                   <FiCheck className="w-4 h-4" />
-                                  Approve Bill
+                                  Approve
                                 </button>
                                 <button
                                   onClick={() => handleReject(item.id)}
                                   className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-red-50"
                                 >
                                   <FiX className="w-4 h-4" />
-                                  Reject Bill
+                                  Reject
                                 </button>
                               </>
                             )}

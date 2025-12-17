@@ -109,10 +109,18 @@ export function ProposalBuilder({
         }
     };
 
-    // Group items by category - show draft items and any pre-selected items
+    // Group items by category - show any selected items regardless of status to allow "Confirmed" items
     const itemsByCategory = useMemo(() => {
         const grouped: Record<string, BOQItem[]> = {};
-        items.filter(i => i.status === 'draft' || selectedIds.includes(i.id)).forEach(item => {
+        // Filter to include ALL items if selected, or DRAFT items if not selected (for the "Select All Draft" feature)
+        // But for the list, we mainly want to show what is selected OR what is eligible.
+        // The user complained they couldn't see items. Let's show ALL items that are NOT completed/archived maybe?
+        // Or simply show all items associated with the projected that are selected OR draft/confirmed.
+
+        // Simplified: Show items that are either DRAFT or CONFIRMED, OR explicitly selected.
+        items.filter(i =>
+            selectedIds.includes(i.id) || ['draft', 'confirmed'].includes(i.status)
+        ).forEach(item => {
             const cat = item.category || 'Uncategorized';
             if (!grouped[cat]) grouped[cat] = [];
             grouped[cat].push(item);

@@ -1,31 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-// Auth helper
-async function getAuthUser() {
-    const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    const { data: { user }, error } = await supabase.auth.getUser();
-    return { user, error };
-}
-
-// Get user role from database
-async function getUserRole(userId: string): Promise<string> {
-    const { data } = await supabaseAdmin
-        .from('users')
-        .select('role')
-        .eq('id', userId)
-        .single();
-    return data?.role || '';
-}
+import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 
 // Check project access
 async function checkProjectAccess(userId: string, projectId: string, userRole: string) {
@@ -69,23 +44,29 @@ const ImportPayloadSchema = z.object({
 
 // POST /api/boq/import - Bulk import BOQ items from CSV/Excel
 export async function POST(request: NextRequest) {
+    console.log('BOQ Import: Request received');
     try {
-        const { user, error: authError } = await getAuthUser();
+        const { user, error: authError, role: userRole } = await getAuthUser();
+        console.log('BOQ Import: Auth check', { userId: user?.id, role: userRole, error: authError });
+
         if (authError || !user) {
+            console.error('BOQ Import: Unauthorized', authError);
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const userRole = await getUserRole(user.id);
-
         // Only admins can import
         if (userRole !== 'admin') {
+            console.error('BOQ Import: Forbidden - Not admin', { role: userRole });
             return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
         }
 
         const body = await request.json();
+        console.log('BOQ Import: Body received', { itemCount: body?.items?.length });
+
         const parsed = ImportPayloadSchema.safeParse(body);
 
         if (!parsed.success) {
+            console.error('BOQ Import: Invalid payload', parsed.error.flatten());
             return NextResponse.json({
                 error: 'Invalid payload',
                 details: parsed.error.flatten()

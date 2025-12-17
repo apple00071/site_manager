@@ -18,6 +18,7 @@ function DashboardLayoutContent({
 }) {
   const { user, isLoading, signOut, isAdmin } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
@@ -113,7 +114,7 @@ function DashboardLayoutContent({
       {/* Sidebar */}
       <div className={`
         fixed inset-y-0 left-0 z-50 w-14 hover:w-32 sm:w-16 hover:sm:w-36 lg:w-14 hover:lg:w-32 bg-white text-gray-900 shadow-lg border-r border-gray-200 transform transition-all duration-300 ease-in-out group
-        lg:translate-x-0 lg:static lg:inset-0
+        lg:translate-x-0 lg:fixed lg:top-0 lg:h-screen lg:left-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Logo at top */}
@@ -171,20 +172,22 @@ function DashboardLayoutContent({
                 <span className="ml-3 text-xs font-medium hidden group-hover:block whitespace-nowrap">Users</span>
               </Link>
             )}
-            <Link
-              href="/dashboard/settings"
-              className="flex items-center justify-start pl-[14px] sm:pl-[18px] lg:pl-[14px] pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
-              onClick={() => setSidebarOpen(false)}
-              title="Settings"
-            >
-              <FiSettings className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
-              <span className="ml-3 text-xs font-medium hidden group-hover:block whitespace-nowrap">Settings</span>
-            </Link>
+            <div className="lg:hidden">
+              <Link
+                href="/dashboard/settings"
+                className="flex items-center justify-start pl-[14px] sm:pl-[18px] lg:pl-[14px] pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
+                onClick={() => setSidebarOpen(false)}
+                title="Settings"
+              >
+                <FiSettings className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
+                <span className="ml-3 text-xs font-medium hidden group-hover:block whitespace-nowrap">Settings</span>
+              </Link>
+            </div>
           </div>
         </nav>
 
-        {/* User section at bottom */}
-        <div className="border-t border-gray-200 p-2">
+        {/* User section at bottom - Mobile Only */}
+        <div className="border-t border-gray-200 p-2 lg:hidden">
           <div className="flex flex-col items-center space-y-1">
             <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center shadow-sm">
               <span className="text-gray-900 text-xs font-bold">
@@ -204,7 +207,7 @@ function DashboardLayoutContent({
       </div>
 
       {/* Main content - allow natural page scroll (no overflow-hidden here) */}
-      <div className="flex-1 flex flex-col bg-white min-w-0 max-w-full overflow-x-hidden">
+      <div className="flex-1 flex flex-col bg-white min-w-0 max-w-full overflow-x-hidden lg:ml-14">
 
         {/* Mobile menu button - floating */}
         <button
@@ -287,11 +290,54 @@ function DashboardLayoutContent({
 
                 {/* User avatar with name - matching Projects header style */}
                 {user && (
-                  <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
-                    <div className="h-6 w-6 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold text-[10px] shadow-sm">
-                      {(user.full_name || 'U').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                    </div>
-                    <span className="text-sm font-medium text-gray-700">{user.full_name || user.email?.split('@')[0] || 'User'}</span>
+                  <div className="relative ml-2">
+                    <button
+                      onClick={() => setUserMenuOpen(!userMenuOpen)}
+                      className="flex items-center gap-2 pl-3 border-l border-gray-200 hover:opacity-80 transition-opacity"
+                    >
+                      <div className="h-8 w-8 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-2 ring-white">
+                        {(user.full_name || 'U').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                      </div>
+                      <span className="text-sm font-medium text-gray-700 hidden xl:block">{user.full_name || user.email?.split('@')[0] || 'User'}</span>
+                    </button>
+
+                    {/* User Dropdown */}
+                    {userMenuOpen && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-10"
+                          onClick={() => setUserMenuOpen(false)}
+                        />
+                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-20 animate-in fade-in zoom-in-95 duration-200">
+                          <div className="px-4 py-3 border-b border-gray-100">
+                            <p className="text-sm font-medium text-gray-900 truncate">{user.full_name || 'User'}</p>
+                            <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                          </div>
+
+                          <Link
+                            href="/dashboard/settings"
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                            onClick={() => setUserMenuOpen(false)}
+                          >
+                            <FiSettings className="w-4 h-4 text-gray-400" />
+                            Settings
+                          </Link>
+
+                          <div className="border-t border-gray-100 my-1"></div>
+
+                          <button
+                            onClick={() => {
+                              setUserMenuOpen(false);
+                              handleSignOut();
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            <FiLogOut className="w-4 h-4" />
+                            Sign out
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

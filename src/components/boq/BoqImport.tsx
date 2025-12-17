@@ -51,10 +51,19 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
 
     const parseFile = async (file: File) => {
         try {
+            console.log('Parsing file:', file.name);
             const data = await file.arrayBuffer();
             const wb = XLSX.read(data, { type: 'array' });
+
+            if (wb.SheetNames.length === 0) {
+                setErrors(['Excel file appears to be empty (no sheets found)']);
+                return;
+            }
+
             const ws = wb.Sheets[wb.SheetNames[0]];
             const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
+
+            console.log('Raw data found, rows:', jsonData.length);
 
             if (jsonData.length < 2) {
                 setErrors(['File must have at least a header row and one data row']);
@@ -64,16 +73,26 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
             const headers = jsonData[0] as string[];
             const columnMap: Record<number, string> = {};
 
+            console.log('Headers found:', headers);
+
             headers.forEach((h, idx) => {
+                if (!h) return;
                 const normalized = normalizeColumnName(String(h));
-                if (normalized) columnMap[idx] = normalized;
+                if (normalized) {
+                    columnMap[idx] = normalized;
+                    console.log(`Mapped column "${h}" to "${normalized}"`);
+                }
             });
 
             // Check required columns
             const foundColumns = Object.values(columnMap);
             const missingRequired = REQUIRED_COLUMNS.filter(r => !foundColumns.includes(r));
             if (missingRequired.length > 0) {
-                setErrors([`Missing required columns: ${missingRequired.join(', ')}`]);
+                console.warn('Missing columns:', missingRequired);
+                setErrors([
+                    `Missing required columns: ${missingRequired.join(', ')}.`,
+                    `Found columns: ${headers.join(', ')}`
+                ]);
                 return;
             }
 
@@ -89,14 +108,19 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
                 Object.entries(columnMap).forEach(([idx, key]) => {
                     const value = row[parseInt(idx)];
                     if (key === 'quantity' || key === 'rate') {
-                        parsed[key as 'quantity' | 'rate'] = parseFloat(value) || 0;
+                        // Handle potential string numbers like "1,000" or "$50"
+                        const stringVal = String(value).replace(/[^0-9.-]/g, '');
+                        parsed[key as 'quantity' | 'rate'] = parseFloat(stringVal) || 0;
                     } else {
                         (parsed as any)[key] = value?.toString() || '';
                     }
                 });
 
                 if (!parsed.item_name) {
-                    rowErrors.push(`Row ${i + 1}: Missing item name`);
+                    // Skip empty rows silently often better, but warn if it looks like data
+                    if (row.some(c => !!c)) {
+                        rowErrors.push(`Row ${i + 1}: Skipped (Missing item name)`);
+                    }
                     continue;
                 }
 
@@ -113,14 +137,19 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
             }
 
             if (rows.length === 0) {
-                setErrors(['No valid rows found in file']);
+                setErrors(['No valid rows found in file. Please check column headers.']);
                 return;
             }
 
+            console.log('Successfully parsed rows:', rows.length);
             setPreview(rows);
-            setErrors(rowErrors);
+            setErrors(rowErrors.length > 0 ? rowErrors.slice(0, 5) : []); // Show max 5 errors
+            if (rowErrors.length > 5) {
+                setErrors(prev => [...prev, `...and ${rowErrors.length - 5} more issues`]);
+            }
             setStep('preview');
         } catch (err) {
+            console.error('Parse error:', err);
             setErrors(['Failed to parse file. Please ensure it is a valid CSV or Excel file.']);
         }
     };

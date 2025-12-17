@@ -4,13 +4,14 @@ import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImpera
 import { useAuth } from '@/contexts/AuthContext';
 import {
     FiPlus, FiUpload, FiSend, FiGrid, FiList,
-    FiAlertCircle, FiX, FiPackage, FiRefreshCw, FiDownload
+    FiAlertCircle, FiX, FiPackage, FiRefreshCw, FiDownload, FiCheckCircle, FiChevronDown
 } from 'react-icons/fi';
 import { BoqGrid } from '@/components/boq/BoqGrid';
 import { BoqCardMobile } from '@/components/boq/BoqCardMobile';
 import { BoqImport } from '@/components/boq/BoqImport';
 import { ProposalBuilder } from '@/components/boq/ProposalBuilder';
 import { BoqEditModal } from '@/components/boq/BoqEditModal';
+import { CompareBoqOrderModal } from '@/components/boq/CompareBoqOrderModal';
 
 interface BOQItem {
     id: string;
@@ -44,11 +45,13 @@ export interface BOQTabHandle {
     openAddItem: () => void;
     openImport: () => void;
     openProposal: () => void;
+    openComparison: () => void;
 }
 
 export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref) => {
     const { isAdmin } = useAuth();
     const [items, setItems] = useState<BOQItem[]>([]);
+    const [inventoryItems, setInventoryItems] = useState<any[]>([]); // New state for inventory
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -57,6 +60,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
     const [viewMode, setViewMode] = useState<'grid' | 'cards'>('grid');
     const [showImport, setShowImport] = useState(false);
     const [showProposal, setShowProposal] = useState(false);
+    const [showComparison, setShowComparison] = useState(false);
     const [showAddCategory, setShowAddCategory] = useState(false);
     const [newCategoryName, setNewCategoryName] = useState('');
     const [sectionTotals, setSectionTotals] = useState<Record<string, { count: number; amount: number }>>({});
@@ -72,7 +76,8 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
             setShowEditModal(true);
         },
         openImport: () => setShowImport(true),
-        openProposal: () => setShowProposal(true)
+        openProposal: () => setShowProposal(true),
+        openComparison: () => setShowComparison(true)
     }));
 
     // Load custom categories from localStorage on mount
@@ -410,40 +415,50 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
             {/* Bulk Actions */}
             {
                 selectedItems.length > 0 && isAdmin && (
-                    <div className="px-2 md:px-3 py-2 bg-yellow-50 border-b border-gray-100 flex items-center gap-4 flex-wrap">
-                        <span className="text-sm font-medium text-yellow-800">
-                            {selectedItems.length} selected
-                        </span>
-                        <div className="flex gap-2 flex-wrap">
-                            <button
-                                onClick={() => handleBulkStatusUpdate('confirmed')}
-                                className="px-3 py-1.5 text-sm text-white rounded-lg hover:opacity-90 focus:outline-none"
-                                style={{ backgroundColor: '#eab308' }}
-                            >
-                                Confirm
-                            </button>
-                            <button
-                                onClick={() => handleBulkStatusUpdate('completed')}
-                                className="px-3 py-1.5 text-sm text-white rounded-lg hover:opacity-90 focus:outline-none"
-                                style={{ backgroundColor: '#ca8a04' }}
-                            >
-                                Complete
-                            </button>
+                    <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-50 flex items-center gap-2 bg-gray-900 text-white px-2 py-1.5 rounded-lg shadow-xl animate-in slide-in-from-bottom-4 duration-200 border border-gray-800">
+                        {/* Selected Count */}
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 rounded-md">
+                            <FiCheckCircle className="w-4 h-4 text-emerald-400" />
+                            <span className="text-sm font-medium whitespace-nowrap">
+                                {selectedItems.length} Selected
+                            </span>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="h-6 w-px bg-gray-700 mx-1"></div>
+
+                        {/* Move to Proposal */}
+                        <div className="relative group">
                             <button
                                 onClick={() => setShowProposal(true)}
-                                className="px-3 py-1.5 text-sm text-white rounded-lg flex items-center gap-1 hover:opacity-90 focus:outline-none"
-                                style={{ backgroundColor: '#eab308' }}
+                                className="flex items-center gap-2 px-4 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-md transition-colors shadow-sm"
                             >
-                                <FiSend className="w-3 h-3" />
-                                Send Proposal
-                            </button>
-                            <button
-                                onClick={() => setSelectedItems([])}
-                                className="px-3 py-1.5 text-sm bg-white text-gray-600 rounded-lg border border-gray-200 hover:bg-gray-50 focus:outline-none"
-                            >
-                                Clear
+                                <span className="text-sm font-medium">Move to Proposal</span>
+                                <FiChevronDown className="w-4 h-4" />
                             </button>
                         </div>
+
+                        {/* Select All */}
+                        <button
+                            onClick={() => {
+                                // Select all visible items
+                                const allIds = filteredItems.map(i => i.id);
+                                setSelectedItems(allIds);
+                            }}
+                            className="flex items-center gap-2 px-3 py-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition-colors ml-1"
+                        >
+                            <FiGrid className="w-4 h-4" />
+                            <span className="text-sm font-medium whitespace-nowrap">Select All</span>
+                        </button>
+
+                        {/* Clear All */}
+                        <button
+                            onClick={() => setSelectedItems([])}
+                            className="flex items-center gap-2 px-3 py-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition-colors"
+                        >
+                            <FiX className="w-4 h-4" />
+                            <span className="text-sm font-medium whitespace-nowrap">Clear All</span>
+                        </button>
                     </div>
                 )
             }
@@ -565,6 +580,14 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
                 isOpen={showEditModal}
                 onClose={() => { setShowEditModal(false); setEditingItem(null); }}
                 onSave={handleSaveItem}
+            />
+
+            {/* Compare Modal */}
+            <CompareBoqOrderModal
+                isOpen={showComparison}
+                onClose={() => setShowComparison(false)}
+                items={items}
+                inventoryItems={inventoryItems}
             />
         </div >
     );

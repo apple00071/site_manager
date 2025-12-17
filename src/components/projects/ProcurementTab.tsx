@@ -7,7 +7,9 @@ import {
     FiFileText, FiAlertCircle, FiMoreVertical, FiDollarSign,
     FiTruck, FiClock, FiCheckCircle, FiPackage, FiSearch, FiChevronDown, FiEye, FiPrinter
 } from 'react-icons/fi';
+import { FaRupeeSign } from 'react-icons/fa';
 import { POViewModal } from './POViewModal';
+import { ProposalViewModal } from './ProposalViewModal';
 
 interface Supplier {
     id: string;
@@ -37,6 +39,8 @@ interface Invoice {
     total_amount: number;
     status: string;
     created_at: string;
+    supplier_id?: string | null;
+    po_id?: string | null;
 }
 
 interface Payment {
@@ -44,24 +48,48 @@ interface Payment {
     amount: number;
     payment_date: string;
     payment_method: string | null;
+    supplier_id?: string | null;
+    invoice_id?: string | null;
 }
+
+// Maps the parent's subTab ID to our internal logic
+// 'proposals' | 'client_orders' | 'client_invoices' | 'payments_from_client' | 'my_scope'
 
 interface ProcurementTabProps {
     projectId: string;
     projectAddress?: string;
+    activeSubTab?: string; // Passed from parent ProjectDetailsPage
 }
 
-type TabType = 'orders' | 'invoices' | 'payments';
+type TabType = 'proposals' | 'orders' | 'invoices' | 'payments';
 
-export function ProcurementTab({ projectId, projectAddress }: ProcurementTabProps) {
+export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_scope' }: ProcurementTabProps) {
     const { isAdmin } = useAuth();
-    const [activeTab, setActiveTab] = useState<TabType>('orders');
+
+    // Derived State from activeSubTab
+    // 'my_scope' is exclusively for Vendor related items (Purchase Orders, Vendor Invoices, Vendor Payments)
+    const isVendorMode = activeSubTab === 'my_scope';
+    const viewMode = isVendorMode ? 'vendor' : 'client';
+
+    // Internal Active Tab logic
+    // We map the parent's specific tab (e.g. 'client_orders') to our internal generic tab name ('orders')
+    const [internalTab, setInternalTab] = useState<TabType>('orders');
+
+    useEffect(() => {
+        if (activeSubTab === 'proposals') setInternalTab('proposals');
+        else if (activeSubTab === 'client_orders') setInternalTab('orders');
+        else if (activeSubTab === 'client_invoices') setInternalTab('invoices');
+        else if (activeSubTab === 'payments_from_client') setInternalTab('payments');
+        else if (activeSubTab === 'my_scope') setInternalTab('orders'); // Default for My Scope
+    }, [activeSubTab]);
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     const [pos, setPos] = useState<PurchaseOrder[]>([]);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
+    const [proposals, setProposals] = useState<any[]>([]);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [boqItems, setBoqItems] = useState<any[]>([]);
 
@@ -69,24 +97,15 @@ export function ProcurementTab({ projectId, projectAddress }: ProcurementTabProp
     const [showInvoiceForm, setShowInvoiceForm] = useState(false);
     const [showPaymentForm, setShowPaymentForm] = useState(false);
     const [showSupplierForm, setShowSupplierForm] = useState(false);
+
     const [supplierForm, setSupplierForm] = useState({
-        name: '',
-        contact_name: '',
-        contact_phone: '',
-        contact_email: '',
-        gst_number: '',
+        name: '', contact_name: '', contact_phone: '', contact_email: '', gst_number: '',
     });
 
-    const [poStats, setPoStats] = useState<any>({});
-    const [invoiceStats, setInvoiceStats] = useState<any>({});
-    const [paymentStats, setPaymentStats] = useState<any>({});
-
-    // Filter states
     const [poFilters, setPoFilters] = useState({ number: '', supplier: '', date: '', status: '' });
     const [invoiceFilters, setInvoiceFilters] = useState({ number: '', type: '', date: '', status: '' });
     const [paymentFilters, setPaymentFilters] = useState({ date: '', method: '', amount: '' });
 
-    // Form states
     const [poForm, setPoForm] = useState({
         supplier_id: '',
         delivery_date: '',
@@ -118,38 +137,39 @@ export function ProcurementTab({ projectId, projectAddress }: ProcurementTabProp
         notes: '',
     });
 
-    // View PO State
     const [viewPo, setViewPo] = useState<any>(null);
     const [showPoView, setShowPoView] = useState(false);
+    const [viewProposal, setViewProposal] = useState<any>(null);
+    const [showProposalView, setShowProposalView] = useState(false);
 
     const fetchData = async () => {
         try {
             setLoading(true);
-
-            const [posRes, invoicesRes, paymentsRes, suppliersRes, boqRes] = await Promise.all([
+            const [posRes, invoicesRes, paymentsRes, suppliersRes, boqRes, proposalsRes] = await Promise.all([
                 fetch(`/api/purchase-orders?project_id=${projectId}`),
                 fetch(`/api/invoices?project_id=${projectId}`),
                 fetch(`/api/payments?project_id=${projectId}`),
                 fetch('/api/suppliers?active=true'),
                 fetch(`/api/boq?project_id=${projectId}`),
+                fetch(`/api/proposals?project_id=${projectId}`),
             ]);
 
-            const [posData, invoicesData, paymentsData, suppliersData, boqData] = await Promise.all([
+            const [posData, invoicesData, paymentsData, suppliersData, boqData, proposalsData] = await Promise.all([
                 posRes.json(),
                 invoicesRes.json(),
                 paymentsRes.json(),
                 suppliersRes.json(),
                 boqRes.json(),
+                proposalsRes.json(),
             ]);
 
             setPos(posData.pos || []);
-            setPoStats(posData.stats || {});
             setInvoices(invoicesData.invoices || []);
-            setInvoiceStats(invoicesData.stats || {});
             setPayments(paymentsData.payments || []);
-            setPaymentStats(paymentsData.stats || {});
             setSuppliers(suppliersData.suppliers || []);
             setBoqItems(boqData.items || []);
+            setProposals(proposalsData.proposals || []);
+
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to fetch data');
         } finally {
@@ -157,7 +177,15 @@ export function ProcurementTab({ projectId, projectAddress }: ProcurementTabProp
         }
     };
 
-    // Filtered lists
+    const vendorPos = useMemo(() => pos, [pos]);
+    const vendorInvoices = useMemo(() => invoices.filter(i => i.supplier_id), [invoices]);
+    const vendorPayments = useMemo(() => payments.filter(p => p.supplier_id), [payments]);
+
+    const clientProposals = useMemo(() => proposals, [proposals]);
+    const clientOrders = useMemo(() => proposals.filter(p => p.status === 'approved'), [proposals]);
+    const clientInvoices = useMemo(() => invoices.filter(i => !i.supplier_id), [invoices]);
+    const clientPayments = useMemo(() => payments.filter(p => !p.supplier_id), [payments]);
+
     const filteredPos = useMemo(() => {
         return pos.filter(po => {
             const matchNumber = !poFilters.number || po.po_number.toLowerCase().includes(poFilters.number.toLowerCase());
@@ -169,8 +197,8 @@ export function ProcurementTab({ projectId, projectAddress }: ProcurementTabProp
         });
     }, [pos, poFilters]);
 
-    const filteredInvoices = useMemo(() => {
-        return invoices.filter(inv => {
+    const getFilteredInvoices = (list: Invoice[]) => {
+        return list.filter(inv => {
             const matchNumber = !invoiceFilters.number || (inv.invoice_number || '').toLowerCase().includes(invoiceFilters.number.toLowerCase());
             const matchType = !invoiceFilters.type || inv.invoice_type === invoiceFilters.type;
             const invDate = new Date(inv.created_at).toLocaleDateString();
@@ -178,17 +206,21 @@ export function ProcurementTab({ projectId, projectAddress }: ProcurementTabProp
             const matchStatus = !invoiceFilters.status || inv.status === invoiceFilters.status;
             return matchNumber && matchType && matchDate && matchStatus;
         });
-    }, [invoices, invoiceFilters]);
+    };
 
-    const filteredPayments = useMemo(() => {
-        return payments.filter(pay => {
+    const getFilteredPayments = (list: Payment[]) => {
+        return list.filter(pay => {
             const payDate = new Date(pay.payment_date).toLocaleDateString();
             const matchDate = !paymentFilters.date || payDate.includes(paymentFilters.date);
             const matchMethod = !paymentFilters.method || (pay.payment_method || '').includes(paymentFilters.method);
             const matchAmount = !paymentFilters.amount || pay.amount.toString().includes(paymentFilters.amount);
             return matchDate && matchMethod && matchAmount;
         });
-    }, [payments, paymentFilters]);
+    };
+
+    const confirmedItems = useMemo(() => boqItems.filter((item: any) =>
+        item.status === 'confirmed' && (item.ordered_quantity || 0) < item.quantity
+    ), [boqItems]);
 
     useEffect(() => {
         fetchData();
@@ -221,15 +253,10 @@ export function ProcurementTab({ projectId, projectAddress }: ProcurementTabProp
             const data = await res.json();
             if (data.error) throw new Error(data.error);
 
-            // Refresh suppliers list
             const suppliersRes = await fetch(`/api/suppliers?active=true`);
             const suppliersData = await suppliersRes.json();
             setSuppliers(suppliersData.suppliers || []);
-
-            // Auto-select the new supplier
             setPoForm({ ...poForm, supplier_id: data.supplier.id });
-
-            // Reset form and close
             setSupplierForm({ name: '', contact_name: '', contact_phone: '', contact_email: '', gst_number: '' });
             setShowSupplierForm(false);
         } catch (err) {
@@ -249,25 +276,142 @@ export function ProcurementTab({ projectId, projectAddress }: ProcurementTabProp
             if (!response.ok) throw new Error('Failed to update status');
 
             const { po } = await response.json();
-
-            // Update local state
             setPos((prev: any[]) => prev.map(p => p.id === po.id ? { ...p, status: po.status } : p));
             setViewPo((prev: any) => prev ? { ...prev, status: po.status } : null);
-
-            if (status === 'sent') {
-                // Ideally show a success toast here
-                // alert('PO marked as sent');
-            }
         } catch (error) {
             console.error('Error updating PO status:', error);
             alert('Failed to update status');
         }
     };
 
-    // Get confirmed BOQ items ready for PO (Partial Ordering Supported)
-    const confirmedItems = boqItems.filter((item: any) =>
-        item.status === 'confirmed' && (item.ordered_quantity || 0) < item.quantity
-    );
+    const handleCreatePO = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            const payload = {
+                project_id: projectId,
+                ...poForm,
+                delivery_date: poForm.delivery_date || null,
+            };
+
+            const res = await fetch('/api/purchase-orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            if (data.budget_warning) {
+                if (data.budget_warning.warning === 'validation_warnings') {
+                    alert(`PO Created with Warnings:\n\n${data.budget_warning.messages.join('\n')}`);
+                } else if (data.budget_warning.warning === 'order_exceeds_budget') {
+                    alert(`PO Created but Project Budget Exceeded!\n\nOver by: ₹${data.budget_warning.over_amount.toLocaleString()}`);
+                }
+            }
+            fetchData();
+            setShowPoForm(false);
+            setPoForm({
+                supplier_id: '',
+                delivery_date: '',
+                delivery_address: projectAddress || '',
+                notes: '',
+                gst_rate: 18,
+                line_items: [{ boq_item_id: '', description: '', unit: '', quantity: 0, rate: 0 }],
+            });
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to create PO');
+        }
+    };
+
+    const handleCreateInvoice = async (e: React.FormEvent, isClient = false) => {
+        e.preventDefault();
+        try {
+            const payload = {
+                project_id: projectId,
+                ...invoiceForm,
+                invoice_date: invoiceForm.invoice_date || null,
+            };
+
+            if (isClient) {
+                payload.supplier_id = null as any;
+                payload.po_id = null as any;
+            }
+
+            const res = await fetch('/api/invoices', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            fetchData();
+            setShowInvoiceForm(false);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to create invoice');
+        }
+    };
+
+    const handleCreatePayment = async (e: React.FormEvent, isClient = false) => {
+        e.preventDefault();
+        try {
+            const payload = {
+                project_id: projectId,
+                ...paymentForm,
+                payment_date: paymentForm.payment_date || new Date().toISOString().split('T')[0], // Default to today if empty? Or null? Payment date is usually required. Form maps to required input.
+            };
+
+            if (isClient) {
+                payload.supplier_id = null as any;
+            }
+
+            const res = await fetch('/api/payments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            fetchData();
+            setShowPaymentForm(false);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to record payment');
+        }
+    };
+
+    const handleApproveInvoice = async (id: string, approved: boolean) => {
+        try {
+            const status = approved ? 'approved' : 'rejected';
+            const res = await fetch('/api/invoices', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, status }),
+            });
+            if (!res.ok) throw new Error('Failed to update invoice');
+            fetchData();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to update invoice');
+        }
+    };
+
+    const addLineItem = () => {
+        setPoForm(prev => ({
+            ...prev,
+            line_items: [...prev.line_items, { boq_item_id: '', description: '', unit: '', quantity: 0, rate: 0 }]
+        }));
+    };
+
+    const updateLineItem = (index: number, field: string, value: any) => {
+        const newItems = [...poForm.line_items];
+        newItems[index] = { ...newItems[index], [field]: value };
+        setPoForm(prev => ({ ...prev, line_items: newItems }));
+    };
+
+    const removeLineItem = (index: number) => {
+        const newItems = poForm.line_items.filter((_, i) => i !== index);
+        setPoForm(prev => ({ ...prev, line_items: newItems }));
+    };
+
+    const handleCreateClientInvoice = (e: React.FormEvent) => handleCreateInvoice(e, true);
+    const handleCreateClientPayment = (e: React.FormEvent) => handleCreatePayment(e, true);
 
     const getPoStatusBadge = (status: string) => {
         const styles: Record<string, string> = {
@@ -299,192 +443,63 @@ export function ProcurementTab({ projectId, projectAddress }: ProcurementTabProp
         );
     };
 
-    const handleCreatePO = async (e: React.FormEvent) => {
-        e.preventDefault();
-        try {
-            const res = await fetch('/api/purchase-orders', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    project_id: projectId,
-                    ...poForm,
-                }),
-            });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            if (data.budget_warning) {
-                if (data.budget_warning.warning === 'validation_warnings') {
-                    alert(`PO Created with Warnings:\n\n${data.budget_warning.messages.join('\n')}`);
-                } else if (data.budget_warning.warning === 'order_exceeds_budget') {
-                    alert(`PO Created but Project Budget Exceeded!\n\nOver by: ₹${data.budget_warning.over_amount.toLocaleString()}`);
-                }
-            } else {
-                // Success toast or subtle notification could go here
-            }
+    const currentInvoices = viewMode === 'client' ? clientInvoices : vendorInvoices;
+    const currentPayments = viewMode === 'client' ? clientPayments : vendorPayments;
+    const currentOrders = viewMode === 'client' ? clientOrders : vendorPos;
 
-            fetchData();
-            setShowPoForm(false);
-            setPoForm({
-                supplier_id: '',
-                delivery_date: '',
-                delivery_address: projectAddress || '',
-                notes: '',
-                gst_rate: 18,
-                line_items: [{ boq_item_id: '', description: '', unit: '', quantity: 0, rate: 0 }],
-            });
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to create PO');
+    // Calculate Stats for current view
+    const stats = useMemo(() => {
+        if (viewMode === 'client') {
+            return {
+                ordersCount: clientOrders.length,
+                ordersValue: clientOrders.reduce((acc, o) => acc + (o.total_amount || 0), 0),
+                pendingInvoices: clientInvoices.filter(i => i.status === 'pending').reduce((acc, i) => acc + i.total_amount, 0),
+                paidAmount: clientPayments.reduce((acc, p) => acc + p.amount, 0)
+            };
+        } else {
+            return {
+                ordersCount: vendorPos.length,
+                ordersValue: vendorPos.reduce((acc, p) => acc + p.total_amount, 0),
+                pendingInvoices: vendorInvoices.filter(i => i.status === 'pending').reduce((acc, i) => acc + i.total_amount, 0),
+                paidAmount: vendorPayments.reduce((acc, p) => acc + p.amount, 0)
+            };
         }
-    };
-
-    const handleCreateInvoice = async (e: React.FormEvent) => {
-        e.preventDefault();
-        try {
-            const res = await fetch('/api/invoices', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    project_id: projectId,
-                    ...invoiceForm,
-                }),
-            });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            fetchData();
-            setShowInvoiceForm(false);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to create invoice');
-        }
-    };
-
-    const handleCreatePayment = async (e: React.FormEvent) => {
-        e.preventDefault();
-        try {
-            const res = await fetch('/api/payments', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    project_id: projectId,
-                    ...paymentForm,
-                }),
-            });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            fetchData();
-            setShowPaymentForm(false);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to record payment');
-        }
-    };
-
-    const handleApproveInvoice = async (invoiceId: string, approve: boolean) => {
-        try {
-            const res = await fetch('/api/invoices', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: invoiceId,
-                    action: approve ? 'approve' : 'reject',
-                }),
-            });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            fetchData();
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to update invoice');
-        }
-    };
-
-    const addLineItem = () => {
-        setPoForm({
-            ...poForm,
-            line_items: [...poForm.line_items, { boq_item_id: '', description: '', unit: '', quantity: 0, rate: 0 }],
-        });
-    };
-
-    const updateLineItem = (index: number, field: string, value: any) => {
-        const newItems = [...poForm.line_items];
-        newItems[index] = { ...newItems[index], [field]: value };
-
-        // If selecting from BOQ, auto-fill
-        if (field === 'boq_item_id' && value) {
-            const boqItem = boqItems.find(b => b.id === value);
-            if (boqItem) {
-                const remainingQty = Math.max(0, boqItem.quantity - (boqItem.ordered_quantity || 0));
-                newItems[index] = {
-                    ...newItems[index],
-                    description: boqItem.item_name,
-                    unit: boqItem.unit,
-                    rate: boqItem.rate,
-                    quantity: remainingQty,
-                };
-            }
-        }
-
-        setPoForm({ ...poForm, line_items: newItems });
-    };
-
-    const removeLineItem = (index: number) => {
-        if (poForm.line_items.length > 1) {
-            setPoForm({
-                ...poForm,
-                line_items: poForm.line_items.filter((_, i) => i !== index),
-            });
-        }
-    };
-
-    if (loading) {
-        return (
-            <div className="p-6 animate-pulse">
-                <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                    {[1, 2, 3].map(i => (
-                        <div key={i} className="h-24 bg-gray-100 rounded-xl"></div>
-                    ))}
-                </div>
-            </div>
-        );
-    }
+    }, [viewMode, clientOrders, clientInvoices, clientPayments, vendorPos, vendorInvoices, vendorPayments]);
 
     return (
         <div className="p-4 md:p-6">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Procurement</h2>
-            </div>
-
-            {/* Stats Cards */}
+            {/* Stats Cards - Show for all views to give context */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
                 <div className="bg-white p-3 md:p-4 rounded-xl border border-gray-100 shadow-sm">
                     <div className="flex items-center gap-2 md:gap-3">
-                        <div className="p-2 bg-yellow-50 rounded-lg">
-                            <FiPackage className="w-4 h-4 md:w-5 md:h-5 text-yellow-600" />
+                        <div className="p-2 bg-blue-50 rounded-lg">
+                            <FiPackage className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
                         </div>
                         <div>
-                            <p className="text-xs md:text-sm text-gray-500">POs</p>
-                            <p className="text-lg md:text-xl font-bold">{poStats.total || 0}</p>
+                            <p className="text-xs md:text-sm text-gray-500">{viewMode === 'client' ? 'Approved Orders' : 'Purchase Orders'}</p>
+                            <p className="text-lg md:text-xl font-bold">{stats.ordersCount}</p>
                         </div>
                     </div>
                 </div>
                 <div className="bg-white p-3 md:p-4 rounded-xl border border-gray-100 shadow-sm">
                     <div className="flex items-center gap-2 md:gap-3">
                         <div className="p-2 bg-yellow-50 rounded-lg">
-                            <FiDollarSign className="w-4 h-4 md:w-5 md:h-5 text-yellow-600" />
+                            <FaRupeeSign className="w-4 h-4 md:w-5 md:h-5 text-yellow-600" />
                         </div>
                         <div>
-                            <p className="text-xs md:text-sm text-gray-500">PO Value</p>
-                            <p className="text-lg md:text-xl font-bold">{formatAmount(poStats.totalValue || 0)}</p>
+                            <p className="text-xs md:text-sm text-gray-500">Total Value</p>
+                            <p className="text-lg md:text-xl font-bold">{formatAmount(stats.ordersValue)}</p>
                         </div>
                     </div>
                 </div>
                 <div className="bg-white p-3 md:p-4 rounded-xl border border-gray-100 shadow-sm">
                     <div className="flex items-center gap-2 md:gap-3">
-                        <div className="p-2 bg-yellow-50 rounded-lg">
-                            <FiClock className="w-4 h-4 md:w-5 md:h-5 text-yellow-600" />
+                        <div className="p-2 bg-red-50 rounded-lg">
+                            <FiClock className="w-4 h-4 md:w-5 md:h-5 text-red-600" />
                         </div>
                         <div>
                             <p className="text-xs md:text-sm text-gray-500">Pending</p>
-                            <p className="text-lg md:text-xl font-bold">{formatAmount(invoiceStats.pendingValue || 0)}</p>
+                            <p className="text-lg md:text-xl font-bold">{formatAmount(stats.pendingInvoices)}</p>
                         </div>
                     </div>
                 </div>
@@ -494,67 +509,73 @@ export function ProcurementTab({ projectId, projectAddress }: ProcurementTabProp
                             <FiCheckCircle className="w-4 h-4 md:w-5 md:h-5 text-green-600" />
                         </div>
                         <div>
-                            <p className="text-xs md:text-sm text-gray-500">Paid</p>
-                            <p className="text-lg md:text-xl font-bold">{formatAmount(paymentStats.totalAmount || 0)}</p>
+                            <p className="text-xs md:text-sm text-gray-500">{viewMode === 'client' ? 'Received' : 'Paid'}</p>
+                            <p className="text-lg md:text-xl font-bold">{formatAmount(stats.paidAmount)}</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Tabs */}
-            <div className="flex gap-1 md:gap-2 mb-4 border-b border-gray-200 overflow-x-auto no-scrollbar">
-                {[
-                    { key: 'orders', label: 'POs', count: pos.length },
-                    { key: 'invoices', label: 'Invoices', count: invoices.length },
-                    { key: 'payments', label: 'Payments', count: payments.length },
-                ].map(tab => (
+            {/* Internal Navigation: Only show for 'My Scope' (Vendor) as it has sub-modules */}
+            {isVendorMode && (
+                <div className="flex gap-1 md:gap-2 mb-4 border-b border-gray-200 overflow-x-auto no-scrollbar">
                     <button
-                        key={tab.key}
-                        onClick={() => setActiveTab(tab.key as TabType)}
-                        className={`px-3 md:px-4 py-2 text-xs md:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap focus:outline-none ${activeTab === tab.key
-                            ? 'border-yellow-500 text-yellow-600'
-                            : 'border-transparent text-gray-600 hover:text-gray-900'
-                            }`}
+                        onClick={() => setInternalTab('orders')}
+                        className={`px-3 md:px-4 py-2 text-xs md:text-sm font-medium border-b-2 -mb-px hover:text-gray-900 transition-colors whitespace-nowrap focus:outline-none ${internalTab === 'orders' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-600'}`}
                     >
-                        {tab.label}
-                        <span className="ml-1 md:ml-2 px-1.5 md:px-2 py-0.5 bg-gray-100 rounded-full text-xs">
-                            {tab.count}
-                        </span>
+                        Purchase Orders
+                        <span className="ml-1 bg-gray-100 px-1.5 py-0.5 rounded-full text-xs">{currentOrders.length}</span>
                     </button>
-                ))}
-                <div className="ml-auto flex gap-2 flex-shrink-0">
-                    {isAdmin && activeTab === 'orders' && (
-                        <button
-                            onClick={() => setShowPoForm(true)}
-                            className="flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 text-white rounded-lg font-medium text-sm focus:outline-none hover:opacity-90"
-                            style={{ backgroundColor: '#eab308' }}
-                        >
-                            <FiPlus className="w-4 h-4" />
-                            <span className="hidden sm:inline">New PO</span>
+
+                    <button
+                        onClick={() => setInternalTab('invoices')}
+                        className={`px-3 md:px-4 py-2 text-xs md:text-sm font-medium border-b-2 -mb-px hover:text-gray-900 transition-colors whitespace-nowrap focus:outline-none ${internalTab === 'invoices' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-600'}`}
+                    >
+                        Invoices <span className="ml-1 bg-gray-100 px-1.5 py-0.5 rounded-full text-xs">{currentInvoices.length}</span>
+                    </button>
+
+                    <button
+                        onClick={() => setInternalTab('payments')}
+                        className={`px-3 md:px-4 py-2 text-xs md:text-sm font-medium border-b-2 -mb-px hover:text-gray-900 transition-colors whitespace-nowrap focus:outline-none ${internalTab === 'payments' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-600'}`}
+                    >
+                        Payments <span className="ml-1 bg-gray-100 px-1.5 py-0.5 rounded-full text-xs">{currentPayments.length}</span>
+                    </button>
+
+                    <div className="ml-auto flex gap-2 flex-shrink-0">
+                        {internalTab === 'orders' && isAdmin && (
+                            <button onClick={() => setShowPoForm(true)} className="flex items-center gap-2 px-3 py-1.5 text-white bg-yellow-500 hover:bg-yellow-600 rounded-lg text-sm transition-colors">
+                                <FiPlus className="w-4 h-4" /> New PO
+                            </button>
+                        )}
+                        {internalTab === 'invoices' && isAdmin && (
+                            <button onClick={() => setShowInvoiceForm(true)} className="flex items-center gap-2 px-3 py-1.5 text-white bg-yellow-500 hover:bg-yellow-600 rounded-lg text-sm transition-colors">
+                                <FiPlus className="w-4 h-4" /> New Invoice
+                            </button>
+                        )}
+                        {internalTab === 'payments' && isAdmin && (
+                            <button onClick={() => setShowPaymentForm(true)} className="flex items-center gap-2 px-3 py-1.5 text-white bg-yellow-500 hover:bg-yellow-600 rounded-lg text-sm transition-colors">
+                                <FiPlus className="w-4 h-4" /> Record Payment
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Action Buttons for Single View Modes (Client) */}
+            {!isVendorMode && (
+                <div className="flex justify-end mb-4">
+                    {internalTab === 'invoices' && isAdmin && (
+                        <button onClick={() => setShowInvoiceForm(true)} className="flex items-center gap-2 px-3 py-1.5 text-white bg-yellow-500 hover:bg-yellow-600 rounded-lg text-sm transition-colors">
+                            <FiPlus className="w-4 h-4" /> New Invoice
                         </button>
                     )}
-                    {isAdmin && activeTab === 'invoices' && (
-                        <button
-                            onClick={() => setShowInvoiceForm(true)}
-                            className="flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 text-white rounded-lg font-medium text-sm focus:outline-none hover:opacity-90"
-                            style={{ backgroundColor: '#eab308' }}
-                        >
-                            <FiPlus className="w-4 h-4" />
-                            <span className="hidden sm:inline">New Invoice</span>
-                        </button>
-                    )}
-                    {isAdmin && activeTab === 'payments' && (
-                        <button
-                            onClick={() => setShowPaymentForm(true)}
-                            className="flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 text-white rounded-lg font-medium text-sm focus:outline-none hover:opacity-90"
-                            style={{ backgroundColor: '#eab308' }}
-                        >
-                            <FiPlus className="w-4 h-4" />
-                            <span className="hidden sm:inline">Record Payment</span>
+                    {internalTab === 'payments' && isAdmin && (
+                        <button onClick={() => setShowPaymentForm(true)} className="flex items-center gap-2 px-3 py-1.5 text-white bg-yellow-500 hover:bg-yellow-600 rounded-lg text-sm transition-colors">
+                            <FiPlus className="w-4 h-4" /> Record Payment
                         </button>
                     )}
                 </div>
-            </div>
+            )}
 
             {error && (
                 <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg flex items-center gap-2">
@@ -566,896 +587,373 @@ export function ProcurementTab({ projectId, projectAddress }: ProcurementTabProp
                 </div>
             )}
 
-            {/* Purchase Orders Tab */}
-            {activeTab === 'orders' && (
-                <>
-                    {/* Ready for PO Section - Approved BOQ Items */}
-                    {confirmedItems.length > 0 && (
-                        <div className="mb-6 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-2">
-                                    <div className="p-2 bg-green-500 rounded-lg">
-                                        <FiCheck className="w-4 h-4 text-white" />
-                                    </div>
+            {internalTab === 'proposals' && viewMode === 'client' && (
+                <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
+                    {clientProposals.length === 0 ? (
+                        <div className="p-8 text-center text-gray-500">
+                            <FiFileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                            <p>No proposals generated yet</p>
+                            <p className="text-xs mt-2">Create proposals in the BOQ / Estimate tab</p>
+                        </div>
+                    ) : (
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200 bg-white">
+                                {clientProposals.map(p => (
+                                    <tr key={p.id}>
+                                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{p.title}</td>
+                                        <td className="px-6 py-4 text-sm text-gray-500">{formatDate(p.created_at)}</td>
+                                        <td className="px-6 py-4 text-sm text-right font-medium">{formatAmount(p.total_amount)}</td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className={`px-2 py-1 text-xs rounded-full ${p.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                                {p.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <button onClick={() => { setViewProposal(p); setShowProposalView(true); }} className="text-blue-600 hover:text-blue-800 flex items-center gap-1 justify-end ml-auto">
+                                                <FiEye className="w-4 h-4" /> View
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            )}
+
+            {internalTab === 'orders' && (
+                <div className="space-y-4">
+                    {viewMode === 'vendor' ? (
+                        <>
+                            {confirmedItems.length > 0 && (
+                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4 flex items-center justify-between">
                                     <div>
                                         <h3 className="font-semibold text-gray-900">Ready for Purchase Order</h3>
-                                        <p className="text-sm text-gray-600">{confirmedItems.length} approved items awaiting PO</p>
+                                        <p className="text-sm text-gray-600">{confirmedItems.length} approved BOQ items</p>
                                     </div>
-                                </div>
-                                <button
-                                    onClick={() => setShowPoForm(true)}
-                                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium text-sm hover:bg-green-700"
-                                >
-                                    <FiPlus className="w-4 h-4" />
-                                    Create PO
-                                </button>
-                            </div>
-                            <div className="space-y-2">
-                                {confirmedItems.slice(0, 5).map((item: any) => (
-                                    <div key={item.id} className="flex justify-between items-center py-2 px-3 bg-white/70 rounded-lg">
-                                        <div className="flex-1">
-                                            <p className="font-medium text-gray-900">{item.item_name}</p>
-                                            <div className="flex items-center gap-2 text-xs text-gray-500">
-                                                <span>
-                                                    Qty: {item.quantity} {item.unit}
-                                                </span>
-                                                <span className="text-gray-300">|</span>
-                                                <span className={item.ordered_quantity > 0 ? 'text-yellow-600' : ''}>
-                                                    Ordered: {item.ordered_quantity || 0}
-                                                </span>
-                                                <span className="text-gray-300">|</span>
-                                                <span>Rate: ₹{item.rate}</span>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="font-medium text-green-700">
-                                                ₹{(item.amount || 0).toLocaleString('en-IN')}
-                                            </p>
-                                            <p className="text-xs text-gray-500">
-                                                Rem: {(item.quantity - (item.ordered_quantity || 0))} {item.unit}
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))}
-                                {confirmedItems.length > 5 && (
-                                    <p className="text-sm text-gray-500 text-center pt-2">
-                                        +{confirmedItems.length - 5} more items
-                                    </p>
-                                )}
-                            </div>
-                            <div className="flex justify-between items-center mt-3 pt-3 border-t border-green-200">
-                                <span className="font-medium text-gray-700">Total Approved Value</span>
-                                <span className="text-lg font-bold text-green-700">
-                                    ₹{confirmedItems.reduce((sum: number, i: any) => sum + (i.amount || 0), 0).toLocaleString('en-IN')}
-                                </span>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Mobile Card View */}
-                    <div className="md:hidden space-y-3">
-                        {pos.map((po) => (
-                            <div key={po.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                        <p className="font-semibold text-gray-900">{po.po_number}</p>
-                                        <p className="text-sm text-gray-500">{po.supplier?.name || '-'}</p>
-                                    </div>
-                                    {getPoStatusBadge(po.status)}
-                                </div>
-                                <div className="flex justify-between items-center text-sm mb-3">
-                                    <span className="text-gray-500">{formatDate(po.po_date)}</span>
-                                    <span className="font-bold text-gray-900">{formatAmount(po.total_amount)}</span>
-                                </div>
-                                <div className="flex justify-end pt-3 border-t border-gray-100">
                                     <button
-                                        onClick={() => {
-                                            setViewPo(po);
-                                            setShowPoView(true);
-                                        }}
-                                        className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                                    >
-                                        <FiEye className="w-3 h-3" />
-                                        View Details
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                        {pos.length === 0 && (
-                            <div className="bg-white rounded-xl border border-gray-100 p-8 text-center text-gray-500">
-                                <FiPackage className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                                <p>No purchase orders yet</p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Desktop Table View */}
-                    <div className="hidden md:block bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-white border-b border-gray-200">
-                                <tr>
-                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PO Number</th>
-                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
-                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                </tr>
-                                {/* Inline Filter Row */}
-                                <tr className="bg-white border-b border-gray-100">
-                                    <td className="px-3 py-2">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-gray-400 p-1">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-                                            </span>
-                                            <div className="relative w-full">
-                                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2">
-                                                    <FiSearch className="w-3 h-3 text-gray-400" />
-                                                </div>
-                                                <input
-                                                    type="text"
-                                                    placeholder="Search PO #"
-                                                    value={poFilters.number}
-                                                    onChange={(e) => setPoFilters(prev => ({ ...prev, number: e.target.value }))}
-                                                    className="w-full pl-7 pr-2 py-1.5 text-xs bg-white border border-gray-100 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white"
-                                                />
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-3 py-2">
-                                        <div className="relative w-full">
-                                            <input
-                                                type="text"
-                                                placeholder="Filter Supplier"
-                                                value={poFilters.supplier}
-                                                onChange={(e) => setPoFilters(prev => ({ ...prev, supplier: e.target.value }))}
-                                                className="w-full px-2 py-1.5 text-xs bg-white border border-gray-100 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white"
-                                            />
-                                        </div>
-                                    </td>
-                                    <td className="px-3 py-2">
-                                        <div className="relative w-full">
-                                            <input
-                                                type="text"
-                                                placeholder="Filter Date"
-                                                value={poFilters.date}
-                                                onChange={(e) => setPoFilters(prev => ({ ...prev, date: e.target.value }))}
-                                                className="w-full px-2 py-1.5 text-xs bg-white border border-gray-100 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white"
-                                            />
-                                        </div>
-                                    </td>
-                                    <td className="px-3 py-2"></td>
-                                    <td className="px-3 py-2">
-                                        <div className="relative w-full">
-                                            <select
-                                                value={poFilters.status}
-                                                onChange={(e) => setPoFilters(prev => ({ ...prev, status: e.target.value }))}
-                                                className="w-full pl-2 pr-6 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white appearance-none"
-                                            >
-                                                <option value="">All Status</option>
-                                                <option value="draft">Draft</option>
-                                                <option value="sent">Sent</option>
-                                                <option value="acknowledged">Acknowledged</option>
-                                                <option value="partially_received">Partial</option>
-                                                <option value="received">Received</option>
-                                                <option value="cancelled">Cancelled</option>
-                                            </select>
-                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                                                <FiChevronDown className="w-3 h-3" />
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {filteredPos.map((po) => (
-                                    <tr key={po.id} className="hover:bg-gray-50">
-                                        <td className="px-3 py-3 font-medium text-gray-900">{po.po_number}</td>
-                                        <td className="px-3 py-3 text-gray-600">{po.supplier?.name || '-'}</td>
-                                        <td className="px-3 py-3 text-gray-600">{formatDate(po.po_date)}</td>
-                                        <td className="px-3 py-3 text-right font-medium">{formatAmount(po.total_amount)}</td>
-                                        <td className="px-3 py-3 text-center">{getPoStatusBadge(po.status)}</td>
-                                        <td className="px-3 py-3 text-right">
-                                            <button
-                                                onClick={() => {
-                                                    setViewPo(po);
-                                                    setShowPoView(true);
-                                                }}
-                                                className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                                                title="View PO"
-                                            >
-                                                <FiEye className="w-4 h-4" />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {pos.length === 0 && (
-                                    <tr>
-                                        <td colSpan={5} className="px-4 py-12 text-center text-gray-500">
-                                            <FiPackage className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                                            <p>No purchase orders yet</p>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </>
-            )}
-
-            {/* Invoices Tab */}
-            {activeTab === 'invoices' && (
-                <>
-                    {/* Mobile Card View */}
-                    <div className="md:hidden space-y-3">
-                        {invoices.map((invoice) => (
-                            <div key={invoice.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                        <p className="font-semibold text-gray-900">{invoice.invoice_number || 'No #'}</p>
-                                        <p className="text-sm text-gray-500 capitalize">{invoice.invoice_type.replace(/_/g, ' ')}</p>
-                                    </div>
-                                    {getInvoiceStatusBadge(invoice.status)}
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-gray-500">{formatDate(invoice.created_at)}</span>
-                                    <span className="font-bold text-gray-900">{formatAmount(invoice.total_amount)}</span>
-                                </div>
-                                {isAdmin && invoice.status === 'pending' && (
-                                    <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
-                                        <button
-                                            onClick={() => handleApproveInvoice(invoice.id, true)}
-                                            className="flex-1 py-2 text-sm text-green-600 bg-green-50 rounded-lg font-medium focus:outline-none"
-                                        >
-                                            Approve
-                                        </button>
-                                        <button
-                                            onClick={() => handleApproveInvoice(invoice.id, false)}
-                                            className="flex-1 py-2 text-sm text-red-600 bg-red-50 rounded-lg font-medium focus:outline-none"
-                                        >
-                                            Reject
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                        {invoices.length === 0 && (
-                            <div className="bg-white rounded-xl border border-gray-100 p-8 text-center text-gray-500">
-                                <FiFileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                                <p>No invoices yet</p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Desktop Table View */}
-                    <div className="hidden md:block bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-white border-b border-gray-200">
-                                <tr>
-                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice #</th>
-                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    {isAdmin && (
-                                        <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                    )}
-                                </tr>
-                                {/* Inline Filter Row */}
-                                <tr className="bg-white border-b border-gray-100">
-                                    <td className="px-3 py-2">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-gray-400 p-1">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-                                            </span>
-                                            <div className="relative w-full">
-                                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2">
-                                                    <FiSearch className="w-3 h-3 text-gray-400" />
-                                                </div>
-                                                <input
-                                                    type="text"
-                                                    placeholder="Search Invoice #"
-                                                    value={invoiceFilters.number}
-                                                    onChange={(e) => setInvoiceFilters(prev => ({ ...prev, number: e.target.value }))}
-                                                    className="w-full pl-7 pr-2 py-1.5 text-xs bg-white border border-gray-100 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white"
-                                                />
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-3 py-2">
-                                        <div className="relative w-full">
-                                            <select
-                                                value={invoiceFilters.type}
-                                                onChange={(e) => setInvoiceFilters(prev => ({ ...prev, type: e.target.value }))}
-                                                className="w-full pl-2 pr-6 py-1.5 text-xs bg-white border border-gray-100 rounded-lg text-gray-600 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white appearance-none"
-                                            >
-                                                <option value="">All Types</option>
-                                                <option value="advance">Advance</option>
-                                                <option value="ra_bill">RA Bill</option>
-                                                <option value="final_bill">Final Bill</option>
-                                            </select>
-                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                                                <FiChevronDown className="w-3 h-3" />
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-3 py-2">
-                                        <div className="relative w-full">
-                                            <input
-                                                type="text"
-                                                placeholder="Filter Date"
-                                                value={invoiceFilters.date}
-                                                onChange={(e) => setInvoiceFilters(prev => ({ ...prev, date: e.target.value }))}
-                                                className="w-full px-2 py-1.5 text-xs bg-gray-50 border border-gray-100 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:bg-white"
-                                            />
-                                        </div>
-                                    </td>
-                                    <td className="px-3 py-2"></td>
-                                    <td className="px-3 py-2">
-                                        <div className="relative w-full">
-                                            <select
-                                                value={invoiceFilters.status}
-                                                onChange={(e) => setInvoiceFilters(prev => ({ ...prev, status: e.target.value }))}
-                                                className="w-full pl-2 pr-6 py-1.5 text-xs bg-gray-50 border border-gray-100 rounded-lg text-gray-600 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:bg-white appearance-none"
-                                            >
-                                                <option value="">Status</option>
-                                                <option value="pending">Pending</option>
-                                                <option value="approved">Approved</option>
-                                                <option value="paid">Paid</option>
-                                                <option value="rejected">Rejected</option>
-                                            </select>
-                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                                                <FiChevronDown className="w-3 h-3" />
-                                            </div>
-                                        </div>
-                                    </td>
-                                    {isAdmin && <td className="px-3 py-2"></td>}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {filteredInvoices.map((invoice) => (
-                                    <tr key={invoice.id} className="hover:bg-gray-50">
-                                        <td className="px-3 py-3 font-medium text-gray-900">{invoice.invoice_number || '-'}</td>
-                                        <td className="px-3 py-3 text-gray-600 capitalize">{invoice.invoice_type.replace(/_/g, ' ')}</td>
-                                        <td className="px-3 py-3 text-gray-600">{formatDate(invoice.created_at)}</td>
-                                        <td className="px-3 py-3 text-right font-medium">{formatAmount(invoice.total_amount)}</td>
-                                        <td className="px-3 py-3 text-center">{getInvoiceStatusBadge(invoice.status)}</td>
-                                        {isAdmin && (
-                                            <td className="px-4 py-3 text-right">
-                                                {invoice.status === 'pending' && (
-                                                    <div className="flex justify-end gap-2">
-                                                        <button
-                                                            onClick={() => handleApproveInvoice(invoice.id, true)}
-                                                            className="p-1 text-green-600 hover:bg-green-50 rounded focus:outline-none"
-                                                            title="Approve"
-                                                        >
-                                                            <FiCheck className="w-4 h-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleApproveInvoice(invoice.id, false)}
-                                                            className="p-1 text-red-600 hover:bg-red-50 rounded focus:outline-none"
-                                                            title="Reject"
-                                                        >
-                                                            <FiX className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </td>
-                                        )}
-                                    </tr>
-                                ))}
-                                {invoices.length === 0 && (
-                                    <tr>
-                                        <td colSpan={isAdmin ? 6 : 5} className="px-4 py-12 text-center text-gray-500">
-                                            <FiFileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                                            <p>No invoices yet</p>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </>
-            )}
-
-            {/* Payments Tab */}
-            {activeTab === 'payments' && (
-                <>
-                    {/* Mobile Card View */}
-                    <div className="md:hidden space-y-3">
-                        {payments.map((payment) => (
-                            <div key={payment.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <p className="font-semibold text-gray-900">{formatDate(payment.payment_date)}</p>
-                                        <p className="text-sm text-gray-500 capitalize">{payment.payment_method?.replace(/_/g, ' ') || 'Unknown'}</p>
-                                    </div>
-                                    <span className="font-bold text-green-600">{formatAmount(payment.amount)}</span>
-                                </div>
-                            </div>
-                        ))}
-                        {payments.length === 0 && (
-                            <div className="bg-white rounded-xl border border-gray-100 p-8 text-center text-gray-500">
-                                <FiDollarSign className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                                <p>No payments recorded yet</p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Desktop Table View */}
-                    <div className="hidden md:block overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-white border-b border-gray-200">
-                                <tr>
-                                    <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
-                                    <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Method</th>
-                                    <th className="px-3 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Amount</th>
-                                </tr>
-                                {/* Inline Filter Row */}
-                                <tr className="bg-white border-b border-gray-100">
-                                    <td className="px-3 py-2">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-gray-400 p-1">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-                                            </span>
-                                            <div className="relative w-full">
-                                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2">
-                                                    <FiSearch className="w-3 h-3 text-gray-400" />
-                                                </div>
-                                                <input
-                                                    type="text"
-                                                    placeholder="Search Date"
-                                                    value={paymentFilters.date}
-                                                    onChange={(e) => setPaymentFilters(prev => ({ ...prev, date: e.target.value }))}
-                                                    className="w-full pl-7 pr-2 py-1.5 text-xs bg-gray-50 border border-gray-100 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:bg-white"
-                                                />
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-3 py-2">
-                                        <div className="relative w-full">
-                                            <select
-                                                value={paymentFilters.method}
-                                                onChange={(e) => setPaymentFilters(prev => ({ ...prev, method: e.target.value }))}
-                                                className="w-full pl-2 pr-6 py-1.5 text-xs bg-gray-50 border border-gray-100 rounded-lg text-gray-600 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:bg-white appearance-none"
-                                            >
-                                                <option value="">All Methods</option>
-                                                <option value="bank_transfer">Bank Transfer</option>
-                                                <option value="upi">UPI</option>
-                                                <option value="cash">Cash</option>
-                                                <option value="cheque">Cheque</option>
-                                            </select>
-                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                                                <FiChevronDown className="w-3 h-3" />
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-3 py-2">
-                                        <div className="relative w-full">
-                                            <input
-                                                type="text"
-                                                placeholder="Filter Amount"
-                                                value={paymentFilters.amount}
-                                                onChange={(e) => setPaymentFilters(prev => ({ ...prev, amount: e.target.value }))}
-                                                className="w-full px-2 py-1.5 text-xs bg-gray-50 border border-gray-100 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:bg-white"
-                                            />
-                                        </div>
-                                    </td>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {filteredPayments.map((payment) => (
-                                    <tr key={payment.id} className="hover:bg-gray-50">
-                                        <td className="px-3 py-3 font-medium text-gray-900">{formatDate(payment.payment_date)}</td>
-                                        <td className="px-3 py-3 text-gray-600 capitalize">{payment.payment_method?.replace(/_/g, ' ') || '-'}</td>
-                                        <td className="px-3 py-3 text-right font-medium text-green-600">{formatAmount(payment.amount)}</td>
-                                    </tr>
-                                ))}
-                                {payments.length === 0 && (
-                                    <tr>
-                                        <td colSpan={3} className="px-4 py-12 text-center text-gray-500">
-                                            <FiDollarSign className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                                            <p>No payments recorded yet</p>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </>
-            )}
-
-            {/* New PO Modal/Bottom Sheet */}
-            {showPoForm && (
-                <div className="fixed inset-0 bg-black/50 flex items-end md:items-stretch justify-end z-50">
-                    {/* Backdrop */}
-                    <div className="absolute inset-0" onClick={() => setShowPoForm(false)} />
-
-                    {/* Sheet/Side Panel */}
-                    <div className="relative bg-white rounded-t-2xl md:rounded-none w-full md:w-[500px] md:max-w-xl max-h-[85vh] md:max-h-full overflow-y-auto md:shadow-2xl animate-slide-up md:animate-slide-left">
-                        {/* Handle (mobile only) */}
-                        <div className="md:hidden w-12 h-1 bg-gray-300 rounded mx-auto my-3" />
-
-                        <div className="p-4 md:p-6 pb-6">
-                            <h3 className="text-lg font-bold mb-4">Create Purchase Order</h3>
-                            <form onSubmit={handleCreatePO} className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <div className="flex justify-between items-center mb-1">
-                                            <label className="block text-sm font-medium text-gray-700">Supplier</label>
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowSupplierForm(true)}
-                                                className="text-xs text-yellow-600 font-medium hover:text-yellow-700 focus:outline-none"
-                                            >
-                                                + Add New
-                                            </button>
-                                        </div>
-                                        <select
-                                            value={poForm.supplier_id}
-                                            onChange={(e) => setPoForm({ ...poForm, supplier_id: e.target.value })}
-                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-                                        >
-                                            <option value="">Select Supplier</option>
-                                            {suppliers.map(s => (
-                                                <option key={s.id} value={s.id}>{s.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1 text-gray-700">Delivery Date</label>
-                                        <input
-                                            type="date"
-                                            value={poForm.delivery_date}
-                                            onChange={(e) => setPoForm({ ...poForm, delivery_date: e.target.value })}
-                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium mb-2 text-gray-700">Line Items</label>
-                                    {poForm.line_items.map((item, index) => (
-                                        <div key={index} className="grid grid-cols-12 gap-2 mb-2">
-                                            <div className="col-span-12 md:col-span-4">
-                                                <select
-                                                    value={item.boq_item_id}
-                                                    onChange={(e) => updateLineItem(index, 'boq_item_id', e.target.value)}
-                                                    className="w-full px-2 py-2 border border-gray-200 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-                                                >
-                                                    <option value="">Select from BOQ</option>
-                                                    {boqItems.map(b => (
-                                                        <option key={b.id} value={b.id}>{b.item_name}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            <div className="col-span-3 md:col-span-2">
-                                                <input
-                                                    type="text"
-                                                    placeholder="Unit"
-                                                    value={item.unit}
-                                                    onChange={(e) => updateLineItem(index, 'unit', e.target.value)}
-                                                    className="w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-                                                />
-                                            </div>
-                                            <div className="col-span-3 md:col-span-2">
-                                                <input
-                                                    type="number"
-                                                    placeholder="Qty"
-                                                    value={item.quantity || ''}
-                                                    onChange={(e) => updateLineItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                                                    className="w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-                                                />
-                                            </div>
-                                            <div className="col-span-4 md:col-span-2">
-                                                <input
-                                                    type="number"
-                                                    placeholder="Rate"
-                                                    value={item.rate || ''}
-                                                    onChange={(e) => updateLineItem(index, 'rate', parseFloat(e.target.value) || 0)}
-                                                    className="w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-                                                />
-                                            </div>
-                                            <div className="col-span-2 flex items-center justify-end gap-1">
-                                                <span className="text-xs md:text-sm font-medium truncate">
-                                                    ₹{(item.quantity * item.rate).toFixed(0)}
-                                                </span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeLineItem(index)}
-                                                    className="p-1 text-red-500 hover:bg-red-50 rounded flex-shrink-0"
-                                                >
-                                                    <FiX className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    <button
-                                        type="button"
-                                        onClick={addLineItem}
-                                        className="text-sm text-blue-600 hover:underline"
-                                    >
-                                        + Add Line Item
-                                    </button>
-                                </div>
-
-                                <div className="bg-yellow-50 p-3 md:p-4 rounded-lg">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-sm text-gray-600">Subtotal</span>
-                                        <span className="font-medium">
-                                            {formatAmount(poForm.line_items.reduce((sum, i) => sum + (i.quantity * i.rate), 0))}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between items-center mt-2">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm text-gray-600">GST</span>
-                                            <select
-                                                value={poForm.gst_rate}
-                                                onChange={(e) => setPoForm({ ...poForm, gst_rate: parseInt(e.target.value) })}
-                                                className="px-2 py-1 text-sm border border-gray-200 rounded-lg bg-white"
-                                            >
-                                                <option value={0}>0%</option>
-                                                <option value={5}>5%</option>
-                                                <option value={12}>12%</option>
-                                                <option value={18}>18%</option>
-                                                <option value={28}>28%</option>
-                                            </select>
-                                        </div>
-                                        <span className="font-medium">
-                                            {formatAmount(poForm.line_items.reduce((sum, i) => sum + (i.quantity * i.rate), 0) * (poForm.gst_rate / 100))}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between items-center mt-2 pt-2 border-t border-yellow-200">
-                                        <span className="text-lg font-bold text-yellow-900">Total</span>
-                                        <span className="text-lg font-bold text-yellow-900">
-                                            {formatAmount(poForm.line_items.reduce((sum, i) => sum + (i.quantity * i.rate), 0) * (1 + poForm.gst_rate / 100))}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="flex gap-3 pt-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPoForm(false)}
-                                        className="flex-1 px-4 py-2.5 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="flex-1 px-4 py-2.5 text-white rounded-lg font-medium shadow-sm"
-                                        style={{ backgroundColor: '#eab308' }}
+                                        onClick={() => setShowPoForm(true)}
+                                        className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium text-sm hover:bg-green-700"
                                     >
                                         Create PO
                                     </button>
                                 </div>
-                            </form>
+                            )}
+
+                            <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hidden md:block">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">PO #</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200 bg-white">
+                                        {filteredPos.map(po => (
+                                            <tr key={po.id} className="hover:bg-gray-50">
+                                                <td className="px-4 py-3 text-sm font-medium">{po.po_number}</td>
+                                                <td className="px-4 py-3 text-sm text-gray-600">{po.supplier?.name}</td>
+                                                <td className="px-4 py-3 text-sm text-gray-500">{formatDate(po.po_date)}</td>
+                                                <td className="px-4 py-3 text-sm text-right font-medium">{formatAmount(po.total_amount)}</td>
+                                                <td className="px-4 py-3 text-center">{getPoStatusBadge(po.status)}</td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <button onClick={() => { setViewPo(po); setShowPoView(true); }} className="text-blue-600 hover:text-blue-800">
+                                                        <FiEye className="w-4 h-4" />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="md:hidden space-y-3">
+                                {filteredPos.map(po => (
+                                    <div key={po.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="font-bold text-gray-900">{po.po_number}</span>
+                                            {getPoStatusBadge(po.status)}
+                                        </div>
+                                        <p className="text-sm text-gray-600 mb-2">{po.supplier?.name}</p>
+                                        <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                                            <span className="font-bold">{formatAmount(po.total_amount)}</span>
+                                            <button onClick={() => { setViewPo(po); setShowPoView(true); }} className="text-blue-600 text-sm">
+                                                View
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    ) : (
+                        <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm p-4">
+                            {/* Client Orders (Approved Proposals) List */}
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order Ref</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200 bg-white">
+                                    {clientOrders.map(o => (
+                                        <tr key={o.id}>
+                                            <td className="px-6 py-4 text-sm font-medium">{o.title}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{formatDate(o.created_at)}</td>
+                                            <td className="px-6 py-4 text-sm text-right font-medium">{formatAmount(o.total_amount)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            {clientOrders.length === 0 && (
+                                <div className="p-8 text-center text-gray-500">No client orders (approved proposals) found.</div>
+                            )}
                         </div>
+                    )}
+                </div>
+            )}
+
+            {internalTab === 'invoices' && (
+                <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
+                    <table className="min-w-full divide-y divide-gray-200 hidden md:table">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Invoice #</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                {viewMode === 'vendor' && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>}
+                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 bg-white">
+                            {getFilteredInvoices(currentInvoices).map(inv => (
+                                <tr key={inv.id} className="hover:bg-gray-50">
+                                    <td className="px-4 py-3 text-sm font-medium">{inv.invoice_number || '-'}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-500">{formatDate(inv.created_at)}</td>
+                                    {viewMode === 'vendor' && <td className="px-4 py-3 text-sm text-gray-500">{(inv as any).supplier?.name || '-'}</td>}
+                                    <td className="px-4 py-3 text-sm text-right font-bold">{formatAmount(inv.total_amount)}</td>
+                                    <td className="px-4 py-3 text-center">{getInvoiceStatusBadge(inv.status)}</td>
+                                    <td className="px-4 py-3 text-right flex justify-end gap-2">
+                                        {isAdmin && inv.status === 'pending' && (
+                                            <>
+                                                <button onClick={() => handleApproveInvoice(inv.id, true)} className="text-green-600 hover:text-green-800" title="Approve"><FiCheckCircle className="w-4 h-4" /></button>
+                                                <button onClick={() => handleApproveInvoice(inv.id, false)} className="text-red-600 hover:text-red-800" title="Reject"><FiX className="w-4 h-4" /></button>
+                                            </>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+
+                    <div className="md:hidden">
+                        {getFilteredInvoices(currentInvoices).map(inv => (
+                            <div key={inv.id} className="p-4 border-b border-gray-100">
+                                <div className="flex justify-between mb-1">
+                                    <span className="font-medium">{inv.invoice_number || 'No #'}</span>
+                                    {getInvoiceStatusBadge(inv.status)}
+                                </div>
+                                <div className="flex justify-between text-sm text-gray-500">
+                                    <span>{formatDate(inv.created_at)}</span>
+                                    <span className="font-bold text-gray-900">{formatAmount(inv.total_amount)}</span>
+                                </div>
+                                {isAdmin && inv.status === 'pending' && (
+                                    <div className="flex gap-2 mt-2 pt-2 border-t border-gray-100">
+                                        <button onClick={() => handleApproveInvoice(inv.id, true)} className="flex-1 py-1.5 bg-green-50 text-green-700 rounded text-xs font-medium">Approve</button>
+                                        <button onClick={() => handleApproveInvoice(inv.id, false)} className="flex-1 py-1.5 bg-red-50 text-red-700 rounded text-xs font-medium">Reject</button>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    {currentInvoices.length === 0 && <div className="p-8 text-center text-gray-500">No invoices found</div>}
+                </div>
+            )}
+
+            {internalTab === 'payments' && (
+                <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
+                    <table className="min-w-full divide-y divide-gray-200 hidden md:table">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mode</th>
+                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 bg-white">
+                            {getFilteredPayments(currentPayments).map(p => (
+                                <tr key={p.id} className="hover:bg-gray-50">
+                                    <td className="px-4 py-3 text-sm font-medium">{formatDate(p.payment_date)}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-500 capitalize">{p.payment_method?.replace(/_/g, ' ') || '-'}</td>
+                                    <td className="px-4 py-3 text-sm text-right font-bold text-gray-900">{formatAmount(p.amount)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    <div className="md:hidden">
+                        {getFilteredPayments(currentPayments).map(p => (
+                            <div key={p.id} className="p-4 border-b border-gray-100 flex justify-between items-center">
+                                <div>
+                                    <div className="font-medium text-gray-900">{formatDate(p.payment_date)}</div>
+                                    <div className="text-xs text-gray-500 capitalize">{p.payment_method?.replace(/_/g, ' ')}</div>
+                                </div>
+                                <div className="font-bold text-gray-900">{formatAmount(p.amount)}</div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}
 
-            {/* New Invoice Modal */}
+            {showPoForm && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+                        <h3 className="text-lg font-bold mb-4">Create Purchase Order</h3>
+                        <form onSubmit={handleCreatePO} className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Supplier</label>
+                                    <select value={poForm.supplier_id} onChange={e => setPoForm({ ...poForm, supplier_id: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" required>
+                                        <option value="">Select</option>
+                                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Delivery Date</label>
+                                    <input type="date" value={poForm.delivery_date} onChange={e => setPoForm({ ...poForm, delivery_date: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Items</label>
+                                <div className="space-y-2">
+                                    {poForm.line_items.map((item, idx) => (
+                                        <div key={idx} className="flex gap-2 items-center">
+                                            <select
+                                                value={item.boq_item_id}
+                                                onChange={e => updateLineItem(idx, 'boq_item_id', e.target.value)}
+                                                className="flex-1 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all text-sm"
+                                            >
+                                                <option value="">Select BOQ Item</option>
+                                                {boqItems.map(b => (
+                                                    <option key={b.id} value={b.id}>{b.item_name} (Qty: {b.quantity})</option>
+                                                ))}
+                                            </select>
+                                            <input type="number" placeholder="Qty" value={item.quantity} onChange={e => updateLineItem(idx, 'quantity', parseFloat(e.target.value))} className="w-20 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all text-sm" />
+                                            <input type="number" placeholder="Rate" value={item.rate} onChange={e => updateLineItem(idx, 'rate', parseFloat(e.target.value))} className="w-24 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all text-sm" />
+                                            <button type="button" onClick={() => removeLineItem(idx)} className="text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors"><FiTrash2 /></button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <button type="button" onClick={addLineItem} className="mt-2 text-sm text-blue-600 font-medium hover:text-blue-700">+ Add Item</button>
+                            </div>
+
+                            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+                                <button type="button" onClick={() => setShowPoForm(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+                                <button type="submit" className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors shadow-sm">Create PO</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             {showInvoiceForm && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl w-full max-w-md">
-                        <div className="p-6">
-                            <h3 className="text-lg font-bold mb-4">Add Invoice</h3>
-                            <form onSubmit={handleCreateInvoice} className="space-y-4">
+                    <div className="bg-white rounded-xl w-full max-w-md p-6">
+                        <h3 className="text-lg font-bold mb-4">{viewMode === 'client' ? 'Create Client Invoice' : 'Add Vendor Invoice'}</h3>
+                        <form onSubmit={viewMode === 'client' ? handleCreateClientInvoice : handleCreateInvoice} className="space-y-4">
+                            {!viewMode && (
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Invoice Type *</label>
-                                    <select
-                                        value={invoiceForm.invoice_type}
-                                        onChange={(e) => setInvoiceForm({ ...invoiceForm, invoice_type: e.target.value })}
-                                        className="w-full px-3 py-2 border rounded-lg"
-                                        required
-                                    >
-                                        <option value="advance">Advance</option>
-                                        <option value="ra_bill">RA Bill</option>
-                                        <option value="final">Final</option>
-                                        <option value="credit_note">Credit Note</option>
+                                    <label className="block text-sm font-medium mb-1">Supplier</label>
+                                    <select value={invoiceForm.supplier_id} onChange={e => setInvoiceForm({ ...invoiceForm, supplier_id: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" required>
+                                        <option value="">Select Supplier</option>
+                                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                     </select>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Invoice Number</label>
-                                    <input
-                                        type="text"
-                                        value={invoiceForm.invoice_number}
-                                        onChange={(e) => setInvoiceForm({ ...invoiceForm, invoice_number: e.target.value })}
-                                        className="w-full px-3 py-2 border rounded-lg"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Amount *</label>
-                                    <input
-                                        type="number"
-                                        value={invoiceForm.amount}
-                                        onChange={(e) => {
-                                            const amount = parseFloat(e.target.value) || 0;
-                                            const tax = amount * 0.18;
-                                            setInvoiceForm({
-                                                ...invoiceForm,
-                                                amount,
-                                                tax_amount: tax,
-                                                total_amount: amount + tax
-                                            });
-                                        }}
-                                        className="w-full px-3 py-2 border rounded-lg"
-                                        required
-                                    />
-                                </div>
-                                <div className="bg-gray-50 p-3 rounded-lg">
-                                    <div className="flex justify-between">
-                                        <span>Total (incl. GST)</span>
-                                        <span className="font-bold">{formatAmount(invoiceForm.total_amount)}</span>
-                                    </div>
-                                </div>
-                                <div className="flex justify-end gap-3 pt-4">
-                                    <button type="button" onClick={() => setShowInvoiceForm(false)} className="px-4 py-2 text-gray-600">
-                                        Cancel
-                                    </button>
-                                    <button type="submit" className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg font-medium">
-                                        Add Invoice
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
+                            )}
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Invoice Number</label>
+                                <input type="text" value={invoiceForm.invoice_number} onChange={e => setInvoiceForm({ ...invoiceForm, invoice_number: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" required />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Amount</label>
+                                <input type="number" value={invoiceForm.amount} onChange={e => setInvoiceForm({ ...invoiceForm, amount: parseFloat(e.target.value), total_amount: parseFloat(e.target.value) })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" required />
+                            </div>
+                            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+                                <button type="button" onClick={() => setShowInvoiceForm(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+                                <button type="submit" className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors shadow-sm">Submit</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
 
-            {/* New Payment Modal */}
             {showPaymentForm && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl w-full max-w-md">
-                        <div className="p-6">
-                            <h3 className="text-lg font-bold mb-4">Record Payment</h3>
-                            <form onSubmit={handleCreatePayment} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Amount *</label>
-                                    <input
-                                        type="number"
-                                        value={paymentForm.amount}
-                                        onChange={(e) => setPaymentForm({ ...paymentForm, amount: parseFloat(e.target.value) || 0 })}
-                                        className="w-full px-3 py-2 border rounded-lg"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Payment Date *</label>
-                                    <input
-                                        type="date"
-                                        value={paymentForm.payment_date}
-                                        onChange={(e) => setPaymentForm({ ...paymentForm, payment_date: e.target.value })}
-                                        className="w-full px-3 py-2 border rounded-lg"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Payment Method</label>
-                                    <select
-                                        value={paymentForm.payment_method}
-                                        onChange={(e) => setPaymentForm({ ...paymentForm, payment_method: e.target.value })}
-                                        className="w-full px-3 py-2 border rounded-lg"
-                                    >
-                                        <option value="bank_transfer">Bank Transfer</option>
-                                        <option value="cheque">Cheque</option>
-                                        <option value="cash">Cash</option>
-                                        <option value="upi">UPI</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Reference Number</label>
-                                    <input
-                                        type="text"
-                                        value={paymentForm.reference_number}
-                                        onChange={(e) => setPaymentForm({ ...paymentForm, reference_number: e.target.value })}
-                                        className="w-full px-3 py-2 border rounded-lg"
-                                        placeholder="Transaction ID / Cheque No."
-                                    />
-                                </div>
-                                <div className="flex justify-end gap-3 pt-4">
-                                    <button type="button" onClick={() => setShowPaymentForm(false)} className="px-4 py-2 text-gray-600">
-                                        Cancel
-                                    </button>
-                                    <button type="submit" className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg font-medium">
-                                        Record Payment
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
+                    <div className="bg-white rounded-xl w-full max-w-md p-6">
+                        <h3 className="text-lg font-bold mb-4">{viewMode === 'client' ? 'Record Client Payment' : 'Record Vendor Payment'}</h3>
+                        <form onSubmit={viewMode === 'client' ? handleCreateClientPayment : handleCreatePayment} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Amount</label>
+                                <input type="number" value={paymentForm.amount} onChange={e => setPaymentForm({ ...paymentForm, amount: parseFloat(e.target.value) })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" required />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Date</label>
+                                <input type="date" value={paymentForm.payment_date} onChange={e => setPaymentForm({ ...paymentForm, payment_date: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" required />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Method</label>
+                                <select value={paymentForm.payment_method} onChange={e => setPaymentForm({ ...paymentForm, payment_method: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all">
+                                    <option value="bank_transfer">Bank Transfer</option>
+                                    <option value="cheque">Cheque</option>
+                                    <option value="cash">Cash</option>
+                                    <option value="upi">UPI</option>
+                                </select>
+                            </div>
+                            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+                                <button type="button" onClick={() => setShowPaymentForm(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+                                <button type="submit" className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors shadow-sm">Record</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
 
-            {/* Add Supplier Form */}
             {showSupplierForm && (
-                <div className="fixed inset-0 z-50">
-                    <div className="fixed inset-0 bg-black/50" onClick={() => setShowSupplierForm(false)} />
-                    <div className="fixed bottom-0 left-0 right-0 md:top-0 md:left-auto md:right-0 md:w-[400px] bg-white rounded-t-2xl md:rounded-none shadow-2xl animate-slide-up md:animate-slide-left">
-                        <div className="w-12 h-1 bg-gray-300 rounded mx-auto my-3 md:hidden" />
-                        <div className="p-4 md:p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-bold">Add New Supplier</h3>
-                                <button onClick={() => setShowSupplierForm(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                                    <FiX className="w-5 h-5" />
-                                </button>
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl w-full max-w-md p-6">
+                        <h3 className="text-lg font-bold mb-4">Add Supplier</h3>
+                        <form onSubmit={handleCreateSupplier} className="space-y-4">
+                            <input type="text" placeholder="Name" value={supplierForm.name} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" required />
+                            <input type="text" placeholder="Contact Person" value={supplierForm.contact_name} onChange={e => setSupplierForm({ ...supplierForm, contact_name: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" />
+                            <input type="text" placeholder="Phone" value={supplierForm.contact_phone} onChange={e => setSupplierForm({ ...supplierForm, contact_phone: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" />
+                            <input type="email" placeholder="Email" value={supplierForm.contact_email} onChange={e => setSupplierForm({ ...supplierForm, contact_email: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" />
+                            <input type="text" placeholder="GST Number" value={supplierForm.gst_number} onChange={e => setSupplierForm({ ...supplierForm, gst_number: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" />
+
+                            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+                                <button type="button" onClick={() => setShowSupplierForm(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+                                <button type="submit" className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors shadow-sm">Save</button>
                             </div>
-                            <form onSubmit={handleCreateSupplier} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1 text-gray-700">Supplier Name *</label>
-                                    <input
-                                        type="text"
-                                        value={supplierForm.name}
-                                        onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })}
-                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                                        placeholder="Enter supplier name"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1 text-gray-700">Contact Person</label>
-                                    <input
-                                        type="text"
-                                        value={supplierForm.contact_name}
-                                        onChange={(e) => setSupplierForm({ ...supplierForm, contact_name: e.target.value })}
-                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                                        placeholder="Contact person name"
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1 text-gray-700">Phone</label>
-                                        <input
-                                            type="tel"
-                                            value={supplierForm.contact_phone}
-                                            onChange={(e) => setSupplierForm({ ...supplierForm, contact_phone: e.target.value })}
-                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                                            placeholder="Phone number"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1 text-gray-700">Email</label>
-                                        <input
-                                            type="email"
-                                            value={supplierForm.contact_email}
-                                            onChange={(e) => setSupplierForm({ ...supplierForm, contact_email: e.target.value })}
-                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                                            placeholder="Email address"
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1 text-gray-700">GST Number</label>
-                                    <input
-                                        type="text"
-                                        value={supplierForm.gst_number}
-                                        onChange={(e) => setSupplierForm({ ...supplierForm, gst_number: e.target.value })}
-                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                                        placeholder="GST registration number"
-                                    />
-                                </div>
-                                <div className="flex gap-3 pt-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowSupplierForm(false)}
-                                        className="flex-1 px-4 py-2.5 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="flex-1 px-4 py-2.5 bg-yellow-500 text-white hover:bg-yellow-600 rounded-lg font-medium"
-                                    >
-                                        Add Supplier
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
+                        </form>
                     </div>
                 </div>
             )}
-            {/* PO View Modal */}
+
             {showPoView && viewPo && (
                 <POViewModal
                     po={viewPo}
@@ -1464,8 +962,14 @@ export function ProcurementTab({ projectId, projectAddress }: ProcurementTabProp
                     projectAddress={projectAddress}
                 />
             )}
+
+            {showProposalView && viewProposal && (
+                <ProposalViewModal
+                    proposal={viewProposal}
+                    onClose={() => setShowProposalView(false)}
+                    projectAddress={projectAddress}
+                />
+            )}
         </div>
     );
 }
-
-

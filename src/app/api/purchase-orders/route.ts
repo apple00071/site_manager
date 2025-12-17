@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
         if (boqItemIds.length > 0) {
             const { data: boqItems } = await supabaseAdmin
                 .from('boq_items')
-                .select('id, rate, quantity, item_name')
+                .select('id, rate, quantity, item_name, status') // Added status
                 .in('id', boqItemIds);
 
             // Fetch existing ordered quantities for these items
@@ -197,10 +197,18 @@ export async function POST(request: NextRequest) {
                 orderedMap[line.boq_item_id] = (orderedMap[line.boq_item_id] || 0) + (line.quantity || 0);
             });
 
-            line_items?.forEach(item => {
-                if (!item.boq_item_id) return;
+            for (const item of (line_items || [])) { // Changed to for..of loop for async/return support
+                if (!item.boq_item_id) continue;
                 const boqItem = boqItems?.find((b: any) => b.id === item.boq_item_id);
-                if (!boqItem) return;
+                if (!boqItem) continue;
+
+                // CRITICAL VALIDATION: Only allow POs for confirmed items
+                if (boqItem.status !== 'confirmed') {
+                    return NextResponse.json(
+                        { error: `Cannot create PO for item '${boqItem.item_name}' because it is in '${boqItem.status}' status. Only 'confirmed' items can be ordered.` },
+                        { status: 400 }
+                    );
+                }
 
                 // Rate Check (allow 5% variance before warning)
                 if (item.rate > boqItem.rate * 1.05) {
@@ -213,7 +221,7 @@ export async function POST(request: NextRequest) {
                 if (newTotalQty > boqItem.quantity) {
                     warnings.push(`Quantity Warning: '${boqItem.item_name}' total ordered (${newTotalQty}) exceeds BOQ quantity (${boqItem.quantity})`);
                 }
-            });
+            }
         }
 
         if (warnings.length > 0) {

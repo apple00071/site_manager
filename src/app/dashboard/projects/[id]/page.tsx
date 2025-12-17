@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { formatDateIST } from '@/lib/dateUtils';
-import { FiClock, FiLayers, FiImage, FiEdit2, FiTrash2, FiX, FiPlus, FiUpload, FiSend } from 'react-icons/fi';
+import { FiClock, FiLayers, FiImage, FiEdit2, FiTrash2, FiX, FiPlus, FiUpload, FiSend, FiColumns } from 'react-icons/fi';
 import { EditProjectModal } from '@/components/projects/EditProjectModal';
 import type { BOQTabHandle } from '@/components/projects/BOQTab';
 
@@ -108,6 +108,11 @@ export default function ProjectDetailsPage() {
           label: 'Create Proposal',
           onClick: () => boqRef.current?.openProposal(),
           icon: <FiSend className="w-4 h-4" />
+        },
+        {
+          label: 'Compare BOQ vs Order',
+          onClick: () => boqRef.current?.openComparison(),
+          icon: <FiColumns className="w-4 h-4" />
         }
       ];
     }
@@ -623,21 +628,11 @@ export default function ProjectDetailsPage() {
           {/* STAGE: ORDERS */}
           {activeStage === 'orders' && (
             <div className="h-full flex flex-col">
-              {activeSubTab === 'my_scope' ? (
-                <ProcurementTab projectId={project.id} projectAddress={project.address} />
-              ) : activeSubTab === 'proposals' ? (
-                <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-                  <FiSend className="w-12 h-12 mb-3 text-gray-300" />
-                  <p className="font-medium">Proposals Module</p>
-                  <p className="text-sm mt-1">Manage client proposals here.</p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-                  <FiLayers className="w-12 h-12 mb-3 text-gray-300" />
-                  <p className="font-medium">Module Coming Soon</p>
-                  <p className="text-sm mt-1 capitalize">{activeSubTab.replace(/_/g, ' ')}</p>
-                </div>
-              )}
+              <ProcurementTab
+                projectId={project.id}
+                projectAddress={project.address}
+                activeSubTab={activeSubTab}
+              />
             </div>
           )}
 

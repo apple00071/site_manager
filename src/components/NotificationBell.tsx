@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getRelativeTime } from '@/lib/dateUtils';
 import { notificationCache, cacheInvalidation } from '@/lib/cache';
 import { supabase } from '@/lib/supabase-client-helper';
+import { FiClipboard, FiCheckCircle, FiXCircle, FiFolder, FiMic, FiPackage, FiMessageSquare, FiBell, FiInfo } from 'react-icons/fi';
 
 type Notification = {
   id: string;
@@ -54,7 +55,7 @@ export function NotificationBell() {
 
     const now = Date.now();
     const cacheKey = `notifications_${user.id}`;
-    
+
     // Rate limiting - don't fetch more than once per 30 seconds unless forced
     if (!forceUpdate && (now - lastFetchTime.current) < 30000) {
       console.log('⏭️ Notification fetch rate limited');
@@ -87,26 +88,26 @@ export function NotificationBell() {
 
       if (response.ok) {
         const data: Notification[] = await response.json();
-        
+
         // Cache for 2 minutes
         notificationCache.set(cacheKey, data, 2 * 60 * 1000);
-        
+
         // Detect new notifications for sound
         const newCount = data.filter(n => !n.is_read).length;
         const hasNewNotifications = newCount > lastNotificationCount.current;
-        
+
         setNotifications(data);
         setUnreadCount(newCount);
-        
+
         // Play sound for new notifications (only if tab is active)
         if (hasNewNotifications && mounted && isActiveTab.current) {
           console.log(`🔔 ${newCount - lastNotificationCount.current} new notification(s)`);
           playNotificationSound();
         }
-        
+
         lastNotificationCount.current = newCount;
         setRetryCount(0);
-        
+
         console.log(`✅ Fetched ${data.length} notifications (${newCount} unread)`);
       } else if (response.status === 401) {
         console.error('❌ Unauthorized - session may have expired');
@@ -141,7 +142,7 @@ export function NotificationBell() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       isActiveTab.current = !document.hidden;
-      
+
       if (isActiveTab.current) {
         console.log('👁️ Tab became active - refreshing notifications');
         fetchNotifications(true);
@@ -509,22 +510,14 @@ export function NotificationBell() {
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'task_assigned':
-        return '📋';
-      case 'design_approved':
-        return '✅';
-      case 'design_rejected':
-        return '❌';
-      case 'design_uploaded':
-        return '📁';
-      case 'project_update':
-        return '📢';
-      case 'inventory_added':
-        return '📦';
-      case 'comment_added':
-        return '💬';
-      default:
-        return '🔔';
+      case 'task_assigned': return <FiClipboard className="w-6 h-6 text-blue-500" />;
+      case 'design_approved': return <FiCheckCircle className="w-6 h-6 text-green-500" />;
+      case 'design_rejected': return <FiXCircle className="w-6 h-6 text-red-500" />;
+      case 'design_uploaded': return <FiFolder className="w-6 h-6 text-yellow-500" />;
+      case 'project_update': return <FiInfo className="w-6 h-6 text-indigo-500" />;
+      case 'inventory_added': return <FiPackage className="w-6 h-6 text-purple-500" />;
+      case 'comment_added': return <FiMessageSquare className="w-6 h-6 text-gray-500" />;
+      default: return <FiBell className="w-6 h-6 text-gray-400" />;
     }
   };
 
@@ -627,9 +620,8 @@ export function NotificationBell() {
                 {notifications.map(notification => (
                   <div
                     key={notification.id}
-                    className={`px-4 py-3 hover:bg-gray-50 transition-colors ${
-                      !notification.is_read ? 'bg-yellow-50' : ''
-                    }`}
+                    className={`px-4 py-3 hover:bg-gray-50 transition-colors ${!notification.is_read ? 'bg-yellow-50' : ''
+                      }`}
                   >
                     <div className="flex items-start gap-3">
                       <span className="text-2xl flex-shrink-0">

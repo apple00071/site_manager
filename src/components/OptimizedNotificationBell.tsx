@@ -5,6 +5,20 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getRelativeTime } from '@/lib/dateUtils';
 import { notificationCache, cacheInvalidation } from '@/lib/cache';
 import { supabase } from '@/lib/supabase-client-helper';
+import { FiClipboard, FiCheckCircle, FiXCircle, FiFolder, FiMic, FiPackage, FiMessageSquare, FiBell, FiInfo } from 'react-icons/fi';
+
+const getNotificationIcon = (type: string) => {
+  switch (type) {
+    case 'task_assigned': return <FiClipboard className="w-6 h-6 text-blue-500" />;
+    case 'design_approved': return <FiCheckCircle className="w-6 h-6 text-green-500" />;
+    case 'design_rejected': return <FiXCircle className="w-6 h-6 text-red-500" />;
+    case 'design_uploaded': return <FiFolder className="w-6 h-6 text-yellow-500" />;
+    case 'project_update': return <FiInfo className="w-6 h-6 text-indigo-500" />;
+    case 'inventory_added': return <FiPackage className="w-6 h-6 text-purple-500" />;
+    case 'comment_added': return <FiMessageSquare className="w-6 h-6 text-gray-500" />;
+    default: return <FiBell className="w-6 h-6 text-gray-400" />;
+  }
+};
 
 type Notification = {
   id: string;
@@ -400,14 +414,14 @@ export function OptimizedNotificationBell() {
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'task_assigned': return '📋';
-      case 'design_approved': return '✅';
-      case 'design_rejected': return '❌';
-      case 'design_uploaded': return '📁';
-      case 'project_update': return '📢';
-      case 'inventory_added': return '📦';
-      case 'comment_added': return '💬';
-      default: return '🔔';
+      case 'task_assigned': return <FiClipboard className="w-6 h-6 text-blue-500" />;
+      case 'design_approved': return <FiCheckCircle className="w-6 h-6 text-green-500" />;
+      case 'design_rejected': return <FiXCircle className="w-6 h-6 text-red-500" />;
+      case 'design_uploaded': return <FiFolder className="w-6 h-6 text-yellow-500" />;
+      case 'project_update': return <FiInfo className="w-6 h-6 text-indigo-500" />;
+      case 'inventory_added': return <FiPackage className="w-6 h-6 text-purple-500" />;
+      case 'comment_added': return <FiMessageSquare className="w-6 h-6 text-gray-500" />;
+      default: return <FiBell className="w-6 h-6 text-gray-400" />;
     }
   };
 
