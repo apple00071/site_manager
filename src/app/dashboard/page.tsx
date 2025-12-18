@@ -7,10 +7,12 @@ import Link from 'next/link';
 import { FiPlus, FiClock, FiCheckCircle, FiAlertCircle, FiBriefcase, FiCheck, FiPlay, FiPause } from 'react-icons/fi';
 import { formatDateIST } from '@/lib/dateUtils';
 import { useToast } from '@/components/ui/Toast';
+import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 
 export default function DashboardPage() {
   const { user, isAdmin } = useAuth();
   const { showToast } = useToast();
+  const { setTitle, setSubtitle } = useHeaderTitle();
   const [stats, setStats] = useState({
     totalProjects: 0,
     activeProjects: 0,
@@ -24,6 +26,12 @@ export default function DashboardPage() {
   const [recentProjects, setRecentProjects] = useState<any[]>([]);
   const [recentTasks, setRecentTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Set header title
+  useEffect(() => {
+    setTitle('Dashboard');
+    setSubtitle(null);
+  }, [setTitle, setSubtitle]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {

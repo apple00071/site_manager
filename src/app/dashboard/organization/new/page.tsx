@@ -7,6 +7,13 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
+interface Role {
+  id: string;
+  name: string;
+  description?: string;
+  is_system: boolean;
+}
+
 const userSchema = z.object({
   full_name: z.string().min(2, 'Full name is required'),
   username: z
@@ -15,7 +22,7 @@ const userSchema = z.object({
     .regex(/^[a-zA-Z0-9_.-]+$/, 'Only letters, numbers, underscore, dot and hyphen allowed'),
   email: z.string().email('Please enter a valid email address'),
   designation: z.string().min(2, 'Designation is required').optional().or(z.literal('')),
-  role: z.enum(['admin', 'employee']),
+  role_id: z.string().min(1, 'Please select a role'),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
 });
 
@@ -26,17 +33,49 @@ export default function NewUserPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [loadingRoles, setLoadingRoles] = useState(true);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
+    setValue,
   } = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
     defaultValues: {
-      role: 'employee',
+      role_id: '',
     },
   });
+
+  // Fetch roles from API
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const response = await fetch('/api/rbac/roles');
+        if (!response.ok) {
+          throw new Error('Failed to fetch roles');
+        }
+        const data = await response.json();
+        const allRoles = data.roles || [];
+        setRoles(allRoles);
+
+        // Set default to Employee role if exists
+        const employeeRole = allRoles.find((r: Role) => r.name.toLowerCase() === 'employee');
+        if (employeeRole) {
+          setValue('role_id', employeeRole.id);
+        } else if (allRoles.length > 0) {
+          setValue('role_id', allRoles[0].id);
+        }
+      } catch (error) {
+        console.error('Error fetching roles:', error);
+      } finally {
+        setLoadingRoles(false);
+      }
+    };
+
+    fetchRoles();
+  }, [setValue]);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -49,6 +88,9 @@ export default function NewUserPage() {
     setError(null);
 
     try {
+      // Find the selected role to get the role name for legacy support
+      const selectedRole = roles.find(r => r.id === data.role_id);
+
       // Call server-side API route to create user
       const response = await fetch('/api/admin/users', {
         method: 'POST',
@@ -60,7 +102,8 @@ export default function NewUserPage() {
           username: data.username,
           full_name: data.full_name,
           designation: data.designation,
-          role: data.role,
+          role: selectedRole?.name.toLowerCase() || 'employee', // Legacy field
+          role_id: data.role_id, // New role system
           phone_number: data.phone_number || '',
         }),
       });
@@ -71,7 +114,7 @@ export default function NewUserPage() {
         throw new Error(result.error || 'Failed to create user');
       }
 
-      router.push('/dashboard/users');
+      router.push('/dashboard/organization');
     } catch (err: any) {
       setError(err.message || 'An error occurred while creating the user');
     } finally {
@@ -172,34 +215,44 @@ export default function NewUserPage() {
             </div>
 
             <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="role_id" className="block text-sm font-medium text-gray-700">
                 Role
               </label>
               <select
-                id="role"
-                {...register('role')}
+                id="role_id"
+                {...register('role_id')}
+                disabled={loadingRoles}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               >
-                <option value="employee">Employee</option>
-                <option value="admin">Admin</option>
+                {loadingRoles ? (
+                  <option value="">Loading roles...</option>
+                ) : roles.length === 0 ? (
+                  <option value="">No roles available</option>
+                ) : (
+                  roles.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {role.name}
+                    </option>
+                  ))
+                )}
               </select>
-              {errors.role && (
-                <p className="mt-1 text-sm text-red-600">{errors.role.message}</p>
+              {errors.role_id && (
+                <p className="mt-1 text-sm text-red-600">{errors.role_id.message}</p>
               )}
             </div>
 
             <div className="flex justify-end">
               <button
                 type="button"
-                onClick={() => router.push('/dashboard/users')}
+                onClick={() => router.push('/dashboard/organization')}
                 className="px-4 py-2 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 mr-3"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={isLoading}
-                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-gray-900 bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                disabled={isLoading || loadingRoles}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-gray-900 bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50"
               >
                 {isLoading ? 'Creating...' : 'Create User'}
               </button>

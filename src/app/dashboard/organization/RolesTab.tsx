@@ -4,12 +4,20 @@ import { useEffect, useState, useRef } from 'react';
 import { FiMoreVertical, FiEdit2, FiTrash2, FiX, FiChevronDown, FiChevronRight } from 'react-icons/fi';
 import { DataTable } from '@/components/ui/DataTable';
 
+interface Permission {
+    id: string;
+    name: string;
+    code: string;
+    module: string;
+}
+
 interface Role {
     id: string;
     name: string;
     description: string;
     is_system: boolean;
     user_count: number;
+    permissions?: Permission[];
 }
 
 interface ModulePermission {
@@ -131,6 +139,7 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
 
 export default function RolesTab() {
     const [roles, setRoles] = useState<Role[]>([]);
+    const [allPermissions, setAllPermissions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showPanel, setShowPanel] = useState(false);
     const [editingRole, setEditingRole] = useState<Role | null>(null);
@@ -141,11 +150,12 @@ export default function RolesTab() {
     const [roleName, setRoleName] = useState('');
     const [roleDescription, setRoleDescription] = useState('');
     const [expandedModules, setExpandedModules] = useState<string[]>([]);
-    const [selectedPermissions, setSelectedPermissions] = useState<Record<string, string>>({});
+    const [selectedPermissionIds, setSelectedPermissionIds] = useState<Set<string>>(new Set());
     const [selectedNotifications, setSelectedNotifications] = useState<string[]>([]);
 
     useEffect(() => {
         fetchRoles();
+        fetchAllPermissions();
     }, []);
 
     const fetchRoles = async () => {
@@ -162,11 +172,23 @@ export default function RolesTab() {
         }
     };
 
+    const fetchAllPermissions = async () => {
+        try {
+            const res = await fetch('/api/rbac/permissions');
+            const data = await res.json();
+            if (data.permissions) {
+                setAllPermissions(data.permissions);
+            }
+        } catch (error) {
+            console.error('Error fetching permissions:', error);
+        }
+    };
+
     const handleAddRole = () => {
         setEditingRole(null);
         setRoleName('');
         setRoleDescription('');
-        setSelectedPermissions({});
+        setSelectedPermissionIds(new Set());
         setSelectedNotifications([]);
         setExpandedModules([]);
         setShowPanel(true);
@@ -176,10 +198,26 @@ export default function RolesTab() {
         setEditingRole(role);
         setRoleName(role.name);
         setRoleDescription(role.description || '');
-        // TODO: Load existing permissions
-        setSelectedPermissions({});
-        setSelectedNotifications([]);
-        setExpandedModules([]);
+
+        // Load existing permission IDs directly
+        const existingPermIds = new Set<string>();
+        const existingNotifications: string[] = [];
+        const modulesToExpand: string[] = [];
+
+        if (role.permissions && role.permissions.length > 0) {
+            role.permissions.forEach(permission => {
+                existingPermIds.add(permission.id);
+                // Find which module to expand
+                const module = permission.module;
+                if (module && !modulesToExpand.includes(module)) {
+                    modulesToExpand.push(module);
+                }
+            });
+        }
+
+        setSelectedPermissionIds(existingPermIds);
+        setSelectedNotifications(existingNotifications);
+        setExpandedModules(modulesToExpand);
         setShowPanel(true);
     };
 
@@ -190,6 +228,11 @@ export default function RolesTab() {
         }
 
         try {
+            // Get permission IDs directly from the selected set
+            const permissionIds = Array.from(selectedPermissionIds);
+
+            let roleId = editingRole?.id;
+
             if (editingRole) {
                 // Update existing role
                 const res = await fetch(`/api/rbac/roles?id=${editingRole.id}`, {
@@ -209,7 +252,7 @@ export default function RolesTab() {
                     body: JSON.stringify({
                         name: roleName,
                         description: roleDescription,
-                        permission_ids: [] // TODO: Map selected permissions to IDs
+                        permission_ids: permissionIds
                     })
                 });
                 if (!res.ok) {
@@ -217,7 +260,29 @@ export default function RolesTab() {
                     alert(data.error || 'Failed to create role');
                     return;
                 }
+                const data = await res.json();
+                roleId = data.role?.id;
             }
+
+            // Save permissions for the role (both create and update)
+            if (roleId && permissionIds.length > 0) {
+                const permRes = await fetch(`/api/rbac/roles/${roleId}/permissions`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ permission_ids: permissionIds })
+                });
+                if (!permRes.ok) {
+                    console.error('Failed to save permissions');
+                }
+            } else if (roleId && editingRole) {
+                // Clear permissions if none selected during update
+                await fetch(`/api/rbac/roles/${roleId}/permissions`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ permission_ids: [] })
+                });
+            }
+
             setShowPanel(false);
             fetchRoles();
         } catch (error) {
@@ -254,11 +319,16 @@ export default function RolesTab() {
         );
     };
 
-    const handlePermissionChange = (module: string, permissionId: string) => {
-        setSelectedPermissions(prev => ({
-            ...prev,
-            [module]: permissionId
-        }));
+    const handlePermissionChange = (permissionId: string) => {
+        setSelectedPermissionIds(prev => {
+            const next = new Set(prev);
+            if (next.has(permissionId)) {
+                next.delete(permissionId);
+            } else {
+                next.add(permissionId);
+            }
+            return next;
+        });
     };
 
     const handleNotificationToggle = (notification: string) => {
@@ -432,69 +502,61 @@ export default function RolesTab() {
                                     </div>
 
                                     <div className="divide-y divide-gray-200">
-                                        {MODULE_PERMISSIONS.map((module) => {
-                                            const isExpanded = expandedModules.includes(module.module);
-                                            const selected = selectedPermissions[module.module];
+                                        {/* Group permissions by module from API */}
+                                        {(() => {
+                                            // Group allPermissions by module
+                                            const grouped: Record<string, typeof allPermissions> = {};
+                                            allPermissions.forEach(perm => {
+                                                const module = perm.module || 'Other';
+                                                if (!grouped[module]) grouped[module] = [];
+                                                grouped[module].push(perm);
+                                            });
 
-                                            return (
-                                                <div key={module.module} className="border-b border-gray-200 last:border-0">
-                                                    {/* Module Header */}
-                                                    <button
-                                                        onClick={() => toggleModule(module.module)}
-                                                        className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50"
-                                                    >
-                                                        {isExpanded ? (
-                                                            <FiChevronDown className="h-4 w-4 text-gray-400" />
-                                                        ) : (
-                                                            <FiChevronRight className="h-4 w-4 text-gray-400" />
-                                                        )}
-                                                        <span className={`w-5 h-5 rounded flex items-center justify-center text-sm ${selected ? 'bg-red-100' : 'bg-gray-100'}`}>
-                                                            {selected ? '✓' : module.icon}
-                                                        </span>
-                                                        <span className="text-sm font-medium text-gray-900">{module.module}</span>
-                                                    </button>
+                                            return Object.entries(grouped).map(([moduleName, perms]) => {
+                                                const isExpanded = expandedModules.includes(moduleName);
+                                                const hasSelectedPerm = perms.some(p => selectedPermissionIds.has(p.id));
 
-                                                    {/* Module Content */}
-                                                    {isExpanded && (
-                                                        <div className="px-4 pb-4 grid grid-cols-2 gap-6">
-                                                            {/* Permissions */}
-                                                            <div className="space-y-2">
-                                                                {module.permissions.map((perm) => (
-                                                                    <label key={perm.id} className="flex items-start gap-2 cursor-pointer">
-                                                                        <input
-                                                                            type="radio"
-                                                                            name={`permission-${module.module}`}
-                                                                            checked={selectedPermissions[module.module] === perm.id}
-                                                                            onChange={() => handlePermissionChange(module.module, perm.id)}
-                                                                            className="mt-0.5 h-4 w-4 text-red-600"
-                                                                        />
-                                                                        <span className="text-sm text-gray-700">{perm.label}</span>
-                                                                    </label>
-                                                                ))}
-                                                            </div>
+                                                return (
+                                                    <div key={moduleName} className="border-b border-gray-200 last:border-0">
+                                                        {/* Module Header */}
+                                                        <button
+                                                            onClick={() => toggleModule(moduleName)}
+                                                            className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50"
+                                                        >
+                                                            {isExpanded ? (
+                                                                <FiChevronDown className="h-4 w-4 text-gray-400" />
+                                                            ) : (
+                                                                <FiChevronRight className="h-4 w-4 text-gray-400" />
+                                                            )}
+                                                            <span className={`w-5 h-5 rounded flex items-center justify-center text-sm ${hasSelectedPerm ? 'bg-red-100' : 'bg-gray-100'}`}>
+                                                                {hasSelectedPerm ? '✓' : '📋'}
+                                                            </span>
+                                                            <span className="text-sm font-medium text-gray-900">{moduleName}</span>
+                                                        </button>
 
-                                                            {/* Notifications */}
-                                                            <div>
-                                                                <p className="text-sm font-medium text-gray-700 mb-2">Notifications</p>
+                                                        {/* Module Content */}
+                                                        {isExpanded && (
+                                                            <div className="px-4 pb-4">
+                                                                {/* Permissions as checkboxes */}
                                                                 <div className="space-y-2">
-                                                                    {module.notifications.map((notif) => (
-                                                                        <label key={notif} className="flex items-center gap-2 cursor-pointer">
+                                                                    {perms.map((perm) => (
+                                                                        <label key={perm.id} className="flex items-start gap-2 cursor-pointer">
                                                                             <input
                                                                                 type="checkbox"
-                                                                                checked={selectedNotifications.includes(notif)}
-                                                                                onChange={() => handleNotificationToggle(notif)}
-                                                                                className="h-4 w-4 text-red-600 rounded"
+                                                                                checked={selectedPermissionIds.has(perm.id)}
+                                                                                onChange={() => handlePermissionChange(perm.id)}
+                                                                                className="mt-0.5 h-4 w-4 text-red-600 rounded"
                                                                             />
-                                                                            <span className="text-sm text-gray-700">{notif}</span>
+                                                                            <span className="text-sm text-gray-700">{perm.description || perm.code}</span>
                                                                         </label>
                                                                     ))}
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
+                                                        )}
+                                                    </div>
+                                                );
+                                            });
+                                        })()}
                                     </div>
                                 </div>
                             </div>

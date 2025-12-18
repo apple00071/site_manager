@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { FiPlus, FiEdit2, FiTrash2, FiEye, FiMoreVertical } from 'react-icons/fi';
 import { formatDateIST } from '@/lib/dateUtils';
+import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 
 export default function ProjectsPage() {
   const { user, isAdmin } = useAuth();
@@ -13,6 +14,13 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('all');
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const { setTitle, setSubtitle } = useHeaderTitle();
+
+  // Set header title
+  useEffect(() => {
+    setTitle('Projects');
+    setSubtitle(null);
+  }, [setTitle, setSubtitle]);
 
   useEffect(() => {
     // ... code remains same

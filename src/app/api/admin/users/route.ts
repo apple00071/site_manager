@@ -14,7 +14,8 @@ const createUserSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').regex(/^[a-zA-Z0-9_\.\-]+$/, 'Only letters, numbers, underscore, dot and hyphen allowed'),
   full_name: z.string().min(2, 'Full name must be at least 2 characters'),
   designation: z.string().min(2, 'Designation must be at least 2 characters').optional().or(z.literal('')),
-  role: z.enum(['admin', 'employee']),
+  role: z.string().min(1, 'Role is required'), // Legacy field - now accepts any string
+  role_id: z.string().uuid('Invalid role ID').optional(), // New role system
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
 });
@@ -30,7 +31,8 @@ const updateUserSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').regex(/^[a-zA-Z0-9_\.\-]+$/, 'Only letters, numbers, underscore, dot and hyphen allowed'),
   full_name: z.string().min(2, 'Full name must be at least 2 characters'),
   designation: z.string().min(2, 'Designation must be at least 2 characters').optional().or(z.literal('')),
-  role: z.enum(['admin', 'employee']),
+  role: z.string().min(1, 'Role is required'), // Legacy field - now accepts any string
+  role_id: z.string().uuid('Invalid role ID').optional(), // New role system
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
 });
@@ -40,36 +42,36 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const roleFilter = searchParams.get('role');
-    
+
     const supabase = await createAuthenticatedClient();
-    
+
     const { data: { user }, error: userAuthError } = await supabase.auth.getUser();
-    
+
     if (userAuthError || !user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
-    
+
     // Check if user is admin
     const isAdmin = (user.app_metadata?.role || user.user_metadata?.role) === 'admin';
-    
+
     // Build query
     let query = supabaseAdmin
       .from('users')
       .select('*')
-      .order('full_name');
-    
+      .order('created_at', { ascending: false });
+
     // Add role filter if provided
     if (roleFilter) {
       query = query.eq('role', roleFilter);
     }
-    
+
     const { data: users, error } = await query;
-    
+
     if (error) {
       console.error('Error fetching users:', error);
       return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
     }
-    
+
     return NextResponse.json(users);
   } catch (error) {
     console.error('Unexpected error in GET /api/admin/users:', error);
@@ -81,7 +83,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const parsed = createUserSchema.safeParse(body);
-    
+
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invalid request', details: parsed.error.format() },
@@ -89,7 +91,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { email, username, full_name, designation, role, password, phone_number } = parsed.data;
+    const { email, username, full_name, designation, role, role_id, password, phone_number } = parsed.data;
 
     const finalPassword =
       password && password.trim() !== ''
@@ -139,12 +141,17 @@ export async function POST(req: Request) {
         if (unameErr) hasUsername = false;
       } catch (_) { hasUsername = false; }
 
+      // Normalize role to valid enum values for legacy field
+      // The role_id field handles the actual role assignment
+      const normalizedRole = role.toLowerCase() === 'admin' ? 'admin' : 'employee';
+
       const profile: any = {
         id: authData.user.id,
         email,
         full_name,
         designation,
-        role,
+        role: normalizedRole,
+        role_id: role_id || null,
         phone_number: phone_number || null,
       };
       if (hasUsername) profile.username = username;
@@ -201,12 +208,12 @@ export async function POST(req: Request) {
       }
 
       return NextResponse.json(
-        { 
-          success: true, 
-          user: { 
-            id: authData.user.id, 
-            email: authData.user.email 
-          } 
+        {
+          success: true,
+          user: {
+            id: authData.user.id,
+            email: authData.user.email
+          }
         },
         { status: 201 }
       );
@@ -230,7 +237,7 @@ export async function PATCH(req: Request) {
   try {
     const body = await req.json();
     const parsed = updateUserSchema.safeParse(body);
-    
+
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invalid request', details: parsed.error.format() },
@@ -238,9 +245,9 @@ export async function PATCH(req: Request) {
       );
     }
 
-    const { id, email, username, full_name, designation, role, password, phone_number } = parsed.data;
+    const { id, email, username, full_name, designation, role, role_id, password, phone_number } = parsed.data;
 
-    console.log('Updating user:', { id, email, full_name, role });
+    console.log('Updating user:', { id, email, full_name, role, role_id });
 
     // Update user profile in database
     let hasUsername = true;
@@ -249,11 +256,16 @@ export async function PATCH(req: Request) {
       if (unameErr) hasUsername = false;
     } catch (_) { hasUsername = false; }
 
+    // Normalize role to valid enum values for legacy field
+    // The role_id field handles the actual role assignment
+    const normalizedRole = role.toLowerCase() === 'admin' ? 'admin' : 'employee';
+
     const profileUpdate: any = {
       email,
       full_name,
       designation,
-      role,
+      role: normalizedRole,
+      role_id: role_id || null,
       phone_number: phone_number || null,
     };
     if (hasUsername) profileUpdate.username = username;
@@ -310,8 +322,8 @@ export async function PATCH(req: Request) {
     console.log('User updated successfully');
 
     return NextResponse.json(
-      { 
-        success: true, 
+      {
+        success: true,
         message: 'User updated successfully'
       },
       { status: 200 }

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { FiPlus, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import Link from 'next/link';
 
@@ -22,33 +21,31 @@ interface User {
 
 export default function UsersTab() {
     const [users, setUsers] = useState<User[]>([]);
+    const [roles, setRoles] = useState<Role[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchUsers = async () => {
+        const fetchData = async () => {
             setLoading(true);
             try {
-                const { data, error } = await supabase
-                    .from('users')
-                    .select(`
-                        *,
-                        roles (
-                            id,
-                            name
-                        )
-                    `)
-                    .order('created_at', { ascending: false });
+                // Fetch roles first
+                const rolesRes = await fetch('/api/rbac/roles');
+                const rolesData = await rolesRes.json();
+                const allRoles = rolesData.roles || [];
+                setRoles(allRoles);
 
-                if (error) throw error;
-                setUsers((data as User[]) || []);
+                // Fetch users via API
+                const usersRes = await fetch('/api/admin/users');
+                const usersData = await usersRes.json();
+                setUsers(usersData || []);
             } catch (error) {
-                console.error('Error fetching users:', error);
+                console.error('Error fetching data:', error);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchUsers();
+        fetchData();
     }, []);
 
     const handleDeleteUser = async (userId: string) => {
@@ -69,10 +66,16 @@ export default function UsersTab() {
     };
 
     const getRoleDisplay = (user: User) => {
-        // Prefer new role system, fallback to legacy
+        // First check if we have role_id and can look it up from fetched roles
+        if (user.role_id && roles.length > 0) {
+            const role = roles.find(r => r.id === user.role_id);
+            if (role) return role.name;
+        }
+        // Fallback to joined roles data
         if (user.roles) {
             return user.roles.name;
         }
+        // Final fallback to legacy role field
         return user.role || 'No Role';
     };
 

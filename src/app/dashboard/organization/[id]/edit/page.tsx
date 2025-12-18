@@ -11,6 +11,13 @@ import { FiArrowLeft, FiSave } from 'react-icons/fi';
 import Link from 'next/link';
 import BackButton from '@/components/BackButton';
 
+interface Role {
+  id: string;
+  name: string;
+  description?: string;
+  is_system: boolean;
+}
+
 const userSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   username: z
@@ -19,7 +26,7 @@ const userSchema = z.object({
     .regex(/^[a-zA-Z0-9_.-]+$/, 'Only letters, numbers, underscore, dot and hyphen allowed'),
   full_name: z.string().min(2, 'Full name is required'),
   designation: z.string().min(2, 'Designation is required'),
-  role: z.enum(['admin', 'employee']),
+  role_id: z.string().min(1, 'Please select a role'),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
 });
@@ -31,20 +38,44 @@ export default function EditUserPage() {
   const router = useRouter();
   const params = useParams();
   const userId = params.id as string;
-  
+
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [loadingRoles, setLoadingRoles] = useState(true);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
   } = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
   });
+
+  // Fetch roles from API
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const response = await fetch('/api/rbac/roles');
+        if (!response.ok) {
+          throw new Error('Failed to fetch roles');
+        }
+        const data = await response.json();
+        const allRoles = data.roles || [];
+        setRoles(allRoles);
+      } catch (error) {
+        console.error('Error fetching roles:', error);
+      } finally {
+        setLoadingRoles(false);
+      }
+    };
+
+    fetchRoles();
+  }, []);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -56,37 +87,70 @@ export default function EditUserPage() {
       try {
         const { data, error } = await supabase
           .from('users')
-          .select('*')
+          .select(`
+            *,
+            roles (
+              id,
+              name
+            )
+          `)
           .eq('id', userId)
           .single();
 
         if (error) throw error;
-        
+
         setUser(data);
+
+        // Find the role_id - prefer role_id field, fallback to matching by name
+        let roleId = data.role_id || '';
+        if (!roleId && data.role && roles.length > 0) {
+          const matchingRole = roles.find(r => r.name.toLowerCase() === data.role.toLowerCase());
+          if (matchingRole) {
+            roleId = matchingRole.id;
+          }
+        }
+
         reset({
           email: data.email,
           username: data.username || '',
           full_name: data.full_name,
           designation: data.designation || '',
-          role: data.role === 'admin' ? 'admin' : 'employee',
+          role_id: roleId,
           phone_number: data.phone_number || '',
         });
       } catch (error) {
         console.error('Error fetching user:', error);
-        router.push('/dashboard/users');
+        router.push('/dashboard/organization');
       } finally {
         setLoading(false);
       }
     };
 
-    if (userId) {
+    if (userId && !loadingRoles) {
       fetchUser();
     }
-  }, [userId, isAdmin, router, reset]);
+  }, [userId, isAdmin, router, reset, roles, loadingRoles]);
+
+  // Update role_id when roles are loaded and user data is available
+  useEffect(() => {
+    if (user && roles.length > 0 && !loading) {
+      let roleId = user.role_id || '';
+      if (!roleId && user.role) {
+        const matchingRole = roles.find(r => r.name.toLowerCase() === user.role.toLowerCase());
+        if (matchingRole) {
+          roleId = matchingRole.id;
+          setValue('role_id', roleId);
+        }
+      }
+    }
+  }, [user, roles, loading, setValue]);
 
   const onSubmit = async (data: UserFormValues) => {
     setSaving(true);
     try {
+      // Find the selected role to get the role name for legacy support
+      const selectedRole = roles.find(r => r.id === data.role_id);
+
       const response = await fetch('/api/admin/users', {
         method: 'PATCH',
         headers: {
@@ -98,7 +162,8 @@ export default function EditUserPage() {
           username: data.username,
           full_name: data.full_name,
           designation: data.designation,
-          role: data.role,
+          role: selectedRole?.name.toLowerCase() || 'employee', // Legacy field
+          role_id: data.role_id, // New role system
           phone_number: data.phone_number || '',
           password: data.password || '',
         }),
@@ -109,8 +174,8 @@ export default function EditUserPage() {
       if (!response.ok) {
         throw new Error(result.error || 'Failed to update user');
       }
-      
-      router.push('/dashboard/users');
+
+      router.push('/dashboard/organization');
     } catch (error: any) {
       console.error('Error updating user:', error);
       alert(error.message || 'Failed to update user. Please try again.');
@@ -119,7 +184,7 @@ export default function EditUserPage() {
     }
   };
 
-  if (loading) {
+  if (loading || loadingRoles) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-600"></div>
@@ -131,8 +196,8 @@ export default function EditUserPage() {
     return (
       <div className="text-center py-8">
         <p className="text-gray-500">User not found</p>
-        <Link href="/dashboard/users" className="text-yellow-600 hover:text-yellow-700">
-          Back to Users
+        <Link href="/dashboard/organization" className="text-yellow-600 hover:text-yellow-700">
+          Back to Organization
         </Link>
       </div>
     );
@@ -142,22 +207,13 @@ export default function EditUserPage() {
     <div className="space-y-4 lg:space-y-6">
       {/* Mobile header with back button */}
       <div className="lg:hidden flex items-center space-x-2 mb-4">
-        <BackButton href="/dashboard/users" />
+        <BackButton href="/dashboard/organization" />
         <h1 className="text-lg font-semibold text-gray-900">Edit User</h1>
       </div>
 
       {/* Desktop header */}
       <div className="hidden lg:block">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Edit User</h1>
-          <Link
-            href="/dashboard/users"
-            className="flex items-center text-gray-600 hover:text-gray-900"
-          >
-            <FiArrowLeft className="mr-2 h-4 w-4" />
-            Back to Users
-          </Link>
-        </div>
+        <h1 className="text-2xl font-bold text-gray-900">Edit User</h1>
       </div>
 
       <div className="bg-white shadow rounded-lg">
@@ -242,19 +298,26 @@ export default function EditUserPage() {
               </div>
 
               <div>
-                <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="role_id" className="block text-sm font-medium text-gray-700">
                   Role
                 </label>
                 <select
-                  id="role"
-                  {...register('role')}
+                  id="role_id"
+                  {...register('role_id')}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
                 >
-                  <option value="employee">Employee</option>
-                  <option value="admin">Admin</option>
+                  {roles.length === 0 ? (
+                    <option value="">No roles available</option>
+                  ) : (
+                    roles.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name}
+                      </option>
+                    ))
+                  )}
                 </select>
-                {errors.role && (
-                  <p className="mt-1 text-sm text-red-600">{errors.role.message}</p>
+                {errors.role_id && (
+                  <p className="mt-1 text-sm text-red-600">{errors.role_id.message}</p>
                 )}
               </div>
 
@@ -286,7 +349,7 @@ export default function EditUserPage() {
 
             <div className="flex justify-end space-x-3">
               <Link
-                href="/dashboard/users"
+                href="/dashboard/organization"
                 className="px-4 py-2 rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
               >
                 Cancel

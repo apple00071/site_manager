@@ -10,6 +10,7 @@ import '@/styles/calendar-custom.css';
 import { FiCheck, FiFilter, FiPlus, FiUser, FiAlertTriangle, FiChevronLeft, FiChevronRight, FiUserX, FiX, FiClock, FiList, FiFileText, FiCheckCircle, FiXCircle } from 'react-icons/fi';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useToast } from '@/components/ui/Toast';
+import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 
 type CalendarViewType = 'month' | 'week' | 'work_week' | 'day' | 'agenda';
 
@@ -166,10 +167,17 @@ export default function TasksPage() {
   const [visibleRange, setVisibleRange] = useState<{ start: Date; end: Date } | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const { showToast } = useToast();
+  const { setTitle, setSubtitle } = useHeaderTitle();
 
   // Sidebar category state
   const [activeCategory, setActiveCategory] = useState<'for-me' | 'by-me' | 'all' | 'proposals'>('for-me');
   const [showSidebar, setShowSidebar] = useState(true);
+
+  // Set header title
+  useEffect(() => {
+    setTitle('Task Manager');
+    setSubtitle(null);
+  }, [setTitle, setSubtitle]);
 
   // Check for mobile viewport
   useEffect(() => {
