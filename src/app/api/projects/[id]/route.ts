@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 import { handleApiError, sanitizeErrorMessage } from '@/lib/errorHandler';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
 
@@ -50,6 +50,53 @@ const updateProjectSchema = z.object({
     glass_worker_name: z.string().nullable().optional(),
     glass_worker_phone: z.string().nullable().optional(),
 });
+
+export async function GET(
+    req: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    if (isBuildContext) {
+        return NextResponse.json(
+            { success: true, message: 'Build time response' },
+            { status: 200 }
+        );
+    }
+
+    try {
+        const { id } = await params;
+        if (!id) {
+            return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
+        }
+
+        // Auth check
+        const { user, error: authError } = await getAuthUser();
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); // 401 Unauthorized
+        }
+
+        const { data: project, error } = await supabaseAdmin
+            .from('projects')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error) {
+            return NextResponse.json(
+                { error: sanitizeErrorMessage(error.message) },
+                { status: 500 }
+            );
+        }
+
+        if (!project) {
+            return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+        }
+
+        return NextResponse.json({ project }, { status: 200 });
+    } catch (err: any) {
+        const handled = handleApiError(err);
+        return NextResponse.json(handled.error, { status: handled.status });
+    }
+}
 
 export async function PATCH(
     req: Request,

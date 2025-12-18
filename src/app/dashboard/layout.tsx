@@ -102,7 +102,7 @@ function DashboardLayoutContent({
 
       {/* Sidebar */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-14 hover:w-32 sm:w-16 hover:sm:w-36 lg:w-14 hover:lg:w-32 bg-white text-gray-900 shadow-lg border-r border-gray-200 transform transition-all duration-300 ease-in-out group
+        fixed inset-y-0 left-0 z-50 w-14 hover:w-32 sm:w-16 hover:sm:w-36 lg:w-14 hover:lg:w-32 bg-white text-gray-900 shadow-lg border-r border-gray-200 transform transition-all duration-300 ease-in-out group peer
         lg:translate-x-0 lg:fixed lg:top-0 lg:h-screen lg:left-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
@@ -166,7 +166,7 @@ function DashboardLayoutContent({
       </div>
 
       {/* Main content - allow natural page scroll (no overflow-hidden here) */}
-      <div className="flex-1 flex flex-col bg-white min-w-0 max-w-full overflow-x-hidden lg:ml-14">
+      <div className="flex-1 flex flex-col bg-white min-w-0 max-w-full overflow-x-hidden lg:ml-14 peer-hover:lg:ml-32 transition-all duration-300 ease-in-out">
 
         {/* Global Header - Responsive */}
         <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
@@ -182,7 +182,7 @@ function DashboardLayoutContent({
                 <FiMenu className="h-6 w-6" />
               </button>
 
-              <div className="hidden sm:block text-sm font-semibold text-gray-900 whitespace-nowrap truncate">{pageTitle}</div>
+              <div className="text-sm font-semibold text-gray-900 whitespace-nowrap truncate">{pageTitle}</div>
 
               {/* Tab pills (Desktop Only for space, or scrollable on mobile?) */}
               {tabs.length > 0 && (

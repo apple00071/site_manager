@@ -143,7 +143,7 @@ export default function ProjectDetailsPage() {
       const displayStatus = status?.replace(/_/g, ' ').toUpperCase() || 'UNKNOWN';
       const StatusBadge = (
         <div className="flex items-center gap-2 text-sm">
-          <span className="text-gray-500">Project Status:</span>
+          <span className="hidden sm:inline text-gray-500">Project Status:</span>
           <span className={`px-2 py-0.5 rounded-full font-medium text-xs flex items-center gap-1 ${getStatusColor(status)}`}>
             {displayStatus}
             {status === 'completed' ? <FiCheckCircle className="w-3 h-3" /> : <FiClock className="w-3 h-3" />}
@@ -153,13 +153,6 @@ export default function ProjectDetailsPage() {
 
       const TitleComponent = (
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push('/dashboard/projects')}
-            className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-700 transition-colors"
-            title="Back to Projects"
-          >
-            <FiArrowLeft className="w-5 h-5" />
-          </button>
           <div className="flex items-center text-gray-900 text-sm font-semibold">
             {project.title}
           </div>
