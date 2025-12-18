@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { formatDateIST } from '@/lib/dateUtils';
 import { ImageModal } from '@/components/ui/ImageModal';
 import { useToast } from '@/components/ui/Toast';
@@ -278,6 +279,12 @@ type InventoryTabProps = {
 
 export function InventoryTab({ projectId }: InventoryTabProps) {
   const { user } = useAuth();
+  const { hasPermission } = useUserPermissions();
+
+  // Permission checks
+  const canAdd = hasPermission('inventory.add');
+  const canApprove = hasPermission('inventory.approve');
+
   const { showToast } = useToast();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -627,7 +634,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
               <FiEdit2 className="w-5 h-5 text-gray-500" /> Edit Item
             </button>
 
-            {user?.role === 'admin' && mobileActionItem.bill_approval_status === 'pending' && (
+            {canApprove && mobileActionItem.bill_approval_status === 'pending' && (
               <>
                 <button
                   onClick={() => {

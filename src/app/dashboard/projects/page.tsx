@@ -7,9 +7,14 @@ import { supabase } from '@/lib/supabase';
 import { FiPlus, FiEdit2, FiTrash2, FiEye, FiMoreVertical } from 'react-icons/fi';
 import { formatDateIST } from '@/lib/dateUtils';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 export default function ProjectsPage() {
   const { user, isAdmin } = useAuth();
+  const { hasPermission } = useUserPermissions();
+  const canCreateProject = hasPermission('projects.create');
+  const canEditProject = hasPermission('projects.edit');
+  const canDeleteProject = hasPermission('projects.delete');
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('all');
@@ -69,7 +74,7 @@ export default function ProjectsPage() {
   }, [activeDropdown]);
 
   const handleDeleteProject = async (projectId: string) => {
-    if (!isAdmin) return;
+    if (!canDeleteProject) return;
 
     if (window.confirm('Are you sure you want to delete this project?')) {
       try {
@@ -178,13 +183,15 @@ export default function ProjectsPage() {
           </div>
 
           {/* Add Project Button */}
-          <Link
-            href="/dashboard/projects/new"
-            className="ml-4 px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg flex items-center hover:bg-yellow-600 transition-all duration-200 shadow-sm font-bold text-sm whitespace-nowrap"
-          >
-            <FiPlus className="mr-1 h-4 w-4" />
-            Add Project
-          </Link>
+          {canCreateProject && (
+            <Link
+              href="/dashboard/projects/new"
+              className="ml-4 px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg flex items-center hover:bg-yellow-600 transition-all duration-200 shadow-sm font-bold text-sm whitespace-nowrap"
+            >
+              <FiPlus className="mr-1 h-4 w-4" />
+              Add Project
+            </Link>
+          )}
         </div>
       </div>
 
@@ -262,22 +269,26 @@ export default function ProjectsPage() {
               </Link>
 
               {/* Action buttons for mobile */}
-              {isAdmin && (
+              {(canEditProject || canDeleteProject) && (
                 <div className="px-4 sm:px-5 pb-4 flex justify-end gap-2">
-                  <Link
-                    href={`/dashboard/projects/${project.id}/edit`}
-                    className="p-2 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 active:bg-yellow-100 rounded-xl transition-all duration-200 touch-target"
-                    title="Edit project"
-                  >
-                    <FiEdit2 className="h-4 w-4" />
-                  </Link>
-                  <button
-                    onClick={() => handleDeleteProject(project.id)}
-                    className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 active:bg-red-100 rounded-xl transition-all duration-200 touch-target"
-                    title="Delete project"
-                  >
-                    <FiTrash2 className="h-4 w-4" />
-                  </button>
+                  {canEditProject && (
+                    <Link
+                      href={`/dashboard/projects/${project.id}/edit`}
+                      className="p-2 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 active:bg-yellow-100 rounded-xl transition-all duration-200 touch-target"
+                      title="Edit project"
+                    >
+                      <FiEdit2 className="h-4 w-4" />
+                    </Link>
+                  )}
+                  {canDeleteProject && (
+                    <button
+                      onClick={() => handleDeleteProject(project.id)}
+                      className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 active:bg-red-100 rounded-xl transition-all duration-200 touch-target"
+                      title="Delete project"
+                    >
+                      <FiTrash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -377,26 +388,30 @@ export default function ProjectsPage() {
                             <FiEye className="w-4 h-4" />
                             View Details
                           </Link>
-                          {isAdmin && (
+                          {(canEditProject || canDeleteProject) && (
                             <>
-                              <Link
-                                href={`/dashboard/projects/${project.id}/edit`}
-                                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                              >
-                                <FiEdit2 className="w-4 h-4" />
-                                Edit Project
-                              </Link>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteProject(project.id);
-                                  setActiveDropdown(null);
-                                }}
-                                className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                              >
-                                <FiTrash2 className="w-4 h-4" />
-                                Delete Project
-                              </button>
+                              {canEditProject && (
+                                <Link
+                                  href={`/dashboard/projects/${project.id}/edit`}
+                                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                >
+                                  <FiEdit2 className="w-4 h-4" />
+                                  Edit Project
+                                </Link>
+                              )}
+                              {canDeleteProject && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteProject(project.id);
+                                    setActiveDropdown(null);
+                                  }}
+                                  className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                >
+                                  <FiTrash2 className="w-4 h-4" />
+                                  Delete Project
+                                </button>
+                              )}
                             </>
                           )}
                         </div>

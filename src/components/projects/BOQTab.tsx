@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
     FiPlus, FiUpload, FiSend, FiGrid, FiList,
     FiAlertCircle, FiX, FiPackage, FiRefreshCw, FiDownload, FiCheckCircle, FiChevronDown
@@ -50,6 +51,15 @@ export interface BOQTabHandle {
 
 export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref) => {
     const { isAdmin } = useAuth();
+    const { hasPermission } = useUserPermissions();
+
+    // Permission checks
+    const canCreate = hasPermission('boq.create');
+    const canEdit = hasPermission('boq.edit');
+    const canDelete = hasPermission('boq.delete');
+    const canImport = hasPermission('boq.import');
+    const canCreateProposal = hasPermission('proposals.create');
+
     const [items, setItems] = useState<BOQItem[]>([]);
     const [inventoryItems, setInventoryItems] = useState<any[]>([]); // New state for inventory
     const [loading, setLoading] = useState(true);
@@ -414,7 +424,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
 
             {/* Bulk Actions */}
             {
-                selectedItems.length > 0 && isAdmin && (
+                selectedItems.length > 0 && canCreateProposal && (
                     <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-50 flex items-center gap-2 bg-gray-900 text-white px-2 py-1.5 rounded-lg shadow-xl animate-in slide-in-from-bottom-4 duration-200 border border-gray-800">
                         {/* Selected Count */}
                         <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 rounded-md">
@@ -486,29 +496,33 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
                         <p className="text-sm text-gray-500 text-center max-w-sm">
                             Start by adding items to your bill of quantities
                         </p>
-                        {isAdmin && (
+                        {(canImport || canCreate) && (
                             <div className="mt-4 flex gap-3">
-                                <button
-                                    onClick={() => setShowImport(true)}
-                                    className="btn-secondary flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium"
-                                >
-                                    <FiUpload className="w-4 h-4" />
-                                    Import from Excel
-                                </button>
-                                <button
-                                    onClick={handleAddItem}
-                                    className="btn-brand flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium"
-                                >
-                                    <FiPlus className="w-4 h-4" />
-                                    Add Item
-                                </button>
+                                {canImport && (
+                                    <button
+                                        onClick={() => setShowImport(true)}
+                                        className="btn-secondary flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium"
+                                    >
+                                        <FiUpload className="w-4 h-4" />
+                                        Import from Excel
+                                    </button>
+                                )}
+                                {canCreate && (
+                                    <button
+                                        onClick={handleAddItem}
+                                        className="btn-brand flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium"
+                                    >
+                                        <FiPlus className="w-4 h-4" />
+                                        Add Item
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
                 ) : (viewMode === 'cards' || isMobile) ? (
                     <BoqCardMobile
                         items={filteredItems}
-                        isAdmin={isAdmin}
+                        isAdmin={canEdit || canDelete}
                         selectedItems={selectedItems}
                         onSelect={setSelectedItems}
                         onUpdate={handleInlineUpdate}
@@ -519,7 +533,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
                         <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                             <BoqGrid
                                 items={filteredItems}
-                                isAdmin={isAdmin}
+                                isAdmin={canEdit || canDelete}
                                 selectedItems={selectedItems}
                                 onSelect={setSelectedItems}
                                 onUpdate={handleInlineUpdate}

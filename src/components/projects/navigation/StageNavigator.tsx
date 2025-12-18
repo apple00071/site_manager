@@ -29,6 +29,7 @@ interface StageNavigatorProps {
     completedStages?: StageId[];
     actions?: ActionItem[];
     stageStatus?: StageStatus;
+    visibleStages?: StageId[]; // If provided, only show these stages
 }
 // ... STAGES constant
 const STAGES: { id: StageId; label: string }[] = [
@@ -41,10 +42,15 @@ const STAGES: { id: StageId; label: string }[] = [
     { id: 'finance', label: 'Finance' },
 ];
 
-export function StageNavigator({ currentStage, onStageSelect, completedStages = [], actions = [], stageStatus }: StageNavigatorProps) {
+export function StageNavigator({ currentStage, onStageSelect, completedStages = [], actions = [], stageStatus, visibleStages }: StageNavigatorProps) {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [showActions, setShowActions] = useState(false);
     const actionsRef = useRef<HTMLDivElement>(null);
+
+    // Filter stages based on visibleStages prop (if provided)
+    const filteredStages = visibleStages
+        ? STAGES.filter(stage => visibleStages.includes(stage.id))
+        : STAGES;
 
     // ... useEffects
 
@@ -64,10 +70,10 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
             {/* DESKTOP PIPELINE (md+) */}
             <div className="hidden md:flex items-center justify-between px-6 py-3">
                 <div className="flex-1 flex items-center">
-                    {STAGES.map((stage, index) => {
+                    {filteredStages.map((stage, index) => {
                         const isActive = currentStage === stage.id;
                         const isCompleted = completedStages.includes(stage.id);
-                        const isLast = index === STAGES.length - 1;
+                        const isLast = index === filteredStages.length - 1;
 
                         const state = isActive ? 'current' : isCompleted ? 'completed' : 'upcoming';
 
@@ -75,7 +81,7 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
                             <div key={stage.id} className="flex items-center">
                                 {/* Connector Line */}
                                 {index > 0 && (
-                                    <div className={`w-8 h-0.5 mx-2 ${state === 'completed' || (isActive && completedStages.includes(STAGES[index - 1].id)) ? 'bg-teal-500' : 'bg-gray-200 border-t border-dashed border-gray-300'
+                                    <div className={`w-8 h-0.5 mx-2 ${state === 'completed' || (isActive && completedStages.includes(filteredStages[index - 1].id)) ? 'bg-teal-500' : 'bg-gray-200 border-t border-dashed border-gray-300'
                                         }`} />
                                 )}
 
@@ -191,7 +197,7 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
                         width: 'max-content'
                     }}
                 >
-                    {STAGES.map((stage, index) => {
+                    {filteredStages.map((stage, index) => {
                         const isActive = currentStage === stage.id;
                         const isCompleted = completedStages.includes(stage.id);
                         // Removed isPassed logic to prevent auto-completion visual

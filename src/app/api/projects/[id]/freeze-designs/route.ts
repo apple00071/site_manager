@@ -24,7 +24,7 @@ export async function POST(
         const userId = user.id;
 
         // RBAC: Check design.freeze permission
-        const permResult = await verifyPermission(userId, PERMISSION_NODES.DESIGN_FREEZE, projectId);
+        const permResult = await verifyPermission(userId, PERMISSION_NODES.DESIGNS_FREEZE, projectId);
         if (!permResult.allowed) {
             return NextResponse.json({ error: permResult.message }, { status: 403 });
         }
@@ -90,7 +90,7 @@ export async function DELETE(
         const userId = user.id;
 
         // RBAC: Check design.freeze permission
-        const permResult = await verifyPermission(userId, PERMISSION_NODES.DESIGN_FREEZE, projectId);
+        const permResult = await verifyPermission(userId, PERMISSION_NODES.DESIGNS_FREEZE, projectId);
         if (!permResult.allowed) {
             return NextResponse.json({ error: permResult.message }, { status: 403 });
         }

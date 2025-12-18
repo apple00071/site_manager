@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { FiUser, FiPhone, FiPlus, FiX, FiCheck, FiSearch, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 interface ProjectUser {
     id: string;
@@ -54,6 +55,10 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
     const [error, setError] = useState<string | null>(null);
     const [editingUser, setEditingUser] = useState<ProjectUser | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // Check if user has permission to manage project users
+    const { hasPermission } = useUserPermissions();
+    const canManageUsers = hasPermission('projects.edit');
 
     useEffect(() => {
         fetchProjectUsers();
@@ -320,13 +325,15 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                 {/* Header */}
                 <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-gray-900">Project Users</h3>
-                    <button
-                        className="text-yellow-600 hover:text-yellow-700 text-sm font-medium flex items-center gap-1"
-                        onClick={handleOpenModal}
-                    >
-                        <FiPlus className="w-4 h-4" />
-                        Add Users
-                    </button>
+                    {canManageUsers && (
+                        <button
+                            className="text-yellow-600 hover:text-yellow-700 text-sm font-medium flex items-center gap-1"
+                            onClick={handleOpenModal}
+                        >
+                            <FiPlus className="w-4 h-4" />
+                            Add Users
+                        </button>
+                    )}
                 </div>
 
                 {/* User List */}
@@ -401,8 +408,8 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                                             )}
                                         </div>
 
-                                        {/* Action buttons - hide for assigned employee and admin users */}
-                                        {assignedEmployee?.id !== user.id && user.role !== 'admin' && (
+                                        {/* Action buttons - hide for assigned employee, admin users, and users without permission */}
+                                        {canManageUsers && assignedEmployee?.id !== user.id && user.role !== 'admin' && (
                                             <div className="flex items-center gap-1 ml-2">
                                                 <button
                                                     onClick={() => handleEditUser(user)}

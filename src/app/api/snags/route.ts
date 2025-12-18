@@ -94,8 +94,8 @@ export async function POST(request: NextRequest) {
 
         const { project_id, assigned_to_user_id, ...snagData } = validationResult.data;
 
-        // RBAC: Check snag.create permission
-        const permResult = await verifyPermission(user.id, PERMISSION_NODES.SNAG_CREATE, project_id);
+        // RBAC: Check snags.create permission
+        const permResult = await verifyPermission(user.id, PERMISSION_NODES.SNAGS_CREATE, project_id);
         if (!permResult.allowed) {
             return NextResponse.json({ error: permResult.message }, { status: 403 });
         }
@@ -157,8 +157,8 @@ export async function PATCH(request: NextRequest) {
         if (action === 'assign' && updates.assigned_to_user_id) {
             finalUpdates.status = 'assigned';
         } else if (action === 'resolve') {
-            // RBAC: Check snag.resolve permission
-            const canResolve = await hasAnyPermission(user.id, [PERMISSION_NODES.SNAG_RESOLVE, PERMISSION_NODES.SNAG_VERIFY], existing.project_id);
+            // RBAC: Check snags.resolve permission
+            const canResolve = await hasAnyPermission(user.id, [PERMISSION_NODES.SNAGS_RESOLVE, PERMISSION_NODES.SNAGS_VERIFY], existing.project_id);
             if (!canResolve) {
                 return NextResponse.json({ error: 'Permission denied: snag.resolve required' }, { status: 403 });
             }
@@ -171,15 +171,15 @@ export async function PATCH(request: NextRequest) {
                 finalUpdates.resolved_description = updates.resolved_description;
             }
         } else if (action === 'verify') {
-            // RBAC: Check snag.verify permission
-            const permResult = await verifyPermission(user.id, PERMISSION_NODES.SNAG_VERIFY, existing.project_id);
+            // RBAC: Check snags.verify permission
+            const permResult = await verifyPermission(user.id, PERMISSION_NODES.SNAGS_VERIFY, existing.project_id);
             if (!permResult.allowed) {
                 return NextResponse.json({ error: permResult.message }, { status: 403 });
             }
             finalUpdates.status = 'verified';
         } else if (action === 'close') {
-            // RBAC: Check snag.verify permission (close is a verify-level action)
-            const permResult = await verifyPermission(user.id, PERMISSION_NODES.SNAG_VERIFY, existing.project_id);
+            // RBAC: Check snags.verify permission (close is a verify-level action)
+            const permResult = await verifyPermission(user.id, PERMISSION_NODES.SNAGS_VERIFY, existing.project_id);
             if (!permResult.allowed) {
                 return NextResponse.json({ error: permResult.message }, { status: 403 });
             }

@@ -9,53 +9,100 @@
 import { supabaseAdmin } from '@/lib/supabase-server';
 
 // Define all permission nodes in the system
+// Uses plural module names to match database structure (projects.*, designs.*, etc.)
 export const PERMISSION_NODES = {
     // Project Permissions
-    PROJECT_CREATE: 'project.create',
-    PROJECT_EDIT: 'project.edit',
-    PROJECT_DELETE: 'project.delete',
-    PROJECT_VIEW_BUDGET: 'project.view_budget',
+    PROJECTS_VIEW: 'projects.view',
+    PROJECTS_CREATE: 'projects.create',
+    PROJECTS_EDIT: 'projects.edit',
+    PROJECTS_DELETE: 'projects.delete',
+    PROJECTS_ASSIGN: 'projects.assign',
+    PROJECTS_VIEW_BUDGET: 'projects.view_budget',
 
     // Design Permissions
-    DESIGN_UPLOAD: 'design.upload',
-    DESIGN_APPROVE: 'design.approve',
-    DESIGN_FREEZE: 'design.freeze',
+    DESIGNS_VIEW: 'designs.view',
+    DESIGNS_UPLOAD: 'designs.upload',
+    DESIGNS_DELETE: 'designs.delete',
+    DESIGNS_APPROVE: 'designs.approve',
+    DESIGNS_FREEZE: 'designs.freeze',
+    DESIGNS_COMMENT: 'designs.comment',
 
     // BOQ Permissions
+    BOQ_VIEW: 'boq.view',
     BOQ_CREATE: 'boq.create',
     BOQ_EDIT: 'boq.edit',
-    BOQ_APPROVE: 'boq.approve',
+    BOQ_DELETE: 'boq.delete',
     BOQ_IMPORT: 'boq.import',
 
     // Proposal Permissions
-    PROPOSAL_CREATE: 'proposal.create',
-    PROPOSAL_SEND: 'proposal.send',
-    PROPOSAL_APPROVE: 'proposal.approve',
+    PROPOSALS_VIEW: 'proposals.view',
+    PROPOSALS_CREATE: 'proposals.create',
+    PROPOSALS_SEND: 'proposals.send',
+    PROPOSALS_APPROVE: 'proposals.approve',
+    PROPOSALS_REJECT: 'proposals.reject',
+    PROPOSALS_DELETE: 'proposals.delete',
 
-    // Order & Payment Permissions
-    ORDER_CREATE: 'order.create',
-    ORDER_APPROVE: 'order.approve',
-    PAYMENT_CREATE: 'payment.create',
-    PAYMENT_APPROVE: 'payment.approve',
+    // Order Permissions (Purchase Orders)
+    ORDERS_VIEW: 'orders.view',
+    ORDERS_CREATE: 'orders.create',
+    ORDERS_EDIT: 'orders.edit',
+    ORDERS_DELETE: 'orders.delete',
 
-    // Snag Permissions
-    SNAG_CREATE: 'snag.create',
-    SNAG_RESOLVE: 'snag.resolve',
-    SNAG_VERIFY: 'snag.verify',
+    // Invoice Permissions
+    INVOICES_VIEW: 'invoices.view',
+    INVOICES_CREATE: 'invoices.create',
+    INVOICES_EDIT: 'invoices.edit',
+    INVOICES_APPROVE: 'invoices.approve',
+    INVOICES_DELETE: 'invoices.delete',
+
+    // Payment Permissions
+    PAYMENTS_VIEW: 'payments.view',
+    PAYMENTS_CREATE: 'payments.create',
+    PAYMENTS_EDIT: 'payments.edit',
+    PAYMENTS_DELETE: 'payments.delete',
+
+    // Supplier Permissions
+    SUPPLIERS_VIEW: 'suppliers.view',
+    SUPPLIERS_CREATE: 'suppliers.create',
 
     // Inventory Permissions
+    INVENTORY_VIEW: 'inventory.view',
     INVENTORY_ADD: 'inventory.add',
-    INVENTORY_REMOVE: 'inventory.remove',
+    INVENTORY_APPROVE: 'inventory.approve',
+    INVENTORY_APPROVE_BILL: 'inventory.approve_bill',
+    INVENTORY_REJECT_BILL: 'inventory.reject_bill',
+    INVENTORY_RESUBMIT_BILL: 'inventory.resubmit_bill',
 
-    // Site Visit Permissions
-    SITE_VISIT_CREATE: 'site_visit.create',
-    SITE_VISIT_APPROVE: 'site_visit.approve',
+    // Update Permissions (Work Progress)
+    UPDATES_VIEW: 'updates.view',
+    UPDATES_CREATE: 'updates.create',
+
+    // Snag Permissions
+    SNAGS_VIEW: 'snags.view',
+    SNAGS_CREATE: 'snags.create',
+    SNAGS_RESOLVE: 'snags.resolve',
+    SNAGS_VERIFY: 'snags.verify',
+
+    // Finance Permissions
+    FINANCE_VIEW: 'finance.view',
 
     // User Management
-    USER_CREATE: 'user.create',
-    USER_EDIT: 'user.edit',
-    USER_DELETE: 'user.delete',
-    ROLE_MANAGE: 'role.manage',
+    USERS_VIEW: 'users.view',
+    USERS_CREATE: 'users.create',
+    USERS_EDIT: 'users.edit',
+    USERS_DELETE: 'users.delete',
+    USERS_MANAGE_ROLES: 'users.manage_roles',
+
+    // Settings Permissions
+    SETTINGS_VIEW: 'settings.view',
+    SETTINGS_EDIT: 'settings.edit',
+    SETTINGS_WORKFLOWS: 'settings.workflows',
+
+    // Task Permissions
+    TASKS_VIEW: 'tasks.view',
+    TASKS_CREATE: 'tasks.create',
+    TASKS_EDIT: 'tasks.edit',
+    TASKS_BULK: 'tasks.bulk',
 } as const;
 
 export type PermissionNode = typeof PERMISSION_NODES[keyof typeof PERMISSION_NODES];

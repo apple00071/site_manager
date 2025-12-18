@@ -161,38 +161,8 @@ function DashboardLayoutContent({
                 <span className="ml-3 text-xs font-medium hidden group-hover:block whitespace-nowrap">Org</span>
               </Link>
             )}
-            <div className="lg:hidden">
-              <Link
-                href="/dashboard/settings"
-                className="flex items-center justify-start pl-[14px] sm:pl-[18px] lg:pl-[14px] pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
-                onClick={() => setSidebarOpen(false)}
-                title="Settings"
-              >
-                <FiSettings className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
-                <span className="ml-3 text-xs font-medium hidden group-hover:block whitespace-nowrap">Settings</span>
-              </Link>
-            </div>
           </div>
         </nav>
-
-        {/* User section at bottom - Mobile Only */}
-        <div className="border-t border-gray-200 p-2 lg:hidden">
-          <div className="flex flex-col items-center space-y-1">
-            <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center shadow-sm">
-              <span className="text-gray-900 text-xs font-bold">
-                {(user.full_name || user.email || 'U').charAt(0).toUpperCase()}
-              </span>
-            </div>
-            <button
-              onClick={handleSignOut}
-              className="flex items-center px-1 py-2 text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors group"
-              title="Sign out"
-            >
-              <FiLogOut className="h-4 w-4 min-w-[16px] group-hover:text-red-600" />
-              <span className="ml-3 text-xs font-medium hidden group-hover:block whitespace-nowrap">Sign out</span>
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Main content - allow natural page scroll (no overflow-hidden here) */}
@@ -212,7 +182,7 @@ function DashboardLayoutContent({
                 <FiMenu className="h-6 w-6" />
               </button>
 
-              <div className="text-sm font-semibold text-gray-900 whitespace-nowrap truncate">{pageTitle}</div>
+              <div className="hidden sm:block text-sm font-semibold text-gray-900 whitespace-nowrap truncate">{pageTitle}</div>
 
               {/* Tab pills (Desktop Only for space, or scrollable on mobile?) */}
               {tabs.length > 0 && (
@@ -340,7 +310,7 @@ function DashboardLayoutContent({
 
         {/* Main content area with minimal padding */}
         <main className="flex-1 bg-white overflow-x-hidden max-w-full">
-          <div className={`pt-16 lg:pt-2 h-full flex flex-col min-h-0 max-w-full ${isCustomHeaderPage ? '' : 'px-2 sm:px-3 lg:px-4 pb-6'}`}>
+          <div className={`pt-4 lg:pt-2 h-full flex flex-col min-h-0 max-w-full ${isCustomHeaderPage ? '' : 'px-2 sm:px-3 lg:px-4 pb-6'}`}>
             {children}
           </div>
         </main>

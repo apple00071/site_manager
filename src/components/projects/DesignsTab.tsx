@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { formatDateTimeReadable } from '@/lib/dateUtils';
 import { useToast } from '@/components/ui/Toast';
 import { BottomSheet } from '@/components/ui/BottomSheet';
@@ -146,6 +147,14 @@ type DesignsTabProps = {
 
 export function DesignsTab({ projectId }: DesignsTabProps) {
   const { user, isAdmin } = useAuth();
+  const { hasPermission } = useUserPermissions();
+
+  // Permission checks
+  const canUpload = hasPermission('designs.upload');
+  const canFreeze = hasPermission('designs.freeze');
+  const canApprove = hasPermission('designs.approve');
+  const canDelete = hasPermission('designs.delete');
+
   const { showToast } = useToast();
   const [designs, setDesigns] = useState<DesignFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -653,8 +662,8 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
               <FiUpload className="w-5 h-5 text-gray-500" /> Upload New Version
             </button>
 
-            {/* Freeze/Unfreeze (admin only) */}
-            {isAdmin && (
+            {/* Freeze/Unfreeze (permission check) */}
+            {canFreeze && (
               <button
                 onClick={() => {
                   handleToggleFreezeDesign(mobileActionDesign);
@@ -677,7 +686,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
               </button>
             )}
 
-            {isAdmin && mobileActionDesign.approval_status === 'pending' && (
+            {canApprove && mobileActionDesign.approval_status === 'pending' && (
               <>
                 <button
                   onClick={() => {
@@ -701,7 +710,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
               </>
             )}
 
-            {(isAdmin || mobileActionDesign.uploaded_by === user?.id) && (
+            {(canDelete || mobileActionDesign.uploaded_by === user?.id) && (
               <button
                 onClick={() => {
                   handleDelete(mobileActionDesign.id);
@@ -1209,7 +1218,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                   Upload new version
                 </button>
 
-                {isAdmin && (
+                {canFreeze && (
                   <button
                     onClick={() => {
                       handleToggleFreezeDesign(design);
@@ -1236,7 +1245,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
 
                 <div className="border-t border-gray-100 my-1"></div>
 
-                {(isAdmin || design.uploaded_by === user?.id) && (
+                {(canDelete || design.uploaded_by === user?.id) && (
                   <button
                     onClick={() => {
                       handleDelete(design.id);

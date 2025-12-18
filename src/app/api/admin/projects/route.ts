@@ -282,7 +282,7 @@ export async function POST(req: Request) {
     const userId = user.id;
 
     // RBAC: Check project.create permission
-    const permResult = await verifyPermission(userId, PERMISSION_NODES.PROJECT_CREATE);
+    const permResult = await verifyPermission(userId, PERMISSION_NODES.PROJECTS_CREATE);
     if (!permResult.allowed) {
       return NextResponse.json(
         { error: { message: permResult.message, code: 'FORBIDDEN' } },

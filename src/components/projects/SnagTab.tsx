@@ -5,6 +5,7 @@ import { FiPlus, FiFilter, FiCheckCircle, FiClock, FiAlertTriangle, FiUser, FiCa
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 interface Snag {
     id: string;
@@ -35,6 +36,13 @@ interface SnagTabProps {
 
 export default function SnagTab({ projectId, userRole, userId }: SnagTabProps) {
     const { user } = useAuth(); // Get auth user for upload path
+    const { hasPermission } = useUserPermissions();
+
+    // Permission checks
+    const canCreate = hasPermission('snags.create');
+    const canResolve = hasPermission('snags.resolve');
+    const canVerify = hasPermission('snags.verify');
+
     const [snags, setSnags] = useState<Snag[]>([]);
     const [loading, setLoading] = useState(true);
     const [users, setUsers] = useState<ProjectUser[]>([]);
@@ -345,13 +353,15 @@ export default function SnagTab({ projectId, userRole, userId }: SnagTabProps) {
                         <option value="resolved">Resolved</option>
                         <option value="closed">Closed</option>
                     </select>
-                    <button
-                        onClick={() => { resetForm(); setShowModal(true); }}
-                        className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors flex items-center gap-2 text-sm font-medium shadow-sm hover:shadow-md"
-                    >
-                        <FiPlus className="w-4 h-4" />
-                        Raise Snag
-                    </button>
+                    {canCreate && (
+                        <button
+                            onClick={() => { resetForm(); setShowModal(true); }}
+                            className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors flex items-center gap-2 text-sm font-medium shadow-sm hover:shadow-md"
+                        >
+                            <FiPlus className="w-4 h-4" />
+                            Raise Snag
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -485,7 +495,7 @@ export default function SnagTab({ projectId, userRole, userId }: SnagTabProps) {
                                         Mark Resolved
                                     </button>
                                 )}
-                                {snag.status === 'resolved' && userRole === 'admin' && (
+                                {snag.status === 'resolved' && canVerify && (
                                     <button
                                         onClick={() => handleStatusUpdate(snag.id, 'verify')}
                                         className="px-3 py-1.5 text-xs font-medium text-white bg-lime-600 rounded hover:bg-lime-700"
@@ -493,7 +503,7 @@ export default function SnagTab({ projectId, userRole, userId }: SnagTabProps) {
                                         Verify
                                     </button>
                                 )}
-                                {snag.status === 'verified' && userRole === 'admin' && (
+                                {snag.status === 'verified' && canVerify && (
                                     <button
                                         onClick={() => handleStatusUpdate(snag.id, 'close')}
                                         className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"

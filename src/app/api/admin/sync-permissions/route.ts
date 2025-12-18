@@ -35,8 +35,7 @@ export async function POST(request: NextRequest) {
         // Get all current permissions
         const { data: existingPermissions } = await supabaseAdmin
             .from('permissions')
-            .select('id, code')
-            .eq('org_id', org.id);
+            .select('id, code');
 
         const existingCodes = new Set(existingPermissions?.map((p: { id: string; code: string }) => p.code) || []);
 
@@ -47,9 +46,9 @@ export async function POST(request: NextRequest) {
         let insertedCount = 0;
         if (newPermissions.length > 0) {
             const toInsert = newPermissions.map(code => ({
-                org_id: org.id,
                 code,
                 module: code.split('.')[0],
+                action: code.split('.')[1] || code, // Extract action from code (e.g., 'view_budget' from 'projects.view_budget')
                 description: `Permission: ${code}`
             }));
 
@@ -70,7 +69,6 @@ export async function POST(request: NextRequest) {
         const { data: adminRole } = await supabaseAdmin
             .from('roles')
             .select('id')
-            .eq('org_id', org.id)
             .eq('name', 'Admin')
             .single();
 
@@ -79,8 +77,7 @@ export async function POST(request: NextRequest) {
             // Get all permissions
             const { data: allPermissions } = await supabaseAdmin
                 .from('permissions')
-                .select('id')
-                .eq('org_id', org.id);
+                .select('id');
 
             if (allPermissions && allPermissions.length > 0) {
                 // Clear existing role_permissions for admin
@@ -143,8 +140,7 @@ export async function GET(request: NextRequest) {
 
         const { data: permissions } = await supabaseAdmin
             .from('permissions')
-            .select('code')
-            .eq('org_id', org.id);
+            .select('code');
 
         const dbCodes = new Set(permissions?.map((p: { code: string }) => p.code) || []);
         const codeCodes = Object.values(PERMISSION_NODES);

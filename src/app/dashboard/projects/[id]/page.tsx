@@ -10,6 +10,7 @@ import { formatDateIST } from '@/lib/dateUtils';
 import { FiClock, FiLayers, FiImage, FiEdit2, FiTrash2, FiX, FiPlus, FiUpload, FiSend, FiColumns, FiCheckCircle, FiArrowLeft } from 'react-icons/fi';
 import { EditProjectModal } from '@/components/projects/EditProjectModal';
 import type { BOQTabHandle } from '@/components/projects/BOQTab';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 // Page runs as a client component to use interactive tabs/boards
 
@@ -77,6 +78,28 @@ export default function ProjectDetailsPage() {
   const { setTitle, setSubtitle, clearHeader } = useHeaderTitle();
 
   const { user, isAdmin, isLoading: authLoading } = useAuth();
+  const { hasPermission, isAdmin: permIsAdmin } = useUserPermissions();
+  const canEditProject = hasPermission('projects.edit');
+
+  // Calculate visible stages based on permissions
+  const visibleStages = useMemo(() => {
+    // Admin users see all stages
+    if (permIsAdmin) {
+      return ['visit', 'design', 'boq', 'orders', 'work_progress', 'snag', 'finance'] as StageId[];
+    }
+
+    // Build list of visible stages based on permissions
+    const stages: StageId[] = ['visit']; // visit is always visible if user can view project
+
+    if (hasPermission('designs.view')) stages.push('design');
+    if (hasPermission('boq.view')) stages.push('boq');
+    if (hasPermission('procurement.view') || hasPermission('orders.view')) stages.push('orders');
+    if (hasPermission('inventory.view')) stages.push('work_progress');
+    if (hasPermission('snag.view')) stages.push('snag');
+    if (hasPermission('finance.view')) stages.push('finance');
+
+    return stages;
+  }, [permIsAdmin, hasPermission]);
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -393,6 +416,7 @@ export default function ProjectDetailsPage() {
         completedStages={[]} // TODO: Logic to calculate completed stages based on workflow
         actions={stageActions}
         stageStatus={getStageStatus(activeStage)}
+        visibleStages={visibleStages}
       />
 
       {/* 3. Sub-Tab Navigation */}
@@ -421,12 +445,14 @@ export default function ProjectDetailsPage() {
                       <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="text-lg font-semibold text-gray-900">Project Information</h3>
-                          <button
-                            onClick={() => setEditSection('info')}
-                            className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-full transition-colors"
-                          >
-                            <FiEdit2 className="w-4 h-4" />
-                          </button>
+                          {canEditProject && (
+                            <button
+                              onClick={() => setEditSection('info')}
+                              className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-full transition-colors"
+                            >
+                              <FiEdit2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                           <div>
@@ -482,12 +508,14 @@ export default function ProjectDetailsPage() {
                       <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="text-lg font-semibold text-gray-900">Customer & Contact Details</h3>
-                          <button
-                            onClick={() => setEditSection('customer')}
-                            className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-full transition-colors"
-                          >
-                            <FiEdit2 className="w-4 h-4" />
-                          </button>
+                          {canEditProject && (
+                            <button
+                              onClick={() => setEditSection('customer')}
+                              className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-full transition-colors"
+                            >
+                              <FiEdit2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                           <div>
@@ -523,12 +551,14 @@ export default function ProjectDetailsPage() {
                       <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="text-lg font-semibold text-gray-900">Property Details</h3>
-                          <button
-                            onClick={() => setEditSection('property')}
-                            className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-full transition-colors"
-                          >
-                            <FiEdit2 className="w-4 h-4" />
-                          </button>
+                          {canEditProject && (
+                            <button
+                              onClick={() => setEditSection('property')}
+                              className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-full transition-colors"
+                            >
+                              <FiEdit2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                           <div>
@@ -579,12 +609,14 @@ export default function ProjectDetailsPage() {
                     <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-semibold text-gray-900">Contractors & Workers</h3>
-                        <button
-                          onClick={() => setEditSection('workers')}
-                          className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-full transition-colors"
-                        >
-                          <FiEdit2 className="w-4 h-4" />
-                        </button>
+                        {canEditProject && (
+                          <button
+                            onClick={() => setEditSection('workers')}
+                            className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-full transition-colors"
+                          >
+                            <FiEdit2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                         {(!project.carpenter_name && !project.electrician_name && !project.plumber_name &&
