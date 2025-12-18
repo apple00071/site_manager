@@ -64,6 +64,7 @@ const DesignsTab = dynamic(() => import('@/components/projects/DesignsTab').then
 const BOQTab = dynamic(() => import('@/components/projects/BOQTab').then(m => m.BOQTab), { ssr: false });
 const ProcurementTab = dynamic(() => import('@/components/projects/ProcurementTab').then(m => m.ProcurementTab), { ssr: false });
 const SnagTab = dynamic(() => import('@/components/projects/SnagTab'), { ssr: false });
+const SiteLogTab = dynamic(() => import('@/components/projects/SiteLogTab').then(m => m.SiteLogTab), { ssr: false });
 const ProposalBuilder = dynamic(() => import('@/components/boq/ProposalBuilder').then(m => m.ProposalBuilder), { ssr: false });
 
 // Removed ProjectHeader import
@@ -730,6 +731,10 @@ export default function ProjectDetailsPage() {
               {activeSubTab === 'updates' ? (
                 <div className="p-4 sm:p-6 max-w-7xl mx-auto">
                   <UpdatesTab projectId={project.id} />
+                </div>
+              ) : activeSubTab === 'daily_logs' ? (
+                <div className="h-full">
+                  <SiteLogTab projectId={project.id} />
                 </div>
               ) : (
                 <InventoryTab projectId={project.id} />

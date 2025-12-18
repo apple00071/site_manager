@@ -124,6 +124,17 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         notifications: ['Snag created', 'Snag resolved', 'Snag verified']
     },
     {
+        module: 'Daily Site Logs',
+        icon: '📋',
+        permissions: [
+            { id: 'site_logs.view', label: 'View daily logs' },
+            { id: 'site_logs.create', label: 'Create daily logs' },
+            { id: 'site_logs.edit', label: 'Edit daily logs' },
+            { id: 'site_logs.delete', label: 'Delete daily logs' }
+        ],
+        notifications: ['New daily log']
+    },
+    {
         module: 'User & Role Management',
         icon: '👥',
         permissions: [
@@ -504,58 +515,114 @@ export default function RolesTab() {
                                     <div className="divide-y divide-gray-200">
                                         {/* Group permissions by module from API */}
                                         {(() => {
-                                            // Group allPermissions by module
-                                            const grouped: Record<string, typeof allPermissions> = {};
+                                            // 1. Group permissions from API by their code prefix or module mapping
+                                            // We want to map API permissions to the MODULE_PERMISSIONS constant
+                                            const groupedByConstant: Record<string, typeof allPermissions> = {};
+                                            const otherPermissions: typeof allPermissions = [];
+
                                             allPermissions.forEach(perm => {
-                                                const module = perm.module || 'Other';
-                                                if (!grouped[module]) grouped[module] = [];
-                                                grouped[module].push(perm);
+                                                // Try to find matching module in defined constant
+                                                const match = MODULE_PERMISSIONS.find(m =>
+                                                    m.permissions.some(p => p.id === perm.code || perm.code.startsWith(p.id.split('.')[0] + '.'))
+                                                    || perm.module === m.module // strict match if DB module matches label (rare but possible)
+                                                    || (m.module === 'BOQ' && perm.code.startsWith('boq.'))
+                                                    || (m.module === 'Project Management' && perm.code.startsWith('project.'))
+                                                    || (m.module === 'Site Visit' && perm.code.startsWith('site_visit.'))
+                                                    || (m.module === 'Design' && perm.code.startsWith('design.'))
+                                                    || (m.module === 'Proposals for Client' && perm.code.startsWith('proposal.'))
+                                                    || (m.module === 'Orders & Payments' && (perm.code.startsWith('order.') || perm.code.startsWith('payment.')))
+                                                    || (m.module === 'Inventory' && perm.code.startsWith('inventory.'))
+                                                    || (m.module === 'Snag & Audit' && perm.code.startsWith('snag.'))
+                                                    || (m.module === 'User & Role Management' && (perm.code.startsWith('user.') || perm.code.startsWith('role.')))
+                                                    || (m.module === 'Daily Site Logs' && perm.code.startsWith('site_logs.'))
+                                                );
+
+                                                if (match) {
+                                                    if (!groupedByConstant[match.module]) groupedByConstant[match.module] = [];
+                                                    groupedByConstant[match.module].push(perm);
+                                                } else {
+                                                    otherPermissions.push(perm);
+                                                }
                                             });
 
-                                            return Object.entries(grouped).map(([moduleName, perms]) => {
-                                                const isExpanded = expandedModules.includes(moduleName);
-                                                const hasSelectedPerm = perms.some(p => selectedPermissionIds.has(p.id));
+                                            // 2. Render modules in defined order
+                                            return (
+                                                <>
+                                                    {MODULE_PERMISSIONS.map(def => {
+                                                        const perms = groupedByConstant[def.module] || [];
+                                                        if (perms.length === 0) return null; // Hide empty modules
 
-                                                return (
-                                                    <div key={moduleName} className="border-b border-gray-200 last:border-0">
-                                                        {/* Module Header */}
-                                                        <button
-                                                            onClick={() => toggleModule(moduleName)}
-                                                            className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50"
-                                                        >
-                                                            {isExpanded ? (
-                                                                <FiChevronDown className="h-4 w-4 text-gray-400" />
-                                                            ) : (
-                                                                <FiChevronRight className="h-4 w-4 text-gray-400" />
-                                                            )}
-                                                            <span className={`w-5 h-5 rounded flex items-center justify-center text-sm ${hasSelectedPerm ? 'bg-red-100' : 'bg-gray-100'}`}>
-                                                                {hasSelectedPerm ? '✓' : '📋'}
-                                                            </span>
-                                                            <span className="text-sm font-medium text-gray-900">{moduleName}</span>
-                                                        </button>
+                                                        const isExpanded = expandedModules.includes(def.module);
+                                                        const hasSelectedPerm = perms.some(p => selectedPermissionIds.has(p.id));
 
-                                                        {/* Module Content */}
-                                                        {isExpanded && (
-                                                            <div className="px-4 pb-4">
-                                                                {/* Permissions as checkboxes */}
-                                                                <div className="space-y-2">
-                                                                    {perms.map((perm) => (
+                                                        return (
+                                                            <div key={def.module} className="border-b border-gray-200 last:border-0">
+                                                                <button
+                                                                    onClick={() => toggleModule(def.module)}
+                                                                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50"
+                                                                >
+                                                                    {isExpanded ? (
+                                                                        <FiChevronDown className="h-4 w-4 text-gray-400" />
+                                                                    ) : (
+                                                                        <FiChevronRight className="h-4 w-4 text-gray-400" />
+                                                                    )}
+                                                                    <span className={`w-5 h-5 rounded flex items-center justify-center text-sm ${hasSelectedPerm ? 'bg-amber-100 text-amber-600' : 'bg-gray-100'}`}>
+                                                                        {def.icon}
+                                                                    </span>
+                                                                    <span className="text-sm font-medium text-gray-900">{def.module}</span>
+                                                                </button>
+
+                                                                {isExpanded && (
+                                                                    <div className="px-4 pb-4">
+                                                                        <div className="space-y-2">
+                                                                            {perms.map((perm) => (
+                                                                                <label key={perm.id} className="flex items-start gap-2 cursor-pointer">
+                                                                                    <input
+                                                                                        type="checkbox"
+                                                                                        checked={selectedPermissionIds.has(perm.id)}
+                                                                                        onChange={() => handlePermissionChange(perm.id)}
+                                                                                        className="mt-0.5 h-4 w-4 text-amber-600 rounded border-gray-300 focus:ring-amber-500"
+                                                                                    />
+                                                                                    <span className="text-sm text-gray-700">{perm.description || perm.code}</span>
+                                                                                </label>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+
+                                                    {/* Render "Other" permissions if any */}
+                                                    {otherPermissions.length > 0 && (
+                                                        <div className="border-b border-gray-200 last:border-0">
+                                                            <button
+                                                                onClick={() => toggleModule('Other')}
+                                                                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50"
+                                                            >
+                                                                {expandedModules.includes('Other') ? <FiChevronDown /> : <FiChevronRight />}
+                                                                <span className="w-5 h-5 rounded bg-gray-100 flex items-center justify-center text-sm">?</span>
+                                                                <span className="text-sm font-medium text-gray-900">Other</span>
+                                                            </button>
+                                                            {expandedModules.includes('Other') && (
+                                                                <div className="px-4 pb-4 space-y-2">
+                                                                    {otherPermissions.map(perm => (
                                                                         <label key={perm.id} className="flex items-start gap-2 cursor-pointer">
                                                                             <input
                                                                                 type="checkbox"
                                                                                 checked={selectedPermissionIds.has(perm.id)}
                                                                                 onChange={() => handlePermissionChange(perm.id)}
-                                                                                className="mt-0.5 h-4 w-4 text-red-600 rounded"
+                                                                                className="mt-0.5 h-4 w-4 text-amber-600 rounded"
                                                                             />
                                                                             <span className="text-sm text-gray-700">{perm.description || perm.code}</span>
                                                                         </label>
                                                                     ))}
                                                                 </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            });
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            );
                                         })()}
                                     </div>
                                 </div>

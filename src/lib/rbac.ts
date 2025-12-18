@@ -77,6 +77,12 @@ export const PERMISSION_NODES = {
     UPDATES_VIEW: 'updates.view',
     UPDATES_CREATE: 'updates.create',
 
+    // Site Logs Permissions
+    SITE_LOGS_VIEW: 'site_logs.view',
+    SITE_LOGS_CREATE: 'site_logs.create',
+    SITE_LOGS_EDIT: 'site_logs.edit',
+    SITE_LOGS_DELETE: 'site_logs.delete',
+
     // Snag Permissions
     SNAGS_VIEW: 'snags.view',
     SNAGS_CREATE: 'snags.create',
