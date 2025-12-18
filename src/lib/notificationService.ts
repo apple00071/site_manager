@@ -11,6 +11,16 @@ export type NotificationType =
   | 'comment_added'
   | 'bill_approved'
   | 'bill_rejected'
+  | 'snag_created'
+  | 'snag_assigned'
+  | 'snag_resolved'
+  | 'snag_verified'
+  | 'proposal_sent'
+  | 'proposal_approved'
+  | 'proposal_rejected'
+  | 'invoice_created'
+  | 'invoice_approved'
+  | 'invoice_rejected'
   | 'mention'
   | 'general';
 
@@ -79,6 +89,96 @@ export class NotificationService {
       title: 'Design Approved',
       message: `Your design "${designName}" has been approved`,
       type: 'design_approved',
+    });
+  }
+
+  static async notifySnagCreated(userId: string, description: string, projectName: string) {
+    return this.createNotification({
+      userId,
+      title: 'New Snag Created',
+      message: `A new snag has been reported in project "${projectName}": ${description}`,
+      type: 'snag_created',
+    });
+  }
+
+  static async notifySnagAssigned(userId: string, description: string, projectName: string) {
+    return this.createNotification({
+      userId,
+      title: 'Snag Assigned',
+      message: `You have been assigned a snag in project "${projectName}": ${description}`,
+      type: 'snag_assigned',
+    });
+  }
+
+  static async notifySnagResolved(userId: string, description: string, projectName: string) {
+    return this.createNotification({
+      userId,
+      title: 'Snag Resolved',
+      message: `A snag has been resolved in project "${projectName}": ${description}`,
+      type: 'snag_resolved',
+    });
+  }
+
+  static async notifySnagVerified(userId: string, description: string, projectName: string) {
+    return this.createNotification({
+      userId,
+      title: 'Snag Verified',
+      message: `A snag has been verified and closed in project "${projectName}": ${description}`,
+      type: 'snag_verified',
+    });
+  }
+
+  static async notifyProposalSent(userId: string, proposalTitle: string, projectName: string) {
+    return this.createNotification({
+      userId,
+      title: 'Proposal Sent',
+      message: `Proposal "${proposalTitle}" has been sent for project "${projectName}"`,
+      type: 'proposal_sent',
+    });
+  }
+
+  static async notifyProposalApproved(userId: string, proposalTitle: string, projectName: string) {
+    return this.createNotification({
+      userId,
+      title: 'Proposal Approved',
+      message: `Proposal "${proposalTitle}" has been approved for project "${projectName}"`,
+      type: 'proposal_approved',
+    });
+  }
+
+  static async notifyProposalRejected(userId: string, proposalTitle: string, projectName: string) {
+    return this.createNotification({
+      userId,
+      title: 'Proposal Rejected',
+      message: `Proposal "${proposalTitle}" was rejected for project "${projectName}"`,
+      type: 'proposal_rejected',
+    });
+  }
+
+  static async notifyInvoiceCreated(userId: string, invoiceNumber: string, projectName: string, amount: number) {
+    return this.createNotification({
+      userId,
+      title: 'New Invoice Created',
+      message: `A new invoice (${invoiceNumber}) for ₹${amount} was created for project "${projectName}"`,
+      type: 'invoice_created',
+    });
+  }
+
+  static async notifyInvoiceApproved(userId: string, invoiceNumber: string, projectName: string) {
+    return this.createNotification({
+      userId,
+      title: 'Invoice Approved',
+      message: `Invoice ${invoiceNumber} for project "${projectName}" was approved`,
+      type: 'invoice_approved',
+    });
+  }
+
+  static async notifyInvoiceRejected(userId: string, invoiceNumber: string, projectName: string) {
+    return this.createNotification({
+      userId,
+      title: 'Invoice Rejected',
+      message: `Invoice ${invoiceNumber} for project "${projectName}" was rejected`,
+      type: 'invoice_rejected',
     });
   }
 }

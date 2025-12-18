@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { NotificationService } from '@/lib/notificationService';
+import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 
@@ -274,6 +276,45 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        // --- NOTIFICATIONS ---
+        try {
+            const { data: project } = await supabaseAdmin
+                .from('projects')
+                .select('title, created_by')
+                .eq('id', project_id)
+                .single();
+
+            if (project?.created_by) {
+                const { data: creator } = await supabaseAdmin
+                    .from('users')
+                    .select('phone_number')
+                    .eq('id', project.created_by)
+                    .single();
+
+                const projectName = project.title || 'Unknown Project';
+                const poNum = po.po_number || 'N/A';
+                const amount = po.total_amount || 0;
+
+                await NotificationService.createNotification({
+                    userId: project.created_by,
+                    title: 'New Purchase Order Created',
+                    message: `A new PO (${poNum}) for ₹${amount.toLocaleString()} was created for project "${projectName}"`,
+                    type: 'project_update',
+                    relatedId: po.id,
+                    relatedType: 'purchase_order'
+                });
+
+                if (creator?.phone_number) {
+                    await sendCustomWhatsAppNotification(
+                        creator.phone_number,
+                        `📦 *New Purchase Order*\n\nProject: ${projectName}\nPO: ${poNum}\nAmount: ₹${amount.toLocaleString()}\n\n🔗 Login to your dashboard for details.`
+                    );
+                }
+            }
+        } catch (notifError) {
+            console.error('Error sending PO creation notification:', notifError);
+        }
+
         return NextResponse.json({ po, budget_warning: budgetWarning }, { status: 201 });
     } catch (error) {
         console.error('Unexpected error:', error);
@@ -346,6 +387,47 @@ export async function PATCH(request: NextRequest) {
         if (error) {
             console.error('Error updating PO:', error);
             return NextResponse.json({ error: 'Failed to update PO' }, { status: 500 });
+        }
+
+        // --- NOTIFICATIONS ---
+        try {
+            if (updates.status && updates.status !== existing.status) {
+                const { data: project } = await supabaseAdmin
+                    .from('projects')
+                    .select('title, created_by')
+                    .eq('id', existing.project_id)
+                    .single();
+
+                if (project?.created_by) {
+                    const { data: creator } = await supabaseAdmin
+                        .from('users')
+                        .select('phone_number')
+                        .eq('id', project.created_by)
+                        .single();
+
+                    const projectName = project.title || 'Unknown Project';
+                    const poNum = data.po_number || 'N/A';
+                    const status = updates.status.replace('_', ' ').toUpperCase();
+
+                    await NotificationService.createNotification({
+                        userId: project.created_by,
+                        title: 'Purchase Order Updated',
+                        message: `PO ${poNum} for project "${projectName}" is now ${status}`,
+                        type: 'project_update',
+                        relatedId: id,
+                        relatedType: 'purchase_order'
+                    });
+
+                    if (creator?.phone_number) {
+                        await sendCustomWhatsAppNotification(
+                            creator.phone_number,
+                            `📦 *PO Status Update*\n\nProject: ${projectName}\nPO: ${poNum}\nStatus: ${status}\n\n🔗 Login to your dashboard for details.`
+                        );
+                    }
+                }
+            }
+        } catch (notifError) {
+            console.error('Error sending PO update notification:', notifError);
         }
 
         return NextResponse.json({ po: data });

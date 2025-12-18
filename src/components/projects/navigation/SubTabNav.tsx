@@ -5,6 +5,7 @@ import React from 'react';
 export interface SubTab {
     id: string;
     label: string;
+    permission?: string;
 }
 
 interface SubTabNavProps {
@@ -74,24 +75,24 @@ export const STAGE_SUB_TABS: Record<string, SubTab[]> = {
     ],
     design: [],
     boq: [
-        { id: 'boq', label: 'BOQ Items' },
+        { id: 'boq', label: 'BOQ Items', permission: 'boq.view' },
     ],
     orders: [
-        { id: 'proposals', label: 'Proposals For Client' },
-        { id: 'client_orders', label: 'Client Orders' },
-        { id: 'client_invoices', label: 'Client Invoices' },
-        { id: 'payments_from_client', label: 'Payments From Client' },
-        { id: 'my_scope', label: 'My Scope' },
+        { id: 'proposals', label: 'Proposals For Client', permission: 'proposals.view' },
+        { id: 'client_orders', label: 'Client Orders', permission: 'orders.view' },
+        { id: 'client_invoices', label: 'Client Invoices', permission: 'invoices.view' },
+        { id: 'payments_from_client', label: 'Payments From Client', permission: 'payments.view' },
+        { id: 'my_scope', label: 'My Scope', permission: 'procurement.view' },
     ],
     work_progress: [
-        { id: 'inventory', label: 'Inventory' },
-        { id: 'updates', label: 'Updates' },
+        { id: 'inventory', label: 'Inventory', permission: 'inventory.view' },
+        { id: 'updates', label: 'Updates', permission: 'updates.view' },
     ],
     snag: [
-        { id: 'snag_list', label: 'Snag List' },
+        { id: 'snag_list', label: 'Snag List', permission: 'snags.view' },
     ],
     finance: [
-        { id: 'finance_overview', label: 'Finance Overview' },
+        { id: 'finance_overview', label: 'Finance Overview', permission: 'finance.view' },
     ],
 };
 

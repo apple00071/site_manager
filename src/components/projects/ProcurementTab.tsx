@@ -145,30 +145,31 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [posRes, invoicesRes, paymentsRes, suppliersRes, boqRes, proposalsRes] = await Promise.all([
-                fetch(`/api/purchase-orders?project_id=${projectId}`),
-                fetch(`/api/invoices?project_id=${projectId}`),
-                fetch(`/api/payments?project_id=${projectId}`),
-                fetch('/api/suppliers?active=true'),
-                fetch(`/api/boq?project_id=${projectId}`),
-                fetch(`/api/proposals?project_id=${projectId}`),
-            ]);
+            setError(null);
 
-            const [posData, invoicesData, paymentsData, suppliersData, boqData, proposalsData] = await Promise.all([
-                posRes.json(),
-                invoicesRes.json(),
-                paymentsRes.json(),
-                suppliersRes.json(),
-                boqRes.json(),
-                proposalsRes.json(),
-            ]);
+            // Fetch each dataset independently to handle partial permissions
+            const fetchDataset = async (url: string, setter: (data: any) => void) => {
+                try {
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        const data = await res.json();
+                        setter(data);
+                    } else if (res.status === 403) {
+                        console.warn(`Access denied for ${url}`);
+                    }
+                } catch (err) {
+                    console.error(`Error fetching ${url}:`, err);
+                }
+            };
 
-            setPos(posData.pos || []);
-            setInvoices(invoicesData.invoices || []);
-            setPayments(paymentsData.payments || []);
-            setSuppliers(suppliersData.suppliers || []);
-            setBoqItems(boqData.items || []);
-            setProposals(proposalsData.proposals || []);
+            await Promise.all([
+                fetchDataset(`/api/purchase-orders?project_id=${projectId}`, (data) => setPos(data.pos || [])),
+                fetchDataset(`/api/invoices?project_id=${projectId}`, (data) => setInvoices(data.invoices || [])),
+                fetchDataset(`/api/payments?project_id=${projectId}`, (data) => setPayments(data.payments || [])),
+                fetchDataset('/api/suppliers?active=true', (data) => setSuppliers(data.suppliers || [])),
+                fetchDataset(`/api/boq?project_id=${projectId}`, (data) => setBoqItems(data.items || [])),
+                fetchDataset(`/api/proposals?project_id=${projectId}`, (data) => setProposals(data.proposals || [])),
+            ]);
 
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to fetch data');

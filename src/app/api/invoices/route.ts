@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { NotificationService } from '@/lib/notificationService';
+import { sendInvoiceWhatsAppNotification } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 
@@ -133,6 +135,34 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to create invoice' }, { status: 500 });
         }
 
+        // --- NOTIFICATIONS ---
+        try {
+            const { data: project } = await supabaseAdmin
+                .from('projects')
+                .select('title, created_by')
+                .eq('id', project_id)
+                .single();
+
+            if (project?.created_by) {
+                const { data: creator } = await supabaseAdmin
+                    .from('users')
+                    .select('phone_number')
+                    .eq('id', project.created_by)
+                    .single();
+
+                const projectName = project.title || 'Unknown Project';
+                const invNum = data.invoice_number || 'N/A';
+                const amount = data.total_amount || 0;
+
+                await NotificationService.notifyInvoiceCreated(project.created_by, invNum, projectName, amount);
+                if (creator?.phone_number) {
+                    await sendInvoiceWhatsAppNotification(creator.phone_number, invNum, projectName, 'created', amount);
+                }
+            }
+        } catch (notifError) {
+            console.error('Error sending invoice creation notification:', notifError);
+        }
+
         return NextResponse.json({ invoice: data }, { status: 201 });
     } catch (error) {
         console.error('Unexpected error:', error);
@@ -186,6 +216,39 @@ export async function PATCH(request: NextRequest) {
             if (error) {
                 console.error('Error updating invoice:', error);
                 return NextResponse.json({ error: 'Failed to update invoice' }, { status: 500 });
+            }
+
+            // --- NOTIFICATIONS ---
+            try {
+                // Notify the person who created the invoice
+                const { data: proposer } = await supabaseAdmin
+                    .from('users')
+                    .select('phone_number')
+                    .eq('id', existing.created_by)
+                    .single();
+
+                const { data: project } = await supabaseAdmin
+                    .from('projects')
+                    .select('title')
+                    .eq('id', existing.project_id)
+                    .single();
+
+                const projectName = project?.title || 'Unknown Project';
+                const invNum = data.invoice_number || 'N/A';
+
+                if (action === 'approve') {
+                    await NotificationService.notifyInvoiceApproved(existing.created_by, invNum, projectName);
+                    if (proposer?.phone_number) {
+                        await sendInvoiceWhatsAppNotification(proposer.phone_number, invNum, projectName, 'approved');
+                    }
+                } else {
+                    await NotificationService.notifyInvoiceRejected(existing.created_by, invNum, projectName);
+                    if (proposer?.phone_number) {
+                        await sendInvoiceWhatsAppNotification(proposer.phone_number, invNum, projectName, 'rejected');
+                    }
+                }
+            } catch (notifError) {
+                console.error('Error sending invoice update notifications:', notifError);
             }
 
             return NextResponse.json({ invoice: data });

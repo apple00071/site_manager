@@ -81,6 +81,16 @@ export default function ProjectDetailsPage() {
   const { hasPermission, isAdmin: permIsAdmin } = useUserPermissions();
   const canEditProject = hasPermission('projects.edit');
 
+  const [activeStage, setActiveStage] = useState<StageId>('visit');
+  const [activeSubTab, setActiveSubTab] = useState<string>('details');
+  const [editSection, setEditSection] = useState<'info' | 'customer' | 'property' | 'workers' | null>(null);
+  const [editingWorker, setEditingWorker] = useState<string | undefined>(undefined);
+  const [isSaving, setIsSaving] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [project, setProject] = useState<Project | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   // Calculate visible stages based on permissions
   const visibleStages = useMemo(() => {
     // Admin users see all stages
@@ -93,24 +103,29 @@ export default function ProjectDetailsPage() {
 
     if (hasPermission('designs.view')) stages.push('design');
     if (hasPermission('boq.view')) stages.push('boq');
-    if (hasPermission('procurement.view') || hasPermission('orders.view')) stages.push('orders');
-    if (hasPermission('inventory.view')) stages.push('work_progress');
-    if (hasPermission('snag.view')) stages.push('snag');
+
+    // Orders stage is visible if user has ANY relevant procurement/finance permission
+    if (hasPermission('procurement.view') ||
+      hasPermission('orders.view') ||
+      hasPermission('proposals.view') ||
+      hasPermission('invoices.view') ||
+      hasPermission('payments.view')) {
+      stages.push('orders');
+    }
+
+    if (hasPermission('inventory.view') || hasPermission('updates.view')) stages.push('work_progress');
+    if (hasPermission('snags.view')) stages.push('snag');
     if (hasPermission('finance.view')) stages.push('finance');
 
     return stages;
   }, [permIsAdmin, hasPermission]);
-  const [project, setProject] = useState<Project | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // Navigation State
-  const [activeStage, setActiveStage] = useState<StageId>('visit');
-  const [activeSubTab, setActiveSubTab] = useState<string>('details');
-  const [editSection, setEditSection] = useState<'info' | 'customer' | 'property' | 'workers' | null>(null);
-  const [editingWorker, setEditingWorker] = useState<string | undefined>(undefined);
-  const [isSaving, setIsSaving] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  // Memoize filtered sub-tabs for the current stage
+  const currentStageTabs = useMemo(() => {
+    const allTabs = STAGE_SUB_TABS[activeStage] || [];
+    if (permIsAdmin) return allTabs;
+    return allTabs.filter(tab => !tab.permission || hasPermission(tab.permission));
+  }, [activeStage, permIsAdmin, hasPermission]);
 
   const boqRef = useRef<BOQTabHandle>(null);
 
@@ -215,8 +230,18 @@ export default function ProjectDetailsPage() {
 
   const handleStageChange = (stage: StageId) => {
     setActiveStage(stage);
-    // Set default sub-tab for the stage using centralized config
-    setActiveSubTab(getDefaultSubTab(stage));
+
+    // Get permitted tabs for this stage
+    const allTabsForStage = STAGE_SUB_TABS[stage] || [];
+    const permittedTabs = allTabsForStage.filter(tab => !tab.permission || hasPermission(tab.permission));
+
+    // Set default sub-tab: either the first permitted one, or the hardcoded default if no permissions needed
+    if (permittedTabs.length > 0) {
+      setActiveSubTab(permittedTabs[0].id);
+    } else {
+      setActiveSubTab(getDefaultSubTab(stage));
+    }
+
     router.push(`/dashboard/projects/${id}?stage=${stage}`, { scroll: false });
   };
 
@@ -421,7 +446,7 @@ export default function ProjectDetailsPage() {
 
       {/* 3. Sub-Tab Navigation */}
       <SubTabNav
-        tabs={STAGE_SUB_TABS[activeStage] || []}
+        tabs={currentStageTabs}
         activeTab={activeSubTab}
         onTabChange={setActiveSubTab}
       />

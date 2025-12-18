@@ -33,12 +33,12 @@ class WhatsAppNotificationService {
         this.api = {
           sendMessage: async (params: any) => {
             const url = `https://www.wasenderapi.com/api/send-message`;
-            
+
             const payload = {
               to: `+${params.to}`,
               text: params.message
             };
-            
+
             const response = await fetch(url, {
               method: 'POST',
               headers: {
@@ -47,18 +47,18 @@ class WhatsAppNotificationService {
               },
               body: JSON.stringify(payload)
             });
-            
+
             if (!response.ok) {
               const errorText = await response.text();
               throw new Error(`WhatsApp API error: ${response.status} ${errorText}`);
             }
-            
+
             return await response.json();
           }
         };
         return true;
       }
-      
+
       this.api = new Ctor({
         apiKey: this.config.apiKey,
         instanceId: this.config.instanceId
@@ -75,7 +75,7 @@ class WhatsAppNotificationService {
       const sdkReady = await this.ensureSdk();
       if (!sdkReady) return false;
       const message = this.formatTaskMessage(taskTitle, projectName, status, link);
-      
+
       const result = await this.api.sendMessage({
         to: phoneNumber.replace(/[^\d]/g, ''), // Remove non-numeric characters
         message: message,
@@ -95,7 +95,7 @@ class WhatsAppNotificationService {
       const sdkReady = await this.ensureSdk();
       if (!sdkReady) return false;
       const message = this.formatProjectMessage(projectName, updateType);
-      
+
       const result = await this.api.sendMessage({
         to: phoneNumber.replace(/[^\d]/g, ''),
         message: message,
@@ -110,6 +110,66 @@ class WhatsAppNotificationService {
     }
   }
 
+  async sendSnagNotification(phoneNumber: string, description: string, projectName: string, status: string): Promise<boolean> {
+    try {
+      const sdkReady = await this.ensureSdk();
+      if (!sdkReady) return false;
+      const message = this.formatSnagMessage(description, projectName, status);
+
+      const result = await this.api.sendMessage({
+        to: phoneNumber.replace(/[^\d]/g, ''),
+        message: message,
+        type: 'text'
+      });
+
+      console.log('WhatsApp snag notification sent:', result);
+      return true;
+    } catch (error) {
+      console.error('Error sending WhatsApp snag notification:', error);
+      return false;
+    }
+  }
+
+  async sendProposalNotification(phoneNumber: string, proposalTitle: string, projectName: string, status: string): Promise<boolean> {
+    try {
+      const sdkReady = await this.ensureSdk();
+      if (!sdkReady) return false;
+      const message = this.formatProposalMessage(proposalTitle, projectName, status);
+
+      const result = await this.api.sendMessage({
+        to: phoneNumber.replace(/[^\d]/g, ''),
+        message: message,
+        type: 'text'
+      });
+
+      console.log('WhatsApp proposal notification sent:', result);
+      return true;
+    } catch (error) {
+      console.error('Error sending WhatsApp proposal notification:', error);
+      return false;
+    }
+  }
+
+  async sendInvoiceNotification(phoneNumber: string, invoiceNumber: string, projectName: string, status: string, amount?: number): Promise<boolean> {
+    try {
+      const sdkReady = await this.ensureSdk();
+      if (!sdkReady) return false;
+      const message = this.formatInvoiceMessage(invoiceNumber, projectName, status, amount);
+
+      const result = await this.api.sendMessage({
+        to: phoneNumber.replace(/[^\d]/g, ''),
+        message: message,
+        type: 'text'
+      });
+
+      console.log('WhatsApp invoice notification sent:', result);
+      return true;
+    } catch (error) {
+      console.error('Error sending WhatsApp invoice notification:', error);
+      return false;
+    }
+  }
+
   async sendCustomNotification(phoneNumber: string, message: string): Promise<boolean> {
     try {
       const sdkReady = await this.ensureSdk();
@@ -117,9 +177,9 @@ class WhatsAppNotificationService {
         console.error('SDK not ready');
         return false;
       }
-      
+
       const cleanPhone = phoneNumber.replace(/[^\d]/g, '');
-      
+
       const result = await this.api.sendMessage({
         to: cleanPhone,
         message: message,
@@ -137,28 +197,28 @@ class WhatsAppNotificationService {
   private formatTaskMessage(taskTitle: string, projectName?: string, status?: string, link?: string): string {
     let message = `📋 *Task Update*\n\n`;
     message += `*Task:* ${taskTitle}\n`;
-    
+
     if (projectName) {
       message += `*Project:* ${projectName}\n`;
     }
-    
+
     if (status) {
       const statusEmoji = this.getStatusEmoji(status);
       message += `*Status:* ${statusEmoji} ${status.replace('_', ' ').toUpperCase()}\n`;
     }
-    
+
     message += `\n🔗 Login to your dashboard for more details.`;
     if (link) {
       message += `\n\nOpen: ${link}`;
     }
-    
+
     return message;
   }
 
   private formatProjectMessage(projectName: string, updateType: 'created' | 'updated' | 'completed'): string {
     let message = `🏢 *Project Update*\n\n`;
     message += `*Project:* ${projectName}\n`;
-    
+
     switch (updateType) {
       case 'created':
         message += `*Status:* ✅ CREATED\n`;
@@ -173,21 +233,58 @@ class WhatsAppNotificationService {
         message += `Congratulations! Your project has been completed.`;
         break;
     }
-    
+
     message += `\n🔗 Login to your dashboard for more details.`;
-    
+
+    return message;
+  }
+
+  private formatSnagMessage(description: string, projectName: string, status: string): string {
+    let message = `⚠️ *Snag Update*\n\n`;
+    message += `*Project:* ${projectName}\n`;
+    message += `*Snag:* ${description}\n`;
+
+    const statusEmoji = this.getStatusEmoji(status);
+    message += `*Status:* ${statusEmoji} ${status.toUpperCase()}\n`;
+
+    message += `\n🔗 Login to your dashboard for more details.`;
+
+    return message;
+  }
+
+  private formatProposalMessage(proposalTitle: string, projectName: string, status: string): string {
+    let message = `📄 *Proposal Update*\n\n`;
+    message += `*Project:* ${projectName}\n`;
+    message += `*Proposal:* ${proposalTitle}\n`;
+    message += `*Status:* ${status.toUpperCase()}\n`;
+    message += `\n🔗 Login to your dashboard for more details.`;
+    return message;
+  }
+
+  private formatInvoiceMessage(invoiceNumber: string, projectName: string, status: string, amount?: number): string {
+    let message = `💰 *Invoice Update*\n\n`;
+    message += `*Project:* ${projectName}\n`;
+    message += `*Invoice:* ${invoiceNumber}\n`;
+    if (amount) message += `*Amount:* ₹${amount}\n`;
+    message += `*Status:* ${status.toUpperCase()}\n`;
+    message += `\n🔗 Login to your dashboard for more details.`;
     return message;
   }
 
   private getStatusEmoji(status: string): string {
     switch (status) {
       case 'todo':
+      case 'open':
         return '📝';
       case 'in_progress':
+      case 'assigned':
         return '🔄';
       case 'blocked':
         return '🚫';
       case 'done':
+      case 'resolved':
+      case 'verified':
+      case 'closed':
         return '✅';
       default:
         return '📋';
@@ -219,49 +316,75 @@ export function getWhatsAppService(): WhatsAppNotificationService | null {
   if (!whatsappService) {
     const apiKey = process.env.WHATSAPP_API_KEY;
     const instanceId = process.env.WHATSAPP_INSTANCE_ID;
-    
+
     if (!apiKey || !instanceId) {
       console.warn('WhatsApp API credentials not configured');
       return null;
     }
-    
+
     whatsappService = new WhatsAppNotificationService({
       apiKey,
       instanceId
     });
   }
-  
+
   return whatsappService;
 }
 
 export async function sendTaskWhatsAppNotification(
-  phoneNumber: string, 
-  taskTitle: string, 
-  projectName?: string, 
+  phoneNumber: string,
+  taskTitle: string,
+  projectName?: string,
   status?: string,
   link?: string
 ): Promise<boolean> {
   const service = getWhatsAppService();
-  if (!service) {
-    console.warn('WhatsApp service not available');
-    return false;
-  }
-  
+  if (!service) return false;
   return await service.sendTaskNotification(phoneNumber, taskTitle, projectName, status, link);
 }
 
 export async function sendProjectWhatsAppNotification(
-  phoneNumber: string, 
-  projectName: string, 
+  phoneNumber: string,
+  projectName: string,
   updateType: 'created' | 'updated' | 'completed'
 ): Promise<boolean> {
   const service = getWhatsAppService();
-  if (!service) {
-    console.warn('WhatsApp service not available');
-    return false;
-  }
-  
+  if (!service) return false;
   return await service.sendProjectUpdateNotification(phoneNumber, projectName, updateType);
+}
+
+export async function sendSnagWhatsAppNotification(
+  phoneNumber: string,
+  description: string,
+  projectName: string,
+  status: string
+): Promise<boolean> {
+  const service = getWhatsAppService();
+  if (!service) return false;
+  return await service.sendSnagNotification(phoneNumber, description, projectName, status);
+}
+
+export async function sendProposalWhatsAppNotification(
+  phoneNumber: string,
+  proposalTitle: string,
+  projectName: string,
+  status: string
+): Promise<boolean> {
+  const service = getWhatsAppService();
+  if (!service) return false;
+  return await service.sendProposalNotification(phoneNumber, proposalTitle, projectName, status);
+}
+
+export async function sendInvoiceWhatsAppNotification(
+  phoneNumber: string,
+  invoiceNumber: string,
+  projectName: string,
+  status: string,
+  amount?: number
+): Promise<boolean> {
+  const service = getWhatsAppService();
+  if (!service) return false;
+  return await service.sendInvoiceNotification(phoneNumber, invoiceNumber, projectName, status, amount);
 }
 
 export async function sendCustomWhatsAppNotification(
@@ -269,9 +392,6 @@ export async function sendCustomWhatsAppNotification(
   message: string
 ): Promise<boolean> {
   const service = getWhatsAppService();
-  if (!service) {
-    console.warn('WhatsApp service not available');
-    return false;
-  }
+  if (!service) return false;
   return await service.sendCustomNotification(phoneNumber, message);
 }
