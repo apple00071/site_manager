@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { FiPlus, FiFilter, FiCheckCircle, FiClock, FiAlertTriangle, FiUser, FiCamera, FiX, FiMoreVertical, FiTrash2, FiMapPin, FiCheck, FiArrowRight } from 'react-icons/fi';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
@@ -28,13 +28,17 @@ interface ProjectUser {
     role: string;
 }
 
+export interface SnagTabHandle {
+    openAddSnag: () => void;
+}
+
 interface SnagTabProps {
     projectId: string;
     userRole: string;
     userId: string;
 }
 
-export default function SnagTab({ projectId, userRole, userId }: SnagTabProps) {
+const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, userId }, ref) => {
     const { user } = useAuth(); // Get auth user for upload path
     const { hasPermission } = useUserPermissions();
 
@@ -121,6 +125,13 @@ export default function SnagTab({ projectId, userRole, userId }: SnagTabProps) {
         fetchSnags();
         fetchProjectAndUsers();
     }, [projectId]);
+
+    useImperativeHandle(ref, () => ({
+        openAddSnag: () => {
+            resetForm();
+            setShowModal(true);
+        }
+    }));
 
     const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
@@ -337,10 +348,7 @@ export default function SnagTab({ projectId, userRole, userId }: SnagTabProps) {
         <div className="space-y-6">
             {/* Header & Controls */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h2 className="text-xl font-bold text-gray-900">Snags & Audits</h2>
-                    <p className="text-sm text-gray-500">Track and resolve project defects</p>
-                </div>
+
                 <div className="flex items-center gap-3">
                     <select
                         value={filterStatus}
@@ -353,15 +361,7 @@ export default function SnagTab({ projectId, userRole, userId }: SnagTabProps) {
                         <option value="resolved">Resolved</option>
                         <option value="closed">Closed</option>
                     </select>
-                    {canCreate && (
-                        <button
-                            onClick={() => { resetForm(); setShowModal(true); }}
-                            className="btn-primary"
-                        >
-                            <FiPlus className="w-4 h-4" />
-                            Raise Snag
-                        </button>
-                    )}
+
                 </div>
             </div>
 
@@ -733,4 +733,6 @@ export default function SnagTab({ projectId, userRole, userId }: SnagTabProps) {
             )}
         </div>
     );
-}
+});
+
+export default SnagTab;

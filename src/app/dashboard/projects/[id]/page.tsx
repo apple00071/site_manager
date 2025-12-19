@@ -11,6 +11,22 @@ import { FiClock, FiLayers, FiImage, FiEdit2, FiTrash2, FiX, FiPlus, FiUpload, F
 import { EditProjectModal } from '@/components/projects/EditProjectModal';
 import type { BOQTabHandle } from '@/components/projects/BOQTab';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import type { SnagTabHandle } from '@/components/projects/SnagTab';
+import { createPortal } from 'react-dom';
+
+// Helper for Portal
+const ClientPortal = ({ children, selector }: { children: React.ReactNode; selector: string }) => {
+  const [mounted, setMounted] = useState(false);
+  const [element, setElement] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    setElement(document.querySelector(selector) as HTMLElement);
+  }, [selector]);
+
+  if (!mounted || !element) return null;
+  return createPortal(children, element);
+};
 
 // Page runs as a client component to use interactive tabs/boards
 
@@ -95,6 +111,7 @@ export default function ProjectDetailsPage() {
   const boqRef = useRef<BOQTabHandle>(null);
   const inventoryRef = useRef<any>(null);
   const siteLogRef = useRef<any>(null);
+  const snagRef = useRef<SnagTabHandle>(null);
 
 
 
@@ -215,6 +232,15 @@ export default function ProjectDetailsPage() {
           label: 'Compare BOQ vs Order',
           onClick: () => router.push(`/dashboard/projects/${id}/compare`),
           icon: <FiColumns className="w-4 h-4" />
+        }
+      ];
+    }
+    if (activeStage === 'snag' && hasPermission('snags.create')) {
+      return [
+        {
+          label: 'Raise Snag',
+          onClick: () => snagRef.current?.openAddSnag(),
+          icon: <FiPlus className="w-4 h-4" />
         }
       ];
     }
@@ -455,22 +481,24 @@ export default function ProjectDetailsPage() {
     <div className="flex flex-col min-h-full bg-white overflow-x-hidden w-full max-w-full min-w-0">
 
 
-      {/* 2. Pipeline Navigator */}
-      <StageNavigator
-        currentStage={activeStage}
-        onStageSelect={handleStageChange}
-        completedStages={[]} // TODO: Logic to calculate completed stages based on workflow
-        actions={stageActions}
-        stageStatus={getStageStatus(activeStage)}
-        visibleStages={visibleStages}
-      />
-
-      {/* 3. Sub-Tab Navigation */}
-      <SubTabNav
-        tabs={currentStageTabs}
-        activeTab={activeSubTab}
-        onTabChange={setActiveSubTab}
-      />
+      {/* 2. Pipeline Navigator & 3. Sub-Tab Navigation - MOVED TO HEADER VIA PORTAL */}
+      <ClientPortal selector="#project-navigation-portal">
+        <div className="w-full">
+          <StageNavigator
+            currentStage={activeStage}
+            onStageSelect={handleStageChange}
+            completedStages={[]}
+            actions={stageActions}
+            stageStatus={getStageStatus(activeStage)}
+            visibleStages={visibleStages}
+          />
+          <SubTabNav
+            tabs={currentStageTabs}
+            activeTab={activeSubTab}
+            onTabChange={setActiveSubTab}
+          />
+        </div>
+      </ClientPortal>
 
       {/* 4. Content Area */}
       <div className="flex-1 flex flex-col relative px-4 pb-20 sm:pb-0 overflow-x-hidden">
@@ -772,7 +800,7 @@ export default function ProjectDetailsPage() {
           {/* STAGE: SNAG (Placeholder) */}
           {activeStage === 'snag' && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 min-h-[600px]">
-              <SnagTab projectId={project.id} userId={user?.id || ''} userRole={isAdmin ? 'admin' : 'user'} />
+              <SnagTab projectId={project.id} userId={user?.id || ''} userRole={isAdmin ? 'admin' : 'user'} ref={snagRef} />
             </div>
           )}
 

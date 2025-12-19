@@ -24,43 +24,40 @@ export function SubTabNav({ tabs, activeTab, onTabChange, className = '' }: SubT
 
     return (
         <div className={`border-b border-gray-200 bg-white ${className}`}>
-            <div className="flex items-center justify-between px-4">
+            <div className="flex items-center px-1">
                 <div
-                    className="scroll-x-mobile"
+                    className="scroll-x-mobile w-full"
                     style={{
                         overflowX: 'scroll',
                         overflowY: 'hidden',
                         scrollbarWidth: 'none',
                         msOverflowStyle: 'none',
                         WebkitOverflowScrolling: 'touch',
-                        paddingRight: '1rem',
-                        marginRight: '-1rem'
                     }}
                 >
-                    <div className="flex gap-0" style={{ minWidth: 'max-content' }}>
-                        {tabs.map((tab) => (
-                            <button
-                                key={tab.id}
-                                onClick={() => onTabChange(tab.id)}
-                                className={`
-                  relative px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0
-                  ${activeTab === tab.id
-                                        ? 'text-yellow-600'
-                                        : 'text-gray-500 hover:text-gray-700'
-                                    }
-                `}
-                            >
-                                {tab.label}
-                                {/* Active indicator */}
-                                {activeTab === tab.id && (
-                                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-yellow-500" />
+                    <div className="flex items-center h-10" style={{ minWidth: 'max-content' }}>
+                        {tabs.map((tab, idx) => (
+                            <React.Fragment key={tab.id}>
+                                <button
+                                    onClick={() => onTabChange(tab.id)}
+                                    className={`
+                                      relative px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0
+                                      ${activeTab === tab.id
+                                            ? 'text-gray-900 border-b-2 border-yellow-500'
+                                            : 'text-gray-500 hover:text-gray-700'
+                                        }
+                                    `}
+                                >
+                                    {tab.label}
+                                </button>
+                                {/* Separator */}
+                                {idx < tabs.length - 1 && (
+                                    <span className="text-gray-300 mx-0.5 text-[10px] font-light">|</span>
                                 )}
-                            </button>
+                            </React.Fragment>
                         ))}
                     </div>
                 </div>
-
-
             </div>
         </div>
     );

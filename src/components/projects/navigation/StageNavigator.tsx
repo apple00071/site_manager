@@ -68,7 +68,7 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
     return (
         <div className="bg-white border-b border-gray-200 w-full max-w-full sticky top-0 z-10 transition-all duration-200">
             {/* DESKTOP PIPELINE (md+) */}
-            <div className="hidden md:flex items-center justify-between px-6 py-3">
+            <div className="hidden md:flex items-center justify-between px-2 py-1.5">
                 <div className="flex-1 flex items-center">
                     {filteredStages.map((stage, index) => {
                         const isActive = currentStage === stage.id;
@@ -114,15 +114,7 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
                 {/* Right Action Area */}
                 <div className="hidden lg:flex items-center gap-4 pl-4 border-l border-gray-200 ml-4">
                     {/* Dynamic Status Badge */}
-                    {stageStatus && (
-                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${getStatusColors(stageStatus.color)}`}>
-                            <span className="text-xs font-medium opacity-75">{stageStatus.label}:</span>
-                            <span className="text-xs font-bold flex items-center gap-1">
-                                {stageStatus.value}
-                                <FiClock className="w-3 h-3" />
-                            </span>
-                        </div>
-                    )}
+
 
 
 
@@ -130,7 +122,7 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
                     <div className="relative" ref={actionsRef}>
                         <button
                             onClick={() => setShowActions(!showActions)}
-                            className="btn-primary"
+                            className="btn-primary py-1.5"
                         >
                             <span className="flex items-center gap-2">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -145,9 +137,9 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
 
                         {/* Dropdown Menu */}
                         {showActions && (
-                            <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50 animate-in fade-in zoom-in-95 duration-100">
+                            <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50 animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
                                 {actions.length === 0 ? (
-                                    <div className="px-4 py-2 text-xs text-gray-400">No actions available</div>
+                                    <div className="px-4 py-3 text-xs text-gray-400 text-center">No actions available</div>
                                 ) : (
                                     actions.map((action, idx) => (
                                         <button
@@ -156,10 +148,10 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
                                                 action.onClick();
                                                 setShowActions(false);
                                             }}
-                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50/80 hover:text-gray-900 flex items-center gap-3 transition-colors border-b border-gray-50 last:border-0"
                                         >
-                                            {action.icon}
-                                            {action.label}
+                                            {action.icon && <span className="text-gray-400">{action.icon}</span>}
+                                            <span className="font-medium">{action.label}</span>
                                         </button>
                                     ))
                                 )}
@@ -172,7 +164,7 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
             {/* MOBILE SCROLL (md-) */}
             <div
                 ref={scrollContainerRef}
-                className="block md:hidden scroll-x-mobile"
+                className="block md:hidden scroll-x-mobile border-b border-gray-100"
                 style={{
                     overflowX: 'scroll',
                     overflowY: 'hidden',
@@ -184,7 +176,7 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
                 }}
             >
                 <div
-                    className="flex gap-2 px-4 py-3"
+                    className="flex gap-2 px-2 py-2"
                     style={{
                         display: 'inline-flex',
                         minWidth: '100%',
@@ -194,7 +186,6 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
                     {filteredStages.map((stage, index) => {
                         const isActive = currentStage === stage.id;
                         const isCompleted = completedStages.includes(stage.id);
-                        // Removed isPassed logic to prevent auto-completion visual
 
                         const state = isActive ? 'current' : isCompleted ? 'completed' : 'upcoming';
 
@@ -235,6 +226,46 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
                         );
                     })}
                 </div>
+            </div>
+
+            {/* MOBILE ACTION TOOLBAR (md-) - NEW ADDITION */}
+            <div className="flex md:hidden items-center justify-between px-3 py-2 bg-gray-50/50">
+                {/* Mobile Stage Status */}
+                <div className="flex-1">
+
+                </div>
+
+                {/* Mobile Actions Dropdown */}
+                {actions.length > 0 && (
+                    <div className="relative ml-2" ref={actionsRef}>
+                        <button
+                            onClick={() => setShowActions(!showActions)}
+                            className="btn-primary py-1 px-3 text-xs h-8"
+                        >
+                            <span>Actions</span>
+                            <FiChevronDown className={`w-3 h-3 transition-transform ${showActions ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {/* Mobile Dropdown Menu (Anchored Right) */}
+                        {showActions && (
+                            <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50 animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
+                                {actions.map((action, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => {
+                                            action.onClick();
+                                            setShowActions(false);
+                                        }}
+                                        className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50 last:border-0"
+                                    >
+                                        {action.icon && <span className="text-gray-400">{action.icon}</span>}
+                                        <span className="font-medium">{action.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );

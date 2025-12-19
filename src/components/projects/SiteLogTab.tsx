@@ -393,10 +393,7 @@ export const SiteLogTab = forwardRef<SiteLogTabHandle, SiteLogTabProps>(({ proje
     return (
         <div className="flex flex-col h-full bg-gray-50">
             {/* Header / Toolbar */}
-            <div className="flex justify-between items-center px-4 py-3 bg-white border-b border-gray-200 sticky top-0 z-10">
-                <h3 className="font-semibold text-gray-800">Daily Site Activity</h3>
-                {/* Button Removed */}
-            </div>
+
 
             {/* List Content */}
             <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 content-start">
@@ -423,7 +420,7 @@ export const SiteLogTab = forwardRef<SiteLogTabHandle, SiteLogTabProps>(({ proje
                                     {activeMenuId === log.id && (
                                         <div
                                             ref={menuRef}
-                                            className="absolute right-0 mt-1 w-32 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20 animate-in fade-in zoom-in-95 duration-100"
+                                            className="absolute right-0 mt-1 w-32 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-20 animate-in fade-in zoom-in-95 duration-100"
                                         >
                                             {hasPermission('site_logs.edit') && (
                                                 <button

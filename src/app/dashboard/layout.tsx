@@ -305,7 +305,11 @@ function DashboardLayoutContent({
             </div>
           </div>
 
+
         </header>
+
+        {/* Portal Target for Project Navigation */}
+        <div id="project-navigation-portal" className="sticky top-[50px] z-20 bg-white w-full shadow-sm" />
 
 
         {/* Main content area with minimal padding */}
