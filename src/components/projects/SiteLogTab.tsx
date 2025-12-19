@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { SidePanel } from '@/components/ui/SidePanel';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ImageModal } from '@/components/ui/ImageModal';
@@ -29,11 +29,15 @@ interface SiteLog {
     created_at: string;
 }
 
+export interface SiteLogTabHandle {
+    openAddLog: () => void;
+}
+
 interface SiteLogTabProps {
     projectId: string;
 }
 
-export function SiteLogTab({ projectId }: SiteLogTabProps) {
+export const SiteLogTab = forwardRef<SiteLogTabHandle, SiteLogTabProps>(({ projectId }, ref) => {
     const { user } = useAuth();
     const { hasPermission } = useUserPermissions();
     const [logs, setLogs] = useState<SiteLog[]>([]);
@@ -67,6 +71,10 @@ export function SiteLogTab({ projectId }: SiteLogTabProps) {
         photos: [] as string[],
         status: 'in_progress' as 'in_progress' | 'completed'
     });
+
+    useImperativeHandle(ref, () => ({
+        openAddLog: () => openNewLog()
+    }));
 
     useEffect(() => {
         fetchLogs();
@@ -364,14 +372,14 @@ export function SiteLogTab({ projectId }: SiteLogTabProps) {
         <div className="flex justify-end gap-3 w-full">
             <button
                 onClick={() => setIsPanelOpen(false)}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="btn-secondary"
             >
                 Cancel
             </button>
             <button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50"
+                className="btn-primary disabled:opacity-50"
             >
                 {isSubmitting ? 'Saving...' : 'Save Log'}
             </button>
@@ -387,25 +395,18 @@ export function SiteLogTab({ projectId }: SiteLogTabProps) {
             {/* Header / Toolbar */}
             <div className="flex justify-between items-center px-4 py-3 bg-white border-b border-gray-200 sticky top-0 z-10">
                 <h3 className="font-semibold text-gray-800">Daily Site Activity</h3>
-                {hasPermission('site_logs.create') && (
-                    <button
-                        onClick={openNewLog}
-                        className="flex items-center gap-2 bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition-colors shadow-sm text-sm font-medium"
-                    >
-                        <FiPlus /> Add Daily Log
-                    </button>
-                )}
+                {/* Button Removed */}
             </div>
 
             {/* List Content */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 content-start">
                 {logs.length === 0 ? (
-                    <div className="text-center py-12 text-gray-400">
+                    <div className="col-span-full text-center py-12 text-gray-400">
                         <p>No daily logs yet. Click "Add Daily Log" to start.</p>
                     </div>
                 ) : (
                     logs.map(log => (
-                        <div key={log.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow relative">
+                        <div key={log.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow relative h-full flex flex-col">
                             {/* Action Kebab Menu */}
                             {(hasPermission('site_logs.edit') || hasPermission('site_logs.delete')) && (
                                 <div className="absolute top-4 right-4">
@@ -457,11 +458,6 @@ export function SiteLogTab({ projectId }: SiteLogTabProps) {
                                     {log.status === 'completed' && (
                                         <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium flex items-center gap-1">
                                             <FiCheckCircle className="w-3 h-3" /> Done
-                                            {log.actual_completion_date && (
-                                                <span className="ml-1 text-[10px] opacity-75 hidden sm:inline">
-                                                    on {formatDateReadable(log.actual_completion_date)}
-                                                </span>
-                                            )}
                                         </span>
                                     )}
                                 </div>
@@ -474,11 +470,11 @@ export function SiteLogTab({ projectId }: SiteLogTabProps) {
                                 </div>
                             )}
 
-                            <p className="text-gray-700 whitespace-pre-wrap mb-4 text-sm leading-relaxed">
+                            <p className="text-gray-700 whitespace-pre-wrap mb-4 text-sm leading-relaxed flex-1">
                                 {log.work_description}
                             </p>
 
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-gray-50 p-3 rounded-lg text-sm border border-gray-100">
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-3 bg-gray-50 p-3 rounded-lg text-sm border border-gray-100 mt-auto">
                                 <div>
                                     <span className="block text-gray-400 text-xs mb-1">Workers</span>
                                     <div className="font-medium text-gray-900 flex items-center gap-1">
@@ -503,6 +499,14 @@ export function SiteLogTab({ projectId }: SiteLogTabProps) {
                                         <FiCalendar className="text-gray-400" /> {log.estimated_completion_date ? formatDateReadable(log.estimated_completion_date) : '-'}
                                     </div>
                                 </div>
+                                {log.status === 'completed' && (
+                                    <div>
+                                        <span className="block text-green-600 text-xs mb-1 font-medium">Actual Date</span>
+                                        <div className="font-medium text-green-700 flex items-center gap-1">
+                                            <FiCheckSquare className="text-green-500" /> {log.actual_completion_date ? formatDateReadable(log.actual_completion_date) : '-'}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {log.photos && log.photos.length > 0 && (
@@ -557,4 +561,6 @@ export function SiteLogTab({ projectId }: SiteLogTabProps) {
             />
         </div>
     );
-}
+});
+
+SiteLogTab.displayName = 'SiteLogTab';

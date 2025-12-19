@@ -245,14 +245,14 @@ export default function NewUserPage() {
               <button
                 type="button"
                 onClick={() => router.push('/dashboard/organization')}
-                className="px-4 py-2 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 mr-3"
+                className="btn-secondary mr-3"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isLoading || loadingRoles}
-                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-gray-900 bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50"
+                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? 'Creating...' : 'Create User'}
               </button>

@@ -50,7 +50,7 @@ export default function EditProjectPage() {
   const router = useRouter();
   const params = useParams();
   const projectId = params.id as string;
-  
+
   const [project, setProject] = useState<any>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,7 +90,7 @@ export default function EditProjectPage() {
           .order('full_name', { ascending: true });
 
         if (employeesError) throw employeesError;
-                        setEmployees((employeesData || []).map((u: { id: string; full_name: string; email: string; designation: string }) => ({
+        setEmployees((employeesData || []).map((u: { id: string; full_name: string; email: string; designation: string }) => ({
           id: u.id,
           name: u.full_name,
           email: u.email,
@@ -202,7 +202,7 @@ export default function EditProjectPage() {
         .eq('id', projectId);
 
       if (error) throw error;
-      
+
       // Force a refresh of the project data before redirecting
       router.refresh();
       // Redirect to the project details page instead of the projects list
@@ -262,7 +262,7 @@ export default function EditProjectPage() {
             {/* Basic Information */}
             <div className="border-b border-gray-200 pb-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                   <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
@@ -359,7 +359,7 @@ export default function EditProjectPage() {
             {/* Customer Details */}
             <div className="border-b border-gray-200 pb-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Customer Details</h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                   <label htmlFor="customer_name" className="block text-sm font-medium text-gray-700 mb-1">
@@ -430,7 +430,7 @@ export default function EditProjectPage() {
             {/* Project Details */}
             <div className="border-b border-gray-200 pb-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Project Details</h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="start_date" className="block text-sm font-medium text-gray-700 mb-1">
@@ -537,7 +537,7 @@ export default function EditProjectPage() {
             {/* Team Details */}
             <div className="border-b border-gray-200 pb-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Team Details</h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="designer_name" className="block text-sm font-medium text-gray-700 mb-1">
@@ -704,7 +704,7 @@ export default function EditProjectPage() {
             {/* Additional Information */}
             <div className="pb-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Additional Information</h3>
-              
+
               <div>
                 <label htmlFor="project_notes" className="block text-sm font-medium text-gray-700 mb-1">
                   Project Notes
@@ -725,14 +725,14 @@ export default function EditProjectPage() {
             <div className="flex justify-end space-x-3">
               <Link
                 href="/dashboard/projects"
-                className="px-4 py-2 rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+                className="btn-secondary"
               >
                 Cancel
               </Link>
               <button
                 type="submit"
                 disabled={saving || uploadingRequirements}
-                className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-colors"
+                className="btn-primary flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FiSave className="mr-2 h-4 w-4" />
                 {saving ? 'Saving...' : 'Save Changes'}

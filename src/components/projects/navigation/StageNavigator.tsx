@@ -124,19 +124,13 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
                         </div>
                     )}
 
-                    {/* Comment Button */}
-                    <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors">
-                        <span className="sr-only">Comments</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                        </svg>
-                    </button>
+
 
                     {/* Primary Actions Dropdown - Brand Color */}
                     <div className="relative" ref={actionsRef}>
                         <button
                             onClick={() => setShowActions(!showActions)}
-                            className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
+                            className="btn-primary"
                         >
                             <span className="flex items-center gap-2">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -89,7 +89,7 @@ export default function SettingsPage() {
                   password: 'temp123456' // Temporary password, should be reset
                 })
               });
-              
+
               if (response.ok) {
                 // Fetch the created user
                 const { data: newUser, error: fetchError } = await supabase
@@ -97,7 +97,7 @@ export default function SettingsPage() {
                   .select('*')
                   .eq('id', user.id)
                   .single();
-                
+
                 if (!fetchError && newUser) {
                   setUserProfile(newUser);
                   reset({
@@ -124,7 +124,7 @@ export default function SettingsPage() {
           });
           return;
         }
-        
+
         setUserProfile(data);
         reset({
           full_name: data.full_name || '',
@@ -141,7 +141,7 @@ export default function SettingsPage() {
   const onSubmit = async (data: ProfileFormValues) => {
     setLoading(true);
     setMessage(null);
-    
+
     try {
       // Update profile information
       const { error: profileError } = await supabase
@@ -213,7 +213,7 @@ export default function SettingsPage() {
                 <h3 className="text-lg leading-6 font-medium text-gray-900">Profile Information</h3>
                 <p className="mt-1 max-w-2xl text-sm text-gray-500">Update your account settings</p>
               </div>
-              
+
               {message && (
                 <div className={`px-4 py-3 ${message.type === 'success' ? 'bg-green-50' : 'bg-red-50'}`}>
                   <p className={`text-sm ${message.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
@@ -339,7 +339,7 @@ export default function SettingsPage() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-gray-900 bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                      className="btn-primary flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {loading ? 'Saving...' : 'Save Changes'}
                     </button>

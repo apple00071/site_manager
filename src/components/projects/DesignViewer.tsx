@@ -260,7 +260,7 @@ export function DesignViewer({
                         <>
                             <button
                                 onClick={() => onApprovalChange('approved')}
-                                className="flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium rounded-lg transition-colors"
+                                className="flex items-center gap-1 md:gap-1.5 btn-primary"
                                 title="Approve"
                             >
                                 <FiCheckCircle className="w-4 h-4" />
@@ -305,7 +305,7 @@ export function DesignViewer({
                     {/* Toggle Comments Panel */}
                     <button
                         onClick={() => setShowCommentsPanel(!showCommentsPanel)}
-                        className={`p-2 rounded ${showCommentsPanel ? 'bg-yellow-500 text-gray-900' : 'text-gray-300 hover:text-white hover:bg-gray-700'}`}
+                        className={`p-2 rounded ${showCommentsPanel ? 'bg-yellow-500 text-white' : 'text-gray-300 hover:text-white hover:bg-gray-700'}`}
                     >
                         <FiMessageCircle className="w-5 h-5" />
                     </button>
@@ -425,7 +425,7 @@ export function DesignViewer({
                                     <button
                                         onClick={() => setIsAddingPin(!isAddingPin)}
                                         className={`p-2 rounded border ${isAddingPin
-                                            ? 'bg-yellow-500 text-gray-900 border-yellow-500'
+                                            ? 'bg-yellow-500 text-white border-yellow-500'
                                             : 'border-gray-300 text-gray-600 hover:bg-gray-50'
                                             }`}
                                         title="Add pin comment"
@@ -497,7 +497,7 @@ export function DesignViewer({
                                 <button
                                     onClick={handleSubmitComment}
                                     disabled={submitting || !commentText.trim()}
-                                    className="mt-3 w-full py-2 bg-yellow-500 text-gray-900 font-medium rounded-lg hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="mt-3 w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {submitting ? 'Submitting...' : 'Submit'}
                                 </button>
@@ -570,7 +570,7 @@ export function DesignViewer({
                         <button
                             onClick={handleSubmitComment}
                             disabled={submitting || !commentText.trim()}
-                            className="w-full py-2 bg-yellow-500 text-gray-900 font-medium rounded-lg hover:bg-yellow-600 disabled:opacity-50"
+                            className="w-full btn-primary disabled:opacity-50"
                         >
                             {submitting ? 'Adding...' : 'Add Comment'}
                         </button>

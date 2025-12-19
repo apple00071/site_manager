@@ -95,7 +95,7 @@ export function BottomSheet({
                         <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
                         <button
                             onClick={onClose}
-                            className="p-2 -mr-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                            className="btn-ghost rounded-full -mr-2"
                             aria-label="Close"
                         >
                             <FiX className="w-5 h-5" />

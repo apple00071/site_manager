@@ -59,12 +59,12 @@ type Project = {
 
 
 const UpdatesTab = dynamic(() => import('@/components/projects/UpdatesTab').then(m => m.UpdatesTab), { ssr: false });
-const InventoryTab = dynamic(() => import('@/components/projects/InventoryTab').then(m => m.InventoryTab), { ssr: false });
+const InventoryTab = dynamic(() => import('@/components/projects/InventoryTab').then(m => m.InventoryTab), { ssr: false }) as any;
 const DesignsTab = dynamic(() => import('@/components/projects/DesignsTab').then(m => m.DesignsTab), { ssr: false });
 const BOQTab = dynamic(() => import('@/components/projects/BOQTab').then(m => m.BOQTab), { ssr: false });
 const ProcurementTab = dynamic(() => import('@/components/projects/ProcurementTab').then(m => m.ProcurementTab), { ssr: false });
 const SnagTab = dynamic(() => import('@/components/projects/SnagTab'), { ssr: false });
-const SiteLogTab = dynamic(() => import('@/components/projects/SiteLogTab').then(m => m.SiteLogTab), { ssr: false });
+const SiteLogTab = dynamic(() => import('@/components/projects/SiteLogTab').then(m => m.SiteLogTab), { ssr: false }) as any;
 const ProposalBuilder = dynamic(() => import('@/components/boq/ProposalBuilder').then(m => m.ProposalBuilder), { ssr: false });
 
 // Removed ProjectHeader import
@@ -91,6 +91,12 @@ export default function ProjectDetailsPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const boqRef = useRef<BOQTabHandle>(null);
+  const inventoryRef = useRef<any>(null);
+  const siteLogRef = useRef<any>(null);
+
+
 
   // Calculate visible stages based on permissions
   const visibleStages = useMemo(() => {
@@ -128,7 +134,7 @@ export default function ProjectDetailsPage() {
     return allTabs.filter(tab => !tab.permission || hasPermission(tab.permission));
   }, [activeStage, permIsAdmin, hasPermission]);
 
-  const boqRef = useRef<BOQTabHandle>(null);
+
 
   // Header Context Logic
   useEffect(() => {
@@ -168,6 +174,26 @@ export default function ProjectDetailsPage() {
   }, [project, setTitle, setSubtitle, clearHeader, router]);
 
   const stageActions = useMemo<ActionItem[]>(() => {
+    if (activeStage === 'work_progress') {
+      if (activeSubTab === 'inventory' && hasPermission('inventory.add')) {
+        return [
+          {
+            label: 'Add Item',
+            onClick: () => inventoryRef.current?.openAddItem(),
+            icon: <FiPlus className="w-4 h-4" />
+          }
+        ];
+      }
+      if (activeSubTab === 'daily_logs' && hasPermission('site_logs.create')) {
+        return [
+          {
+            label: 'Add Daily Log',
+            onClick: () => siteLogRef.current?.openAddLog(),
+            icon: <FiPlus className="w-4 h-4" />
+          }
+        ];
+      }
+    }
     if (activeStage === 'boq') {
       return [
         {
@@ -187,13 +213,14 @@ export default function ProjectDetailsPage() {
         },
         {
           label: 'Compare BOQ vs Order',
-          onClick: () => boqRef.current?.openComparison(),
+          onClick: () => router.push(`/dashboard/projects/${id}/compare`),
           icon: <FiColumns className="w-4 h-4" />
         }
       ];
     }
     return [];
-  }, [activeStage]);
+  }, [activeStage, activeSubTab, hasPermission, id, router]);
+
 
   const getStageStatus = (stage: StageId): StageStatus | undefined => {
     switch (stage) {
@@ -734,10 +761,10 @@ export default function ProjectDetailsPage() {
                 </div>
               ) : activeSubTab === 'daily_logs' ? (
                 <div className="h-full">
-                  <SiteLogTab projectId={project.id} />
+                  <SiteLogTab projectId={project.id} ref={siteLogRef} />
                 </div>
               ) : (
-                <InventoryTab projectId={project.id} />
+                <InventoryTab projectId={project.id} ref={inventoryRef} />
               )}
             </div>
           )}

@@ -117,17 +117,14 @@ export function ConfirmDialog({
                         <button
                             onClick={() => setIsOpen(false)}
                             disabled={isProcessing}
-                            className="px-3 py-1.5 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                            className="btn-secondary disabled:opacity-50"
                         >
                             {cancelLabel}
                         </button>
                         <button
                             onClick={handleConfirm}
                             disabled={isProcessing}
-                            className={`px-3 py-1.5 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 ${destructive
-                                    ? 'bg-red-600 hover:bg-red-700'
-                                    : 'bg-yellow-500 hover:bg-yellow-600'
-                                }`}
+                            className={`${destructive ? 'btn-danger' : 'btn-primary'} disabled:opacity-50`}
                         >
                             {isProcessing ? (
                                 <span className="flex items-center gap-1.5">
@@ -196,16 +193,13 @@ export function useConfirm() {
                 <div className="flex gap-3 justify-end">
                     <button
                         onClick={handleCancel}
-                        className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                        className="btn-secondary"
                     >
                         {dialog.options.cancelLabel || 'Cancel'}
                     </button>
                     <button
                         onClick={handleConfirm}
-                        className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${dialog.options.destructive
-                                ? 'bg-red-600 hover:bg-red-700'
-                                : 'bg-yellow-500 hover:bg-yellow-600'
-                            }`}
+                        className={dialog.options.destructive ? 'btn-danger' : 'btn-primary'}
                     >
                         {dialog.options.confirmLabel || 'Confirm'}
                     </button>

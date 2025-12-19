@@ -24,7 +24,7 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
 
   const currentUrl = images[activeIndex] || '';
   const isCurrentPDF = isPDF(currentUrl);
-  
+
   // Debug log to verify PDF detection
   if (currentUrl && currentUrl.includes('.pdf')) {
     console.log('PDF detected:', currentUrl, 'isPDF:', isCurrentPDF);
@@ -122,7 +122,7 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
       )}
 
       {/* Main Content - Image or PDF */}
-      <div 
+      <div
         className="relative w-full h-full flex items-center justify-center p-4 sm:p-8"
         onClick={onClose}
       >
@@ -137,7 +137,7 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
               href={currentUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-4 px-6 py-3 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 font-medium transition-colors"
+              className="mt-4 btn-primary"
               onClick={(e) => e.stopPropagation()}
             >
               📄 Open PDF in New Tab
@@ -171,11 +171,10 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
                 setActiveIndex(index);
                 onNavigate?.(index);
               }}
-              className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-all duration-200 flex items-center justify-center ${
-                index === activeIndex 
-                  ? 'border-yellow-400 opacity-100' 
-                  : 'border-transparent opacity-60 hover:opacity-80'
-              }`}
+              className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-all duration-200 flex items-center justify-center ${index === activeIndex
+                ? 'border-yellow-400 opacity-100'
+                : 'border-transparent opacity-60 hover:opacity-80'
+                }`}
             >
               {isPDF(image) ? (
                 <div className="w-full h-full bg-red-100 flex items-center justify-center text-xs font-bold text-red-700">
@@ -199,14 +198,14 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
 
       {/* Mobile Swipe Gestures */}
       <div className="absolute inset-0 z-50 lg:hidden">
-        <div 
+        <div
           className="absolute left-0 top-0 w-1/3 h-full"
           onClick={(e) => {
             e.stopPropagation();
             handlePrevious();
           }}
         />
-        <div 
+        <div
           className="absolute right-0 top-0 w-1/3 h-full"
           onClick={(e) => {
             e.stopPropagation();

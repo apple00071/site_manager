@@ -12,20 +12,20 @@ const projectSchema = z.object({
   // Basic Information
   title: z.string().min(2, 'Title is required'),
   description: z.string().optional().nullable(),
-  
+
   // Customer Details
   customer_name: z.string().min(2, 'Customer name is required'),
   phone_number: z.string().min(10, 'Phone number is required'),
   alt_phone_number: z.string().optional().nullable(),
   email: z.string().email('Invalid email address').optional().nullable(),
-  
+
   // Address Details
   address: z.string().min(5, 'Address is required'),
   landmark: z.string().optional().nullable(),
   city: z.string().optional().nullable(),
   state: z.string().optional().nullable(),
   pincode: z.string().optional().nullable(),
-  
+
   // Property Details
   property_type: z.enum(['apartment', 'villa', 'independent_house', 'office', 'commercial', 'granite', 'glass', 'other']).optional().nullable(),
   apartment_name: z.string().optional().nullable(),
@@ -33,28 +33,28 @@ const projectSchema = z.object({
   flat_number: z.string().optional().nullable(),
   floor_number: z.string().optional().nullable(),
   area_sqft: z.string().optional().nullable(),
-  
+
   // Project Details
   start_date: z.string().min(1, 'Start date is required'),
   estimated_completion_date: z.string().min(1, 'Estimated completion date is required'),
   project_type: z.string().optional().nullable(),
-  
+
   // Financial Details
   project_budget: z.string().optional().nullable(),
   advance_payment: z.string().optional().nullable(),
   payment_terms: z.string().optional().nullable(),
-  
+
   // Team Assignment
   assigned_employee_id: z.string().min(1, 'Please select a designer'),
   team_members: z.array(z.string()).optional().nullable(),
-  
+
   // Design Specifications
   design_style: z.string().optional().nullable(),
   room_types: z.string().optional().nullable(),
   special_requirements: z.string().optional().nullable(),
-  
+
   // Worker Details (all optional - can be assigned later)
-  
+
   // Tradespeople
   carpenter_name: z.string().optional().nullable(),
   carpenter_phone: z.string().optional().nullable(),
@@ -68,15 +68,15 @@ const projectSchema = z.object({
   granite_worker_phone: z.string().optional().nullable(),
   glass_worker_name: z.string().optional().nullable(),
   glass_worker_phone: z.string().optional().nullable(),
-  
+
   // Additional Information
   project_notes: z.string().optional().nullable(),
   internal_notes: z.string().optional().nullable(),
-  
+
   // Attachments
   requirements_pdf_url: z.string().optional().nullable(),
   attachments: z.array(z.string()).optional().nullable(),
-  
+
   // System Fields
   status: z.string().optional().nullable(),
   created_by: z.string().optional(),
@@ -110,7 +110,7 @@ export default function NewProjectPage() {
       console.log('Auth still loading...');
       return;
     }
-    
+
     // If we've already initialized, don't run this effect again
     if (isInitialized) {
       console.log('Already initialized, skipping...');
@@ -135,7 +135,7 @@ export default function NewProjectPage() {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        
+
         // Fetch team members from users table (all roles)
         console.log('Fetching employees...');
         const { data: employeesData, error: employeesError } = await supabase
@@ -147,9 +147,9 @@ export default function NewProjectPage() {
           console.error('Error fetching employees:', employeesError);
           throw employeesError;
         }
-        
+
         console.log('Employees loaded:', employeesData?.length, employeesData);
-        
+
         // Map to the expected format with 'name' field and include role for logic
         const mappedEmployees = (employeesData || []).map((u: { id: string; full_name: string | null; email: string | null; designation: string | null; role: string | null }) => ({
           id: u.id,
@@ -158,10 +158,10 @@ export default function NewProjectPage() {
           designation: u.designation,
           role: u.role,
         }));
-        
+
         console.log('Mapped employees:', mappedEmployees);
         setEmployees(mappedEmployees);
-        
+
       } catch (err) {
         console.error('Error fetching data:', err);
         setError('Failed to load required data');
@@ -203,13 +203,13 @@ export default function NewProjectPage() {
     console.log('=== FORM SUBMISSION STARTED ===');
     console.log('Form data received:', data);
     console.log('Form errors:', errors);
-    
+
     setIsSubmitting(true);
     setError(null);
 
     try {
       console.log('Submitting project:', data);
-      
+
       // Upload PDF to Supabase Storage if file is selected
       let pdfUrl = null;
       if (pdfFile) {
@@ -220,7 +220,7 @@ export default function NewProjectPage() {
           const filePath = `requirements/${fileName}`;
 
           console.log('Uploading PDF to storage:', filePath);
-          
+
           const { error: uploadError } = await supabase.storage
             .from('project-requirements')
             .upload(filePath, pdfFile);
@@ -243,7 +243,7 @@ export default function NewProjectPage() {
           setUploadingPDF(false);
         }
       }
-      
+
       // Prepare the project data with all fields
       const projectData = {
         title: data.title,
@@ -287,7 +287,7 @@ export default function NewProjectPage() {
 
       const json = await res.json();
       console.log('API Response:', json);
-      
+
       if (!res.ok) {
         const errorMessage = json.error?.message || json.error || 'Failed to create project';
         console.error('API Error:', errorMessage);
@@ -296,12 +296,12 @@ export default function NewProjectPage() {
 
       // Redirect to projects list on success
       router.push('/dashboard/projects');
-      
+
     } catch (err: any) {
       console.error('Error in onSubmit:', err);
       const errorMessage = err.message || 'An error occurred while creating the project';
       setError(errorMessage);
-      
+
       // Show a more detailed error in the UI
       if (errorMessage.includes('permission denied')) {
         setError('Permission denied. Please ensure you have admin access.');
@@ -362,7 +362,7 @@ export default function NewProjectPage() {
           }} className="space-y-6">
             <div className="border-t border-gray-200 pt-6 mt-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Project Details</h3>
-              
+
               <div className="space-y-4 sm:space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div className="sm:col-span-2">
@@ -450,7 +450,7 @@ export default function NewProjectPage() {
                 {/* Property Details Section */}
                 <div className="bg-gray-50 rounded-xl p-4 sm:p-6 space-y-4">
                   <h4 className="text-md font-semibold text-gray-800 mb-3">Property Details</h4>
-                  
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div>
                       <label htmlFor="property_type" className="block text-sm font-medium text-gray-700 mb-2">
@@ -562,7 +562,7 @@ export default function NewProjectPage() {
 
             <div className="border-t border-gray-200 pt-6 mt-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Timeline & Budget</h3>
-              
+
               <div className="space-y-4 sm:space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div>
@@ -627,7 +627,7 @@ export default function NewProjectPage() {
             <div className="border-t border-gray-200 pt-6 mt-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Assign Designer</h3>
               <p className="text-sm text-gray-600 mb-4">Select a designer from your team to create the project design.</p>
-              
+
               <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Select Designer *
@@ -691,7 +691,7 @@ export default function NewProjectPage() {
             <div className="border-t border-gray-200 pt-6 mt-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Worker Details</h3>
               <p className="text-sm text-gray-600 mb-4">Enter contact details for workers who will be assigned to this project.</p>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Carpenter */}
                 <div>
@@ -889,7 +889,7 @@ export default function NewProjectPage() {
 
             <div className="border-t border-gray-200 pt-6 mt-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Additional Information</h3>
-              
+
               <div className="grid grid-cols-1 gap-6">
                 <div>
                   <label htmlFor="requirements_pdf" className="block text-sm font-medium text-gray-700 mb-1">
@@ -938,7 +938,7 @@ export default function NewProjectPage() {
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="w-full sm:w-auto px-6 py-3 sm:py-4 text-gray-700 rounded-xl bg-gray-100 hover:bg-gray-200 active:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 transition-all duration-200 font-semibold text-sm sm:text-base touch-target"
+                className="w-full sm:w-auto btn-secondary"
               >
                 Cancel
               </button>
@@ -946,11 +946,11 @@ export default function NewProjectPage() {
                 type="submit"
                 disabled={isSubmitting || uploadingPDF}
                 onClick={() => console.log('Submit button clicked!')}
-                className="w-full sm:w-auto px-6 py-3 sm:py-4 bg-yellow-500 text-gray-900 rounded-xl hover:bg-yellow-600 active:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-200 font-bold text-sm sm:text-base touch-target flex items-center justify-center"
+                className="w-full sm:w-auto btn-primary flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {uploadingPDF ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
@@ -958,7 +958,7 @@ export default function NewProjectPage() {
                   </>
                 ) : isSubmitting ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>

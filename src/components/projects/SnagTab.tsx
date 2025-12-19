@@ -356,7 +356,7 @@ export default function SnagTab({ projectId, userRole, userId }: SnagTabProps) {
                     {canCreate && (
                         <button
                             onClick={() => { resetForm(); setShowModal(true); }}
-                            className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors flex items-center gap-2 text-sm font-medium shadow-sm hover:shadow-md"
+                            className="btn-primary"
                         >
                             <FiPlus className="w-4 h-4" />
                             Raise Snag
@@ -477,7 +477,7 @@ export default function SnagTab({ projectId, userRole, userId }: SnagTabProps) {
                                             });
                                             setShowModal(true);
                                         }}
-                                        className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700"
+                                        className="btn-base px-3 py-1.5 text-xs bg-blue-600 text-white hover:bg-blue-700"
                                     >
                                         Assign / Edit
                                     </button>
@@ -490,7 +490,7 @@ export default function SnagTab({ projectId, userRole, userId }: SnagTabProps) {
                                             setResolutionDescription('');
                                             setShowResolveModal(true);
                                         }}
-                                        className="px-3 py-1.5 text-xs font-medium text-white bg-yellow-500 rounded hover:bg-yellow-600"
+                                        className="btn-base px-3 py-1.5 text-xs bg-yellow-500 text-white hover:bg-yellow-600"
                                     >
                                         Mark Resolved
                                     </button>
@@ -498,7 +498,7 @@ export default function SnagTab({ projectId, userRole, userId }: SnagTabProps) {
                                 {snag.status === 'resolved' && canVerify && (
                                     <button
                                         onClick={() => handleStatusUpdate(snag.id, 'verify')}
-                                        className="px-3 py-1.5 text-xs font-medium text-white bg-lime-600 rounded hover:bg-lime-700"
+                                        className="btn-base px-3 py-1.5 text-xs bg-lime-600 text-white hover:bg-lime-700"
                                     >
                                         Verify
                                     </button>
@@ -506,7 +506,7 @@ export default function SnagTab({ projectId, userRole, userId }: SnagTabProps) {
                                 {snag.status === 'verified' && canVerify && (
                                     <button
                                         onClick={() => handleStatusUpdate(snag.id, 'close')}
-                                        className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"
+                                        className="btn-base px-3 py-1.5 text-xs bg-green-600 text-white hover:bg-green-700"
                                     >
                                         Close Snag
                                     </button>
@@ -523,7 +523,7 @@ export default function SnagTab({ projectId, userRole, userId }: SnagTabProps) {
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
                         <div className="p-4 border-b border-gray-100 flex justify-between items-center">
                             <h3 className="text-lg font-bold text-gray-900">{editingSnag ? 'Edit Snag' : 'Report New Snag'}</h3>
-                            <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+                            <button onClick={() => setShowModal(false)} className="btn-ghost rounded-full">
                                 <FiX className="w-5 h-5" />
                             </button>
                         </div>
@@ -619,10 +619,10 @@ export default function SnagTab({ projectId, userRole, userId }: SnagTabProps) {
                             </div>
                         </div>
                         <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
-                            <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900">Cancel</button>
+                            <button onClick={() => setShowModal(false)} className="btn-secondary">Cancel</button>
                             <button
                                 onClick={handleSubmit}
-                                className="px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-medium hover:bg-yellow-600 shadow-sm"
+                                className="btn-primary"
                             >
                                 {editingSnag ? 'Update Snag' : 'Create Snag'}
                             </button>
@@ -635,7 +635,7 @@ export default function SnagTab({ projectId, userRole, userId }: SnagTabProps) {
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
                         <div className="p-4 border-b border-gray-100 flex justify-between items-center">
                             <h3 className="text-lg font-bold text-gray-900">Resolve Snag</h3>
-                            <button onClick={() => setShowResolveModal(false)} className="text-gray-400 hover:text-gray-600">
+                            <button onClick={() => setShowResolveModal(false)} className="btn-ghost rounded-full">
                                 <FiX className="w-5 h-5" />
                             </button>
                         </div>
@@ -690,14 +690,14 @@ export default function SnagTab({ projectId, userRole, userId }: SnagTabProps) {
                         <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
                             <button
                                 onClick={() => setShowResolveModal(false)}
-                                className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900"
+                                className="btn-secondary"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={submitResolution}
                                 disabled={resolutionPhotos.length === 0}
-                                className={`px-4 py-2 text-white rounded-lg text-sm font-medium shadow-sm flex items-center gap-2 ${resolutionPhotos.length === 0
+                                className={`btn-base px-4 py-2 text-white shadow-sm flex items-center gap-2 ${resolutionPhotos.length === 0
                                     ? 'bg-gray-300 cursor-not-allowed'
                                     : 'bg-green-600 hover:bg-green-700'
                                     }`}

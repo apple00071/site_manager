@@ -60,7 +60,7 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                     <h3 className="text-lg font-semibold text-gray-900">{getTitle()}</h3>
-                    <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors">
+                    <button onClick={onClose} className="btn-ghost rounded-full">
                         <FiX className="w-5 h-5" />
                     </button>
                 </div>
@@ -319,14 +319,14 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                            className="btn-secondary"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={isSaving}
-                            className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-yellow-500 border border-transparent rounded-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all gap-2"
+                            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isSaving ? (
                                 <>

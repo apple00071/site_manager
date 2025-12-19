@@ -350,14 +350,14 @@ export default function EditUserPage() {
             <div className="flex justify-end space-x-3">
               <Link
                 href="/dashboard/organization"
-                className="px-4 py-2 rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+                className="btn-secondary"
               >
                 Cancel
               </Link>
               <button
                 type="submit"
                 disabled={saving}
-                className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-colors"
+                className="btn-primary flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FiSave className="mr-2 h-4 w-4" />
                 {saving ? 'Saving...' : 'Save Changes'}

@@ -1065,8 +1065,8 @@ export default function TasksPage() {
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">
-          <button onClick={() => { setModalOpen(false); setEditingTask(null); }} className="px-4 py-2 text-gray-700 rounded-md bg-gray-100 hover:bg-gray-200">Cancel</button>
-          <button onClick={saveTask} className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 font-medium">{isEditing ? 'Save Changes' : 'Create Task'}</button>
+          <button onClick={() => { setModalOpen(false); setEditingTask(null); }} className="btn-secondary">Cancel</button>
+          <button onClick={saveTask} className="btn-primary">{isEditing ? 'Save Changes' : 'Create Task'}</button>
         </div>
       </div>
     </div>
@@ -1159,13 +1159,13 @@ export default function TasksPage() {
       <div className="flex justify-end gap-2 pt-4">
         <button
           onClick={() => { setViewModalOpen(false); setViewTask(null); }}
-          className="px-4 py-2 text-gray-700 rounded-md bg-gray-100 hover:bg-gray-200"
+          className="btn-secondary"
         >
           Close
         </button>
         <button
           onClick={() => { if (viewTask) { openEditTask(viewTask); } }}
-          className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md hover:bg-yellow-600 font-medium"
+          className="btn-primary"
         >
           Edit Task
         </button>
@@ -1309,14 +1309,14 @@ export default function TasksPage() {
                           <div className="flex flex-col gap-2 ml-4">
                             <button
                               onClick={() => handleApproveProposal(proposal.id)}
-                              className="inline-flex items-center gap-1 px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600"
+                              className="btn-base px-4 py-2 bg-green-600 text-white hover:bg-green-700 text-sm"
                             >
                               <FiCheckCircle className="w-4 h-4" />
                               Approve
                             </button>
                             <button
                               onClick={() => handleRejectProposal(proposal.id)}
-                              className="inline-flex items-center gap-1 px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200"
+                              className="btn-base px-4 py-2 bg-red-100 text-red-700 hover:bg-red-200 text-sm"
                             >
                               <FiXCircle className="w-4 h-4" />
                               Reject
@@ -1371,7 +1371,7 @@ export default function TasksPage() {
                   <button
                     type="button"
                     onClick={() => setModalOpen(true)}
-                    className="inline-flex items-center px-3 py-2 rounded-md bg-yellow-500 text-gray-900 font-medium hover:bg-yellow-600"
+                    className="btn-primary"
                   >
                     <FiPlus className="h-4 w-4 mr-1" />
                     New Task
@@ -1478,7 +1478,7 @@ export default function TasksPage() {
               <button
                 type="button"
                 onClick={() => openCreateAt(new Date())}
-                className="fixed bottom-20 right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-yellow-500 text-gray-900 shadow-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 sm:hidden"
+                className="btn-primary fixed bottom-20 right-4 z-40 h-14 w-14 rounded-full shadow-lg p-0 flex items-center justify-center sm:hidden"
                 aria-label="Add new task"
               >
                 <FiPlus className="h-7 w-7" />
@@ -1514,7 +1514,7 @@ export default function TasksPage() {
                         <h2 className="text-lg font-semibold text-gray-900">Task Details</h2>
                         <button
                           onClick={() => { setViewModalOpen(false); setViewTask(null); }}
-                          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                          className="btn-ghost rounded-md"
                         >
                           <FiX className="w-5 h-5" />
                         </button>
@@ -1549,7 +1549,7 @@ export default function TasksPage() {
                         <h2 className="text-lg font-semibold text-gray-900">{isEditing ? 'Edit Task' : 'Create Task'}</h2>
                         <button
                           onClick={() => { setModalOpen(false); setEditingTask(null); }}
-                          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                          className="btn-ghost rounded-md"
                         >
                           <FiX className="w-5 h-5" />
                         </button>

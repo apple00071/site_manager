@@ -158,12 +158,12 @@ body {
 }
 
 .modern-button-primary {
-  background-color: #eab308 !important;
+  background-color: #f0b100 !important;
   color: white !important;
 }
 
 .modern-button-primary:hover {
-  background-color: #ca8a04 !important;
+  background-color: #d49b00 !important;
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
@@ -179,37 +179,40 @@ body {
   border-color: var(--gray-300) !important;
 }
 
-/* Brand Button - Yellow (matches header tabs) */
+/* Golden Master Button Styles */
+.btn-base {
+  @apply px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-sm;
+}
+
+.btn-primary {
+  @apply px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-sm text-white hover:shadow-md active:transform active:scale-95;
+  background-color: #f0b100;
+}
+
+.btn-primary:hover {
+  background-color: #d49b00;
+}
+
+.btn-secondary {
+  @apply px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-sm bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900;
+}
+
+.btn-danger {
+  @apply px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-sm bg-white text-red-600 border border-gray-200 hover:bg-red-50 hover:border-red-200 hover:text-red-700;
+}
+
+.btn-ghost {
+  @apply p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors;
+}
+
+/* Legacy support - to be deprecated */
 .btn-brand {
-  background-color: #eab308 !important;
-  color: white !important;
-  border: none !important;
-  outline: none !important;
+  @apply px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-sm text-white hover:shadow-md active:transform active:scale-95;
+  background-color: #f0b100;
 }
 
 .btn-brand:hover {
-  background-color: #ca8a04 !important;
-}
-
-.btn-brand:focus {
-  outline: none !important;
-  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.3) !important;
-}
-
-/* Secondary Button - White with light border */
-.btn-secondary {
-  background-color: white !important;
-  color: #374151 !important;
-  border: 1px solid #e5e7eb !important;
-}
-
-.btn-secondary:hover {
-  background-color: #f9fafb !important;
-}
-
-.btn-secondary:focus {
-  outline: none !important;
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2) !important;
+  background-color: #d49b00;
 }
 
 /* Remove black outlines globally */

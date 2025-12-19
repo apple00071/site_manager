@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -239,7 +239,7 @@ const InventoryItemForm = ({
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+          className="flex-1 btn-secondary"
         >
           Cancel
         </button>
@@ -247,7 +247,7 @@ const InventoryItemForm = ({
           type="button"
           onClick={onSubmit}
           disabled={saving}
-          className="flex-1 px-4 py-2 bg-yellow-500 text-gray-900 font-medium rounded-lg hover:bg-yellow-600 disabled:opacity-50"
+          className="flex-1 btn-primary disabled:opacity-50"
         >
           {saving ? 'Saving...' : isEditing ? 'Update' : 'Add Item'}
         </button>
@@ -256,28 +256,15 @@ const InventoryItemForm = ({
   );
 };
 
-// Update usages of InventoryItemForm to pass projectId
-// Usage in desktop panel
-/*
-        <InventoryItemForm
-          form={form}
-          setForm={setForm}
-          onClose={() => { setIsAddingNew(false); resetForm(); }}
-          onSubmit={handleSubmit}
-          onBillUpload={handleBillUpload}
-          saving={saving}
-          uploadingBill={uploadingBill}
-          isEditing={!!editingItem}
-          projectId={projectId}
-        />
-*/
-
+export interface InventoryTabHandle {
+  openAddItem: () => void;
+}
 
 type InventoryTabProps = {
   projectId: string;
 };
 
-export function InventoryTab({ projectId }: InventoryTabProps) {
+export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({ projectId }, ref) => {
   const { user } = useAuth();
   const { hasPermission } = useUserPermissions();
 
@@ -319,6 +306,13 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
     bill_url: '',
     po_id: '', // Add po_id to state
   });
+
+  useImperativeHandle(ref, () => ({
+    openAddItem: () => {
+      setIsAddingNew(true);
+      resetForm();
+    }
+  }));
 
   // Check for mobile viewport
   useEffect(() => {
@@ -674,15 +668,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
       {
         items.length === 0 ? (
           <div className="p-3">
-            <div className="flex justify-end mb-2">
-              <button
-                onClick={() => setIsAddingNew(true)}
-                className="px-3 py-1.5 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 text-xs font-medium inline-flex items-center gap-1.5"
-              >
-                <FiPlus className="w-3.5 h-3.5" />
-                Add Item
-              </button>
-            </div>
+            {/* Add Item Button Removed */}
             <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
               <FiPackage className="h-12 w-12 mx-auto text-gray-400" />
               <h3 className="mt-2 text-sm font-medium text-gray-900">No inventory items</h3>
@@ -695,13 +681,7 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
             <div className="hidden md:block">
               {/* Action bar */}
               <div className="flex justify-end px-4 py-2 border-b border-gray-200">
-                <button
-                  onClick={() => setIsAddingNew(true)}
-                  className="px-3 py-1.5 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 text-xs font-medium inline-flex items-center gap-1.5"
-                >
-                  <FiPlus className="w-3.5 h-3.5" />
-                  Add Item
-                </button>
+                {/* Add Item Button Removed */}
               </div>
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-white border-b border-gray-200">
@@ -802,164 +782,166 @@ export function InventoryTab({ projectId }: InventoryTabProps) {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredItems.map((item) => (
                     <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        <span className="text-sm font-medium text-gray-900">{item.item_name}</span>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {item.item_name}
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {item.quantity || '-'}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        {item.quantity}
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {item.supplier_name || '-'}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        {item.supplier_name}
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                         {item.date_purchased ? formatDateIST(item.date_purchased) : '-'}
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         {getStatusBadge(item.bill_approval_status)}
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-right relative">
-                        <button
-                          onClick={() => setOpenMenuId(openMenuId === item.id ? null : item.id)}
-                          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
-                        >
-                          <FiMoreVertical className="w-5 h-5" />
-                        </button>
-
-                        {openMenuId === item.id && (
-                          <div
-                            ref={menuRef}
-                            className="absolute right-4 top-10 z-50 w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
+                      <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId(openMenuId === item.id ? null : item.id);
+                            }}
+                            className="text-gray-400 hover:text-gray-600"
                           >
-                            {item.bill_url && (
-                              <button
-                                onClick={() => {
-                                  const isPDF = item.bill_url!.toLowerCase().endsWith('.pdf');
-                                  if (isPDF) {
-                                    setViewingPDF({
-                                      url: item.bill_url!,
-                                      filename: `${item.item_name} - Bill`
-                                    });
-                                  } else {
-                                    setSelectedImage(item.bill_url!);
-                                  }
-                                  setOpenMenuId(null);
-                                }}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                              >
-                                <FiEye className="w-4 h-4" />
-                                View Bill
-                              </button>
-                            )}
-                            <button
-                              onClick={() => handleEdit(item)}
-                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                            <FiMoreVertical className="w-5 h-5" />
+                          </button>
+                          {openMenuId === item.id && (
+                            <div
+                              ref={menuRef}
+                              className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10"
                             >
-                              <FiEdit2 className="w-4 h-4" />
-                              Edit
-                            </button>
-
-                            {user?.role === 'admin' && item.bill_approval_status === 'pending' && (
-                              <>
-                                <div className="border-t border-gray-100 my-1"></div>
+                              <div className="py-1" role="menu">
+                                {item.bill_url && (
+                                  <button
+                                    onClick={() => {
+                                      const isPDF = item.bill_url!.toLowerCase().endsWith('.pdf');
+                                      if (isPDF) {
+                                        setViewingPDF({
+                                          url: item.bill_url!,
+                                          filename: `${item.item_name} - Bill`
+                                        });
+                                      } else {
+                                        setSelectedImage(item.bill_url!);
+                                      }
+                                      setOpenMenuId(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                  >
+                                    <FiEye className="w-4 h-4" /> View Bill
+                                  </button>
+                                )}
                                 <button
-                                  onClick={() => handleApprove(item.id)}
-                                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-green-700 hover:bg-green-50"
+                                  onClick={() => handleEdit(item)}
+                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
                                 >
-                                  <FiCheck className="w-4 h-4" />
-                                  Approve
+                                  <FiEdit2 className="w-4 h-4" /> Edit
                                 </button>
+                                {canApprove && (item.bill_approval_status === 'pending' || item.bill_approval_status === 'rejected') && (
+                                  <button
+                                    onClick={() => handleApprove(item.id)}
+                                    className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center gap-2"
+                                  >
+                                    <FiCheck className="w-4 h-4" /> Approve
+                                  </button>
+                                )}
+                                {canApprove && (item.bill_approval_status === 'pending' || item.bill_approval_status === 'approved') && (
+                                  <button
+                                    onClick={() => handleReject(item.id)}
+                                    className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 flex items-center gap-2"
+                                  >
+                                    <FiX className="w-4 h-4" /> Reject
+                                  </button>
+                                )}
                                 <button
-                                  onClick={() => handleReject(item.id)}
-                                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-red-50"
+                                  onClick={() => handleDelete(item.id)}
+                                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                                 >
-                                  <FiX className="w-4 h-4" />
-                                  Reject
+                                  <FiTrash2 className="w-4 h-4" /> Delete
                                 </button>
-                              </>
-                            )}
-
-                            <div className="border-t border-gray-100 my-1"></div>
-                            <button
-                              onClick={() => { handleDelete(item.id); setOpenMenuId(null); }}
-                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                            >
-                              <FiTrash2 className="w-4 h-4" />
-                              Delete
-                            </button>
-                          </div>
-                        )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+
+              {filteredItems.length === 0 && (
+                <div className="p-8 text-center text-gray-500 text-sm">
+                  No items match your search filters.
+                </div>
+              )}
             </div>
 
-            {/* Mobile List */}
+            {/* Mobile List View */}
             <div className="md:hidden">
-              <div className="flex justify-end px-4 py-3 border-b border-gray-200">
-                <button
-                  onClick={() => setIsAddingNew(true)}
-                  className="px-3 py-1.5 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 text-xs font-medium inline-flex items-center gap-1.5"
-                >
-                  <FiPlus className="w-3.5 h-3.5" />
-                  Add Item
-                </button>
-              </div>
               <div className="divide-y divide-gray-200">
-                {items.map((item) => (
-                  <div key={item.id} className="p-4">
-                    <div className="flex items-start justify-between">
+                {filteredItems.map(item => (
+                  <div key={item.id} className="p-4 bg-white" onClick={() => setMobileActionItem(item)}>
+                    <div className="flex justify-between items-start mb-2">
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{item.item_name}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {item.quantity && `Qty: ${item.quantity}`}
-                          {item.supplier_name && ` • ${item.supplier_name}`}
-                        </p>
+                        <h4 className="text-sm font-medium text-gray-900">{item.item_name}</h4>
+                        <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                          <span>{item.quantity} units</span>
+                          <span>•</span>
+                          <span>{item.date_purchased ? formatDateIST(item.date_purchased) : '-'}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {getStatusBadge(item.bill_approval_status)}
-                        <button
-                          onClick={() => setMobileActionItem(item)}
-                          className="p-1 text-gray-400"
-                        >
-                          <FiMoreVertical className="w-5 h-5" />
-                        </button>
-                      </div>
+                      {getStatusBadge(item.bill_approval_status)}
+                    </div>
+                    <div className="flex justify-between items-center text-xs text-gray-500">
+                      <span>{item.supplier_name || 'No supplier'}</span>
+                      <FiMoreVertical className="text-gray-400" />
                     </div>
                   </div>
                 ))}
+                {filteredItems.length === 0 && (
+                  <div className="p-8 text-center text-gray-500 text-sm">
+                    No items match your search.
+                  </div>
+                )}
               </div>
             </div>
           </>
         )
       }
 
-      {/* Image Modal for Bills */}
       <ImageModal
-        images={selectedImage ? [selectedImage] : []}
-        currentIndex={0}
         isOpen={!!selectedImage}
         onClose={() => setSelectedImage(null)}
+        images={selectedImage ? [selectedImage] : []}
+        currentIndex={0}
       />
 
-      {/* PDF Viewer using DesignViewer in read-only mode */}
       {viewingPDF && (
-        <div className="fixed inset-0 z-50">
-          <DesignViewer
-            designId="inventory-bill"
-            fileUrl={viewingPDF.url}
-            fileName={viewingPDF.filename}
-            fileType="pdf"
-            comments={[]}
-            readOnly={true}
-            onClose={() => setViewingPDF(null)}
-          />
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-semibold text-gray-900">{viewingPDF.filename}</h3>
+              <button
+                onClick={() => setViewingPDF(null)}
+                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <FiX className="w-6 h-6 text-gray-500" />
+              </button>
+            </div>
+            <div className="flex-1 bg-gray-100 p-0 overflow-hidden">
+              <iframe
+                src={viewingPDF.url}
+                className="w-full h-full"
+                title="PDF Viewer"
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
-}
+});
 
-export default InventoryTab;
-
+InventoryTab.displayName = 'InventoryTab';

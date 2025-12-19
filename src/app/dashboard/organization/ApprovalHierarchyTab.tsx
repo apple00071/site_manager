@@ -69,7 +69,7 @@ export default function ApprovalHierarchyTab() {
                 <h3 className="text-lg font-medium text-gray-900">Approval Workflows</h3>
                 <button
                     onClick={() => setShowAddModal(true)}
-                    className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-md flex items-center hover:bg-yellow-600 transition-colors shadow-sm font-semibold"
+                    className="btn-primary flex items-center shadow-sm"
                 >
                     <FiPlus className="mr-2 h-4 w-4" /> Add Rule
                 </button>
@@ -150,13 +150,13 @@ export default function ApprovalHierarchyTab() {
                         <div className="flex justify-end space-x-2">
                             <button
                                 onClick={() => setShowAddModal(false)}
-                                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+                                className="btn-secondary"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleAddRule}
-                                className="px-4 py-2 text-sm bg-yellow-500 text-white rounded-md hover:bg-yellow-600"
+                                className="btn-primary"
                             >
                                 Save
                             </button>

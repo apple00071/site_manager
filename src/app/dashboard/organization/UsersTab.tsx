@@ -98,7 +98,7 @@ export default function UsersTab() {
             <div className="flex justify-end">
                 <Link
                     href="/dashboard/organization/new"
-                    className="px-4 py-2 bg-amber-500 text-white rounded-lg flex items-center hover:bg-amber-600 transition-colors shadow-sm font-semibold"
+                    className="btn-primary flex items-center shadow-sm"
                 >
                     <FiPlus className="mr-2 h-4 w-4" /> Add User
                 </Link>

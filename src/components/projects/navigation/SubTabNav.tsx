@@ -23,45 +23,44 @@ export function SubTabNav({ tabs, activeTab, onTabChange, className = '' }: SubT
     if (tabs.length === 0) return null;
 
     return (
-        <div
-            className={`border-b border-gray-200 bg-white scroll-x-mobile ${className}`}
-            style={{
-                overflowX: 'scroll',
-                overflowY: 'hidden',
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
-                WebkitOverflowScrolling: 'touch',
-                width: '100%',
-                position: 'relative'
-            }}
-        >
-            <div
-                className="flex gap-0 px-4"
-                style={{
-                    display: 'inline-flex',
-                    minWidth: '100%',
-                    width: 'max-content'
-                }}
-            >
-                {tabs.map((tab) => (
-                    <button
-                        key={tab.id}
-                        onClick={() => onTabChange(tab.id)}
-                        className={`
-              relative px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0
-              ${activeTab === tab.id
-                                ? 'text-yellow-600'
-                                : 'text-gray-500 hover:text-gray-700'
-                            }
-            `}
-                    >
-                        {tab.label}
-                        {/* Active indicator */}
-                        {activeTab === tab.id && (
-                            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-yellow-500" />
-                        )}
-                    </button>
-                ))}
+        <div className={`border-b border-gray-200 bg-white ${className}`}>
+            <div className="flex items-center justify-between px-4">
+                <div
+                    className="scroll-x-mobile"
+                    style={{
+                        overflowX: 'scroll',
+                        overflowY: 'hidden',
+                        scrollbarWidth: 'none',
+                        msOverflowStyle: 'none',
+                        WebkitOverflowScrolling: 'touch',
+                        paddingRight: '1rem',
+                        marginRight: '-1rem'
+                    }}
+                >
+                    <div className="flex gap-0" style={{ minWidth: 'max-content' }}>
+                        {tabs.map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => onTabChange(tab.id)}
+                                className={`
+                  relative px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0
+                  ${activeTab === tab.id
+                                        ? 'text-yellow-600'
+                                        : 'text-gray-500 hover:text-gray-700'
+                                    }
+                `}
+                            >
+                                {tab.label}
+                                {/* Active indicator */}
+                                {activeTab === tab.id && (
+                                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-yellow-500" />
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+
             </div>
         </div>
     );

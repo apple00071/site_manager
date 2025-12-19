@@ -85,7 +85,7 @@ export default function AdminDashboard() {
               </span>
               <button
                 onClick={() => signOut()}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-semibold rounded-lg text-white bg-red-600 hover:bg-red-700 transition-colors shadow-sm"
+                className="btn-danger shadow-sm"
               >
                 Sign Out
               </button>
@@ -102,13 +102,13 @@ export default function AdminDashboard() {
           <div className="mt-6 flex flex-wrap gap-3">
             <a
               href="/dashboard/users/new"
-              className="px-5 py-2.5 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 transition-colors shadow-sm font-bold"
+              className="btn-primary shadow-sm"
             >
               Create New User
             </a>
             <a
               href="/dashboard/projects/new"
-              className="px-5 py-2.5 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 transition-colors shadow-sm font-bold"
+              className="btn-primary shadow-sm"
             >
               Create New Project
             </a>
@@ -183,9 +183,8 @@ export default function AdminDashboard() {
                         {user.first_name} {user.last_name}
                       </p>
                       <div className="ml-2 flex-shrink-0 flex">
-                        <p className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          user.role === 'admin' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-                        }`}>
+                        <p className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.role === 'admin' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+                          }`}>
                           {user.role}
                         </p>
                       </div>

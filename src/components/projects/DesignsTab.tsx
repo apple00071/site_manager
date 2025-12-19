@@ -125,7 +125,7 @@ const DesignUploadForm = ({ uploadForm, setUploadForm, onClose, onUpload, upload
       <button
         type="button"
         onClick={onClose}
-        className="flex-1 px-4 py-2 text-gray-700 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+        className="flex-1 btn-secondary"
       >
         Cancel
       </button>
@@ -133,7 +133,7 @@ const DesignUploadForm = ({ uploadForm, setUploadForm, onClose, onUpload, upload
         type="button"
         onClick={onUpload}
         disabled={uploading || !uploadForm.file}
-        className="flex-1 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium rounded-lg disabled:opacity-50 transition-colors"
+        className="flex-1 btn-primary disabled:opacity-50"
       >
         {uploading ? 'Uploading...' : 'Upload'}
       </button>
@@ -735,7 +735,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                   setIsAddingNew(true);
                   resetForm();
                 }}
-                className="px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 text-sm font-medium flex items-center gap-2 transition-all duration-200"
+                className="btn-primary"
               >
                 <FiPlus className="w-4 h-4" />
                 Upload Design
@@ -756,7 +756,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                   setIsAddingNew(true);
                   resetForm();
                 }}
-                className="mt-6 px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 text-sm font-medium inline-flex items-center gap-2 transition-all duration-200"
+                className="mt-6 btn-primary"
               >
                 <FiPlus className="w-4 h-4" />
                 Upload First Design
@@ -817,9 +817,9 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                     setIsAddingNew(true);
                     resetForm();
                   }}
-                  className="px-3 py-1.5 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 text-xs font-medium inline-flex items-center gap-1.5 transition-all duration-200"
+                  className="btn-primary"
                 >
-                  <FiPlus className="w-3.5 h-3.5" />
+                  <FiPlus className="w-4 h-4" />
                   <span className="hidden md:inline">Upload Design</span>
                 </button>
               </div>

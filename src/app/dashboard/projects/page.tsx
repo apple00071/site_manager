@@ -186,7 +186,7 @@ export default function ProjectsPage() {
           {canCreateProject && (
             <Link
               href="/dashboard/projects/new"
-              className="ml-4 px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg flex items-center hover:bg-yellow-600 transition-all duration-200 shadow-sm font-bold text-sm whitespace-nowrap"
+              className="ml-4 btn-primary whitespace-nowrap"
             >
               <FiPlus className="mr-1 h-4 w-4" />
               Add Project

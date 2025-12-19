@@ -460,7 +460,7 @@ export default function RolesTab() {
             </div>
 
             <div className="flex justify-start">
-                <button onClick={handleAddRole} className="text-sm text-red-600 hover:text-red-700 font-medium">
+                <button onClick={handleAddRole} className="btn-primary">
                     + Add New Role
                 </button>
             </div>
@@ -473,7 +473,7 @@ export default function RolesTab() {
                         {/* Header */}
                         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
                             <h2 className="text-lg font-semibold text-gray-900">{editingRole ? 'Edit' : 'Add'} Project Level Role</h2>
-                            <button onClick={() => setShowPanel(false)} className="p-1 hover:bg-gray-100 rounded">
+                            <button onClick={() => setShowPanel(false)} className="btn-ghost rounded-full">
                                 <FiX className="h-5 w-5 text-gray-500" />
                             </button>
                         </div>
@@ -631,13 +631,13 @@ export default function RolesTab() {
 
                         {/* Footer */}
                         <div className="border-t px-6 py-4 flex justify-end gap-3">
-                            <button onClick={() => setShowPanel(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">
+                            <button onClick={() => setShowPanel(false)} className="btn-secondary">
                                 Cancel
                             </button>
                             <button
                                 onClick={handleSaveRole}
                                 disabled={!roleName.trim()}
-                                className="px-4 py-2 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50"
+                                className="btn-primary disabled:opacity-50"
                             >
                                 {editingRole ? 'Update' : 'Create'} Role
                             </button>

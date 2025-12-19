@@ -214,7 +214,7 @@ export default function BasicDetailsTab() {
                         <img src="/icon.png" alt="Logo" className="w-16 h-16" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                     </div>
                     <div>
-                        <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg flex items-center gap-2 hover:bg-gray-200 transition-colors">
+                        <button className="btn-secondary">
                             <FiUpload className="h-4 w-4" />
                             Upload New Logo
                         </button>
@@ -228,7 +228,7 @@ export default function BasicDetailsTab() {
                 <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="px-6 py-2.5 bg-amber-500 text-white font-semibold rounded-lg shadow-md hover:bg-amber-600 transition-colors disabled:opacity-50 flex items-center gap-2"
+                    className="btn-primary flex items-center gap-2 disabled:opacity-50"
                 >
                     <FiSave className="h-4 w-4" />
                     {saving ? 'Saving...' : 'Save Company Details'}
