@@ -59,7 +59,8 @@ export async function GET(req: Request) {
 
         return NextResponse.json({ logs });
     } catch (err: any) {
-        return handleApiError(err);
+        const handled = handleApiError(err);
+        return NextResponse.json(handled.error, { status: handled.status });
     }
 }
 
@@ -100,7 +101,8 @@ export async function POST(req: Request) {
 
         return NextResponse.json({ log }, { status: 201 });
     } catch (err: any) {
-        return handleApiError(err);
+        const handled = handleApiError(err);
+        return NextResponse.json(handled.error, { status: handled.status });
     }
 }
 
@@ -148,7 +150,8 @@ export async function PATCH(req: Request) {
 
         return NextResponse.json({ log });
     } catch (err: any) {
-        return handleApiError(err);
+        const handled = handleApiError(err);
+        return NextResponse.json(handled.error, { status: handled.status });
     }
 }
 
@@ -192,6 +195,7 @@ export async function DELETE(req: Request) {
 
         return NextResponse.json({ success: true });
     } catch (err: any) {
-        return handleApiError(err);
+        const handled = handleApiError(err);
+        return NextResponse.json(handled.error, { status: handled.status });
     }
 }

@@ -327,67 +327,103 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
             {/* Unified Sub-Tab Bar */}
             <div className="px-4 border-b border-gray-200 bg-white flex flex-col md:flex-row md:items-center justify-between gap-4">
                 {/* Categories (Tabs) */}
-                <div className="flex gap-6 overflow-x-auto no-scrollbar -mb-px">
-                    <button
-                        onClick={() => setActiveCategory(null)}
-                        className={`py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${activeCategory === null
-                            ? 'border-yellow-500 text-yellow-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
-                    >
-                        All Items
-                        <span className={`px-1.5 py-0.5 rounded-full text-xs ${activeCategory === null ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
-                            }`}>
-                            {items.length}
-                        </span>
-                    </button>
+                {/* Categories (Tabs / Dropdown) */}
+                <div className="flex-1 min-w-0">
+                    {/* Mobile Dropdown */}
+                    <div className="md:hidden flex items-center gap-2 py-2">
+                        <div className="relative flex-1">
+                            <select
+                                value={activeCategory === null ? 'all' : activeCategory}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setActiveCategory(val === 'all' ? null : val);
+                                }}
+                                className="w-full pl-3 pr-10 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 appearance-none"
+                            >
+                                <option value="all">All Items ({items.length})</option>
+                                {categories.map(cat => (
+                                    <option key={cat} value={cat}>
+                                        {cat} {sectionTotals[cat] ? `(${sectionTotals[cat].count})` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                                <FiChevronDown className="w-4 h-4" />
+                            </div>
+                        </div>
 
-                    {categories.map(cat => (
+                        {/* Mobile Add Category Button */}
                         <button
-                            key={cat}
-                            onClick={() => setActiveCategory(cat)}
-                            className={`py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${activeCategory === cat
+                            onClick={() => setShowAddCategory(true)}
+                            className="p-2 text-yellow-600 bg-yellow-50 rounded-lg border border-yellow-100"
+                        >
+                            <FiPlus className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    {/* Desktop Tabs */}
+                    <div className="hidden md:flex gap-6 overflow-x-auto no-scrollbar -mb-px">
+                        <button
+                            onClick={() => setActiveCategory(null)}
+                            className={`py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${activeCategory === null
                                 ? 'border-yellow-500 text-yellow-600'
                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                 }`}
                         >
-                            {cat}
-                            {sectionTotals[cat] && (
-                                <span className={`px-1.5 py-0.5 rounded-full text-xs ${activeCategory === cat ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
-                                    }`}>
-                                    {sectionTotals[cat].count}
-                                </span>
-                            )}
+                            All Items
+                            <span className={`px-1.5 py-0.5 rounded-full text-xs ${activeCategory === null ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
+                                }`}>
+                                {items.length}
+                            </span>
                         </button>
-                    ))}
 
-                    {/* Add Category Button - integrated into tab list */}
-                    {showAddCategory ? (
-                        <div className="flex items-center gap-2 py-2">
-                            <input
-                                type="text"
-                                value={newCategoryName}
-                                onChange={(e) => setNewCategoryName(e.target.value)}
-                                placeholder="Name"
-                                className="w-32 px-2 py-1 text-sm border border-gray-300 rounded focus:bhover:bg-yellow-50 focus:border-yellow-500 focus:ring-yellow-500 outline-none"
-                                autoFocus
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') addCategory();
-                                    if (e.key === 'Escape') { setShowAddCategory(false); setNewCategoryName(''); }
-                                }}
-                            />
-                            <button onClick={addCategory} className="p-1 text-yellow-600 hover:bg-yellow-50 rounded"><FiPlus className="w-4 h-4" /></button>
-                            <button onClick={() => { setShowAddCategory(false); setNewCategoryName(''); }} className="p-1 text-gray-400 hover:text-gray-600"><FiX className="w-4 h-4" /></button>
-                        </div>
-                    ) : (
-                        <button
-                            onClick={() => setShowAddCategory(true)}
-                            className="py-3 text-sm font-medium text-gray-400 hover:text-yellow-600 flex items-center gap-1 border-b-2 border-transparent"
-                        >
-                            <FiPlus className="w-4 h-4" />
-                            New Category
-                        </button>
-                    )}
+                        {categories.map(cat => (
+                            <button
+                                key={cat}
+                                onClick={() => setActiveCategory(cat)}
+                                className={`py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${activeCategory === cat
+                                    ? 'border-yellow-500 text-yellow-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    }`}
+                            >
+                                {cat}
+                                {sectionTotals[cat] && (
+                                    <span className={`px-1.5 py-0.5 rounded-full text-xs ${activeCategory === cat ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
+                                        }`}>
+                                        {sectionTotals[cat].count}
+                                    </span>
+                                )}
+                            </button>
+                        ))}
+
+                        {/* Add Category Button - integrated into tab list */}
+                        {showAddCategory ? (
+                            <div className="flex items-center gap-2 py-2">
+                                <input
+                                    type="text"
+                                    value={newCategoryName}
+                                    onChange={(e) => setNewCategoryName(e.target.value)}
+                                    placeholder="Name"
+                                    className="w-32 px-2 py-1 text-sm border border-gray-300 rounded focus:bhover:bg-yellow-50 focus:border-yellow-500 focus:ring-yellow-500 outline-none"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') addCategory();
+                                        if (e.key === 'Escape') { setShowAddCategory(false); setNewCategoryName(''); }
+                                    }}
+                                />
+                                <button onClick={addCategory} className="p-1 text-yellow-600 hover:bg-yellow-50 rounded"><FiPlus className="w-4 h-4" /></button>
+                                <button onClick={() => { setShowAddCategory(false); setNewCategoryName(''); }} className="p-1 text-gray-400 hover:text-gray-600"><FiX className="w-4 h-4" /></button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => setShowAddCategory(true)}
+                                className="py-3 text-sm font-medium text-gray-400 hover:text-yellow-600 flex items-center gap-1 border-b-2 border-transparent"
+                            >
+                                <FiPlus className="w-4 h-4" />
+                                New Category
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Right Side Controls (View & Filter) */}
