@@ -181,4 +181,15 @@ export class NotificationService {
       type: 'invoice_rejected',
     });
   }
+
+  static async notifyMention(userId: string, mentionerName: string, projectName: string, message: string, relatedId: string) {
+    return this.createNotification({
+      userId,
+      title: 'You were mentioned',
+      message: `${mentionerName} mentioned you in project "${projectName}": ${message.substring(0, 50)}${message.length > 50 ? '...' : ''}`,
+      type: 'mention',
+      relatedId,
+      relatedType: 'project_update'
+    });
+  }
 }

@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 
     // Handle step creation only if project_id is provided
     let stepId: string | null = null;
-    
+
     if (projectId && parsed.data.step_title) {
       const { data: existingStep } = await supabaseAdmin
         .from('project_steps')
@@ -178,8 +178,31 @@ export async function POST(request: NextRequest) {
           relatedId: task.id,
           relatedType: 'task'
         });
+
+        // WhatsApp to project admin
+        try {
+          const { data: adminUser } = await supabaseAdmin
+            .from('users')
+            .select('phone_number')
+            .eq('id', projectData.created_by)
+            .single();
+
+          if (adminUser?.phone_number) {
+            const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            const link = projectId ? `${origin}/dashboard/projects/${projectId}` : `${origin}/dashboard/my-tasks`;
+            await sendTaskWhatsAppNotification(
+              adminUser.phone_number,
+              parsed.data.task_title,
+              projectData.title,
+              'todo',
+              link
+            );
+          }
+        } catch (waError) {
+          console.error('Failed to send WhatsApp to project admin on standalone task creation:', waError);
+        }
       }
-      
+
       // WhatsApp: notify assigned employee (if phone available)
       if (assignedTo) {
         try {
@@ -210,8 +233,8 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('✅ Task created successfully:', task.id);
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       task,
       project_phone: task?.step?.project?.phone_number || null,
       message: 'Task created successfully'

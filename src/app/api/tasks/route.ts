@@ -66,7 +66,7 @@ async function checkProjectAccess(userId: string, stepId: string, userRole: stri
     .single();
 
   const hasAccess = !!memberData || projectData?.assigned_employee_id === userId;
-  
+
   return { hasAccess, projectId: step.project_id };
 }
 
@@ -228,6 +228,29 @@ export async function POST(request: NextRequest) {
           relatedType: 'project_step'
         });
         console.log('Task creation notification sent to admin:', project.created_by);
+
+        // WhatsApp to project admin
+        try {
+          const { data: adminUser } = await supabaseAdmin
+            .from('users')
+            .select('phone_number')
+            .eq('id', project.created_by)
+            .single();
+
+          if (adminUser?.phone_number) {
+            const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            const link = `${origin}/dashboard/projects/${project.id || stepData.project_id}`;
+            await sendTaskWhatsAppNotification(
+              adminUser.phone_number,
+              parsed.data.title,
+              project.title,
+              'todo',
+              link
+            );
+          }
+        } catch (waError) {
+          console.error('Failed to send WhatsApp to project admin on task creation:', waError);
+        }
       }
     } catch (notificationError) {
       console.error('Failed to send task creation notification:', notificationError);
@@ -251,7 +274,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    
+
     // Validate input
     const parsed = updateTaskSchema.safeParse(body);
     if (!parsed.success) {
@@ -340,11 +363,11 @@ export async function PATCH(request: NextRequest) {
 
         const project = Array.isArray(stepData?.project) ? stepData.project[0] : stepData?.project;
         if (project && project.created_by !== userId) {
-          const statusText = parsed.data.status === 'done' ? 'completed' : 
-                           parsed.data.status === 'in_progress' ? 'started working on' : 
-                           parsed.data.status === 'blocked' ? 'marked as blocked' : 
-                           'updated';
-          
+          const statusText = parsed.data.status === 'done' ? 'completed' :
+            parsed.data.status === 'in_progress' ? 'started working on' :
+              parsed.data.status === 'blocked' ? 'marked as blocked' :
+                'updated';
+
           await NotificationService.createNotification({
             userId: project.created_by,
             title: 'Task Status Updated',
@@ -354,6 +377,29 @@ export async function PATCH(request: NextRequest) {
             relatedType: 'project_step'
           });
           console.log('Task update notification sent to admin:', project.created_by);
+
+          // WhatsApp to project admin
+          try {
+            const { data: adminUser } = await supabaseAdmin
+              .from('users')
+              .select('phone_number')
+              .eq('id', project.created_by)
+              .single();
+
+            if (adminUser?.phone_number) {
+              const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+              const link = project.id ? `${origin}/dashboard/projects/${project.id}` : `${origin}/dashboard/my-tasks`;
+              await sendTaskWhatsAppNotification(
+                adminUser.phone_number,
+                task.title,
+                project.title,
+                task.status,
+                link
+              );
+            }
+          } catch (waError) {
+            console.error('Failed to send WhatsApp to project admin on task update:', waError);
+          }
         }
       } catch (notificationError) {
         console.error('Failed to send task update notification:', notificationError);
@@ -405,10 +451,10 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
-  /**
-   * DELETE /api/tasks?id=xxx
-   * Delete a task
-   */
+/**
+ * DELETE /api/tasks?id=xxx
+ * Delete a task
+ */
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

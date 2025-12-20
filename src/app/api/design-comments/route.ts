@@ -147,6 +147,7 @@ export async function POST(request: NextRequest) {
     // P0: Notify mentioned users
     if (mentioned_user_ids && mentioned_user_ids.length > 0) {
       try {
+        // Create in-app notifications
         await Promise.all(mentioned_user_ids.map(mentionedUserId =>
           NotificationService.createNotification({
             userId: mentionedUserId,
@@ -157,6 +158,37 @@ export async function POST(request: NextRequest) {
             relatedType: 'design_file'
           })
         ));
+
+        // Create WhatsApp notifications
+        const { data: recipients } = await supabaseAdmin
+          .from('users')
+          .select('id, phone_number')
+          .in('id', mentioned_user_ids);
+
+        if (recipients && recipients.length > 0) {
+          const { data: designFile } = await supabaseAdmin
+            .from('design_files')
+            .select(`
+              file_name,
+              project_id,
+              project:projects(title)
+            `)
+            .eq('id', design_file_id)
+            .single();
+
+          const project = Array.isArray(designFile?.project) ? designFile.project[0] : designFile?.project;
+          const projectName = project?.title || 'Unknown Project';
+          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+          const link = designFile?.project_id ? `${origin}/dashboard/projects/${designFile.project_id}` : '#';
+
+          const waMessage = `💬 *New Mention*\n\n${userFullName} mentioned you in a design comment for project "${projectName}" (File: ${designFile?.file_name || 'Design'})\n\nComment: "${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}"\n\nOpen: ${link}`;
+
+          await Promise.all(
+            recipients
+              .filter(r => !!r.phone_number && r.id !== userId) // Don't WhatsApp self if mentioned
+              .map(r => sendCustomWhatsAppNotification(r.phone_number, waMessage))
+          );
+        }
       } catch (mentionError) {
         console.error('Failed to send mention notifications:', mentionError);
       }

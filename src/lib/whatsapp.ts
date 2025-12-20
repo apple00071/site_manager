@@ -194,6 +194,26 @@ class WhatsAppNotificationService {
     }
   }
 
+  async sendDPRNotification(phoneNumber: string, pdfUrl: string, projectName: string, date: string): Promise<boolean> {
+    try {
+      const sdkReady = await this.ensureSdk();
+      if (!sdkReady) return false;
+      const message = `🏢 *Daily Progress Report - ${projectName}*\n\nDate: ${date}\n\nA new DPR has been generated for your project. You can view the full report here:\n\n🔗 ${pdfUrl}`;
+
+      const result = await this.api.sendMessage({
+        to: phoneNumber.replace(/[^\d]/g, ''),
+        message: message,
+        type: 'text' // For now sending as text link, can upgrade to document if SDK supports file buffer
+      });
+
+      console.log('WhatsApp DPR notification sent:', result);
+      return true;
+    } catch (error) {
+      console.error('Error sending WhatsApp DPR notification:', error);
+      return false;
+    }
+  }
+
   private formatTaskMessage(taskTitle: string, projectName?: string, status?: string, link?: string): string {
     let message = `📋 *Task Update*\n\n`;
     message += `*Task:* ${taskTitle}\n`;
@@ -394,4 +414,15 @@ export async function sendCustomWhatsAppNotification(
   const service = getWhatsAppService();
   if (!service) return false;
   return await service.sendCustomNotification(phoneNumber, message);
+}
+
+export async function sendDPRWhatsAppNotification(
+  phoneNumber: string,
+  pdfUrl: string,
+  projectName: string,
+  date: string
+): Promise<boolean> {
+  const service = getWhatsAppService();
+  if (!service) return false;
+  return await service.sendDPRNotification(phoneNumber, pdfUrl, projectName, date);
 }

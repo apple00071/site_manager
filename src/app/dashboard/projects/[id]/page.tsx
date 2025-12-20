@@ -81,6 +81,7 @@ const BOQTab = dynamic(() => import('@/components/projects/BOQTab').then(m => m.
 const ProcurementTab = dynamic(() => import('@/components/projects/ProcurementTab').then(m => m.ProcurementTab), { ssr: false });
 const SnagTab = dynamic(() => import('@/components/projects/SnagTab'), { ssr: false });
 const SiteLogTab = dynamic(() => import('@/components/projects/SiteLogTab').then(m => m.SiteLogTab), { ssr: false }) as any;
+const ProgressReportTab = dynamic(() => import('@/components/projects/ProgressReportTab').then(m => m.ProgressReportTab), { ssr: false }) as any;
 const ProposalBuilder = dynamic(() => import('@/components/boq/ProposalBuilder').then(m => m.ProposalBuilder), { ssr: false });
 
 // Removed ProjectHeader import
@@ -112,6 +113,7 @@ export default function ProjectDetailsPage() {
   const inventoryRef = useRef<any>(null);
   const siteLogRef = useRef<any>(null);
   const snagRef = useRef<SnagTabHandle>(null);
+  const reportRef = useRef<any>(null);
 
 
 
@@ -207,6 +209,20 @@ export default function ProjectDetailsPage() {
             label: 'Add Daily Log',
             onClick: () => siteLogRef.current?.openAddLog(),
             icon: <FiPlus className="w-4 h-4" />
+          }
+        ];
+      }
+      if (activeSubTab === 'progress_reports' && (hasPermission('site_logs.create') || hasPermission('projects.edit'))) {
+        return [
+          {
+            label: 'Generate DPR',
+            onClick: () => reportRef.current?.openGenerator(),
+            icon: <FiPlus className="w-4 h-4" />
+          },
+          {
+            label: 'Report Settings',
+            onClick: () => reportRef.current?.openSettings(),
+            icon: <FiLayers className="w-4 h-4" />
           }
         ];
       }
@@ -810,6 +826,10 @@ export default function ProjectDetailsPage() {
               ) : activeSubTab === 'daily_logs' ? (
                 <div className="h-full">
                   <SiteLogTab projectId={project.id} ref={siteLogRef} />
+                </div>
+              ) : activeSubTab === 'progress_reports' ? (
+                <div className="h-full">
+                  <ProgressReportTab projectId={project.id} ref={reportRef} />
                 </div>
               ) : (
                 <InventoryTab projectId={project.id} ref={inventoryRef} />

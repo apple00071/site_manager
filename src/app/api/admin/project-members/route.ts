@@ -195,7 +195,8 @@ export async function GET(req: Request) {
           email,
           phone_number,
           designation,
-          role
+          role,
+          username
         )
       `)
       .eq('project_id', projectId);

@@ -804,40 +804,44 @@ export default function TasksPage() {
   }
 
   const openCreateAt = (dateArg: Date) => {
-    console.log('openCreateAt called with:', dateArg, 'hours:', dateArg.getHours(), 'minutes:', dateArg.getMinutes());
+    console.log('openCreateAt called with:', dateArg);
 
     const start = new Date(dateArg);
-    // Snap minutes to nearest 30-minute interval
-    const snapMinutes = Math.round(start.getMinutes() / 30) * 30;
-    start.setMinutes(snapMinutes === 60 ? 0 : snapMinutes);
+    // Ensure we have 0 seconds/ms for clean formatting
+    start.setSeconds(0);
+    start.setMilliseconds(0);
+
+    // Snap minutes to nearest 30-minute interval if it's not already snapped
+    // (Slot clicks in RBC usually are, but manually called dates might not be)
+    const minutes = start.getMinutes();
+    const snapMinutes = Math.round(minutes / 30) * 30;
+
     if (snapMinutes === 60) {
       start.setHours(start.getHours() + 1);
+      start.setMinutes(0);
+    } else {
+      start.setMinutes(snapMinutes);
     }
 
     const end = new Date(start);
     end.setMinutes(end.getMinutes() + 30); // Default duration: 30 minutes
 
-    // Get hours in 12-hour format
-    const startHours = start.getHours();
-    const startHour12 = startHours === 0 ? 12 : startHours > 12 ? startHours - 12 : startHours;
-    const startAmPm = startHours >= 12 ? 'PM' : 'AM';
-
-    const endHours = end.getHours();
-    const endHour12 = endHours === 0 ? 12 : endHours > 12 ? endHours - 12 : endHours;
-    const endAmPm = endHours >= 12 ? 'PM' : 'AM';
-
-    console.log('Setting form - start:', startHour12, ':', start.getMinutes(), startAmPm);
-    console.log('Setting form - end:', endHour12, ':', end.getMinutes(), endAmPm);
+    console.log('Form values derived:', {
+      date: format(start, 'yyyy-MM-dd'),
+      hour: format(start, 'hh'),
+      min: format(start, 'mm'),
+      ampm: format(start, 'a')
+    });
 
     setForm(prev => ({
       ...prev,
       start_date_picker: format(start, 'yyyy-MM-dd'),
-      start_hour: String(startHour12).padStart(2, '0'),
-      start_minute: String(start.getMinutes()).padStart(2, '0'),
-      start_ampm: startAmPm,
-      end_hour: String(endHour12).padStart(2, '0'),
-      end_minute: String(end.getMinutes()).padStart(2, '0'),
-      end_ampm: endAmPm,
+      start_hour: format(start, 'hh'),
+      start_minute: format(start, 'mm'),
+      start_ampm: format(start, 'a').toUpperCase() as 'AM' | 'PM',
+      end_hour: format(end, 'hh'),
+      end_minute: format(end, 'mm'),
+      end_ampm: format(end, 'a').toUpperCase() as 'AM' | 'PM',
       end_date_picker: format(end, 'yyyy-MM-dd'),
     }));
     setEditingTask(null);
@@ -1420,13 +1424,25 @@ export default function TasksPage() {
                     formats={customFormats}
                     selectable
                     onSelectSlot={(slotInfo: any) => {
-                      console.log('Slot selected:', slotInfo);
-                      // For week/day view, slotInfo.start should contain the exact time
-                      // slotInfo.slots[0] might also contain the first slot time
-                      const selectedTime = slotInfo.start instanceof Date
-                        ? slotInfo.start
-                        : new Date(slotInfo.start);
-                      console.log('Selected time hours:', selectedTime.getHours(), 'minutes:', selectedTime.getMinutes());
+                      console.log('Slot selected raw info:', slotInfo);
+
+                      let selectedTime: Date;
+
+                      if (slotInfo.start instanceof Date) {
+                        selectedTime = new Date(slotInfo.start);
+                      } else {
+                        selectedTime = new Date(slotInfo.start);
+                      }
+
+                      // If user clicks on the "all day" section or top of the day, 
+                      // it might return 00:00. We might want to default to something sensible
+                      // or just respect whatever was clicked.
+                      // For week/day view, slotInfo.start is the exact slot.
+
+                      console.log('Derived selected time:', selectedTime.toString(),
+                        'Hours:', selectedTime.getHours(),
+                        'Minutes:', selectedTime.getMinutes());
+
                       openCreateAt(selectedTime);
                     }}
                     onSelectEvent={(event: any) => {

@@ -83,6 +83,7 @@ export const STAGE_SUB_TABS: Record<string, SubTab[]> = {
     work_progress: [
         { id: 'inventory', label: 'Inventory', permission: 'inventory.view' },
         { id: 'daily_logs', label: 'Daily Logs', permission: 'site_logs.view' },
+        { id: 'progress_reports', label: 'Reports', permission: 'site_logs.view' },
         { id: 'updates', label: 'Updates', permission: 'updates.view' },
     ],
     snag: [

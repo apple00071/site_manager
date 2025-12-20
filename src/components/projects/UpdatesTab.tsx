@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDateReadable, formatDateTimeReadable, formatTimeIST, getTodayDateString } from '@/lib/dateUtils';
 import { ImageModal } from '@/components/ui/ImageModal';
+import { MentionTextarea } from '@/components/ui/MentionTextarea';
 
 declare global {
   interface Window {
@@ -103,12 +104,12 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
   const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
-  
+
   // Refs for audio recording
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioBlobRef = useRef<Blob | null>(null);
-  
+
   // Project state
   const [selectedStageId, setSelectedStageId] = useState('all');
   const [stages, setStages] = useState<ProjectStage[]>([]);
@@ -122,11 +123,13 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     description: '',
     photos: [] as string[],
   });
+  const [projectUsers, setProjectUsers] = useState<any[]>([]);
 
   useEffect(() => {
     fetchUpdates();
     fetchStages();
-  }, [projectId]);
+    fetchProjectUsers();
+  }, [projectId, user]);
 
   // Removed auto-scrolling to prevent jumping to bottom
 
@@ -136,12 +139,12 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
       const response = await fetch(`/api/project-updates?project_id=${projectId}`);
       if (!response.ok) throw new Error('Failed to fetch updates');
       const { updates: fetchedUpdates } = await response.json();
-      
+
       // Sort newest -> oldest for latest first display
       const sortedUpdates = (fetchedUpdates || []).slice().sort((a: any, b: any) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
-      
+
       // Always ensure newest updates are at the top
       setUpdates(prev => {
         // If no existing updates or the first update is the same as the first new one, just return the new ones
@@ -204,6 +207,59 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     }
   };
 
+  const fetchProjectUsers = async () => {
+    try {
+      // 1. Fetch project members
+      const response = await fetch(`/api/admin/project-members?project_id=${projectId}`);
+      const result = await response.json();
+
+      // 2. Fetch project details to get assigned employee
+      const projResponse = await fetch(`/api/admin/projects?id=${projectId}`);
+      const projectData = await projResponse.json();
+      const project = Array.isArray(projectData) ? projectData[0] : projectData;
+
+      const combinedUsers: any[] = [];
+      const userIds = new Set<string>();
+
+      // Helper to add user if not duplicate and not current user
+      const addUser = (u: any) => {
+        if (!u || !u.id || u.id === user?.id || userIds.has(u.id)) return;
+
+        const name = u.full_name || u.name || 'Unknown';
+        const fallbackUsername = name !== 'Unknown'
+          ? name.toLowerCase().replace(/\s+/g, '')
+          : u.email?.split('@')[0] || 'user';
+
+        combinedUsers.push({
+          id: u.id,
+          full_name: name,
+          username: u.username || fallbackUsername
+        });
+        userIds.add(u.id);
+      };
+
+      // Add Project Members from API
+      if (result.success && result.members) {
+        result.members.forEach((m: any) => {
+          if (m.users) addUser(m.users);
+        });
+      }
+
+      // Add Assigned Employee if they exist
+      if (project?.assigned_employee) {
+        addUser({
+          id: project.assigned_employee.id,
+          full_name: project.assigned_employee.name,
+          email: project.assigned_employee.email,
+        });
+      }
+
+      setProjectUsers(combinedUsers);
+    } catch (err) {
+      console.error('Error fetching project users:', err);
+    }
+  };
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -251,12 +307,12 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
 
   const startRecording = async () => {
     console.log('Starting recording process...');
-    
+
     // Enhanced error handler with more context
     const showError = (message: string, error?: any) => {
       console.error('Recording Error:', { message, error });
       // More user-friendly error message
-      const userMessage = error?.message 
+      const userMessage = error?.message
         ? `${message}\n\n(Error: ${error.message})`
         : message;
       alert(userMessage);
@@ -277,7 +333,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         const missingApis = [];
         if (!navigator.mediaDevices?.getUserMedia) missingApis.push('getUserMedia');
         if (!window.MediaRecorder) missingApis.push('MediaRecorder');
-        
+
         throw new Error(
           `Your browser doesn't support required audio recording features.\n` +
           `Missing: ${missingApis.join(', ')}.\n\n` +
@@ -286,7 +342,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
       }
 
       console.log('Requesting microphone access...');
-      
+
       // Configure audio constraints
       const constraints = {
         audio: {
@@ -302,7 +358,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         stream = await navigator.mediaDevices.getUserMedia(constraints);
       } catch (error: any) {
         console.error('Microphone access error:', error);
-        
+
         if (error.name === 'NotAllowedError') {
           // Check if this is a mobile device that might need HTTPS
           if (isMobile && window.location.protocol !== 'https:') {
@@ -313,28 +369,28 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
           }
           throw new Error(
             'Microphone access was denied. ' +
-            (isMobile 
+            (isMobile
               ? 'Please check your browser settings and ensure the app has microphone permissions.'
               : 'Please allow microphone access in your browser settings.'
             )
           );
         }
-        
+
         if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
           throw new Error('No microphone found. Please ensure your device has a working microphone.');
         }
-        
+
         if (error.name === 'NotReadableError') {
           throw new Error('Could not access the microphone. It might be in use by another application.');
         }
-        
+
         throw new Error(`Could not access microphone: ${error.message || 'Unknown error'}`);
       }
 
       console.log('Microphone access granted');
 
       console.log('Microphone access granted, initializing recorder...');
-      
+
       // Try to create MediaRecorder with fallback options
       let recorder: MediaRecorder;
       try {
@@ -347,28 +403,28 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
           'audio/ogg',               // Basic ogg fallback
           ''                         // Let the browser decide
         ];
-        
+
         // Find the first supported MIME type
         const supportedType = mimeTypes.find(type => !type || MediaRecorder.isTypeSupported(type));
         console.log('Using MIME type:', supportedType || 'browser default');
-        
+
         const options = supportedType ? { mimeType: supportedType } : undefined;
         recorder = new MediaRecorder(stream, options);
-        
+
         // Check for iOS-specific issues
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
         if (isIOS) {
           console.log('iOS device detected - applying workarounds');
           // iOS may need additional handling
         }
-        
+
       } catch (error) {
         console.error('Error initializing MediaRecorder:', error);
         // Clean up the stream
         stream.getTracks().forEach(track => {
           track.stop();
         });
-        
+
         // Provide more specific error for iOS
         if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream) {
           throw new Error(
@@ -376,7 +432,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
             'Please ensure you are using Safari and have granted microphone permissions.'
           );
         }
-        
+
         throw new Error('This browser or device does not support audio recording: ' + (error as Error).message);
       }
 
@@ -397,12 +453,12 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
       // Handle recording stop
       recorder.onstop = () => {
         console.log('Recording stopped');
-        
+
         // Stop all tracks in the stream
         if (stream) {
           stream.getTracks().forEach(track => track.stop());
         }
-        
+
         if (!audioChunksRef.current.length) {
           console.log('No audio data was recorded');
           setIsRecording(false);
@@ -413,7 +469,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
           // Create audio blob with the correct MIME type
           const mimeType = recorder.mimeType || 'audio/webm';
           const blob = new Blob(audioChunksRef.current, { type: mimeType });
-          
+
           audioBlobRef.current = blob;
           setAudioPreviewUrl(URL.createObjectURL(blob));
           console.log('Audio recording created successfully');
@@ -429,12 +485,12 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
       // Handle errors
       recorder.onerror = (event: Event) => {
         console.error('Recording error:', event);
-        
+
         // Stop all tracks in the stream
         if (stream) {
           stream.getTracks().forEach(track => track.stop());
         }
-        
+
         setIsRecording(false);
         showError('An error occurred while recording. Please try again.');
       };
@@ -447,12 +503,12 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         console.log('Recording started');
       } catch (error) {
         console.error('Error starting recording:', error);
-        
+
         // Stop all tracks in the stream
         if (stream) {
           stream.getTracks().forEach(track => track.stop());
         }
-        
+
         throw new Error('Could not start recording. Please try again.');
       }
     } catch (error: any) {
@@ -464,13 +520,13 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
 
   const stopRecording = () => {
     if (!mediaRecorderRef.current || !isRecording) return;
-    
+
     try {
       // Stop the MediaRecorder
       if (mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
       }
-      
+
       // Make sure to clean up the stream
       const stream = mediaRecorderRef.current.stream;
       if (stream) {
@@ -675,12 +731,13 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
 
             {/* Description field */}
             <div>
-              <textarea
+              <MentionTextarea
                 value={form.description}
-                onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="What's the progress on this project?"
+                onChange={(val) => setForm(prev => ({ ...prev, description: val }))}
+                users={projectUsers}
+                placeholder="What's the progress on this project? (Use @ to mention)"
                 rows={3}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 resize-none"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 resize-none min-h-[100px]"
               />
             </div>
 
@@ -741,16 +798,15 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                 type="button"
                 onClick={handleSubmit}
                 disabled={saving || uploadingPhotos || isRecording || (!form.description.trim() && !audioBlobRef.current && form.photos.length === 0)}
-                className={`px-4 py-2 rounded-md transition-colors ${
-                  isRecording
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-yellow-500 text-white hover:bg-yellow-600 disabled:bg-gray-300 disabled:cursor-not-allowed'
-                }`}
+                className={`px-4 py-2 rounded-md transition-colors ${isRecording
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-yellow-500 text-white hover:bg-yellow-600 disabled:bg-gray-300 disabled:cursor-not-allowed'
+                  }`}
               >
                 {saving ? 'Posting...' : 'Post Update'}
               </button>
             </div>
-            
+
             {/* Status indicators */}
             {isRecording && (
               <div className="flex items-center gap-2 text-sm text-red-500">
@@ -758,11 +814,11 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                 Recording voice note...
               </div>
             )}
-            
+
             {uploadingPhotos && (
               <p className="text-sm text-gray-500">Uploading photos...</p>
             )}
-            
+
             {/* Photo previews */}
             {form.photos.length > 0 && (
               <div className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg">
@@ -815,7 +871,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                               <p className="text-sm text-gray-500">{formatDateTimeReadable(update.created_at)}</p>
                             </div>
                           </div>
-                          
+
                           <div className="text-gray-700 mb-3 whitespace-pre-wrap">{update.description}</div>
 
                           {/* Photos Grid */}
@@ -842,7 +898,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                               </div>
                             </div>
                           )}
-                          
+
                           {/* Voice Note */}
                           {update.audio_url && (
                             <div className="mb-3">
@@ -855,7 +911,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                   </div>
                 ))}
               </div>
-              
+
               {/* Show More/Less Button */}
               {groupedUpdates.length > 2 && (
                 <div className="text-center py-4">

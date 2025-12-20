@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const parsed = createUpdateSchema.safeParse(body);
-    
+
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invalid input', details: parsed.error.format() },
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create update' }, { status: 500 });
     }
 
-    // Notify admin of new project update
+    // Parse mentions and notify users
     try {
       const { data: projectData } = await supabaseAdmin
         .from('projects')
@@ -118,6 +118,7 @@ export async function POST(request: NextRequest) {
         .eq('id', project_id)
         .single();
 
+      // 1. Notify admin (existing logic)
       if (projectData && projectData.created_by !== userId) {
         await NotificationService.createNotification({
           userId: projectData.created_by,
@@ -127,7 +128,6 @@ export async function POST(request: NextRequest) {
           relatedId: project_id,
           relatedType: 'project'
         });
-        console.log('Project update notification sent to admin:', projectData.created_by);
 
         try {
           const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -143,11 +143,74 @@ export async function POST(request: NextRequest) {
               `📣 Project Update\n\n${userFullName} added an update to project "${projectData.title}"\n\nOpen: ${link}`
             );
           }
-        } catch (_) {}
+        } catch (_) { }
+      }
+
+      // 2. Handle @Mentions
+      const mentionRegex = /@(\w+)/g;
+      const mentions = description.match(mentionRegex);
+
+      if (mentions) {
+        const usernames = [...new Set(mentions.map((m: string) => m.substring(1)))];
+
+        // Fetch all project members to resolve fallback mentions (slugified names)
+        const { data: projectUsers } = await supabaseAdmin
+          .from('project_members')
+          .select(`
+            user_id,
+            users:user_id (
+              id,
+              full_name,
+              phone_number,
+              username,
+              email
+            )
+          `)
+          .eq('project_id', project_id);
+
+        if (projectUsers) {
+          const mentionedUsers = [];
+
+          for (const username of usernames) {
+            const matchedUser = projectUsers.find((m: any) => {
+              const u = m.users;
+              const slug = u.full_name ? u.full_name.toLowerCase().replace(/\s+/g, '') : '';
+              const emailPrefix = u.email?.split('@')[0];
+              return u.username === username || slug === username || emailPrefix === username;
+            });
+
+            if (matchedUser && matchedUser.users) {
+              mentionedUsers.push(matchedUser.users);
+            }
+          }
+
+          if (mentionedUsers.length > 0) {
+            for (const mentionedUser of mentionedUsers) {
+              // Don't notify self
+              if (mentionedUser.id === userId) continue;
+
+              await NotificationService.notifyMention(
+                mentionedUser.id,
+                userFullName,
+                projectData?.title || 'Project',
+                description,
+                update.id
+              );
+
+              if (mentionedUser.phone_number) {
+                const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+                const link = `${origin}/dashboard/projects/${project_id}`;
+                await sendCustomWhatsAppNotification(
+                  mentionedUser.phone_number,
+                  `👋 You were mentioned by ${userFullName} in project "${projectData?.title || 'Project'}":\n\n"${description.substring(0, 100)}${description.length > 100 ? '...' : ''}"\n\nOpen: ${link}`
+                );
+              }
+            }
+          }
+        }
       }
     } catch (notificationError) {
-      console.error('Failed to send project update notification:', notificationError);
-      // Don't fail the main operation if notification fails
+      console.error('Failed to process notifications:', notificationError);
     }
 
     return NextResponse.json({ update }, { status: 201 });
