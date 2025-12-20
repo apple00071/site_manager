@@ -267,11 +267,19 @@ export default function ProjectDetailsPage() {
     setMounted(true);
   }, []);
 
-  // Sync Stage from URL query param ?stage=
+  // Sync Stage and Tab from URL query params
   useEffect(() => {
     const stageParam = searchParams?.get('stage');
+    const tabParam = searchParams?.get('tab');
+
     if (stageParam && ['visit', 'design', 'boq', 'orders', 'work_progress', 'snag', 'finance'].includes(stageParam)) {
-      setActiveStage(stageParam as StageId);
+      if (stageParam !== activeStage) {
+        setActiveStage(stageParam as StageId);
+      }
+    }
+
+    if (tabParam && tabParam !== activeSubTab) {
+      setActiveSubTab(tabParam);
     }
   }, [searchParams]);
 
@@ -282,14 +290,26 @@ export default function ProjectDetailsPage() {
     const allTabsForStage = STAGE_SUB_TABS[stage] || [];
     const permittedTabs = allTabsForStage.filter(tab => !tab.permission || hasPermission(tab.permission));
 
-    // Set default sub-tab: either the first permitted one, or the hardcoded default if no permissions needed
+    // Determine default sub-tab
+    let newTab = getDefaultSubTab(stage);
     if (permittedTabs.length > 0) {
-      setActiveSubTab(permittedTabs[0].id);
-    } else {
-      setActiveSubTab(getDefaultSubTab(stage));
+      newTab = permittedTabs[0].id;
     }
 
-    router.push(`/dashboard/projects/${id}?stage=${stage}`, { scroll: false });
+    setActiveSubTab(newTab);
+    router.push(`/dashboard/projects/${id}?stage=${stage}&tab=${newTab}`, { scroll: false });
+  };
+
+  const handleTabChange = (tabId: string) => {
+    setActiveSubTab(tabId);
+    // Persist tab to URL
+    const params = new URLSearchParams(searchParams?.toString());
+    params.set('tab', tabId);
+    // Ensure stage is also present
+    if (!params.has('stage')) {
+      params.set('stage', activeStage);
+    }
+    router.push(`/dashboard/projects/${id}?${params.toString()}`, { scroll: false });
   };
 
   // ... [Keep existing fetchProject logic] ...
@@ -495,7 +515,7 @@ export default function ProjectDetailsPage() {
           <SubTabNav
             tabs={currentStageTabs}
             activeTab={activeSubTab}
-            onTabChange={setActiveSubTab}
+            onTabChange={handleTabChange}
           />
         </div>
       </ClientPortal>

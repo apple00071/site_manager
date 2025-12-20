@@ -1,6 +1,7 @@
 // ... imports
 import React, { useRef, useEffect, useState } from 'react';
-import { FiCheck, FiClock, FiCircle, FiChevronDown } from 'react-icons/fi';
+import { createPortal } from 'react-dom';
+import { FiCheck, FiClock, FiCircle, FiChevronDown, FiPlus, FiX } from 'react-icons/fi';
 
 export type StageId = 'visit' | 'design' | 'boq' | 'orders' | 'work_progress' | 'snag' | 'finance';
 
@@ -65,6 +66,22 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
         return map[color] || map.gray;
     };
 
+    // Mobile Menu State
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    // Close menu when stage changes
+    useEffect(() => {
+        setMobileMenuOpen(false);
+    }, [currentStage]);
+
+    // Debug logging
+    console.log('StageNavigator render:', { currentStage, actionsLength: actions.length, mounted });
+
     return (
         <div className="bg-white border-b border-gray-200 w-full max-w-full sticky top-0 z-10 transition-all duration-200">
             {/* DESKTOP PIPELINE (md+) */}
@@ -113,11 +130,6 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
 
                 {/* Right Action Area */}
                 <div className="hidden lg:flex items-center gap-4 pl-4 border-l border-gray-200 ml-4">
-                    {/* Dynamic Status Badge */}
-
-
-
-
                     {/* Primary Actions Dropdown - Brand Color */}
                     <div className="relative" ref={actionsRef}>
                         <button
@@ -190,83 +202,109 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
                         const state = isActive ? 'current' : isCompleted ? 'completed' : 'upcoming';
 
                         return (
-                            <button
-                                key={stage.id}
-                                data-stage={stage.id}
-                                onClick={() => onStageSelect(stage.id)}
-                                className={`
-                                flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200
-                                ${state === 'current'
-                                        ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-600 ring-offset-1'
-                                        : state === 'completed'
-                                            ? 'bg-green-50 text-green-700 hover:bg-green-100'
-                                            : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
-                                    }
-                            `}
-                            >
-                                <span className={`
-                                flex items-center justify-center w-4 h-4 rounded-full text-[10px]
-                                ${state === 'current'
-                                        ? 'bg-blue-600 text-white'
-                                        : state === 'completed'
-                                            ? 'bg-green-600 text-white'
-                                            : 'bg-gray-200 text-gray-500'
-                                    }
-                            `}>
-                                    {state === 'completed' ? (
-                                        <FiCheck className="w-2.5 h-2.5" />
-                                    ) : state === 'current' ? (
-                                        <span className="w-1 h-1 bg-white rounded-full animate-pulse" />
-                                    ) : (
-                                        <span className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
-                                    )}
-                                </span>
-                                <span className="whitespace-nowrap">{stage.label}</span>
-                            </button>
+                            <div key={stage.id} className="relative flex items-center">
+                                <button
+                                    data-stage={stage.id}
+                                    onClick={() => onStageSelect(stage.id)}
+                                    className={`
+                                        flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200
+                                        ${state === 'current'
+                                            ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-600 ring-offset-1'
+                                            : state === 'completed'
+                                                ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                                                : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                                        }
+                                    `}
+                                >
+                                    <span className={`
+                                        flex items-center justify-center w-4 h-4 rounded-full text-[10px]
+                                        ${state === 'current'
+                                            ? 'bg-blue-600 text-white'
+                                            : state === 'completed'
+                                                ? 'bg-green-600 text-white'
+                                                : 'bg-gray-200 text-gray-500'
+                                        }
+                                    `}>
+                                        {state === 'completed' ? (
+                                            <FiCheck className="w-2.5 h-2.5" />
+                                        ) : state === 'current' ? (
+                                            <span className="w-1 h-1 bg-white rounded-full animate-pulse" />
+                                        ) : (
+                                            <span className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
+                                        )}
+                                    </span>
+                                    <span className="whitespace-nowrap">{stage.label}</span>
+                                </button>
+                            </div>
                         );
                     })}
                 </div>
             </div>
 
-            {/* MOBILE ACTION TOOLBAR (md-) - NEW ADDITION */}
-            <div className="flex md:hidden items-center justify-between px-3 py-2 bg-gray-50/50">
-                {/* Mobile Stage Status */}
-                <div className="flex-1">
+            {/* Mobile Actions FAB & Bottom Sheet */}
+            {mounted && actions.length > 0 && (
+                createPortal(
+                    <>
+                        {/* 1. Floating Action Button (Mobile Only) */}
+                        <div className="fixed bottom-6 right-6 z-[50] md:hidden">
+                            <button
+                                onClick={() => setMobileMenuOpen(true)}
+                                className="w-14 h-14 bg-yellow-400 text-yellow-900 rounded-full shadow-lg flex items-center justify-center hover:bg-yellow-500 active:scale-95 transition-all duration-200"
+                            >
+                                <FiPlus className="w-6 h-6" />
+                            </button>
+                        </div>
 
-                </div>
+                        {/* 2. Bottom Sheet Menu */}
+                        {mobileMenuOpen && (
+                            <>
+                                {/* Backdrop */}
+                                <div
+                                    className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+                                    onClick={() => setMobileMenuOpen(false)}
+                                />
 
-                {/* Mobile Actions Dropdown */}
-                {actions.length > 0 && (
-                    <div className="relative ml-2" ref={actionsRef}>
-                        <button
-                            onClick={() => setShowActions(!showActions)}
-                            className="btn-primary py-1 px-3 text-xs h-8"
-                        >
-                            <span>Actions</span>
-                            <FiChevronDown className={`w-3 h-3 transition-transform ${showActions ? 'rotate-180' : ''}`} />
-                        </button>
-
-                        {/* Mobile Dropdown Menu (Anchored Right) */}
-                        {showActions && (
-                            <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50 animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
-                                {actions.map((action, idx) => (
-                                    <button
-                                        key={idx}
-                                        onClick={() => {
-                                            action.onClick();
-                                            setShowActions(false);
-                                        }}
-                                        className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50 last:border-0"
-                                    >
-                                        {action.icon && <span className="text-gray-400">{action.icon}</span>}
-                                        <span className="font-medium">{action.label}</span>
-                                    </button>
-                                ))}
-                            </div>
+                                {/* Sheet */}
+                                <div
+                                    className="fixed bottom-0 left-0 right-0 z-[61] bg-white rounded-t-2xl shadow-2xl animate-in slide-in-from-bottom duration-300 md:hidden"
+                                >
+                                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                                        <h3 className="text-sm font-semibold text-gray-900">Actions</h3>
+                                        <button
+                                            onClick={() => setMobileMenuOpen(false)}
+                                            className="p-1 rounded-full text-gray-400 hover:bg-gray-100"
+                                        >
+                                            <FiX className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                    <div className="p-2 space-y-1 pb-8">
+                                        {actions.map((action, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => {
+                                                    action.onClick();
+                                                    setMobileMenuOpen(false);
+                                                }}
+                                                className="w-full text-left px-4 py-3 text-base text-gray-700 hover:bg-gray-50 flex items-center gap-4 rounded-xl active:bg-blue-50 transition-colors"
+                                            >
+                                                {action.icon ? (
+                                                    <span className="text-gray-500 text-xl">{action.icon}</span>
+                                                ) : (
+                                                    <span className="text-gray-400">
+                                                        <FiCircle className="w-2 h-2" />
+                                                    </span>
+                                                )}
+                                                <span className="font-medium">{action.label}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </>
                         )}
-                    </div>
-                )}
-            </div>
+                    </>,
+                    document.body
+                )
+            )}
         </div>
     );
 }
