@@ -8,7 +8,7 @@ import { sendSnagWhatsAppNotification } from '@/lib/whatsapp';
 export const dynamic = 'force-dynamic';
 
 const snagSchema = z.object({
-    project_id: z.string().uuid(),
+    project_id: z.string().uuid().optional().nullable(),
     description: z.string().min(1, 'Description is required'),
     location: z.string().optional().nullable(),
     category: z.string().optional().nullable(),
@@ -21,7 +21,8 @@ const snagSchema = z.object({
 });
 
 // Helper to check project access
-async function checkProjectAccess(userId: string, projectId: string, userRole: string) {
+async function checkProjectAccess(userId: string, projectId: string | null, userRole: string) {
+    if (!projectId) return true; // Global/Unassigned snags accessible to all auth users? Or just admin/creator?
     if (userRole === 'admin') return true;
     const { data } = await supabaseAdmin
         .from('project_members')
@@ -32,7 +33,7 @@ async function checkProjectAccess(userId: string, projectId: string, userRole: s
     return !!data;
 }
 
-// GET /api/snags?project_id=xxx
+// GET /api/snags?project_id=xxx OR /api/snags?all=true
 export async function GET(request: NextRequest) {
     try {
         const { user, error: authError, role } = await getAuthUser();
@@ -40,28 +41,69 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const projectId = request.nextUrl.searchParams.get('project_id');
-        if (!projectId) {
-            return NextResponse.json({ error: 'project_id is required' }, { status: 400 });
+        const { searchParams } = new URL(request.url);
+        const projectId = searchParams.get('project_id');
+        const fetchAll = searchParams.get('all') === 'true';
+
+        // NOTE: If both missing, maybe return user's created snags or empty?
+        // Current logic requires one.
+        if (!projectId && !fetchAll) {
+            return NextResponse.json({ error: 'project_id or all=true is required' }, { status: 400 });
         }
 
-        const hasAccess = await checkProjectAccess(user.id, projectId, role || '');
-        if (!hasAccess) {
-            return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-        }
-
-        const { data, error } = await supabaseAdmin
+        let query = supabaseAdmin
             .from('snags')
             .select(`
                 *,
                 created_by_user:users!snags_created_by_fkey(id, full_name),
-                assigned_to_user:users!snags_assigned_to_user_id_fkey(id, full_name)
+                assigned_to_user:users!snags_assigned_to_user_id_fkey(id, full_name),
+                project:projects(id, title)
             `)
-            .eq('project_id', projectId)
             .order('created_at', { ascending: false });
 
+        if (projectId) {
+            // Check specific project access
+            const hasAccess = await checkProjectAccess(user.id, projectId, role || '');
+            if (!hasAccess) {
+                return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+            }
+            query = query.eq('project_id', projectId);
+        } else if (fetchAll) {
+            // Fetch all accessible projects AND unassigned snags created by user?
+            if (role !== 'admin') {
+                // Get projects user is a member of
+                const { data: members } = await supabaseAdmin
+                    .from('project_members')
+                    .select('project_id')
+                    .eq('user_id', user.id);
+
+                const projectIds = members?.map(m => m.project_id) || [];
+
+                // Filter Logic:
+                // 1. Snags in projects user is member of
+                // 2. Snags assigned to user (regardless of project)
+                // 3. Snags created by user (regardless of project)
+
+                let orConditions = [
+                    `assigned_to_user_id.eq.${user.id}`,
+                    `created_by.eq.${user.id}`
+                ];
+
+                if (projectIds.length > 0) {
+                    orConditions.push(`project_id.in.(${projectIds.join(',')})`);
+                }
+
+                // If project_id is null (global snag) and user is not admin,
+                // they only see it if assigned or created by them.
+                // The OR condition handles this implicitly because we check all 3 conditions.
+
+                query = query.or(orConditions.join(','));
+            }
+        }
+
+        const { data, error } = await query;
+
         if (error) {
-            // If table doesn't exist yet, return empty array instead of crashing
             if (error.code === '42P01') {
                 return NextResponse.json({ snags: [], error: 'Table not found - Run migration' });
             }
@@ -97,7 +139,14 @@ export async function POST(request: NextRequest) {
         const { project_id, assigned_to_user_id, ...snagData } = validationResult.data;
 
         // RBAC: Check snags.create permission
-        const permResult = await verifyPermission(user.id, PERMISSION_NODES.SNAGS_CREATE, project_id);
+        // If project_id is present, checks project-level permissions (role + project member)
+        // If project_id is null, checks only role-based permissions (global capability)
+        const permResult = await verifyPermission(
+            user.id,
+            PERMISSION_NODES.SNAGS_CREATE,
+            project_id || undefined
+        );
+
         if (!permResult.allowed) {
             return NextResponse.json({ error: permResult.message }, { status: 403 });
         }
@@ -107,7 +156,7 @@ export async function POST(request: NextRequest) {
             .from('snags')
             .insert({
                 ...snagData,
-                project_id,
+                project_id: project_id || null,
                 created_by: user.id,
                 assigned_to_user_id: assigned_to_user_id || null,
                 status: assigned_to_user_id ? 'assigned' : 'open',
@@ -122,15 +171,19 @@ export async function POST(request: NextRequest) {
 
         // --- NOTIFICATIONS ---
         try {
-            // Get project and user details for notification
-            const { data: project } = await supabaseAdmin
-                .from('projects')
-                .select('title')
-                .eq('id', project_id)
-                .single();
+            let projectName = 'General Snag';
+
+            if (project_id) {
+                // Get project details
+                const { data: project } = await supabaseAdmin
+                    .from('projects')
+                    .select('title')
+                    .eq('id', project_id)
+                    .single();
+                if (project) projectName = project.title;
+            }
 
             const description = snagData.description || 'New snag reported';
-            const projectName = project?.title || 'Unknown Project';
 
             // 1. Notify Assigned User (if any)
             if (assigned_to_user_id) {
