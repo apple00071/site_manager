@@ -131,23 +131,24 @@ export function OptimizedNotificationBell() {
     }
   };
 
-  // Tab visibility detection to pause polling when inactive
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      console.log('handleVisibilityChange triggered. document.hidden:', document.hidden);
-      isActiveTab.current = !document.hidden;
-
-      if (isActiveTab.current) {
-        console.log('👁️ Tab became active - refreshing notifications');
-        fetchNotifications(true);
-      } else {
-        console.log('👁️ Tab became inactive - pausing polling');
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []);
+  // Tab visibility detection disabled to prevent UI refresh on tab switch.
+  // The real-time subscription and polling will still keep notifications updated.
+  // useEffect(() => {
+  //   const handleVisibilityChange = () => {
+  //     console.log('handleVisibilityChange triggered. document.hidden:', document.hidden);
+  //     isActiveTab.current = !document.hidden;
+  //
+  //     if (isActiveTab.current) {
+  //       console.log('👁️ Tab became active - refreshing notifications');
+  //       fetchNotifications(true);
+  //     } else {
+  //       console.log('👁️ Tab became inactive - pausing polling');
+  //     }
+  //   };
+  //
+  //   document.addEventListener('visibilitychange', handleVisibilityChange);
+  //   return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  // }, []);
 
   useEffect(() => {
     setMounted(true);

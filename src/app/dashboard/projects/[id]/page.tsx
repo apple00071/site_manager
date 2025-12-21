@@ -329,9 +329,12 @@ export default function ProjectDetailsPage() {
   };
 
   // ... [Keep existing fetchProject logic] ...
-  const fetchProject = async () => {
+  // silent = true prevents showing loading spinner (used for background refreshes like tab visibility changes)
+  const fetchProject = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) {
+        setIsLoading(true);
+      }
       setError(null);
 
       // Fetch the project using API route for better security and consistency
@@ -463,25 +466,27 @@ export default function ProjectDetailsPage() {
     }
   };
 
-  // [Keep visibility change logic]
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        console.log('Page is visible, refreshing project data...');
-        fetchProject();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    const handleRouteChange = () => {
-      console.log('Route changed, refreshing project data...');
-      fetchProject();
-    };
-    window.addEventListener('popstate', handleRouteChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('popstate', handleRouteChange);
-    };
-  }, [id]);
+  // NOTE: Visibility change handler disabled to prevent page refresh on tab switch.
+  // If background data refresh is needed, consider using React Query with proper
+  // stale/cache handling to prevent UI disruption.
+  // useEffect(() => {
+  //   const handleVisibilityChange = () => {
+  //     if (document.visibilityState === 'visible') {
+  //       console.log('Page is visible, refreshing project data silently...');
+  //       fetchProject(true);
+  //     }
+  //   };
+  //   document.addEventListener('visibilitychange', handleVisibilityChange);
+  //   const handleRouteChange = () => {
+  //     console.log('Route changed, refreshing project data silently...');
+  //     fetchProject(true);
+  //   };
+  //   window.addEventListener('popstate', handleRouteChange);
+  //   return () => {
+  //     document.removeEventListener('visibilitychange', handleVisibilityChange);
+  //     window.removeEventListener('popstate', handleRouteChange);
+  //   };
+  // }, [id]);
 
 
   if (authLoading) {
@@ -818,23 +823,12 @@ export default function ProjectDetailsPage() {
 
           {/* STAGE: WORK PROGRESS */}
           {activeStage === 'work_progress' && (
-            <div className="h-full">
-              {activeSubTab === 'updates' ? (
-                <div className="p-4 sm:p-6 max-w-7xl mx-auto">
-                  <UpdatesTab projectId={project.id} />
-                </div>
-              ) : activeSubTab === 'daily_logs' ? (
-                <div className="h-full">
-                  <SiteLogTab projectId={project.id} ref={siteLogRef} />
-                </div>
-              ) : activeSubTab === 'progress_reports' ? (
-                <div className="h-full">
-                  <ProgressReportTab projectId={project.id} ref={reportRef} />
-                </div>
-              ) : (
-                <InventoryTab projectId={project.id} ref={inventoryRef} />
-              )}
-            </div>
+            <>
+              {activeSubTab === 'updates' && <UpdatesTab projectId={project.id} />}
+              {activeSubTab === 'daily_logs' && <SiteLogTab projectId={project.id} ref={siteLogRef} />}
+              {activeSubTab === 'progress_reports' && <ProgressReportTab projectId={project.id} ref={reportRef} />}
+              {activeSubTab === 'inventory' && <InventoryTab projectId={project.id} ref={inventoryRef} />}
+            </>
           )}
 
           {/* STAGE: SNAG (Placeholder) */}

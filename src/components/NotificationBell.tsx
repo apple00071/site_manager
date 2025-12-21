@@ -138,22 +138,23 @@ export function NotificationBell() {
     }
   };
 
-  // Tab visibility detection to pause polling when inactive
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      isActiveTab.current = !document.hidden;
-
-      if (isActiveTab.current) {
-        console.log('👁️ Tab became active - refreshing notifications');
-        fetchNotifications(true);
-      } else {
-        console.log('👁️ Tab became inactive - pausing polling');
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []);
+  // Tab visibility detection disabled to prevent UI refresh on tab switch.
+  // Polling will still handle updates in the background.
+  // useEffect(() => {
+  //   const handleVisibilityChange = () => {
+  //     isActiveTab.current = !document.hidden;
+  //
+  //     if (isActiveTab.current) {
+  //       console.log('👁️ Tab became active - refreshing notifications');
+  //       fetchNotifications(true);
+  //     } else {
+  //       console.log('👁️ Tab became inactive - pausing polling');
+  //     }
+  //   };
+  //
+  //   document.addEventListener('visibilitychange', handleVisibilityChange);
+  //   return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  // }, []);
 
   useEffect(() => {
     setMounted(true);

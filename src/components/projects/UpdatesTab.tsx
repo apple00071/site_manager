@@ -706,226 +706,224 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
 
   // Render Updates content with composer at top and messages below
   return (
-    <>
-      <div className="flex flex-col min-h-0 h-full bg-white overflow-hidden">
-        {/* Add Update Section - Now at the top */}
-        <div className="border-t border-gray-200 bg-gray-50 p-4 order-2">
-          <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              {/* Stage selector */}
-              <div className="flex-1 sm:flex-none sm:w-48">
-                <select
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                  value={selectedStageId}
-                  onChange={(e) => setSelectedStageId(e.target.value)}
-                >
-                  <option value="all">All stages</option>
-                  {stages.map((stage) => (
-                    <option key={stage.id} value={stage.id}>
-                      {stage.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
+    <div className="bg-white shadow sm:rounded-lg">
+      {/* Add Update Section */}
+      <div className="border-b border-gray-200 p-4">
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            {/* Stage selector */}
+            <div className="flex-1 sm:flex-none sm:w-48">
+              <select
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                value={selectedStageId}
+                onChange={(e) => setSelectedStageId(e.target.value)}
+              >
+                <option value="all">All stages</option>
+                {stages.map((stage) => (
+                  <option key={stage.id} value={stage.id}>
+                    {stage.title}
+                  </option>
+                ))}
+              </select>
             </div>
+          </div>
 
-            {/* Description field */}
-            <div>
-              <MentionTextarea
-                value={form.description}
-                onChange={(val) => setForm(prev => ({ ...prev, description: val }))}
-                users={projectUsers}
-                placeholder="What's the progress on this project? (Use @ to mention)"
-                rows={3}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 resize-none min-h-[100px]"
-              />
-            </div>
+          {/* Description field */}
+          <div>
+            <MentionTextarea
+              value={form.description}
+              onChange={(val) => setForm(prev => ({ ...prev, description: val }))}
+              users={projectUsers}
+              placeholder="What's the progress on this project? (Use @ to mention)"
+              rows={3}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 resize-none min-h-[100px]"
+            />
+          </div>
 
-            {/* Media upload and actions */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {isRecording ? (
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex items-center justify-center">
-                      <div className="absolute w-5 h-5 bg-red-500 rounded-full animate-ping opacity-75"></div>
-                      <button
-                        type="button"
-                        onClick={stopRecording}
-                        className="relative z-10 flex items-center justify-center w-10 h-10 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors"
-                        disabled={uploadingPhotos || saving}
-                        aria-label="Stop recording"
-                      >
-                        <div className="w-4 h-4 bg-white rounded-sm"></div>
-                      </button>
-                    </div>
-                    <span className="text-sm font-medium text-red-700">Recording...</span>
+          {/* Media upload and actions */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {isRecording ? (
+                <div className="flex items-center gap-2">
+                  <div className="relative flex items-center justify-center">
+                    <div className="absolute w-5 h-5 bg-red-500 rounded-full animate-ping opacity-75"></div>
+                    <button
+                      type="button"
+                      onClick={stopRecording}
+                      className="relative z-10 flex items-center justify-center w-10 h-10 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors"
+                      disabled={uploadingPhotos || saving}
+                      aria-label="Stop recording"
+                    >
+                      <div className="w-4 h-4 bg-white rounded-sm"></div>
+                    </button>
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={startRecording}
-                    className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors"
-                    disabled={uploadingPhotos || saving}
-                    aria-label="Record voice note"
-                  >
-                    <svg className="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3z" />
-                      <path d="M17 12c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V22h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-                    </svg>
-                  </button>
-                )}
-                {/* Photo upload */}
-                <label className="flex items-center justify-center w-10 h-10 rounded-lg border border-gray-300 bg-white cursor-pointer hover:bg-gray-50 transition-colors">
-                  <svg
-                    className="w-5 h-5 text-gray-700"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  <span className="text-sm font-medium text-red-700">Recording...</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={startRecording}
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors"
+                  disabled={uploadingPhotos || saving}
+                  aria-label="Record voice note"
+                >
+                  <svg className="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3z" />
+                    <path d="M17 12c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V22h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
                   </svg>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handlePhotoUpload}
-                    disabled={uploadingPhotos}
-                    className="hidden"
-                  />
-                </label>
+                </button>
+              )}
+              {/* Photo upload */}
+              <label className="flex items-center justify-center w-10 h-10 rounded-lg border border-gray-300 bg-white cursor-pointer hover:bg-gray-50 transition-colors">
+                <svg
+                  className="w-5 h-5 text-gray-700"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handlePhotoUpload}
+                  disabled={uploadingPhotos}
+                  className="hidden"
+                />
+              </label>
+            </div>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={saving || uploadingPhotos || isRecording || (!form.description.trim() && !audioBlobRef.current && form.photos.length === 0)}
+              className={`px-4 py-2 rounded-md transition-colors ${isRecording
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-yellow-500 text-white hover:bg-yellow-600 disabled:bg-gray-300 disabled:cursor-not-allowed'
+                }`}
+            >
+              {saving ? 'Posting...' : 'Post Update'}
+            </button>
+          </div>
+
+          {/* Status indicators */}
+          {isRecording && (
+            <div className="flex items-center gap-2 text-sm text-red-500">
+              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+              Recording voice note...
+            </div>
+          )}
+
+          {uploadingPhotos && (
+            <p className="text-sm text-gray-500">Uploading photos...</p>
+          )}
+
+          {/* Photo previews */}
+          {form.photos.length > 0 && (
+            <div className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="text-sm text-gray-700">{form.photos.length} photo(s) selected</span>
               </div>
               <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={saving || uploadingPhotos || isRecording || (!form.description.trim() && !audioBlobRef.current && form.photos.length === 0)}
-                className={`px-4 py-2 rounded-md transition-colors ${isRecording
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-yellow-500 text-white hover:bg-yellow-600 disabled:bg-gray-300 disabled:cursor-not-allowed'
-                  }`}
+                onClick={() => setForm(prev => ({ ...prev, photos: [] }))}
+                className="text-red-500 hover:text-red-700 text-sm"
               >
-                {saving ? 'Posting...' : 'Post Update'}
+                Clear
               </button>
             </div>
+          )}
+        </div>
+      </div>
 
-            {/* Status indicators */}
-            {isRecording && (
-              <div className="flex items-center gap-2 text-sm text-red-500">
-                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                Recording voice note...
-              </div>
-            )}
+      {/* Updates Feed */}
+      <div ref={updatesListRef} className="p-4">
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500"></div>
+          </div>
+        ) : updates.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-gray-400 text-4xl mb-4">📝</div>
+            <p className="text-gray-500">No updates yet. Add your first update!</p>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-6">
+              {(showAll ? groupedUpdates : groupedUpdates.slice(0, 2)).map((group) => (
+                <div key={group.label}>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">{group.label}</h3>
+                  <div className="space-y-4">
+                    {group.items.map((update: ProjectUpdate) => (
+                      <div
+                        key={update.id}
+                        className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                      >
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="w-10 h-10 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                            {update.user.full_name?.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-gray-900">{update.user.full_name}</h4>
+                            <p className="text-sm text-gray-500">{formatDateTimeReadable(update.created_at)}</p>
+                          </div>
+                        </div>
 
-            {uploadingPhotos && (
-              <p className="text-sm text-gray-500">Uploading photos...</p>
-            )}
+                        <div className="text-gray-700 mb-3 whitespace-pre-wrap">{update.description}</div>
 
-            {/* Photo previews */}
-            {form.photos.length > 0 && (
-              <div className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm text-gray-700">{form.photos.length} photo(s) selected</span>
+                        {/* Photos Grid */}
+                        {update.photos && update.photos.length > 0 && (
+                          <div className="mb-3">
+                            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-0.5">
+                              {update.photos.map((photo: string, photoIndex: number) => (
+                                <div
+                                  key={photoIndex}
+                                  className="aspect-square rounded-sm overflow-hidden cursor-pointer border border-gray-200"
+                                  onClick={() => {
+                                    setCurrentImages(update.photos);
+                                    setSelectedImageIndex(photoIndex);
+                                    setSelectedImage(photo);
+                                  }}
+                                >
+                                  <img
+                                    src={photo}
+                                    alt={`Update photo ${photoIndex + 1}`}
+                                    className="w-full h-full object-cover hover:opacity-90 transition-opacity"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Voice Note */}
+                        {update.audio_url && (
+                          <div className="mb-3">
+                            <VoiceNotePlayer src={update.audio_url} />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              ))}
+            </div>
+
+            {/* Show More/Less Button */}
+            {groupedUpdates.length > 2 && (
+              <div className="text-center py-4">
                 <button
-                  onClick={() => setForm(prev => ({ ...prev, photos: [] }))}
-                  className="text-red-500 hover:text-red-700 text-sm"
+                  onClick={() => setShowAll(!showAll)}
+                  className="px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-semibold transition-colors"
                 >
-                  Clear
+                  {showAll ? 'Show Less' : `Show More (${groupedUpdates.length - 2} more groups)`}
                 </button>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Updates Feed - Now below the composer */}
-        <div ref={updatesListRef} className="flex-1 min-h-0 overflow-y-auto order-3">
-          {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500"></div>
-            </div>
-          ) : updates.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-gray-400 text-4xl mb-4">📝</div>
-              <p className="text-gray-500">No updates yet. Add your first update!</p>
-            </div>
-          ) : (
-            <>
-              <div className="space-y-6">
-                {(showAll ? groupedUpdates : groupedUpdates.slice(0, 2)).map((group) => (
-                  <div key={group.label}>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">{group.label}</h3>
-                    <div className="space-y-4">
-                      {group.items.map((update: ProjectUpdate) => (
-                        <div
-                          key={update.id}
-                          className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
-                        >
-                          <div className="flex items-start gap-3 mb-3">
-                            <div className="w-10 h-10 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center text-sm font-bold flex-shrink-0">
-                              {update.user.full_name?.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-gray-900">{update.user.full_name}</h4>
-                              <p className="text-sm text-gray-500">{formatDateTimeReadable(update.created_at)}</p>
-                            </div>
-                          </div>
-
-                          <div className="text-gray-700 mb-3 whitespace-pre-wrap">{update.description}</div>
-
-                          {/* Photos Grid */}
-                          {update.photos && update.photos.length > 0 && (
-                            <div className="mb-3">
-                              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-0.5">
-                                {update.photos.map((photo: string, photoIndex: number) => (
-                                  <div
-                                    key={photoIndex}
-                                    className="aspect-square rounded-sm overflow-hidden cursor-pointer border border-gray-200"
-                                    onClick={() => {
-                                      setCurrentImages(update.photos);
-                                      setSelectedImageIndex(photoIndex);
-                                      setSelectedImage(photo);
-                                    }}
-                                  >
-                                    <img
-                                      src={photo}
-                                      alt={`Update photo ${photoIndex + 1}`}
-                                      className="w-full h-full object-cover hover:opacity-90 transition-opacity"
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Voice Note */}
-                          {update.audio_url && (
-                            <div className="mb-3">
-                              <VoiceNotePlayer src={update.audio_url} />
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Show More/Less Button */}
-              {groupedUpdates.length > 2 && (
-                <div className="text-center py-4">
-                  <button
-                    onClick={() => setShowAll(!showAll)}
-                    className="px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-semibold transition-colors"
-                  >
-                    {showAll ? 'Show Less' : `Show More (${groupedUpdates.length - 2} more groups)`}
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+          </>
+        )}
       </div>
 
       {/* Enhanced Image Modal with Navigation */}
@@ -943,7 +941,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
           setSelectedImage(currentImages[index]);
         }}
       />
-    </>
+    </div>
   );
 }
 
