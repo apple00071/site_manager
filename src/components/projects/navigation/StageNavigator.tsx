@@ -246,7 +246,7 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
                 createPortal(
                     <>
                         {/* 1. Floating Action Button (Mobile Only) */}
-                        <div className="fixed bottom-6 right-6 z-[50] md:hidden">
+                        <div className="fixed bottom-6 right-6 z-40 md:hidden">
                             <button
                                 onClick={() => setMobileMenuOpen(true)}
                                 className="w-14 h-14 bg-yellow-400 text-yellow-900 rounded-full shadow-lg flex items-center justify-center hover:bg-yellow-500 active:scale-95 transition-all duration-200"
