@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
                     .select('project_id')
                     .eq('user_id', user.id);
 
-                const projectIds = members?.map(m => m.project_id) || [];
+                const projectIds = members?.map((m: { project_id: string }) => m.project_id) || [];
 
                 // Filter Logic:
                 // 1. Snags in projects user is member of

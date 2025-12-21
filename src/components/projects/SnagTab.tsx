@@ -232,40 +232,6 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
         setResolutionDescription('');
     };
 
-    // ... (rest of functions)
-
-    // In the return JSX, inside Modal:
-
-    <div className="col-span-2">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Photos</label>
-        <div className="flex gap-2 overflow-x-auto py-2">
-            {formData.photos.map((url, i) => (
-                <div key={i} className="relative w-16 h-16 flex-shrink-0 group">
-                    <Image src={url} alt="preview" fill className="object-cover rounded-lg" />
-                    <button
-                        onClick={() => removePhoto(i)}
-                        className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                        <FiX className="w-3 h-3" />
-                    </button>
-                </div>
-            ))}
-            <label className="w-16 h-16 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-yellow-500 hover:bg-yellow-50 transition-colors">
-                {uploadingPhotos ? (
-                    <div className="animate-spin w-5 h-5 border-2 border-yellow-500 border-t-transparent rounded-full" />
-                ) : (
-                    <>
-                        <FiCamera className="w-6 h-6 text-gray-400" />
-                        <span className="text-[10px] text-gray-500 mt-1">Add</span>
-                    </>
-                )}
-                <input type="file" multiple accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-            </label>
-        </div>
-    </div>
-
-    // ... (rest of JSX)
-
     const handleSubmit = async () => {
         if (!formData.description) return alert('Description is required');
 
