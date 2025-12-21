@@ -99,7 +99,7 @@ export const ProgressReportTab = forwardRef(({ projectId }: ProgressReportTabPro
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {reports.map((report) => (
                             <div key={report.id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-5">
-                                <div className="flex justify-between items-start mb-4">
+                                <div className="flex justify-between items-start mb-3">
                                     <div>
                                         <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                                             {formatDateIST(report.report_date)}
@@ -112,6 +112,11 @@ export const ProgressReportTab = forwardRef(({ projectId }: ProgressReportTabPro
                                         }`}>
                                         {report.status.toUpperCase()}
                                     </span>
+                                </div>
+
+                                <div className="flex items-center gap-1 text-[10px] text-gray-400 mb-3">
+                                    <FiClock className="w-3 h-3" />
+                                    Generated at {new Date(report.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
                                 </div>
 
                                 <p className="text-xs text-gray-600 line-clamp-2 mb-4">

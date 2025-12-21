@@ -17,7 +17,8 @@ export async function GET(request: NextRequest) {
                 viewpoint_photos:report_viewpoint_photos(*)
             `)
             .eq('project_id', projectId)
-            .order('report_date', { ascending: false });
+            .order('report_date', { ascending: false })
+            .order('created_at', { ascending: false });
 
         if (error) throw error;
         return NextResponse.json({ reports: data });

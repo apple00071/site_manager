@@ -34,6 +34,7 @@ interface PermissionLevel {
 
 // Module permissions based on granular RBAC system
 // Permission IDs map to PERMISSION_NODES in src/lib/rbac.ts
+// NOTE: prefixes array includes both singular and plural forms to match DB permissions
 const MODULE_PERMISSIONS: ModulePermission[] = [
     {
         module: 'Project Management',
@@ -81,7 +82,7 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         notifications: ['BOQ created', 'BOQ updated', 'BOQ approved']
     },
     {
-        module: 'Proposals for Client',
+        module: 'Proposals',
         icon: '📝',
         permissions: [
             { id: 'proposal.view', label: 'View proposals' },
@@ -91,16 +92,49 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         notifications: ['Proposal rejected', 'Proposal sent', 'Proposal approved']
     },
     {
-        module: 'Orders & Payments',
+        module: 'Orders',
+        icon: '🛒',
+        permissions: [
+            { id: 'order.view', label: 'View orders' },
+            { id: 'order.create', label: 'Create purchase orders' },
+            { id: 'order.edit', label: 'Edit orders' },
+            { id: 'order.delete', label: 'Delete orders' },
+            { id: 'order.approve', label: 'Approve purchase orders' }
+        ],
+        notifications: ['Order created', 'Order approved']
+    },
+    {
+        module: 'Invoices',
+        icon: '🧾',
+        permissions: [
+            { id: 'invoice.view', label: 'View invoices' },
+            { id: 'invoice.create', label: 'Create invoices' },
+            { id: 'invoice.edit', label: 'Edit invoices' },
+            { id: 'invoice.approve', label: 'Approve invoices' },
+            { id: 'invoice.delete', label: 'Delete invoices' }
+        ],
+        notifications: ['Invoice created', 'Invoice approved']
+    },
+    {
+        module: 'Payments',
         icon: '💰',
         permissions: [
-            { id: 'order.view', label: 'View orders and payments' },
-            { id: 'order.create', label: 'Create purchase orders' },
-            { id: 'order.approve', label: 'Approve purchase orders (without create)' },
+            { id: 'payment.view', label: 'View payments' },
             { id: 'payment.create', label: 'Record payments' },
+            { id: 'payment.edit', label: 'Edit payments' },
+            { id: 'payment.delete', label: 'Delete payments' },
             { id: 'payment.approve', label: 'Approve payments' }
         ],
-        notifications: ['Order created', 'Invoice created', 'Payment received']
+        notifications: ['Payment received', 'Payment approved']
+    },
+    {
+        module: 'Suppliers',
+        icon: '🏭',
+        permissions: [
+            { id: 'supplier.view', label: 'View suppliers' },
+            { id: 'supplier.create', label: 'Create suppliers' }
+        ],
+        notifications: []
     },
     {
         module: 'Inventory',
@@ -108,7 +142,8 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         permissions: [
             { id: 'inventory.view', label: 'View inventory' },
             { id: 'inventory.add', label: 'Add inventory items' },
-            { id: 'inventory.remove', label: 'Remove/Adjust inventory' }
+            { id: 'inventory.remove', label: 'Remove/Adjust inventory' },
+            { id: 'inventory.approve', label: 'Approve inventory bills' }
         ],
         notifications: ['Inventory low', 'Inventory added']
     },
@@ -135,6 +170,34 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         notifications: ['New daily log']
     },
     {
+        module: 'Updates',
+        icon: '📣',
+        permissions: [
+            { id: 'update.view', label: 'View updates' },
+            { id: 'update.create', label: 'Create updates' }
+        ],
+        notifications: ['New update posted']
+    },
+    {
+        module: 'Tasks',
+        icon: '✅',
+        permissions: [
+            { id: 'task.view', label: 'View tasks' },
+            { id: 'task.create', label: 'Create tasks' },
+            { id: 'task.edit', label: 'Edit tasks' },
+            { id: 'task.bulk', label: 'Bulk task operations' }
+        ],
+        notifications: ['Task assigned', 'Task completed']
+    },
+    {
+        module: 'Finance',
+        icon: '💵',
+        permissions: [
+            { id: 'finance.view', label: 'View finance overview' }
+        ],
+        notifications: []
+    },
+    {
         module: 'User & Role Management',
         icon: '👥',
         permissions: [
@@ -145,8 +208,45 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
             { id: 'role.manage', label: 'Manage roles and permissions' }
         ],
         notifications: ['New user added', 'User role changed']
+    },
+    {
+        module: 'Settings',
+        icon: '⚙️',
+        permissions: [
+            { id: 'settings.view', label: 'View settings' },
+            { id: 'settings.edit', label: 'Edit settings' },
+            { id: 'settings.workflows', label: 'Manage workflows' }
+        ],
+        notifications: []
     }
 ];
+
+// Helper to get permission code prefix for matching
+const getPermissionPrefix = (code: string): string => {
+    const parts = code.split('.');
+    return parts[0] + '.';
+};
+
+// Map of module names to their permission prefixes (including plural forms from DB)
+const MODULE_PREFIX_MAP: Record<string, string[]> = {
+    'Project Management': ['project.', 'projects.'],
+    'Site Visit': ['site_visit.'],
+    'Design': ['design.', 'designs.'],
+    'BOQ': ['boq.'],
+    'Proposals': ['proposal.', 'proposals.'],
+    'Orders': ['order.', 'orders.'],
+    'Invoices': ['invoice.', 'invoices.'],
+    'Payments': ['payment.', 'payments.'],
+    'Suppliers': ['supplier.', 'suppliers.'],
+    'Inventory': ['inventory.'],
+    'Snag & Audit': ['snag.', 'snags.'],
+    'Daily Site Logs': ['site_logs.'],
+    'Updates': ['update.', 'updates.'],
+    'Tasks': ['task.', 'tasks.'],
+    'Finance': ['finance.'],
+    'User & Role Management': ['user.', 'users.', 'role.'],
+    'Settings': ['settings.']
+};
 
 export default function RolesTab() {
     const [roles, setRoles] = useState<Role[]>([]);
@@ -515,31 +615,24 @@ export default function RolesTab() {
                                     <div className="divide-y divide-gray-200">
                                         {/* Group permissions by module from API */}
                                         {(() => {
-                                            // 1. Group permissions from API by their code prefix or module mapping
-                                            // We want to map API permissions to the MODULE_PERMISSIONS constant
+                                            // 1. Group permissions from API by their code prefix using MODULE_PREFIX_MAP
                                             const groupedByConstant: Record<string, typeof allPermissions> = {};
                                             const otherPermissions: typeof allPermissions = [];
 
                                             allPermissions.forEach(perm => {
-                                                // Try to find matching module in defined constant
-                                                const match = MODULE_PERMISSIONS.find(m =>
-                                                    m.permissions.some(p => p.id === perm.code || perm.code.startsWith(p.id.split('.')[0] + '.'))
-                                                    || perm.module === m.module // strict match if DB module matches label (rare but possible)
-                                                    || (m.module === 'BOQ' && perm.code.startsWith('boq.'))
-                                                    || (m.module === 'Project Management' && perm.code.startsWith('project.'))
-                                                    || (m.module === 'Site Visit' && perm.code.startsWith('site_visit.'))
-                                                    || (m.module === 'Design' && perm.code.startsWith('design.'))
-                                                    || (m.module === 'Proposals for Client' && perm.code.startsWith('proposal.'))
-                                                    || (m.module === 'Orders & Payments' && (perm.code.startsWith('order.') || perm.code.startsWith('payment.')))
-                                                    || (m.module === 'Inventory' && perm.code.startsWith('inventory.'))
-                                                    || (m.module === 'Snag & Audit' && perm.code.startsWith('snag.'))
-                                                    || (m.module === 'User & Role Management' && (perm.code.startsWith('user.') || perm.code.startsWith('role.')))
-                                                    || (m.module === 'Daily Site Logs' && perm.code.startsWith('site_logs.'))
-                                                );
+                                                // Find matching module by checking permission code prefix
+                                                let foundModule: string | null = null;
 
-                                                if (match) {
-                                                    if (!groupedByConstant[match.module]) groupedByConstant[match.module] = [];
-                                                    groupedByConstant[match.module].push(perm);
+                                                for (const [moduleName, prefixes] of Object.entries(MODULE_PREFIX_MAP)) {
+                                                    if (prefixes.some(prefix => perm.code.startsWith(prefix))) {
+                                                        foundModule = moduleName;
+                                                        break;
+                                                    }
+                                                }
+
+                                                if (foundModule) {
+                                                    if (!groupedByConstant[foundModule]) groupedByConstant[foundModule] = [];
+                                                    groupedByConstant[foundModule].push(perm);
                                                 } else {
                                                     otherPermissions.push(perm);
                                                 }

@@ -12,10 +12,17 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'report_id is required' }, { status: 400 });
         }
 
-        // 1. Fetch Report and Project Details
+        // 1. Fetch Report and Project Details with viewpoint photos
         const { data: report, error: rError } = await supabaseAdmin
             .from('progress_reports')
-            .select('*, project:projects(*)')
+            .select(`
+                *,
+                project:projects(*),
+                viewpoint_photos:report_viewpoint_photos(
+                    *,
+                    viewpoint:project_viewpoints(id, name, description)
+                )
+            `)
             .eq('id', report_id)
             .single();
 

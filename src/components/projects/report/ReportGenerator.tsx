@@ -1,14 +1,26 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { FiArrowRight, FiArrowLeft, FiCheck, FiCamera, FiUsers, FiMessageSquare, FiTruck, FiBox, FiActivity } from 'react-icons/fi';
+import React, { useState, useEffect, useRef } from 'react';
+import { FiArrowRight, FiArrowLeft, FiCheck, FiCamera, FiUsers, FiMessageSquare, FiTruck, FiBox, FiActivity, FiX, FiImage } from 'react-icons/fi';
 import { formatDateIST } from '@/lib/dateUtils';
 import { useToast } from '@/components/ui/Toast';
+import { supabase } from '@/lib/supabase';
 
 interface ReportGeneratorProps {
     projectId: string;
     onClose: () => void;
     onSuccess: () => void;
+}
+
+interface Viewpoint {
+    id: string;
+    name: string;
+    description: string | null;
+}
+
+interface ViewpointPhoto {
+    viewpoint_id: string;
+    photo_url: string;
 }
 
 export function ReportGenerator({ projectId, onClose, onSuccess }: ReportGeneratorProps) {
@@ -24,6 +36,12 @@ export function ReportGenerator({ projectId, onClose, onSuccess }: ReportGenerat
     const [blockers, setBlockers] = useState('');
     const [tomorrowPlan, setTomorrowPlan] = useState('');
     const [manpower, setManpower] = useState<any[]>([]);
+
+    // Viewpoints State
+    const [viewpoints, setViewpoints] = useState<Viewpoint[]>([]);
+    const [viewpointPhotos, setViewpointPhotos] = useState<ViewpointPhoto[]>([]);
+    const [uploadingViewpointId, setUploadingViewpointId] = useState<string | null>(null);
+    const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
     useEffect(() => {
         const fetchTodayData = async () => {
@@ -48,6 +66,74 @@ export function ReportGenerator({ projectId, onClose, onSuccess }: ReportGenerat
         fetchTodayData();
     }, [projectId, selectedDate]);
 
+    // Fetch viewpoints for this project
+    useEffect(() => {
+        const fetchViewpoints = async () => {
+            try {
+                const res = await fetch(`/api/reports/viewpoints?project_id=${projectId}`);
+                const data = await res.json();
+                setViewpoints(data.viewpoints || []);
+            } catch (err) {
+                console.error('Failed to fetch viewpoints:', err);
+            }
+        };
+        fetchViewpoints();
+    }, [projectId]);
+
+    // Handle viewpoint photo upload
+    const handleViewpointPhotoUpload = async (viewpointId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploadingViewpointId(viewpointId);
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${projectId}/${viewpointId}/${Date.now()}.${fileExt}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('project-update-photos')
+                .upload(fileName, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('project-update-photos')
+                .getPublicUrl(fileName);
+
+            // Update or add the photo for this viewpoint
+            setViewpointPhotos(prev => {
+                const existing = prev.find(p => p.viewpoint_id === viewpointId);
+                if (existing) {
+                    return prev.map(p => p.viewpoint_id === viewpointId ? { ...p, photo_url: publicUrl } : p);
+                }
+                return [...prev, { viewpoint_id: viewpointId, photo_url: publicUrl }];
+            });
+
+            showToast('success', 'Photo captured');
+        } catch (error) {
+            console.error('Error uploading viewpoint photo:', error);
+            showToast('error', 'Failed to upload photo');
+        } finally {
+            setUploadingViewpointId(null);
+            // Reset the input
+            if (fileInputRefs.current[viewpointId]) {
+                fileInputRefs.current[viewpointId]!.value = '';
+            }
+        }
+    };
+
+    // Remove a viewpoint photo
+    const removeViewpointPhoto = (viewpointId: string) => {
+        setViewpointPhotos(prev => prev.filter(p => p.viewpoint_id !== viewpointId));
+    };
+
+    // Get photo URL for a viewpoint
+    const getViewpointPhotoUrl = (viewpointId: string): string | null => {
+        const photo = viewpointPhotos.find(p => p.viewpoint_id === viewpointId);
+        return photo?.photo_url || null;
+    };
+
+
     const handleSubmit = async () => {
         try {
             setIsLoading(true);
@@ -59,7 +145,8 @@ export function ReportGenerator({ projectId, onClose, onSuccess }: ReportGenerat
                 tomorrow_plan: tomorrowPlan,
                 manpower_details: manpower,
                 aggregated_data: aggregatedData,
-                status: 'submitted'
+                status: 'submitted',
+                viewpoints: viewpointPhotos // Include captured viewpoint photos
             };
 
             const res = await fetch('/api/reports', {
@@ -223,11 +310,100 @@ export function ReportGenerator({ projectId, onClose, onSuccess }: ReportGenerat
                             </div>
                         </div>
 
-                        <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl border-dashed">
-                            <p className="text-xs text-gray-500 text-center italic">
-                                Viewpoints & Camera capture logic will be integrated here in the next update.
-                            </p>
-                        </div>
+                        {/* Viewpoints Camera Capture Section */}
+                        {viewpoints.length > 0 ? (
+                            <div className="space-y-4">
+                                <h4 className="text-xs font-bold text-gray-500 uppercase flex items-center gap-2">
+                                    <FiCamera className="text-yellow-500" />
+                                    Site Viewpoints ({viewpointPhotos.length}/{viewpoints.length} captured)
+                                </h4>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    {viewpoints.map((vp) => {
+                                        const photoUrl = getViewpointPhotoUrl(vp.id);
+                                        const isUploading = uploadingViewpointId === vp.id;
+
+                                        return (
+                                            <div
+                                                key={vp.id}
+                                                className={`relative group rounded-xl overflow-hidden border-2 transition-all ${photoUrl
+                                                        ? 'border-green-300 bg-green-50'
+                                                        : 'border-gray-200 border-dashed bg-gray-50'
+                                                    }`}
+                                            >
+                                                {/* Hidden file input */}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    capture="environment"
+                                                    ref={el => { fileInputRefs.current[vp.id] = el; }}
+                                                    onChange={(e) => handleViewpointPhotoUpload(vp.id, e)}
+                                                    className="hidden"
+                                                />
+
+                                                {photoUrl ? (
+                                                    // Photo captured - show preview
+                                                    <div className="relative aspect-[4/3]">
+                                                        <img
+                                                            src={photoUrl}
+                                                            alt={vp.name}
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                        {/* Overlay with actions */}
+                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                                            <button
+                                                                onClick={() => fileInputRefs.current[vp.id]?.click()}
+                                                                className="p-2 bg-white rounded-full hover:bg-gray-100"
+                                                                title="Retake photo"
+                                                            >
+                                                                <FiCamera className="w-4 h-4 text-gray-700" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => removeViewpointPhoto(vp.id)}
+                                                                className="p-2 bg-white rounded-full hover:bg-red-50"
+                                                                title="Remove photo"
+                                                            >
+                                                                <FiX className="w-4 h-4 text-red-600" />
+                                                            </button>
+                                                        </div>
+                                                        {/* Success badge */}
+                                                        <div className="absolute top-2 right-2 bg-green-500 text-white p-1 rounded-full">
+                                                            <FiCheck className="w-3 h-3" />
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    // No photo - show capture button
+                                                    <button
+                                                        onClick={() => fileInputRefs.current[vp.id]?.click()}
+                                                        disabled={isUploading}
+                                                        className="w-full aspect-[4/3] flex flex-col items-center justify-center gap-2 hover:bg-gray-100 transition-colors disabled:opacity-50"
+                                                    >
+                                                        {isUploading ? (
+                                                            <div className="w-6 h-6 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+                                                        ) : (
+                                                            <FiCamera className="w-6 h-6 text-gray-400" />
+                                                        )}
+                                                    </button>
+                                                )}
+
+                                                {/* Viewpoint name */}
+                                                <div className={`p-2 text-center border-t ${photoUrl ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100'}`}>
+                                                    <p className="text-xs font-medium text-gray-700 truncate">{vp.name}</p>
+                                                    {vp.description && (
+                                                        <p className="text-[10px] text-gray-400 truncate">{vp.description}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl border-dashed">
+                                <p className="text-xs text-gray-500 text-center italic">
+                                    No viewpoints configured. Go to DPR Settings to define camera viewpoints.
+                                </p>
+                            </div>
+                        )}
                     </div>
                 )}
 

@@ -2,6 +2,21 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 
+// Helper to fetch image and convert to base64 for embedding
+async function fetchImageAsBase64(url: string): Promise<string | null> {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) return null;
+        const arrayBuffer = await response.arrayBuffer();
+        const base64 = Buffer.from(arrayBuffer).toString('base64');
+        const contentType = response.headers.get('content-type') || 'image/jpeg';
+        return `data:${contentType};base64,${base64}`;
+    } catch (error) {
+        console.error('Failed to fetch image:', url, error);
+        return null;
+    }
+}
+
 export async function generateDPR(report: any, project: any) {
     const doc = new jsPDF() as any;
     const title = `Daily Progress Report - ${project.title}`;
@@ -25,16 +40,25 @@ export async function generateDPR(report: any, project: any) {
     doc.text(`Date: ${date}`, 14, 52);
     doc.text(`Status: ${report.status.toUpperCase()}`, 14, 57);
 
+    // Generated time
+    const generatedTime = report.created_at
+        ? format(new Date(report.created_at), 'dd MMM yyyy, hh:mm a')
+        : format(new Date(), 'dd MMM yyyy, hh:mm a');
+    doc.setFontSize(9);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`Generated: ${generatedTime}`, 14, 62);
+    doc.setTextColor(0, 0, 0);
+
     // Summary Section
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('Daily Summary', 14, 70);
+    doc.text('Daily Summary', 14, 75);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     const summaryLines = doc.splitTextToSize(report.summary || 'No summary provided.', 180);
-    doc.text(summaryLines, 14, 77);
+    doc.text(summaryLines, 14, 82);
 
-    let currentY = 77 + (summaryLines.length * 5) + 10;
+    let currentY = 82 + (summaryLines.length * 5) + 10;
 
     // Aggregated Data Tables
     if (report.aggregated_data?.tasks?.length > 0) {
@@ -89,6 +113,85 @@ export async function generateDPR(report: any, project: any) {
         doc.setFontSize(10);
         const planLines = doc.splitTextToSize(report.tomorrow_plan, 180);
         doc.text(planLines, 14, currentY + 7);
+        currentY += 7 + (planLines.length * 5) + 10;
+    }
+
+    // Viewpoint Photos Section
+    if (report.viewpoint_photos && report.viewpoint_photos.length > 0) {
+        // Check if we need a new page
+        if (currentY > 200) {
+            doc.addPage();
+            currentY = 20;
+        }
+
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Site Viewpoints', 14, currentY);
+        currentY += 10;
+
+        const photoWidth = 85;
+        const photoHeight = 60;
+        const margin = 14;
+        const gutter = 10;
+        let xPos = margin;
+        let photosInRow = 0;
+
+        for (const vp of report.viewpoint_photos) {
+            // Check if we need a new page
+            if (currentY + photoHeight + 20 > 280) {
+                doc.addPage();
+                currentY = 20;
+                xPos = margin;
+                photosInRow = 0;
+            }
+
+            // Try to fetch and embed the image
+            const imageData = await fetchImageAsBase64(vp.photo_url);
+
+            if (imageData) {
+                try {
+                    doc.addImage(imageData, 'JPEG', xPos, currentY, photoWidth, photoHeight);
+                } catch (imgError) {
+                    // If image fails, draw a placeholder
+                    doc.setDrawColor(200, 200, 200);
+                    doc.rect(xPos, currentY, photoWidth, photoHeight);
+                    doc.setFontSize(8);
+                    doc.text('Image unavailable', xPos + 20, currentY + 30);
+                }
+            } else {
+                // Draw placeholder for missing image
+                doc.setDrawColor(200, 200, 200);
+                doc.rect(xPos, currentY, photoWidth, photoHeight);
+                doc.setFontSize(8);
+                doc.setTextColor(150, 150, 150);
+                doc.text('Image unavailable', xPos + 20, currentY + 30);
+                doc.setTextColor(0, 0, 0);
+            }
+
+            // Add viewpoint name below image
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            const vpName = vp.viewpoint?.name || 'Viewpoint';
+            doc.text(vpName, xPos, currentY + photoHeight + 5);
+            doc.setFont('helvetica', 'normal');
+
+            // Move to next position
+            photosInRow++;
+            if (photosInRow >= 2) {
+                // Move to next row
+                xPos = margin;
+                currentY += photoHeight + 15;
+                photosInRow = 0;
+            } else {
+                // Move to next column
+                xPos += photoWidth + gutter;
+            }
+        }
+
+        // Add space after last row if we didn't complete a full row
+        if (photosInRow > 0) {
+            currentY += photoHeight + 15;
+        }
     }
 
     // Page Number
@@ -101,3 +204,4 @@ export async function generateDPR(report: any, project: any) {
 
     return doc.output('arraybuffer');
 }
+
