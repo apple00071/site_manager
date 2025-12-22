@@ -192,107 +192,107 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4 sm:gap-6">
-        <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-card border border-gray-100 hover:shadow-card-hover card-hover transition-all duration-200 animate-fade-in">
-          <div className="flex items-center">
-            <div className="p-3 sm:p-4 rounded-xl bg-yellow-100 text-yellow-700 shadow-sm">
-              <FiBriefcase className="h-5 w-5 sm:h-6 sm:w-6" />
+      {/* Stats - Compact Single Row */}
+      <div className="grid grid-cols-2 xs:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3">
+        {/* Project Stats */}
+        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-yellow-100 text-yellow-700">
+              <FiBriefcase className="h-4 w-4" />
             </div>
-            <div className="ml-3 sm:ml-4 flex-1 min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Total Projects</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stats.totalProjects}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-card border border-gray-100 hover:shadow-card-hover card-hover transition-all duration-200 animate-fade-in">
-          <div className="flex items-center">
-            <div className="p-3 sm:p-4 rounded-xl bg-blue-100 text-blue-600 shadow-sm">
-              <FiAlertCircle className="h-5 w-5 sm:h-6 sm:w-6" />
-            </div>
-            <div className="ml-3 sm:ml-4 flex-1 min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Active Projects</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stats.activeProjects}</p>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500 truncate">Projects</p>
+              <p className="text-lg font-bold text-gray-900">{stats.totalProjects}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-card border border-gray-100 hover:shadow-card-hover card-hover transition-all duration-200 animate-fade-in">
-          <div className="flex items-center">
-            <div className="p-3 sm:p-4 rounded-xl bg-green-100 text-green-600 shadow-sm">
-              <FiCheckCircle className="h-5 w-5 sm:h-6 sm:w-6" />
+        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
+              <FiAlertCircle className="h-4 w-4" />
             </div>
-            <div className="ml-3 sm:ml-4 flex-1 min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Completed</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stats.completedProjects}</p>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500 truncate">Active</p>
+              <p className="text-lg font-bold text-gray-900">{stats.activeProjects}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-card border border-gray-100 hover:shadow-card-hover card-hover transition-all duration-200 animate-fade-in">
-          <div className="flex items-center">
-            <div className="p-3 sm:p-4 rounded-xl bg-amber-100 text-amber-600 shadow-sm">
-              <FiClock className="h-5 w-5 sm:h-6 sm:w-6" />
+        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-green-100 text-green-600">
+              <FiCheckCircle className="h-4 w-4" />
             </div>
-            <div className="ml-3 sm:ml-4 flex-1 min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Upcoming Deadlines</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stats.upcomingDeadlines}</p>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500 truncate">Done</p>
+              <p className="text-lg font-bold text-gray-900">{stats.completedProjects}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-amber-100 text-amber-600">
+              <FiClock className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500 truncate">Due Soon</p>
+              <p className="text-lg font-bold text-gray-900">{stats.upcomingDeadlines}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Task Stats */}
+        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-purple-100 text-purple-700">
+              <FiCheckCircle className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500 truncate">Tasks</p>
+              <p className="text-lg font-bold text-gray-900">{stats.totalTasks}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-gray-100 text-gray-700">
+              <FiClock className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500 truncate">To Do</p>
+              <p className="text-lg font-bold text-gray-900">{stats.todoTasks}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
+              <FiPlay className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500 truncate">In Progress</p>
+              <p className="text-lg font-bold text-gray-900">{stats.inProgressTasks}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-green-100 text-green-600">
+              <FiCheck className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500 truncate">Completed</p>
+              <p className="text-lg font-bold text-gray-900">{stats.doneTasks}</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Task Stats */}
-      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-card border border-gray-100 hover:shadow-card-hover card-hover transition-all duration-200 animate-fade-in">
-          <div className="flex items-center">
-            <div className="p-3 sm:p-4 rounded-xl bg-purple-100 text-purple-700 shadow-sm">
-              <FiCheckCircle className="h-5 w-5 sm:h-6 sm:w-6" />
-            </div>
-            <div className="ml-3 sm:ml-4 flex-1 min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Total Tasks</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stats.totalTasks}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-card border border-gray-100 hover:shadow-card-hover card-hover transition-all duration-200 animate-fade-in">
-          <div className="flex items-center">
-            <div className="p-3 sm:p-4 rounded-xl bg-gray-100 text-gray-700 shadow-sm">
-              <FiClock className="h-5 w-5 sm:h-6 sm:w-6" />
-            </div>
-            <div className="ml-3 sm:ml-4 flex-1 min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">To Do</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stats.todoTasks}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-card border border-gray-100 hover:shadow-card-hover card-hover transition-all duration-200 animate-fade-in">
-          <div className="flex items-center">
-            <div className="p-3 sm:p-4 rounded-xl bg-blue-100 text-blue-600 shadow-sm">
-              <FiPlay className="h-5 w-5 sm:h-6 sm:w-6" />
-            </div>
-            <div className="ml-3 sm:ml-4 flex-1 min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">In Progress</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stats.inProgressTasks}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-card border border-gray-100 hover:shadow-card-hover card-hover transition-all duration-200 animate-fade-in">
-          <div className="flex items-center">
-            <div className="p-3 sm:p-4 rounded-xl bg-green-100 text-green-600 shadow-sm">
-              <FiCheck className="h-5 w-5 sm:h-6 sm:w-6" />
-            </div>
-            <div className="ml-3 sm:ml-4 flex-1 min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Completed</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stats.doneTasks}</p>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Two Column Layout: Tasks on Left, Recent Projects on Right */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -369,13 +369,16 @@ export default function DashboardPage() {
                             }));
 
                             try {
-                              const response = await fetch('/api/tasks', {
+                              // Determine correct endpoint based on task type
+                              const isProjectTask = !!task.step;
+                              const endpoint = isProjectTask ? '/api/tasks' : '/api/calendar-tasks';
+                              const response = await fetch(endpoint, {
                                 method: 'PATCH',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
                                   id: task.id,
                                   status: 'done',
-                                  step_id: task.step?.id || null
+                                  ...(isProjectTask && { step_id: task.step?.id })
                                 }),
                               });
 
@@ -424,13 +427,16 @@ export default function DashboardPage() {
                             }));
 
                             try {
-                              const response = await fetch('/api/tasks', {
+                              // Determine correct endpoint based on task type
+                              const isProjectTask = !!task.step;
+                              const endpoint = isProjectTask ? '/api/tasks' : '/api/calendar-tasks';
+                              const response = await fetch(endpoint, {
                                 method: 'PATCH',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
                                   id: task.id,
                                   status: 'in_progress',
-                                  step_id: task.step?.id || null
+                                  ...(isProjectTask && { step_id: task.step?.id })
                                 }),
                               });
 

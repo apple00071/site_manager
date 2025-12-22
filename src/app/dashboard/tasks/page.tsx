@@ -465,7 +465,7 @@ export default function TasksPage() {
       };
     }).filter(Boolean) as CalendarEvent[]; // Filter out nulls
     return mapped;
-  }, [tasks, filterStatus]);
+  }, [filteredTasksByCategory, filterStatus]);
 
   const eventsByDay = useMemo(() => {
     const m = new Map<string, number>();
@@ -1167,6 +1167,39 @@ export default function TasksPage() {
         >
           Close
         </button>
+        {viewTask.status !== 'done' && (
+          <button
+            onClick={async () => {
+              if (!viewTask) return;
+              try {
+                const response = await fetch('/api/calendar-tasks', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    id: viewTask.id,
+                    status: 'done'
+                  }),
+                });
+                if (response.ok) {
+                  showToast('success', 'Task marked as done');
+                  setViewModalOpen(false);
+                  setViewTask(null);
+                  fetchTasks(); // Refresh the task list
+                } else {
+                  const data = await response.json();
+                  showToast('error', data.error || 'Failed to update task');
+                }
+              } catch (error) {
+                console.error('Error marking task as done:', error);
+                showToast('error', 'Failed to update task');
+              }
+            }}
+            className="btn-primary bg-green-600 hover:bg-green-700"
+          >
+            <FiCheck className="w-4 h-4 mr-1" />
+            Mark as Done
+          </button>
+        )}
         <button
           onClick={() => { if (viewTask) { openEditTask(viewTask); } }}
           className="btn-primary"
@@ -1494,10 +1527,10 @@ export default function TasksPage() {
               <button
                 type="button"
                 onClick={() => openCreateAt(new Date())}
-                className="btn-primary fixed bottom-20 right-4 z-40 h-14 w-14 rounded-full shadow-lg p-0 flex items-center justify-center sm:hidden"
+                className="fixed bottom-20 right-4 z-40 w-14 h-14 bg-yellow-400 text-yellow-900 rounded-full shadow-lg flex items-center justify-center hover:bg-yellow-500 active:scale-95 transition-all duration-200 sm:hidden"
                 aria-label="Add new task"
               >
-                <FiPlus className="h-7 w-7" />
+                <FiPlus className="w-6 h-6" />
               </button>
 
               {
