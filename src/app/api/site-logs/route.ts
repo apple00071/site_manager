@@ -6,6 +6,18 @@ import { verifyPermission } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
+// Helper to convert empty strings to null for date fields
+function sanitizeDateFields(data: Record<string, any>): Record<string, any> {
+    const dateFields = ['log_date', 'work_start_date', 'estimated_completion_date', 'actual_completion_date'];
+    const sanitized = { ...data };
+    for (const field of dateFields) {
+        if (sanitized[field] === '') {
+            sanitized[field] = null;
+        }
+    }
+    return sanitized;
+}
+
 const createLogSchema = z.object({
     project_id: z.string().uuid(),
     log_date: z.string(),
@@ -85,10 +97,12 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: permission.message }, { status: 403 });
         }
 
+        const sanitizedData = sanitizeDateFields(data);
+
         const { data: log, error } = await supabaseAdmin
             .from('site_logs')
             .insert({
-                ...data,
+                ...sanitizedData,
                 created_by: user.id
             })
             .select()
@@ -136,9 +150,11 @@ export async function PATCH(req: Request) {
             }
         }
 
+        const sanitizedUpdates = sanitizeDateFields(updates);
+
         const { data: log, error } = await supabaseAdmin
             .from('site_logs')
-            .update({ ...updates })
+            .update({ ...sanitizedUpdates })
             .eq('id', id)
             .select()
             .single();
