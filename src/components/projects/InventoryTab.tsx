@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -299,6 +300,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const [mobileActionItem, setMobileActionItem] = useState<InventoryItem | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [viewingPDF, setViewingPDF] = useState<{ url: string; filename: string } | null>(null);
@@ -308,8 +310,8 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
   // Filter state
   const [filters, setFilters] = useState({
     name: '',
-    quantity: '',
-    supplier: '',
+    expenseType: '',
+    amount: '',
     date: '',
     status: '',
   });
@@ -380,13 +382,13 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
   // Filtered items
   const filteredItems = items.filter(item => {
     const matchName = !filters.name || item.item_name.toLowerCase().includes(filters.name.toLowerCase());
-    const matchQty = !filters.quantity || (item.quantity?.toString() || '').includes(filters.quantity);
-    const matchSupplier = !filters.supplier || (item.supplier_name || '').toLowerCase().includes(filters.supplier.toLowerCase());
+    const matchType = !filters.expenseType || (item as any).expense_type === filters.expenseType;
+    const matchAmount = !filters.amount || (item.total_cost?.toString() || '').includes(filters.amount);
     const itemDate = item.date_purchased ? formatDateIST(item.date_purchased).toLowerCase() : '-';
     const matchDate = !filters.date || itemDate.includes(filters.date.toLowerCase());
     const matchStatus = !filters.status || (item.bill_approval_status || 'pending') === filters.status;
 
-    return matchName && matchQty && matchSupplier && matchDate && matchStatus;
+    return matchName && matchType && matchAmount && matchDate && matchStatus;
   });
 
   const resetForm = () => {
@@ -581,7 +583,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
   }
 
   return (
-    <div className="bg-white shadow sm:rounded-lg">
+    <div className="bg-white shadow sm:rounded-lg overflow-visible">
       {/* Desktop Side Panel */}
       <SidePanel
         isOpen={isAddingNew && !isMobile}
@@ -708,22 +710,22 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
         ) : (
           <>
             {/* Desktop Table */}
-            <div className="hidden md:block">
+            <div className="hidden md:block overflow-visible">
               {/* Action bar */}
               <div className="flex justify-end px-4 py-2 border-b border-gray-200">
                 {/* Add Item Button Removed */}
               </div>
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 overflow-visible">
                 <thead className="bg-white border-b border-gray-200">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Item Name
+                      Expense Name
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Qty
+                      Type
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Supplier
+                      Amount
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Date
@@ -748,7 +750,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
                           </div>
                           <input
                             type="text"
-                            placeholder="Search Item"
+                            placeholder="Search Expense"
                             value={filters.name}
                             onChange={(e) => setFilters(prev => ({ ...prev, name: e.target.value }))}
                             className="w-full pl-7 pr-2 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white"
@@ -758,22 +760,32 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
                     </td>
                     <td className="px-3 py-2">
                       <div className="relative w-full">
-                        <input
-                          type="text"
-                          placeholder="Qty"
-                          value={filters.quantity}
-                          onChange={(e) => setFilters(prev => ({ ...prev, quantity: e.target.value }))}
-                          className="w-full px-2 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white"
-                        />
+                        <select
+                          value={filters.expenseType || ''}
+                          onChange={(e) => setFilters(prev => ({ ...prev, expenseType: e.target.value }))}
+                          className="w-full px-2 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white appearance-none"
+                        >
+                          <option value="">All Types</option>
+                          <option value="materials">Materials</option>
+                          <option value="labor">Labor</option>
+                          <option value="transport">Transport</option>
+                          <option value="equipment">Equipment</option>
+                          <option value="utilities">Utilities</option>
+                          <option value="contractor">Contractor</option>
+                          <option value="miscellaneous">Misc</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                          <FiChevronDown className="w-3 h-3" />
+                        </div>
                       </div>
                     </td>
                     <td className="px-3 py-2">
                       <div className="relative w-full">
                         <input
                           type="text"
-                          placeholder="Filter Supplier"
-                          value={filters.supplier}
-                          onChange={(e) => setFilters(prev => ({ ...prev, supplier: e.target.value }))}
+                          placeholder="Amount"
+                          value={filters.amount || ''}
+                          onChange={(e) => setFilters(prev => ({ ...prev, amount: e.target.value }))}
                           className="w-full px-2 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white"
                         />
                       </div>
@@ -816,10 +828,10 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
                         {item.item_name}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {item.quantity}
+                        <span className="capitalize">{(item as any).expense_type || '-'}</span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {item.supplier_name}
+                        {item.total_cost ? `₹${item.total_cost.toLocaleString()}` : '-'}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                         {item.date_purchased ? formatDateIST(item.date_purchased) : '-'}
@@ -828,76 +840,108 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
                         {getStatusBadge(item.bill_approval_status)}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="relative">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenMenuId(openMenuId === item.id ? null : item.id);
-                            }}
-                            className="text-gray-400 hover:text-gray-600"
-                          >
-                            <FiMoreVertical className="w-5 h-5" />
-                          </button>
-                          {openMenuId === item.id && (
-                            <div
-                              ref={menuRef}
-                              className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10"
-                            >
-                              <div className="py-1" role="menu">
-                                {item.bill_url && (
-                                  <button
-                                    onClick={() => {
-                                      const isPDF = item.bill_url!.toLowerCase().endsWith('.pdf');
-                                      if (isPDF) {
-                                        setViewingPDF({
-                                          url: item.bill_url!,
-                                          filename: `${item.item_name} - Bill`
-                                        });
-                                      } else {
-                                        setSelectedImage(item.bill_url!);
-                                      }
-                                      setOpenMenuId(null);
-                                    }}
-                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                                  >
-                                    <FiEye className="w-4 h-4" /> View Bill
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => handleEdit(item)}
-                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                                >
-                                  <FiEdit2 className="w-4 h-4" /> Edit
-                                </button>
-                                {canApprove && (item.bill_approval_status === 'pending' || item.bill_approval_status === 'rejected') && (
-                                  <button
-                                    onClick={() => handleApprove(item.id)}
-                                    className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center gap-2"
-                                  >
-                                    <FiCheck className="w-4 h-4" /> Approve
-                                  </button>
-                                )}
-                                {canApprove && (item.bill_approval_status === 'pending' || item.bill_approval_status === 'approved') && (
-                                  <button
-                                    onClick={() => handleReject(item.id)}
-                                    className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 flex items-center gap-2"
-                                  >
-                                    <FiX className="w-4 h-4" /> Reject
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => handleDelete(item.id)}
-                                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                                >
-                                  <FiTrash2 className="w-4 h-4" /> Delete
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            if (openMenuId === item.id) {
+                              setOpenMenuId(null);
+                              setMenuPosition(null);
+                            } else {
+                              setOpenMenuId(item.id);
+                              setMenuPosition({
+                                top: rect.bottom + window.scrollY,
+                                left: rect.right - 192 // 192px = w-48
+                              });
+                            }
+                          }}
+                          className="text-gray-400 hover:text-gray-600 p-1"
+                        >
+                          <FiMoreVertical className="w-5 h-5" />
+                        </button>
                       </td>
                     </tr>
                   ))}
+
+                  {/* Portal-based Dropdown Menu */}
+                  {openMenuId && menuPosition && typeof document !== 'undefined' && createPortal(
+                    <>
+                      {/* Backdrop to close menu */}
+                      <div
+                        className="fixed inset-0 z-[9998]"
+                        onClick={() => { setOpenMenuId(null); setMenuPosition(null); }}
+                      />
+                      <div
+                        ref={menuRef}
+                        className="fixed w-48 rounded-md shadow-lg bg-white border border-gray-200 z-[9999]"
+                        style={{ top: menuPosition.top, left: menuPosition.left }}
+                      >
+                        <div className="py-1" role="menu">
+                          {filteredItems.find(i => i.id === openMenuId)?.bill_url && (
+                            <button
+                              onClick={() => {
+                                const item = filteredItems.find(i => i.id === openMenuId);
+                                if (!item?.bill_url) return;
+                                const isPDF = item.bill_url.toLowerCase().endsWith('.pdf');
+                                if (isPDF) {
+                                  setViewingPDF({
+                                    url: item.bill_url,
+                                    filename: `${item.item_name} - Bill`
+                                  });
+                                } else {
+                                  setSelectedImage(item.bill_url);
+                                }
+                                setOpenMenuId(null);
+                                setMenuPosition(null);
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                            >
+                              <FiEye className="w-4 h-4" /> View Bill
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              const item = filteredItems.find(i => i.id === openMenuId);
+                              if (item) handleEdit(item);
+                              setMenuPosition(null);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          >
+                            <FiEdit2 className="w-4 h-4" /> Edit
+                          </button>
+                          {canApprove && (() => {
+                            const item = filteredItems.find(i => i.id === openMenuId);
+                            return item && (item.bill_approval_status === 'pending' || item.bill_approval_status === 'rejected');
+                          })() && (
+                              <button
+                                onClick={() => { handleApprove(openMenuId); setMenuPosition(null); }}
+                                className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center gap-2"
+                              >
+                                <FiCheck className="w-4 h-4" /> Approve
+                              </button>
+                            )}
+                          {canApprove && (() => {
+                            const item = filteredItems.find(i => i.id === openMenuId);
+                            return item && (item.bill_approval_status === 'pending' || item.bill_approval_status === 'approved');
+                          })() && (
+                              <button
+                                onClick={() => { handleReject(openMenuId); setMenuPosition(null); }}
+                                className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 flex items-center gap-2"
+                              >
+                                <FiX className="w-4 h-4" /> Reject
+                              </button>
+                            )}
+                          <button
+                            onClick={() => { handleDelete(openMenuId); setMenuPosition(null); }}
+                            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                          >
+                            <FiTrash2 className="w-4 h-4" /> Delete
+                          </button>
+                        </div>
+                      </div>
+                    </>,
+                    document.body
+                  )}
                 </tbody>
               </table>
 
@@ -970,7 +1014,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
           </div>
         </div>
       )}
-    </div>
+    </div >
   );
 });
 

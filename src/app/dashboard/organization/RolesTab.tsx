@@ -137,17 +137,6 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         notifications: []
     },
     {
-        module: 'Inventory',
-        icon: '📦',
-        permissions: [
-            { id: 'inventory.view', label: 'View inventory' },
-            { id: 'inventory.add', label: 'Add inventory items' },
-            { id: 'inventory.remove', label: 'Remove/Adjust inventory' },
-            { id: 'inventory.approve', label: 'Approve inventory bills' }
-        ],
-        notifications: ['Inventory low', 'Inventory added']
-    },
-    {
         module: 'Snag & Audit',
         icon: '🔍',
         permissions: [
@@ -198,6 +187,17 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         notifications: []
     },
     {
+        module: 'Expenses',
+        icon: '📦',
+        permissions: [
+            { id: 'inventory.view', label: 'View expenses' },
+            { id: 'inventory.add', label: 'Add expense items' },
+            { id: 'inventory.remove', label: 'Remove/Adjust expenses' },
+            { id: 'inventory.approve', label: 'Approve expense bills' }
+        ],
+        notifications: ['Expense added', 'Expense approved']
+    },
+    {
         module: 'User & Role Management',
         icon: '👥',
         permissions: [
@@ -238,12 +238,12 @@ const MODULE_PREFIX_MAP: Record<string, string[]> = {
     'Invoices': ['invoice.', 'invoices.'],
     'Payments': ['payment.', 'payments.'],
     'Suppliers': ['supplier.', 'suppliers.'],
-    'Inventory': ['inventory.'],
     'Snag & Audit': ['snag.', 'snags.'],
     'Daily Site Logs': ['site_logs.'],
     'Updates': ['update.', 'updates.'],
     'Tasks': ['task.', 'tasks.'],
     'Finance': ['finance.'],
+    'Expenses': ['inventory.'],
     'User & Role Management': ['user.', 'users.', 'role.'],
     'Settings': ['settings.']
 };

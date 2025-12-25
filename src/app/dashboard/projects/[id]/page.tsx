@@ -827,7 +827,6 @@ export default function ProjectDetailsPage() {
               {activeSubTab === 'updates' && <UpdatesTab projectId={project.id} />}
               {activeSubTab === 'daily_logs' && <SiteLogTab projectId={project.id} ref={siteLogRef} />}
               {activeSubTab === 'progress_reports' && <ProgressReportTab projectId={project.id} ref={reportRef} />}
-              {activeSubTab === 'inventory' && <InventoryTab projectId={project.id} ref={inventoryRef} />}
             </>
           )}
 
@@ -838,12 +837,17 @@ export default function ProjectDetailsPage() {
             </div>
           )}
 
-          {/* STAGE: FINANCE (Placeholder) */}
+          {/* STAGE: FINANCE */}
           {activeStage === 'finance' && (
-            <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-              <FiLayers className="w-12 h-12 mb-2 text-gray-300" />
-              <p>Finance Module Coming Soon</p>
-            </div>
+            <>
+              {activeSubTab === 'inventory' && <InventoryTab projectId={project.id} ref={inventoryRef} />}
+              {activeSubTab === 'finance_overview' && (
+                <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+                  <FiLayers className="w-12 h-12 mb-2 text-gray-300" />
+                  <p>Finance Overview Coming Soon</p>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -858,6 +862,6 @@ export default function ProjectDetailsPage() {
         isSaving={isSaving}
         initialWorker={editingWorker}
       />
-    </div>
+    </div >
   );
 }

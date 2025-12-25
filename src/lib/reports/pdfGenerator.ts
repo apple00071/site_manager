@@ -40,10 +40,11 @@ export async function generateDPR(report: any, project: any) {
     doc.text(`Date: ${date}`, 14, 52);
     doc.text(`Status: ${report.status.toUpperCase()}`, 14, 57);
 
-    // Generated time
-    const generatedTime = report.created_at
-        ? format(new Date(report.created_at), 'dd MMM yyyy, hh:mm a')
-        : format(new Date(), 'dd MMM yyyy, hh:mm a');
+    // Generated time - convert to IST (UTC+5:30)
+    const createdDate = report.created_at ? new Date(report.created_at) : new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+    const istDate = new Date(createdDate.getTime() + istOffset);
+    const generatedTime = format(istDate, 'dd MMM yyyy, hh:mm a');
     doc.setFontSize(9);
     doc.setTextColor(150, 150, 150);
     doc.text(`Generated: ${generatedTime}`, 14, 62);

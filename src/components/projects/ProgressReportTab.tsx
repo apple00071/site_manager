@@ -6,6 +6,7 @@ import { formatDateIST } from '@/lib/dateUtils';
 import { useToast } from '@/components/ui/Toast';
 import { ReportGenerator } from './report/ReportGenerator';
 import { DPRSettings } from './report/DPRSettings';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 interface ProgressReport {
     id: string;
@@ -27,6 +28,7 @@ export const ProgressReportTab = forwardRef(({ projectId }: ProgressReportTabPro
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isRetrying, setIsRetrying] = useState<string | null>(null);
     const { showToast } = useToast();
+    const { isAdmin } = useUserPermissions();
 
     useImperativeHandle(ref, () => ({
         openGenerator: () => setIsGeneratorOpen(true),
@@ -66,6 +68,23 @@ export const ProgressReportTab = forwardRef(({ projectId }: ProgressReportTabPro
             showToast('error', 'Connection error');
         } finally {
             setIsRetrying(null);
+        }
+    };
+
+    const handleDelete = async (reportId: string) => {
+        if (!confirm('Are you sure you want to delete this report?')) return;
+
+        try {
+            const res = await fetch(`/api/reports/${reportId}`, { method: 'DELETE' });
+            if (res.ok) {
+                showToast('success', 'Report deleted');
+                setReports(prev => prev.filter(r => r.id !== reportId));
+            } else {
+                const data = await res.json();
+                showToast('error', data.error || 'Failed to delete report');
+            }
+        } catch (err) {
+            showToast('error', 'Failed to delete report');
         }
     };
 
@@ -144,9 +163,14 @@ export const ProgressReportTab = forwardRef(({ projectId }: ProgressReportTabPro
                                             {isRetrying === report.id ? 'Retrying...' : 'Retry Generation'}
                                         </button>
                                     )}
-                                    <button className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition-colors">
-                                        <FiTrash2 className="w-4 h-4" />
-                                    </button>
+                                    {isAdmin && (
+                                        <button
+                                            className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition-colors"
+                                            onClick={() => handleDelete(report.id)}
+                                        >
+                                            <FiTrash2 className="w-4 h-4" />
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))}
