@@ -10,6 +10,7 @@ import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 import { OptimizedNotificationBell } from '@/components/OptimizedNotificationBell';
 import HydrationSafe from '@/components/HydrationSafe';
 import { HeaderTitleProvider, useHeaderTitle } from '@/contexts/HeaderTitleContext';
+import { PullToRefresh } from '@/components/ui/PullToRefresh';
 
 function DashboardLayoutContent({
   children,
@@ -321,12 +322,14 @@ function DashboardLayoutContent({
         <div id="project-navigation-portal" className="sticky top-[50px] z-20 bg-white w-full shadow-sm" />
 
 
-        {/* Main content area with minimal padding */}
-        <main className="flex-1 bg-white overflow-x-hidden max-w-full">
-          <div className={`pt-4 lg:pt-2 h-full flex flex-col min-h-0 max-w-full ${isCustomHeaderPage ? '' : 'px-2 sm:px-3 lg:px-4 pb-6'}`}>
-            {children}
-          </div>
-        </main>
+        {/* Main content area with minimal padding - wrapped in PullToRefresh for mobile */}
+        <PullToRefresh>
+          <main className="flex-1 bg-white overflow-x-hidden max-w-full">
+            <div className={`pt-4 lg:pt-2 h-full flex flex-col min-h-0 max-w-full ${isCustomHeaderPage ? '' : 'px-2 sm:px-3 lg:px-4 pb-6'}`}>
+              {children}
+            </div>
+          </main>
+        </PullToRefresh>
       </div>
       {/* PWA Install Prompt */}
       < PWAInstallPrompt />
