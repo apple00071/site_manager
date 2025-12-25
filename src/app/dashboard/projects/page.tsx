@@ -174,7 +174,37 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-4 pb-24 sm:pb-0">
-      {/* Tab Navigation Bar with Add Button */}
+      {/* Mobile Only: Search and Add Button above tabs */}
+      <div className="flex sm:hidden items-center gap-2 mb-3">
+        <div className="relative flex-1">
+          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search projects..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 pr-8 py-2.5 w-full text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent bg-white shadow-sm transition-colors"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <FiX className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        {canCreateProject && (
+          <Link
+            href="/dashboard/projects/new"
+            className="btn-primary whitespace-nowrap flex-shrink-0"
+          >
+            <FiPlus className="h-4 w-4" />
+          </Link>
+        )}
+      </div>
+
+      {/* Tab Navigation Bar - with search & add on desktop */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
         <div className="flex items-center justify-between px-2">
           {/* Tabs */}
@@ -183,13 +213,13 @@ export default function ProjectsPage() {
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${activeTab === tab.key
+                className={`px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${activeTab === tab.key
                   ? 'border-yellow-500 text-yellow-600'
                   : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
                   }`}
               >
                 {tab.label}
-                <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${activeTab === tab.key
+                <span className={`ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 rounded-full text-xs font-bold ${activeTab === tab.key
                   ? 'bg-yellow-100 text-yellow-700'
                   : 'bg-gray-100 text-gray-600'
                   }`}>
@@ -199,9 +229,8 @@ export default function ProjectsPage() {
             ))}
           </div>
 
-          {/* Search and Add Project */}
-          <div className="flex items-center gap-3 py-2">
-            {/* Search Input */}
+          {/* Desktop Only: Search and Add in tab bar */}
+          <div className="hidden sm:flex items-center gap-3 py-2">
             <div className="relative">
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
@@ -220,8 +249,6 @@ export default function ProjectsPage() {
                 </button>
               )}
             </div>
-
-            {/* Add Project Button */}
             {canCreateProject && (
               <Link
                 href="/dashboard/projects/new"

@@ -40,6 +40,7 @@ type InventoryItem = {
 interface InventoryItemFormProps {
   form: {
     item_name: string;
+    expense_type: string;
     quantity: string;
     supplier_name: string;
     date_purchased: string;
@@ -48,6 +49,7 @@ interface InventoryItemFormProps {
   };
   setForm: React.Dispatch<React.SetStateAction<{
     item_name: string;
+    expense_type: string;
     quantity: string;
     supplier_name: string;
     date_purchased: string;
@@ -181,14 +183,31 @@ const InventoryItemForm = ({
       )}
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Item Name *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Expense Name *</label>
         <input
           type="text"
           value={form.item_name}
           onChange={(e) => setForm(prev => ({ ...prev, item_name: e.target.value }))}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-          placeholder="Enter item name"
+          placeholder="Enter expense name"
         />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Expense Type</label>
+        <select
+          value={form.expense_type}
+          onChange={(e) => setForm(prev => ({ ...prev, expense_type: e.target.value }))}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
+        >
+          <option value="">Select type</option>
+          <option value="materials">Materials</option>
+          <option value="labor">Labor</option>
+          <option value="transport">Transport</option>
+          <option value="equipment">Equipment Rental</option>
+          <option value="utilities">Utilities</option>
+          <option value="contractor">Contractor Payment</option>
+          <option value="miscellaneous">Miscellaneous</option>
+        </select>
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
@@ -249,7 +268,7 @@ const InventoryItemForm = ({
           disabled={saving}
           className="flex-1 btn-primary disabled:opacity-50"
         >
-          {saving ? 'Saving...' : isEditing ? 'Update' : 'Add Item'}
+          {saving ? 'Saving...' : isEditing ? 'Update' : 'Add Expense'}
         </button>
       </div>
     </form>
@@ -300,11 +319,12 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
   const [uploadingBill, setUploadingBill] = useState(false);
   const [form, setForm] = useState({
     item_name: '',
+    expense_type: '',
     quantity: '',
     supplier_name: '',
-    date_purchased: '',
+    date_purchased: new Date().toISOString().split('T')[0], // Default to today
     bill_url: '',
-    po_id: '', // Add po_id to state
+    po_id: '',
   });
 
   useImperativeHandle(ref, () => ({
@@ -370,7 +390,15 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
   });
 
   const resetForm = () => {
-    setForm({ item_name: '', quantity: '', supplier_name: '', date_purchased: '', bill_url: '', po_id: '' });
+    setForm({
+      item_name: '',
+      expense_type: '',
+      quantity: '',
+      supplier_name: '',
+      date_purchased: new Date().toISOString().split('T')[0], // Default to today
+      bill_url: '',
+      po_id: ''
+    });
     setEditingItem(null);
   };
 
@@ -469,11 +497,12 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
     setEditingItem(item);
     setForm({
       item_name: item.item_name,
+      expense_type: (item as any).expense_type || '',
       quantity: item.quantity?.toString() || '',
       supplier_name: item.supplier_name || '',
-      date_purchased: item.date_purchased || '',
+      date_purchased: item.date_purchased || new Date().toISOString().split('T')[0],
       bill_url: item.bill_url || '',
-      po_id: '', // Reset PO ID on edit as we don't store it on the item yet
+      po_id: '',
     });
     setIsAddingNew(true);
     setOpenMenuId(null);
@@ -556,7 +585,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
       <SidePanel
         isOpen={isAddingNew && !isMobile}
         onClose={() => { setIsAddingNew(false); resetForm(); }}
-        title={editingItem ? 'Edit Item' : 'Add New Item'}
+        title={editingItem ? 'Edit Expense' : 'Add Expense'}
       >
         <InventoryItemForm
           form={form}
@@ -575,7 +604,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
       <BottomSheet
         isOpen={isAddingNew && isMobile}
         onClose={() => { setIsAddingNew(false); resetForm(); }}
-        title={editingItem ? 'Edit Item' : 'Add New Item'}
+        title={editingItem ? 'Edit Expense' : 'Add Expense'}
       >
         <InventoryItemForm
           form={form}
@@ -594,7 +623,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
       <BottomSheet
         isOpen={mobileActionItem !== null}
         onClose={() => setMobileActionItem(null)}
-        title="Item Actions"
+        title="Expense Actions"
       >
         {mobileActionItem && (
           <div className="space-y-1">
@@ -671,7 +700,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
             {/* Add Item Button Removed */}
             <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
               <FiPackage className="h-12 w-12 mx-auto text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No inventory items</h3>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No expenses yet</h3>
               <p className="mt-1 text-sm text-gray-500">Add your first item to get started.</p>
             </div>
           </div>

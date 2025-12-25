@@ -751,16 +751,6 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
               <p className="mt-2 text-sm text-gray-500 max-w-sm mx-auto">
                 Upload your first design file to get started. Supports PDF, images, and CAD files.
               </p>
-              <button
-                onClick={() => {
-                  setIsAddingNew(true);
-                  resetForm();
-                }}
-                className="mt-6 btn-primary"
-              >
-                <FiPlus className="w-4 h-4" />
-                Upload First Design
-              </button>
             </div>
           </div>
         ) : (
