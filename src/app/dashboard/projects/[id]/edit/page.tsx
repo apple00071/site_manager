@@ -534,9 +534,9 @@ export default function EditProjectPage() {
               </div>
             </div>
 
-            {/* Team Details */}
+            {/* Vendor Details */}
             <div className="border-b border-gray-200 pb-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Team Details</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Vendor Details</h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -573,7 +573,7 @@ export default function EditProjectPage() {
 
                 <div>
                   <label htmlFor="carpenter_name" className="block text-sm font-medium text-gray-700 mb-1">
-                    Carpenter Name
+                    Carpenter Vendor
                   </label>
                   <input
                     id="carpenter_name"
@@ -589,7 +589,7 @@ export default function EditProjectPage() {
 
                 <div>
                   <label htmlFor="carpenter_phone" className="block text-sm font-medium text-gray-700 mb-1">
-                    Carpenter Phone
+                    Carpenter Vendor Phone
                   </label>
                   <input
                     id="carpenter_phone"
@@ -605,7 +605,7 @@ export default function EditProjectPage() {
 
                 <div>
                   <label htmlFor="electrician_name" className="block text-sm font-medium text-gray-700 mb-1">
-                    Electrician Name
+                    Electrician Vendor
                   </label>
                   <input
                     id="electrician_name"
@@ -621,7 +621,7 @@ export default function EditProjectPage() {
 
                 <div>
                   <label htmlFor="electrician_phone" className="block text-sm font-medium text-gray-700 mb-1">
-                    Electrician Phone
+                    Electrician Vendor Phone
                   </label>
                   <input
                     id="electrician_phone"
@@ -637,7 +637,7 @@ export default function EditProjectPage() {
 
                 <div>
                   <label htmlFor="plumber_name" className="block text-sm font-medium text-gray-700 mb-1">
-                    Plumber Name
+                    Plumber Vendor
                   </label>
                   <input
                     id="plumber_name"
@@ -653,7 +653,7 @@ export default function EditProjectPage() {
 
                 <div>
                   <label htmlFor="plumber_phone" className="block text-sm font-medium text-gray-700 mb-1">
-                    Plumber Phone
+                    Plumber Vendor Phone
                   </label>
                   <input
                     id="plumber_phone"
@@ -669,7 +669,7 @@ export default function EditProjectPage() {
 
                 <div>
                   <label htmlFor="painter_name" className="block text-sm font-medium text-gray-700 mb-1">
-                    Painter Name
+                    Painter Vendor
                   </label>
                   <input
                     id="painter_name"
@@ -685,7 +685,7 @@ export default function EditProjectPage() {
 
                 <div>
                   <label htmlFor="painter_phone" className="block text-sm font-medium text-gray-700 mb-1">
-                    Painter Phone
+                    Painter Vendor Phone
                   </label>
                   <input
                     id="painter_phone"

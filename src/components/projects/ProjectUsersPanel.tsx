@@ -45,15 +45,8 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
     const [availableUsers, setAvailableUsers] = useState<SystemUser[]>([]);
     const [selectedUser, setSelectedUser] = useState<string>('');
     const [searchQuery, setSearchQuery] = useState('');
-    const [permissions, setPermissions] = useState({
-        view: true,
-        edit: false,
-        upload: false,
-        mark_done: false
-    });
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [editingUser, setEditingUser] = useState<ProjectUser | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
     // Check if user has permission to manage project users
@@ -128,7 +121,6 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
         setShowAddModal(true);
         setSelectedUser('');
         setSearchQuery('');
-        setPermissions({ view: true, edit: false, upload: false, mark_done: false });
         setError(null);
         fetchAvailableUsers();
     };
@@ -152,7 +144,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                 body: JSON.stringify({
                     project_id: projectId,
                     user_id: selectedUser,
-                    permissions: permissions
+                    permissions: { view: true, edit: true, upload: true, mark_done: true }
                 }),
             });
 
@@ -175,50 +167,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
         }
     };
 
-    const handleEditUser = (user: ProjectUser) => {
-        setEditingUser(user);
-        setPermissions(user.permissions);
-        setShowAddModal(true);
-        setError(null);
-    };
 
-    const handleUpdateUser = async () => {
-        if (!editingUser) return;
-
-        try {
-            setIsSaving(true);
-            setError(null);
-
-            const response = await fetch('/api/admin/project-members', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    project_id: projectId,
-                    user_id: editingUser.id,
-                    permissions: permissions
-                }),
-            });
-
-            const result = await response.json();
-
-            if (!response.ok || result.error) {
-                console.error('Error updating user:', result.error);
-                setError(result.error || 'Failed to update user');
-                return;
-            }
-
-            await fetchProjectUsers();
-            setShowAddModal(false);
-            setEditingUser(null);
-        } catch (err) {
-            console.error('Error updating user:', err);
-            setError('Failed to update user. Please try again.');
-        } finally {
-            setIsSaving(false);
-        }
-    };
 
     const handleRemoveUser = async (userId: string) => {
         if (!confirm('Are you sure you want to remove this user from the project?')) {
@@ -383,52 +332,19 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                                         </div>
                                     </div>
 
-                                    {/* Permission badges and actions */}
-                                    <div className="flex items-center justify-between mt-2 ml-12">
-                                        <div className="flex flex-wrap gap-1">
-                                            {user.permissions.view && (
-                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-600">
-                                                    View
-                                                </span>
-                                            )}
-                                            {user.permissions.edit && (
-                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-blue-100 text-blue-600">
-                                                    Edit
-                                                </span>
-                                            )}
-                                            {user.permissions.upload && (
-                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-600">
-                                                    Upload
-                                                </span>
-                                            )}
-                                            {user.permissions.mark_done && (
-                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-purple-100 text-purple-600">
-                                                    Mark Done
-                                                </span>
-                                            )}
+                                    {/* Action button - hide for assigned employee and admin users */}
+                                    {canManageUsers && assignedEmployee?.id !== user.id && user.role !== 'admin' && (
+                                        <div className="mt-2 ml-12">
+                                            <button
+                                                onClick={() => handleRemoveUser(user.id)}
+                                                disabled={isDeleting}
+                                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                                                title="Remove user from project"
+                                            >
+                                                <FiTrash2 className="w-3.5 h-3.5" />
+                                            </button>
                                         </div>
-
-                                        {/* Action buttons - hide for assigned employee, admin users, and users without permission */}
-                                        {canManageUsers && assignedEmployee?.id !== user.id && user.role !== 'admin' && (
-                                            <div className="flex items-center gap-1 ml-2">
-                                                <button
-                                                    onClick={() => handleEditUser(user)}
-                                                    className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
-                                                    title="Edit permissions"
-                                                >
-                                                    <FiEdit2 className="w-3.5 h-3.5" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleRemoveUser(user.id)}
-                                                    disabled={isDeleting}
-                                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                                                    title="Remove user"
-                                                >
-                                                    <FiTrash2 className="w-3.5 h-3.5" />
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -442,17 +358,17 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                     {/* Backdrop */}
                     <div
                         className="absolute inset-0 bg-black/50"
-                        onClick={() => { setShowAddModal(false); setEditingUser(null); }}
+                        onClick={() => setShowAddModal(false)}
                     />
 
                     {/* Modal */}
                     <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-hidden">
                         <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
                             <h3 className="text-lg font-semibold text-gray-900">
-                                {editingUser ? 'Edit User Permissions' : 'Add User to Project'}
+                                Add User to Project
                             </h3>
                             <button
-                                onClick={() => { setShowAddModal(false); setEditingUser(null); }}
+                                onClick={() => setShowAddModal(false)}
                                 className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
                             >
                                 <FiX className="w-5 h-5" />
@@ -461,120 +377,59 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
 
                         {/* Content */}
                         <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
-                            {/* Show editing user info when in edit mode */}
-                            {editingUser && (
-                                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                                    <div className={`w-10 h-10 rounded-full ${getAvatarColor(editingUser.name)} flex items-center justify-center text-white text-sm font-medium`}>
-                                        {getInitials(editingUser.name)}
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-900">{editingUser.name}</p>
-                                        <p className="text-xs text-gray-500">{editingUser.email}</p>
-                                    </div>
-                                </div>
-                            )}
+                            {/* Search */}
+                            <div className="relative">
+                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                <input
+                                    type="text"
+                                    placeholder="Search users..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                                />
+                            </div>
 
-                            {/* Search - only show when adding new user */}
-                            {!editingUser && (
-                                <div className="relative">
-                                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                                    <input
-                                        type="text"
-                                        placeholder="Search users..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                                    />
-                                </div>
-                            )}
-
-                            {/* User Selection - only show when adding new user */}
-                            {!editingUser && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Select User
-                                    </label>
-                                    <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
-                                        {filteredAvailableUsers.length === 0 ? (
-                                            <p className="text-sm text-gray-500 text-center py-4">
-                                                {availableUsers.length === 0
-                                                    ? 'No users available to add'
-                                                    : 'No users match your search'}
-                                            </p>
-                                        ) : (
-                                            filteredAvailableUsers.map(user => (
-                                                <button
-                                                    key={user.id}
-                                                    onClick={() => setSelectedUser(user.id)}
-                                                    className={`w-full flex items-center gap-3 p-2 rounded-lg text-left transition-colors ${selectedUser === user.id
-                                                        ? 'bg-yellow-50 border-yellow-200 border'
-                                                        : 'hover:bg-gray-50 border border-transparent'
-                                                        }`}
-                                                >
-                                                    <div className={`w-8 h-8 rounded-full ${getAvatarColor(user.full_name || user.email)} flex items-center justify-center text-white text-xs font-medium`}>
-                                                        {getInitials(user.full_name || user.email)}
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-medium text-gray-900 truncate">
-                                                            {user.full_name || user.email.split('@')[0]}
-                                                        </p>
-                                                        <p className="text-xs text-gray-500 truncate">
-                                                            {user.email}
-                                                        </p>
-                                                    </div>
-                                                    {selectedUser === user.id && (
-                                                        <FiCheck className="w-5 h-5 text-yellow-600" />
-                                                    )}
-                                                </button>
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Permissions */}
+                            {/* User Selection */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Permissions
+                                    Select User
                                 </label>
-                                <div className="space-y-2">
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={permissions.view}
-                                            onChange={(e) => setPermissions(p => ({ ...p, view: e.target.checked }))}
-                                            className="w-4 h-4 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500"
-                                        />
-                                        <span className="text-sm text-gray-700">View - Can view project details</span>
-                                    </label>
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={permissions.edit}
-                                            onChange={(e) => setPermissions(p => ({ ...p, edit: e.target.checked }))}
-                                            className="w-4 h-4 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500"
-                                        />
-                                        <span className="text-sm text-gray-700">Edit - Can edit BOQ items</span>
-                                    </label>
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={permissions.upload}
-                                            onChange={(e) => setPermissions(p => ({ ...p, upload: e.target.checked }))}
-                                            className="w-4 h-4 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500"
-                                        />
-                                        <span className="text-sm text-gray-700">Upload - Can upload files</span>
-                                    </label>
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={permissions.mark_done}
-                                            onChange={(e) => setPermissions(p => ({ ...p, mark_done: e.target.checked }))}
-                                            className="w-4 h-4 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500"
-                                        />
-                                        <span className="text-sm text-gray-700">Mark Done - Can mark items complete</span>
-                                    </label>
+                                <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                                    {filteredAvailableUsers.length === 0 ? (
+                                        <p className="text-sm text-gray-500 text-center py-4">
+                                            {availableUsers.length === 0
+                                                ? 'No users available to add'
+                                                : 'No users match your search'}
+                                        </p>
+                                    ) : (
+                                        filteredAvailableUsers.map(user => (
+                                            <button
+                                                key={user.id}
+                                                onClick={() => setSelectedUser(user.id)}
+                                                className={`w-full flex items-center gap-3 p-2 rounded-lg text-left transition-colors ${selectedUser === user.id
+                                                    ? 'bg-yellow-50 border-yellow-200 border'
+                                                    : 'hover:bg-gray-50 border border-transparent'
+                                                    }`}
+                                            >
+                                                <div className={`w-8 h-8 rounded-full ${getAvatarColor(user.full_name || user.email)} flex items-center justify-center text-white text-xs font-medium`}>
+                                                    {getInitials(user.full_name || user.email)}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-gray-900 truncate">
+                                                        {user.full_name || user.email.split('@')[0]}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 truncate">
+                                                        {user.email}
+                                                    </p>
+                                                </div>
+                                                {selectedUser === user.id && (
+                                                    <FiCheck className="w-5 h-5 text-yellow-600" />
+                                                )}
+                                            </button>
+                                        ))
+                                    )}
                                 </div>
+                                <p className="text-xs text-gray-500 mt-2">User permissions are controlled by their assigned role in User Management.</p>
                             </div>
 
                             {/* Error */}
@@ -588,25 +443,25 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                         {/* Footer */}
                         <div className="px-4 py-3 border-t border-gray-200 flex justify-end gap-3">
                             <button
-                                onClick={() => { setShowAddModal(false); setEditingUser(null); }}
+                                onClick={() => setShowAddModal(false)}
                                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                             >
                                 Cancel
                             </button>
                             <button
-                                onClick={editingUser ? handleUpdateUser : handleAddUser}
-                                disabled={(!editingUser && !selectedUser) || isSaving}
+                                onClick={handleAddUser}
+                                disabled={!selectedUser || isSaving}
                                 className="px-4 py-2 text-sm font-medium bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                             >
                                 {isSaving ? (
                                     <>
                                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                        {editingUser ? 'Saving...' : 'Adding...'}
+                                        Adding...
                                     </>
                                 ) : (
                                     <>
-                                        {editingUser ? <FiCheck className="w-4 h-4" /> : <FiPlus className="w-4 h-4" />}
-                                        {editingUser ? 'Save Changes' : 'Add User'}
+                                        <FiPlus className="w-4 h-4" />
+                                        Add User
                                     </>
                                 )}
                             </button>

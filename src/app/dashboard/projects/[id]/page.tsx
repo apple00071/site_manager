@@ -723,7 +723,7 @@ export default function ProjectDetailsPage() {
                   {activeSubTab === 'workers' && (
                     <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900">Contractors & Workers</h3>
+                        <h3 className="text-lg font-semibold text-gray-900">Vendors</h3>
                         {canEditProject && (
                           <button
                             onClick={() => setEditSection('workers')}
@@ -737,8 +737,8 @@ export default function ProjectDetailsPage() {
                         {(!project.carpenter_name && !project.electrician_name && !project.plumber_name &&
                           !project.painter_name && !project.granite_worker_name && !project.glass_worker_name) && (
                             <div className="col-span-full py-8 text-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-                              <p className="text-gray-500 text-sm">No workers appointed yet.</p>
-                              <p className="text-gray-400 text-xs mt-1">Click the edit button to add worker details.</p>
+                              <p className="text-gray-500 text-sm">No vendors appointed yet.</p>
+                              <p className="text-gray-400 text-xs mt-1">Click the edit button to add vendor details.</p>
                             </div>
                           )}
                         {['carpenter', 'electrician', 'plumber', 'painter', 'granite_worker', 'glass_worker'].map((worker) => {

@@ -11,7 +11,7 @@ const PROJECT_STAGES = [
         icon: FiMapPin,
         subTabs: [
             { id: 'details', label: 'Project Details' },
-            { id: 'workers', label: 'Worker Details' },
+            { id: 'workers', label: 'Vendor Details' },
         ]
     },
     {
@@ -173,8 +173,8 @@ export default function ModuleSettingsTab() {
                             <button
                                 onClick={() => toggleStage(selectedStageId)}
                                 className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${stageEnabled[selectedStageId]
-                                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                    : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
                                     }`}
                             >
                                 {stageEnabled[selectedStageId] ? 'Enabled' : 'Disabled'}
@@ -225,8 +225,8 @@ export default function ModuleSettingsTab() {
                                 <label
                                     key={subTab.id}
                                     className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${checked
-                                            ? 'border-amber-300 bg-amber-50'
-                                            : 'border-gray-200 hover:bg-gray-50'
+                                        ? 'border-amber-300 bg-amber-50'
+                                        : 'border-gray-200 hover:bg-gray-50'
                                         }`}
                                 >
                                     <input

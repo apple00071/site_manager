@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { FiPlus, FiEdit2, FiTrash2, FiEye, FiMoreVertical } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiEye, FiMoreVertical, FiSearch, FiX } from 'react-icons/fi';
 import { formatDateIST } from '@/lib/dateUtils';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -19,6 +19,7 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('all');
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const { setTitle, setSubtitle } = useHeaderTitle();
 
   // Set header title
@@ -105,20 +106,36 @@ export default function ProjectsPage() {
     return tabs.filter(tab => tab.count > 0 || tab.key === 'all');
   }, [projects]);
 
-  // Filter projects by active tab
+  // Filter projects by active tab and search query
   const filteredProjects = useMemo(() => {
-    if (activeTab === 'all') return projects;
+    let filtered = projects;
 
-    return projects.filter(p => {
-      const status = p.unified_status || (p.workflow_stage === 'design_in_progress' ? 'design_in_progress'
-        : p.workflow_stage === 'design_completed' ? 'design_completed'
-          : p.status === 'completed' ? 'completed'
-            : p.status === 'in_progress' ? 'execution_in_progress'
-              : 'requirements_upload');
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(p =>
+        p.title?.toLowerCase().includes(query) ||
+        p.customer_name?.toLowerCase().includes(query) ||
+        p.flat_number?.toLowerCase().includes(query) ||
+        p.phone_number?.includes(query)
+      );
+    }
 
-      return status === activeTab;
-    });
-  }, [projects, activeTab]);
+    // Apply tab filter
+    if (activeTab !== 'all') {
+      filtered = filtered.filter(p => {
+        const status = p.unified_status || (p.workflow_stage === 'design_in_progress' ? 'design_in_progress'
+          : p.workflow_stage === 'design_completed' ? 'design_completed'
+            : p.status === 'completed' ? 'completed'
+              : p.status === 'in_progress' ? 'execution_in_progress'
+                : 'requirements_upload');
+
+        return status === activeTab;
+      });
+    }
+
+    return filtered;
+  }, [projects, activeTab, searchQuery]);
 
   // Get status configuration for badges
   const getStatusConfig = (project: any) => {
@@ -182,16 +199,39 @@ export default function ProjectsPage() {
             ))}
           </div>
 
-          {/* Add Project Button */}
-          {canCreateProject && (
-            <Link
-              href="/dashboard/projects/new"
-              className="ml-4 btn-primary whitespace-nowrap"
-            >
-              <FiPlus className="mr-1 h-4 w-4" />
-              Add Project
-            </Link>
-          )}
+          {/* Search and Add Project */}
+          <div className="flex items-center gap-3 py-2">
+            {/* Search Input */}
+            <div className="relative">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search projects..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-8 py-2 w-48 md:w-64 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent bg-gray-50 focus:bg-white transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <FiX className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Add Project Button */}
+            {canCreateProject && (
+              <Link
+                href="/dashboard/projects/new"
+                className="btn-primary whitespace-nowrap"
+              >
+                <FiPlus className="mr-1 h-4 w-4" />
+                Add Project
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 

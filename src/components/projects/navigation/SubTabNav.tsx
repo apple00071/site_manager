@@ -67,7 +67,7 @@ export function SubTabNav({ tabs, activeTab, onTabChange, className = '' }: SubT
 export const STAGE_SUB_TABS: Record<string, SubTab[]> = {
     visit: [
         { id: 'details', label: 'Project Details' },
-        { id: 'workers', label: 'Worker Details' },
+        { id: 'workers', label: 'Vendor Details' },
     ],
     design: [],
     boq: [

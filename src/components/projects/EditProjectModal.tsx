@@ -45,7 +45,7 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
             case 'info': return 'Edit Project Information';
             case 'customer': return 'Edit Customer Details';
             case 'property': return 'Edit Property Details';
-            case 'workers': return 'Edit Worker Details';
+            case 'workers': return 'Edit Vendor Details';
             default: return 'Edit Project';
         }
     };
