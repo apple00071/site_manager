@@ -150,7 +150,63 @@ export async function POST(request: NextRequest) {
         } catch (_) { }
       }
 
-      // 2. Handle @Mentions
+      // 2. Notify all project members (except the user who created the update and admin who was already notified)
+      try {
+        const { data: allProjectMembers } = await supabaseAdmin
+          .from('project_members')
+          .select(`
+            user_id,
+            users:user_id (
+              id,
+              full_name,
+              phone_number,
+              email
+            )
+          `)
+          .eq('project_id', project_id);
+
+        if (allProjectMembers) {
+          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+          const link = `${origin}/dashboard/projects/${project_id}`;
+
+          for (const member of allProjectMembers) {
+            const memberUser = member.users as any;
+            if (!memberUser || !memberUser.id) continue;
+
+            // Skip the user who created the update
+            if (memberUser.id === userId) continue;
+
+            // Skip admin (already notified above)
+            if (projectData && memberUser.id === projectData.created_by) continue;
+
+            // Send in-app notification
+            await NotificationService.createNotification({
+              userId: memberUser.id,
+              title: 'Project Update Added',
+              message: `${userFullName} added an update to project "${projectData?.title || 'Project'}"`,
+              type: 'project_update',
+              relatedId: project_id,
+              relatedType: 'project'
+            });
+
+            // Send WhatsApp notification if phone number exists
+            if (memberUser.phone_number) {
+              try {
+                await sendCustomWhatsAppNotification(
+                  memberUser.phone_number,
+                  `📣 Project Update\n\n${userFullName} added an update to project "${projectData?.title || 'Project'}"\n\nOpen: ${link}`
+                );
+              } catch (waError) {
+                console.error('Failed to send WhatsApp to member:', waError);
+              }
+            }
+          }
+        }
+      } catch (memberNotifyError) {
+        console.error('Failed to notify project members:', memberNotifyError);
+      }
+
+      // 3. Handle @Mentions (additional notification for specifically mentioned users)
       const mentionRegex = /@(\w+)/g;
       const mentions = description.match(mentionRegex);
 
