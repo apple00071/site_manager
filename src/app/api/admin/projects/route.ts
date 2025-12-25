@@ -141,11 +141,18 @@ export async function GET(request: NextRequest) {
         project_notes,
         created_at,
         updated_at,
+        created_by,
         assigned_employee:assigned_employee_id(
           id,
           email,
           name:full_name,
           designation
+        ),
+        creator:created_by(
+          id,
+          email,
+          full_name,
+          username
         )
       `);
 

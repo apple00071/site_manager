@@ -279,6 +279,17 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         });
       }
 
+      // Add Project Creator (Admin) if they exist - use the creator field from project data
+      if (project?.creator) {
+        const creator = project.creator;
+        addUser({
+          id: creator.id,
+          full_name: creator.full_name || creator.name,
+          email: creator.email,
+          username: creator.username,
+        });
+      }
+
       setProjectUsers(combinedUsers);
     } catch (err) {
       console.error('Error fetching project users:', err);
@@ -631,7 +642,6 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         descriptionToSend = '';
       }
 
-      console.log('DEBUG: Submitting update with photos:', form.photos, 'count:', form.photos.length);
       const response = await fetch('/api/project-updates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -674,8 +684,6 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         ...update,
         photos: normalizePhotos(update.photos),
       };
-
-      console.log('DEBUG: Normalized photos:', normalizedUpdate.photos, 'count:', normalizedUpdate.photos.length);
 
       // Add new update to the top of the list
       setUpdates(prev => [normalizedUpdate, ...prev]);

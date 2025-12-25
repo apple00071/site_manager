@@ -89,8 +89,6 @@ export async function POST(request: NextRequest) {
 
     const { project_id, update_date, description, photos, audio_url } = parsed.data;
 
-    console.log('DEBUG API: Received photos:', photos, 'isArray:', Array.isArray(photos), 'length:', photos?.length);
-
     const { data: update, error } = await supabaseAdmin
       .from('project_updates')
       .insert({
@@ -106,8 +104,6 @@ export async function POST(request: NextRequest) {
         user:users!project_updates_user_id_fkey(id, full_name, email)
       `)
       .single();
-
-    console.log('DEBUG API: Saved update photos:', update?.photos, 'isArray:', Array.isArray(update?.photos));
 
     if (error) {
       console.error('Error creating project update:', error);
