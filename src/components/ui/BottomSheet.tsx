@@ -77,6 +77,7 @@ export function BottomSheet({
             onClick={handleBackdropClick}
             aria-modal="true"
             role="dialog"
+            data-bottom-sheet="true"
         >
             <div
                 ref={sheetRef}

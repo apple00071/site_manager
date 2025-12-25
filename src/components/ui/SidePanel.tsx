@@ -69,6 +69,7 @@ export function SidePanel({
                 className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 transition-opacity duration-300"
                 onClick={onClose}
                 aria-hidden="true"
+                data-side-panel="true"
             />
 
             {/* Panel */}

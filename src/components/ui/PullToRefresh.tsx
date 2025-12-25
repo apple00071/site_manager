@@ -23,6 +23,16 @@ export function PullToRefresh({ children, onRefresh, disabled = false }: PullToR
     const handleTouchStart = useCallback((e: TouchEvent) => {
         if (disabled || isRefreshing) return;
 
+        // Check if touch started inside a modal, bottom sheet, or side panel
+        const target = e.target as HTMLElement;
+        const isInsideOverlay = target.closest('[data-modal]') ||
+            target.closest('[data-bottom-sheet]') ||
+            target.closest('[data-side-panel]') ||
+            target.closest('[role="dialog"]') ||
+            target.closest('.fixed.inset-0') ||
+            target.closest('.fixed.inset-x-0');
+        if (isInsideOverlay) return;
+
         // Only start pull if at top of page
         const scrollTop = window.scrollY || document.documentElement.scrollTop;
         if (scrollTop > 0) return;

@@ -42,7 +42,7 @@ interface InventoryItemFormProps {
     item_name: string;
     expense_type: string;
     quantity: string;
-    supplier_name: string;
+    amount: string;
     date_purchased: string;
     bill_url: string;
     po_id: string;
@@ -51,7 +51,7 @@ interface InventoryItemFormProps {
     item_name: string;
     expense_type: string;
     quantity: string;
-    supplier_name: string;
+    amount: string;
     date_purchased: string;
     bill_url: string;
     po_id: string;
@@ -220,13 +220,13 @@ const InventoryItemForm = ({
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹)</label>
         <input
-          type="text"
-          value={form.supplier_name}
-          onChange={(e) => setForm(prev => ({ ...prev, supplier_name: e.target.value }))}
+          type="number"
+          value={form.amount}
+          onChange={(e) => setForm(prev => ({ ...prev, amount: e.target.value }))}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-          placeholder="Enter supplier name"
+          placeholder="Enter amount"
         />
       </div>
       <div>
@@ -321,7 +321,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
     item_name: '',
     expense_type: '',
     quantity: '',
-    supplier_name: '',
+    amount: '',
     date_purchased: new Date().toISOString().split('T')[0], // Default to today
     bill_url: '',
     po_id: '',
@@ -394,7 +394,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
       item_name: '',
       expense_type: '',
       quantity: '',
-      supplier_name: '',
+      amount: '',
       date_purchased: new Date().toISOString().split('T')[0], // Default to today
       bill_url: '',
       po_id: ''
@@ -449,11 +449,12 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
         body: JSON.stringify({
           project_id: projectId,
           item_name: form.item_name,
+          expense_type: form.expense_type || undefined,
           quantity: form.quantity ? parseFloat(form.quantity) : undefined,
-          supplier_name: form.supplier_name || undefined,
+          total_cost: form.amount ? parseFloat(form.amount) : undefined,
           date_purchased: form.date_purchased || undefined,
           bill_url: form.bill_url || undefined,
-          po_id: form.po_id || undefined, // Send selected PO ID
+          po_id: form.po_id || undefined,
         }),
       });
 
@@ -499,7 +500,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
       item_name: item.item_name,
       expense_type: (item as any).expense_type || '',
       quantity: item.quantity?.toString() || '',
-      supplier_name: item.supplier_name || '',
+      amount: item.total_cost?.toString() || '',
       date_purchased: item.date_purchased || new Date().toISOString().split('T')[0],
       bill_url: item.bill_url || '',
       po_id: '',
