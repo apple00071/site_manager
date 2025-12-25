@@ -139,9 +139,9 @@ export default function ProjectDetailsPage() {
       stages.push('orders');
     }
 
-    if (hasPermission('inventory.view') || hasPermission('updates.view')) stages.push('work_progress');
+    if (hasPermission('updates.view') || hasPermission('site_logs.view')) stages.push('work_progress');
     if (hasPermission('snags.view')) stages.push('snag');
-    if (hasPermission('finance.view')) stages.push('finance');
+    if (hasPermission('finance.view') || hasPermission('inventory.view')) stages.push('finance');
 
     return stages;
   }, [permIsAdmin, hasPermission]);

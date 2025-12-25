@@ -16,9 +16,12 @@ export function PullToRefresh({ children, onRefresh, disabled = false }: PullToR
     const containerRef = useRef<HTMLDivElement>(null);
     const startY = useRef(0);
     const currentY = useRef(0);
+    const canPull = useRef(false); // Track if pull gesture is valid
+    const pullStarted = useRef(false); // Track if pull has actually started
 
     const PULL_THRESHOLD = 80; // Distance needed to trigger refresh
     const MAX_PULL = 120; // Maximum pull distance
+    const ACTIVATION_THRESHOLD = 15; // Minimum downward movement to activate pull
 
     const handleTouchStart = useCallback((e: TouchEvent) => {
         if (disabled || isRefreshing) return;
@@ -33,39 +36,75 @@ export function PullToRefresh({ children, onRefresh, disabled = false }: PullToR
             target.closest('.fixed.inset-x-0');
         if (isInsideOverlay) return;
 
-        // Only start pull if at top of page
+        // Only allow pull if at very top of page
         const scrollTop = window.scrollY || document.documentElement.scrollTop;
-        if (scrollTop > 0) return;
+        if (scrollTop > 5) {
+            canPull.current = false;
+            return;
+        }
 
         startY.current = e.touches[0].clientY;
-        setIsPulling(true);
+        canPull.current = true;
+        pullStarted.current = false;
     }, [disabled, isRefreshing]);
 
     const handleTouchMove = useCallback((e: TouchEvent) => {
-        if (!isPulling || disabled || isRefreshing) return;
+        if (!canPull.current || disabled || isRefreshing) return;
+
+        // Re-check scroll position - if user scrolled down, disable pull
+        const scrollTop = window.scrollY || document.documentElement.scrollTop;
+        if (scrollTop > 5) {
+            canPull.current = false;
+            setIsPulling(false);
+            setPullDistance(0);
+            return;
+        }
 
         currentY.current = e.touches[0].clientY;
         const diff = currentY.current - startY.current;
 
         // Only allow pulling down, not up
         if (diff < 0) {
-            setPullDistance(0);
+            if (pullStarted.current) {
+                setPullDistance(0);
+                setIsPulling(false);
+                pullStarted.current = false;
+            }
             return;
+        }
+
+        // Only start pull mode after passing activation threshold
+        if (!pullStarted.current) {
+            if (diff >= ACTIVATION_THRESHOLD) {
+                pullStarted.current = true;
+                setIsPulling(true);
+                // Adjust startY to make the pull feel natural
+                startY.current = currentY.current - ACTIVATION_THRESHOLD;
+            } else {
+                return; // Don't do anything until threshold is reached
+            }
         }
 
         // Apply resistance to the pull
         const resistance = 0.4;
-        const distance = Math.min(diff * resistance, MAX_PULL);
+        const distance = Math.min((currentY.current - startY.current) * resistance, MAX_PULL);
         setPullDistance(distance);
 
         // Prevent default scrolling when pulling
         if (distance > 0) {
             e.preventDefault();
         }
-    }, [isPulling, disabled, isRefreshing]);
+    }, [disabled, isRefreshing]);
 
     const handleTouchEnd = useCallback(async () => {
-        if (!isPulling || disabled) return;
+        // Reset refs
+        canPull.current = false;
+        pullStarted.current = false;
+
+        if (!isPulling || disabled) {
+            setPullDistance(0);
+            return;
+        }
 
         setIsPulling(false);
 
