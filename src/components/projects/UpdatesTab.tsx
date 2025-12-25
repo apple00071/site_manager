@@ -140,8 +140,33 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
       if (!response.ok) throw new Error('Failed to fetch updates');
       const { updates: fetchedUpdates } = await response.json();
 
+      // Helper to normalize photos to always be an array
+      const normalizePhotos = (photos: any): string[] => {
+        if (!photos) return [];
+        if (Array.isArray(photos)) return photos;
+        if (typeof photos === 'string') {
+          // Check if it's a JSON array string
+          if (photos.startsWith('[')) {
+            try {
+              const parsed = JSON.parse(photos);
+              return Array.isArray(parsed) ? parsed : [photos];
+            } catch {
+              return [photos];
+            }
+          }
+          return [photos];
+        }
+        return [];
+      };
+
+      // Normalize photos for each update
+      const normalizedUpdates = (fetchedUpdates || []).map((update: any) => ({
+        ...update,
+        photos: normalizePhotos(update.photos),
+      }));
+
       // Sort newest -> oldest for latest first display
-      const sortedUpdates = (fetchedUpdates || []).slice().sort((a: any, b: any) =>
+      const sortedUpdates = normalizedUpdates.slice().sort((a: any, b: any) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
 
@@ -606,6 +631,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         descriptionToSend = '';
       }
 
+      console.log('DEBUG: Submitting update with photos:', form.photos, 'count:', form.photos.length);
       const response = await fetch('/api/project-updates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -624,8 +650,35 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
       }
 
       const { update } = await response.json();
+
+      // Helper to normalize photos to always be an array
+      const normalizePhotos = (photos: any): string[] => {
+        if (!photos) return [];
+        if (Array.isArray(photos)) return photos;
+        if (typeof photos === 'string') {
+          if (photos.startsWith('[')) {
+            try {
+              const parsed = JSON.parse(photos);
+              return Array.isArray(parsed) ? parsed : [photos];
+            } catch {
+              return [photos];
+            }
+          }
+          return [photos];
+        }
+        return [];
+      };
+
+      // Normalize photos in the returned update
+      const normalizedUpdate = {
+        ...update,
+        photos: normalizePhotos(update.photos),
+      };
+
+      console.log('DEBUG: Normalized photos:', normalizedUpdate.photos, 'count:', normalizedUpdate.photos.length);
+
       // Add new update to the top of the list
-      setUpdates(prev => [update, ...prev]);
+      setUpdates(prev => [normalizedUpdate, ...prev]);
       setForm({
         update_date: getTodayDateString(),
         description: '',
