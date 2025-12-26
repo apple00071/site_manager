@@ -4,92 +4,88 @@ import { useEffect } from 'react';
 
 declare global {
     interface Window {
-        OneSignal: unknown[];
+        OneSignal?: any;
     }
 }
 
 export default function OneSignalInit() {
     useEffect(() => {
-        // Only initialize in production or when running in Median app
-        const isMedianApp = typeof window !== 'undefined' &&
-            (window.navigator.userAgent.includes('gonative') ||
-                window.navigator.userAgent.includes('median'));
+        // Only run client-side
+        if (typeof window === 'undefined') return;
 
-        // Skip initialization in development unless it's Median
-        if (process.env.NODE_ENV === 'development' && !isMedianApp) {
-            console.log('Skipping OneSignal initialization in development');
-            return;
-        }
+        // Wait for OneSignal to be available (loaded by Median)
+        const checkOneSignal = () => {
+            if (!window.OneSignal) {
+                console.log('⏳ Waiting for OneSignal to load...');
+                setTimeout(checkOneSignal, 1000);
+                return;
+            }
 
-        // Initialize OneSignal
-        window.OneSignal = window.OneSignal || [];
-        const OneSignal = window.OneSignal;
+            console.log('✅ OneSignal SDK detected');
 
-        OneSignal.push(() => {
-            OneSignal.push(['init', {
-                appId: 'd080d582-0b88-431c-bb19-59a08f7f5379',
-                safari_web_id: 'web.onesignal.auto.xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
-                notifyButton: {
-                    enable: false, // Don't show the default notification button
-                },
-                allowLocalhostAsSecureOrigin: true,
-            }]);
-
-            // Get current user from localStorage or session
+            // Get current user from storage
             const getUserId = () => {
                 try {
-                    // Try to get user from session storage
-                    const userData = sessionStorage.getItem('user');
+                    const sessionData = sessionStorage.getItem('user');
+                    const localData = localStorage.getItem('user');
+                    const userData = sessionData || localData;
+
                     if (userData) {
                         const user = JSON.parse(userData);
                         return user?.id;
                     }
-                    return null;
                 } catch (error) {
                     console.error('Error getting user ID:', error);
-                    return null;
                 }
+                return null;
             };
 
             const userId = getUserId();
 
-            // Set external user ID if user is logged in
-            if (userId) {
-                OneSignal.push(['setExternalUserId', userId]);
-                console.log('OneSignal: External User ID set:', userId);
+            if (!userId) {
+                console.log('⚠️ No user logged in, skipping OneSignal setup');
+                // Retry after some time in case user logs in later
+                setTimeout(checkOneSignal, 5000);
+                return;
             }
 
-            // Listen for subscription changes
-            OneSignal.push(['addListenerForNotificationOpened', (data: unknown) => {
-                console.log('Notification opened:', data);
-                // Handle notification click if needed
-            }]);
+            console.log('🔔 Setting up OneSignal for user:', userId);
 
-            // Get the OneSignal Player ID and save it to the database
-            OneSignal.push(['getUserId', async (playerId: string) => {
-                if (playerId && userId) {
-                    console.log('OneSignal Player ID:', playerId);
+            try {
+                // Get the OneSignal Player ID
+                window.OneSignal.getUserId((playerId: string) => {
+                    if (playerId) {
+                        console.log('📲 OneSignal Player ID:', playerId);
 
-                    // Save to database
-                    try {
-                        const response = await fetch('/api/onesignal/subscribe', {
+                        // Save Player ID to database
+                        fetch('/api/onesignal/subscribe', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ playerId }),
-                        });
-
-                        if (response.ok) {
-                            console.log('✅ OneSignal Player ID saved to database');
-                        } else {
-                            console.error('Failed to save OneSignal Player ID');
-                        }
-                    } catch (error) {
-                        console.error('Error saving OneSignal Player ID:', error);
+                        })
+                            .then(response => {
+                                if (response.ok) {
+                                    console.log('✅ OneSignal Player ID saved to database!');
+                                } else {
+                                    console.error('❌ Failed to save OneSignal Player ID');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('❌ Error saving OneSignal Player ID:', error);
+                            });
+                    } else {
+                        console.log('⚠️ No Player ID available yet, will retry...');
+                        setTimeout(checkOneSignal, 5000);
                     }
-                }
-            }]);
-        });
+                });
+            } catch (error) {
+                console.error('❌ Error setting up OneSignal:', error);
+            }
+        };
+
+        // Start checking for OneSignal
+        checkOneSignal();
     }, []);
 
-    return null; // This component doesn't render anything
+    return null;
 }

@@ -54,7 +54,7 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Basic ${ONESIGNAL_REST_API_KEY}`,
+                Authorization: `key ${ONESIGNAL_REST_API_KEY}`, // Using 'key' format per OneSignal docs
             },
             body: JSON.stringify(payload),
         });
@@ -76,7 +76,7 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
 
 /**
  * Send push notification to a user by their database user ID
- * Uses OneSignal External User ID for reliable delivery in Median apps
+ * Looks up OneSignal Player ID from database
  */
 export async function sendPushNotificationByUserId(
     userId: string,
@@ -88,10 +88,26 @@ export async function sendPushNotificationByUserId(
     try {
         console.log('📲 Sending push notification to user:', userId);
 
-        // Send directly using External User ID (database user ID)
-        // This works better with Median's native OneSignal integration
+        // Import supabaseAdmin dynamically to avoid circular dependencies
+        const { supabaseAdmin } = await import('@/lib/supabase-server');
+
+        // Fetch user's OneSignal Player ID from database
+        const { data: user, error } = await supabaseAdmin
+            .from('users')
+            .select('onesignal_player_id')
+            .eq('id', userId)
+            .single();
+
+        if (error || !user?.onesignal_player_id) {
+            console.warn(`⚠️ No OneSignal Player ID found for user ${userId}`);
+            return false;
+        }
+
+        console.log('✅ Found Player ID:', user.onesignal_player_id);
+
+        // Send using Player ID
         return await sendPushNotification({
-            externalUserIds: [userId],
+            userIds: [user.onesignal_player_id],
             title,
             message,
             data,
@@ -105,7 +121,7 @@ export async function sendPushNotificationByUserId(
 
 /**
  * Send push notification to multiple users by their database user IDs
- * Uses OneSignal External User IDs for reliable delivery in Median apps
+ * Looks up OneSignal Player IDs from database
  */
 export async function sendPushNotificationToMultipleUsers(
     userIds: string[],
@@ -117,9 +133,34 @@ export async function sendPushNotificationToMultipleUsers(
     try {
         console.log('📲 Sending push notification to multiple users:', userIds);
 
-        // Send directly using External User IDs (database user IDs)
+        // Import supabaseAdmin dynamically to avoid circular dependencies
+        const { supabaseAdmin } = await import('@/lib/supabase-server');
+
+        // Fetch OneSignal Player IDs for all users
+        const { data: users, error } = await supabaseAdmin
+            .from('users')
+            .select('onesignal_player_id')
+            .in('id', userIds);
+
+        if (error || !users || users.length === 0) {
+            console.warn('⚠️ No OneSignal Player IDs found for provided user IDs');
+            return false;
+        }
+
+        const playerIds = users
+            .map((u: { onesignal_player_id: string | null }) => u.onesignal_player_id)
+            .filter((id: string | null): id is string => !!id);
+
+        if (playerIds.length === 0) {
+            console.warn('⚠️ No valid OneSignal Player IDs found');
+            return false;
+        }
+
+        console.log('✅ Found', playerIds.length, 'Player IDs');
+
+        // Send using Player IDs
         return await sendPushNotification({
-            externalUserIds: userIds,
+            userIds: playerIds,
             title,
             message,
             data,
