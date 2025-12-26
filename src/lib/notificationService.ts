@@ -35,6 +35,7 @@ export interface CreateNotificationParams {
 
 export class NotificationService {
   static async createNotification(params: CreateNotificationParams) {
+    console.log('📢 NotificationService.createNotification called with:', JSON.stringify(params, null, 2));
     try {
       // Use shared admin client
       const { data, error } = await supabaseAdmin

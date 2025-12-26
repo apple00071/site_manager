@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 import { sendTaskWhatsAppNotification } from '@/lib/whatsapp';
+import { NotificationService } from '@/lib/notificationService';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -218,9 +219,18 @@ export async function POST(request: NextRequest) {
             link,
           );
         }
+
+        console.log('🔔 DEBUG: About to call NotificationService for user:', assignedTo);
+        // Trigger OneSignal push notification via NotificationService
+        await NotificationService.notifyTaskAssigned(
+          assignedTo as string,
+          (inserted.title as string) || data.title,
+          projectData?.title || 'Apple Interior'
+        );
+        console.log('✅ DEBUG: NotificationService call completed');
       }
     } catch (waError) {
-      console.error('Failed to send WhatsApp for calendar task create:', waError);
+      console.error('❌ DEBUG: Notification error in calendar-tasks:', waError);
       // do not fail the main operation on notification errors
     }
 
@@ -380,6 +390,13 @@ export async function PATCH(request: NextRequest) {
             link,
           );
         }
+
+        // Trigger OneSignal push notification for assignment change
+        await NotificationService.notifyTaskAssigned(
+          newAssigned,
+          (updated.title as string) || (existing.title as string),
+          projectDataForUpdate?.title || 'Apple Interior'
+        );
       } else if (statusChanged && (updated.assigned_to || prevAssigned)) {
         // Notify assigned user on status change
         const targetUserId = (updated.assigned_to || prevAssigned) as string | null;
@@ -399,6 +416,16 @@ export async function PATCH(request: NextRequest) {
               link,
             );
           }
+
+          // Trigger OneSignal push notification for status change
+          await NotificationService.createNotification({
+            userId: targetUserId,
+            title: 'Task Status Updated',
+            message: `Task "${(updated.title as string) || (existing.title as string)}" status changed to ${updated.status}`,
+            type: 'project_update',
+            relatedId: updated.id,
+            relatedType: 'task'
+          });
         }
       }
     } catch (waError) {
