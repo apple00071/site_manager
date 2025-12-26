@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import ClientLayout from './ClientLayout';
+import OneSignalInit from '@/components/OneSignalInit';
+import Script from 'next/script';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -44,7 +46,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning data-no-dark-mode>
+      <head>
+        <Script
+          src="https://cdn.onesignal.com/sdks/OneSignalSDK.js"
+          strategy="afterInteractive"
+        />
+      </head>
       <body className={inter.className} suppressHydrationWarning>
+        <OneSignalInit />
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>

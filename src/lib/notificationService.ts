@@ -57,6 +57,25 @@ export class NotificationService {
       }
 
       console.log('✅ Notification created successfully:', data);
+
+      // Send push notification via OneSignal (non-blocking)
+      try {
+        const { sendPushNotificationByUserId } = await import('@/lib/onesignal');
+        await sendPushNotificationByUserId(
+          params.userId,
+          params.title,
+          params.message,
+          {
+            type: params.type,
+            relatedId: params.relatedId,
+            relatedType: params.relatedType,
+          }
+        );
+      } catch (pushError) {
+        // Don't fail the notification creation if push fails
+        console.error('Error sending push notification:', pushError);
+      }
+
       return data;
     } catch (error) {
       console.error('Error creating notification:', error);
