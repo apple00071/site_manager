@@ -48,8 +48,12 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
             payload.include_external_user_ids = params.externalUserIds;
             console.log('📲 Sending OneSignal push notification to external user IDs:', params.externalUserIds);
         } else if (params.userIds && params.userIds.length > 0) {
-            payload.include_player_ids = params.userIds;
-            console.log('📲 Sending OneSignal push notification to player IDs:', params.userIds);
+            // Updated targeting to use aliases (works better with newer OneSignal IDs)
+            payload.include_aliases = {
+                onesignal_id: params.userIds
+            };
+            payload.target_channel = "push";
+            console.log('📲 Sending OneSignal push notification to OneSignal IDs:', params.userIds);
         }
 
         const response = await fetch(ONESIGNAL_API_URL, {
