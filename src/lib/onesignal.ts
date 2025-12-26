@@ -3,7 +3,9 @@
 
 const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID;
 const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
-const ONESIGNAL_API_URL = 'https://onesignal.com/api/v1/notifications';
+
+// Use new API endpoint per OneSignal migration guide
+const ONESIGNAL_API_URL = 'https://api.onesignal.com/notifications';
 
 interface SendNotificationParams {
     userIds?: string[]; // OneSignal Player IDs (optional)
@@ -54,7 +56,7 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: `key ${ONESIGNAL_REST_API_KEY}`, // Using 'key' format per OneSignal docs
+                Authorization: `key ${ONESIGNAL_REST_API_KEY}`, // lowercase 'key' per OneSignal docs
             },
             body: JSON.stringify(payload),
         });
