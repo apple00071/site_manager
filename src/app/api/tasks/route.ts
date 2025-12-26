@@ -437,6 +437,16 @@ export async function PATCH(request: NextRequest) {
             link
           );
         }
+
+        // Trigger in-app/push notification for assigned user
+        await NotificationService.createNotification({
+          userId: existingTask.assigned_to,
+          title: 'Task Status Updated',
+          message: `Task "${task.title || existingTask.title}" status changed to ${task.status}`,
+          type: 'project_update',
+          relatedId: task.id,
+          relatedType: 'task'
+        });
       }
     } catch (waError) {
       console.error('Failed to send WhatsApp on task status change:', waError);

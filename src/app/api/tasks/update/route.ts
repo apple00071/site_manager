@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { sendTaskWhatsAppNotification } from '@/lib/whatsapp';
+import { NotificationService } from '@/lib/notificationService';
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -128,6 +129,13 @@ export async function PATCH(request: NextRequest) {
             link
           );
         }
+
+        // Trigger in-app/push notification via NotificationService
+        await NotificationService.notifyTaskAssigned(
+          newAssigned,
+          updatedTask.title || currentTask.title,
+          updatedTask.step?.project?.title || 'Apple Interior'
+        );
       } else if (statusChanged && (updatedTask.assigned_to || prevAssigned)) {
         // Notify assigned user on status change as well
         const targetUserId = (updatedTask.assigned_to || prevAssigned) as string | null;
