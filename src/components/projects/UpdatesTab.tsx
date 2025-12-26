@@ -191,44 +191,36 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
 
   const fetchStages = async () => {
     try {
-      const response = await fetch(`/api/project-steps?project_id=${projectId}`);
+      // Fetch unique work descriptions from site_logs to use as stages
+      const response = await fetch(`/api/site-logs?project_id=${projectId}`);
       if (!response.ok) {
-        console.error('Failed to fetch project stages');
+        console.error('Failed to fetch site logs for stages');
         return;
       }
 
-      const text = await response.text();
-      if (!text) {
-        setStages([]);
-        return;
-      }
+      const data = await response.json();
+      const logs = data.logs || [];
 
-      let data: any;
-      try {
-        data = JSON.parse(text);
-      } catch (err) {
-        console.error('Failed to parse project stages response:', err);
-        setStages([]);
-        return;
-      }
+      // Extract unique work descriptions as stages
+      const uniqueDescriptions = new Map<string, string>();
+      logs.forEach((log: any) => {
+        if (log.work_description && log.id) {
+          // Use first occurrence of each work description
+          const desc = log.work_description.trim();
+          if (!uniqueDescriptions.has(desc)) {
+            uniqueDescriptions.set(desc, log.id);
+          }
+        }
+      });
 
-      let stepsArray: any[] = [];
-      if (Array.isArray(data)) {
-        stepsArray = data;
-      } else if (data && Array.isArray((data as any).steps)) {
-        stepsArray = (data as any).steps;
-      } else if (data && (data as any).error) {
-        console.error('Project steps API error:', (data as any).error);
-        return;
-      }
-
-      const mapped = stepsArray
-        .filter((s: any) => s && s.id && s.title)
-        .map((s: any) => ({ id: s.id as string, title: String(s.title) }));
+      const mapped = Array.from(uniqueDescriptions.entries()).map(([title, id]) => ({
+        id,
+        title
+      }));
 
       setStages(mapped);
     } catch (error) {
-      console.error('Error fetching project stages:', error);
+      console.error('Error fetching stages from site logs:', error);
     }
   };
 
@@ -640,6 +632,14 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         descriptionToSend = 'Photos';
       } else {
         descriptionToSend = '';
+      }
+
+      // Prepend selected work name if a specific work is selected
+      if (selectedStageId && selectedStageId !== 'all') {
+        const selectedWork = stages.find(s => s.id === selectedStageId);
+        if (selectedWork) {
+          descriptionToSend = `[${selectedWork.title}] ${descriptionToSend}`;
+        }
       }
 
       const response = await fetch('/api/project-updates', {
