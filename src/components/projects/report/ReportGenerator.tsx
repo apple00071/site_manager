@@ -239,30 +239,6 @@ export function ReportGenerator({ projectId, onClose, onSuccess }: ReportGenerat
                                             {aggregatedData?.tasks?.map((t: any) => t.title).join(', ') || 'No tasks completed today.'}
                                         </div>
                                     </div>
-
-                                    <div className="p-4 bg-green-50 border border-green-100 rounded-xl">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-sm font-semibold text-green-800">Materials Inward</span>
-                                            <span className="text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded-full font-bold">
-                                                {aggregatedData?.inventory?.length || 0}
-                                            </span>
-                                        </div>
-                                        <div className="text-xs text-green-600">
-                                            {aggregatedData?.inventory?.map((i: any) => i.item_name).join(', ') || 'No materials received today.'}
-                                        </div>
-                                    </div>
-
-                                    <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-sm font-semibold text-amber-800">Scope Progress (BOQ)</span>
-                                            <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-bold">
-                                                {aggregatedData?.boq?.length || 0}
-                                            </span>
-                                        </div>
-                                        <div className="text-xs text-amber-600">
-                                            {aggregatedData?.boq?.map((b: any) => b.item_name).join(', ') || 'No major scope completions today.'}
-                                        </div>
-                                    </div>
                                 </div>
                             )}
                         </div>
@@ -311,13 +287,16 @@ export function ReportGenerator({ projectId, onClose, onSuccess }: ReportGenerat
                         </div>
 
                         {/* Viewpoints Camera Capture Section */}
-                        {viewpoints.length > 0 ? (
-                            <div className="space-y-4">
-                                <h4 className="text-xs font-bold text-gray-500 uppercase flex items-center gap-2">
-                                    <FiCamera className="text-yellow-500" />
-                                    Site Viewpoints ({viewpointPhotos.length}/{viewpoints.length} captured)
-                                </h4>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {viewpoints.length > 0 && (
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-xs font-bold text-gray-500 uppercase flex items-center gap-2">
+                                        <FiCamera className="text-yellow-500" />
+                                        Site Viewpoints ({viewpointPhotos.length}/{viewpoints.length} captured)
+                                    </h4>
+                                    <span className="text-[10px] text-gray-400 italic">Optional - capture what's relevant</span>
+                                </div>
+                                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2">
                                     {viewpoints.map((vp) => {
                                         const photoUrl = getViewpointPhotoUrl(vp.id);
                                         const isUploading = uploadingViewpointId === vp.id;
@@ -325,9 +304,9 @@ export function ReportGenerator({ projectId, onClose, onSuccess }: ReportGenerat
                                         return (
                                             <div
                                                 key={vp.id}
-                                                className={`relative group rounded-xl overflow-hidden border-2 transition-all ${photoUrl
-                                                        ? 'border-green-300 bg-green-50'
-                                                        : 'border-gray-200 border-dashed bg-gray-50'
+                                                className={`relative group rounded-lg overflow-hidden border-2 transition-all ${photoUrl
+                                                    ? 'border-green-300 bg-green-50'
+                                                    : 'border-gray-200 border-dashed bg-gray-50'
                                                     }`}
                                             >
                                                 {/* Hidden file input */}
@@ -342,32 +321,32 @@ export function ReportGenerator({ projectId, onClose, onSuccess }: ReportGenerat
 
                                                 {photoUrl ? (
                                                     // Photo captured - show preview
-                                                    <div className="relative aspect-[4/3]">
+                                                    <div className="relative aspect-square">
                                                         <img
                                                             src={photoUrl}
                                                             alt={vp.name}
                                                             className="w-full h-full object-cover"
                                                         />
                                                         {/* Overlay with actions */}
-                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
                                                             <button
                                                                 onClick={() => fileInputRefs.current[vp.id]?.click()}
-                                                                className="p-2 bg-white rounded-full hover:bg-gray-100"
+                                                                className="p-1.5 bg-white rounded-full hover:bg-gray-100"
                                                                 title="Retake photo"
                                                             >
-                                                                <FiCamera className="w-4 h-4 text-gray-700" />
+                                                                <FiCamera className="w-3 h-3 text-gray-700" />
                                                             </button>
                                                             <button
                                                                 onClick={() => removeViewpointPhoto(vp.id)}
-                                                                className="p-2 bg-white rounded-full hover:bg-red-50"
+                                                                className="p-1.5 bg-white rounded-full hover:bg-red-50"
                                                                 title="Remove photo"
                                                             >
-                                                                <FiX className="w-4 h-4 text-red-600" />
+                                                                <FiX className="w-3 h-3 text-red-600" />
                                                             </button>
                                                         </div>
                                                         {/* Success badge */}
-                                                        <div className="absolute top-2 right-2 bg-green-500 text-white p-1 rounded-full">
-                                                            <FiCheck className="w-3 h-3" />
+                                                        <div className="absolute top-1 right-1 bg-green-500 text-white p-0.5 rounded-full">
+                                                            <FiCheck className="w-2.5 h-2.5" />
                                                         </div>
                                                     </div>
                                                 ) : (
@@ -375,33 +354,24 @@ export function ReportGenerator({ projectId, onClose, onSuccess }: ReportGenerat
                                                     <button
                                                         onClick={() => fileInputRefs.current[vp.id]?.click()}
                                                         disabled={isUploading}
-                                                        className="w-full aspect-[4/3] flex flex-col items-center justify-center gap-2 hover:bg-gray-100 transition-colors disabled:opacity-50"
+                                                        className="w-full aspect-square flex flex-col items-center justify-center gap-1 hover:bg-gray-100 transition-colors disabled:opacity-50"
                                                     >
                                                         {isUploading ? (
-                                                            <div className="w-6 h-6 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+                                                            <div className="w-5 h-5 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
                                                         ) : (
-                                                            <FiCamera className="w-6 h-6 text-gray-400" />
+                                                            <FiCamera className="w-5 h-5 text-gray-400" />
                                                         )}
                                                     </button>
                                                 )}
 
                                                 {/* Viewpoint name */}
-                                                <div className={`p-2 text-center border-t ${photoUrl ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100'}`}>
-                                                    <p className="text-xs font-medium text-gray-700 truncate">{vp.name}</p>
-                                                    {vp.description && (
-                                                        <p className="text-[10px] text-gray-400 truncate">{vp.description}</p>
-                                                    )}
+                                                <div className={`px-1 py-1 text-center border-t ${photoUrl ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100'}`}>
+                                                    <p className="text-[10px] font-medium text-gray-700 truncate">{vp.name}</p>
                                                 </div>
                                             </div>
                                         );
                                     })}
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl border-dashed">
-                                <p className="text-xs text-gray-500 text-center italic">
-                                    No viewpoints configured. Go to DPR Settings to define camera viewpoints.
-                                </p>
                             </div>
                         )}
                     </div>

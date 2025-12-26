@@ -18,10 +18,7 @@ export async function POST(request: NextRequest) {
             .select(`
                 *,
                 project:projects(*),
-                viewpoint_photos:report_viewpoint_photos(
-                    *,
-                    viewpoint:project_viewpoints(id, name, description)
-                )
+                viewpoint_photos:report_viewpoint_photos(*)
             `)
             .eq('id', report_id)
             .single();

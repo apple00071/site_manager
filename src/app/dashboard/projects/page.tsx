@@ -93,15 +93,15 @@ export default function ProjectsPage() {
     }
   };
 
-  // Status tabs configuration with counts
+  // Status tabs configuration with counts - based on actual project status
   const statusTabs = useMemo(() => {
     const tabs = [
       { key: 'all', label: 'All Projects', count: projects.length },
-      { key: 'requirements_upload', label: 'Requirements Upload', count: projects.filter(p => p.unified_status === 'requirements_upload' || (!p.unified_status && !p.workflow_stage)).length },
-      { key: 'design_in_progress', label: 'Design In Progress', count: projects.filter(p => p.unified_status === 'design_in_progress' || p.workflow_stage === 'design_in_progress').length },
-      { key: 'design_completed', label: 'Design Completed', count: projects.filter(p => p.unified_status === 'design_completed' || p.workflow_stage === 'design_completed').length },
-      { key: 'execution_in_progress', label: 'Execution In Progress', count: projects.filter(p => p.unified_status === 'execution_in_progress' || p.status === 'in_progress').length },
-      { key: 'completed', label: 'Completed', count: projects.filter(p => p.unified_status === 'completed' || p.status === 'completed').length },
+      { key: 'pending', label: 'Pending', count: projects.filter(p => p.status === 'pending' || !p.status).length },
+      { key: 'in_progress', label: 'In Progress', count: projects.filter(p => p.status === 'in_progress').length },
+      { key: 'on_hold', label: 'On Hold', count: projects.filter(p => p.status === 'on_hold').length },
+      { key: 'completed', label: 'Completed', count: projects.filter(p => p.status === 'completed').length },
+      { key: 'cancelled', label: 'Cancelled', count: projects.filter(p => p.status === 'cancelled').length },
     ];
     return tabs.filter(tab => tab.count > 0 || tab.key === 'all');
   }, [projects]);
@@ -124,38 +124,27 @@ export default function ProjectsPage() {
     // Apply tab filter
     if (activeTab !== 'all') {
       filtered = filtered.filter(p => {
-        const status = p.unified_status || (p.workflow_stage === 'design_in_progress' ? 'design_in_progress'
-          : p.workflow_stage === 'design_completed' ? 'design_completed'
-            : p.status === 'completed' ? 'completed'
-              : p.status === 'in_progress' ? 'execution_in_progress'
-                : 'requirements_upload');
-
-        return status === activeTab;
+        const projectStatus = p.status || 'pending';
+        return projectStatus === activeTab;
       });
     }
 
     return filtered;
   }, [projects, activeTab, searchQuery]);
 
-  // Get status configuration for badges
+  // Get status configuration for badges - shows actual project status
   const getStatusConfig = (project: any) => {
-    const status = project.unified_status || (
-      project.workflow_stage === 'design_in_progress' ? 'design_in_progress'
-        : project.workflow_stage === 'design_completed' ? 'design_completed'
-          : project.status === 'completed' ? 'completed'
-            : project.status === 'in_progress' ? 'execution_in_progress'
-              : 'requirements_upload'
-    );
+    const status = project.status || 'pending';
 
     const configs: Record<string, { bg: string; text: string; label: string }> = {
-      'requirements_upload': { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Requirements Upload' },
-      'design_in_progress': { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Design In Progress' },
-      'design_completed': { bg: 'bg-green-100', text: 'text-green-700', label: 'Design Completed' },
-      'execution_in_progress': { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Execution In Progress' },
-      'completed': { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Completed' },
+      'pending': { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Pending' },
+      'in_progress': { bg: 'bg-blue-100', text: 'text-blue-700', label: 'In Progress' },
+      'on_hold': { bg: 'bg-orange-100', text: 'text-orange-700', label: 'On Hold' },
+      'completed': { bg: 'bg-green-100', text: 'text-green-700', label: 'Completed' },
+      'cancelled': { bg: 'bg-red-100', text: 'text-red-700', label: 'Cancelled' },
     };
 
-    return configs[status] || configs['requirements_upload'];
+    return configs[status] || configs['pending'];
   };
 
   if (loading) {
@@ -393,6 +382,9 @@ export default function ProjectsPage() {
                   Status
                 </th>
                 <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Start Date
+                </th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Est. Completion
                 </th>
                 <th scope="col" className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -431,6 +423,9 @@ export default function ProjectsPage() {
                     })()}
                   </td>
                   <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
+                    {project.start_date ? formatDateIST(project.start_date) : '-'}
+                  </td>
+                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
                     {project.estimated_completion_date ? formatDateIST(project.estimated_completion_date) : '-'}
                   </td>
                   <td className="px-3 py-3 whitespace-nowrap text-right text-sm font-medium">
@@ -447,7 +442,7 @@ export default function ProjectsPage() {
 
                       {/* Dropdown Menu */}
                       {activeDropdown === project.id && (
-                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                        <div className="absolute right-0 bottom-full mb-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
                           <Link
                             href={`/dashboard/projects/${project.id}`}
                             className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"

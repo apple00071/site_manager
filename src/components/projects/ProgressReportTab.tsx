@@ -181,7 +181,7 @@ export const ProgressReportTab = forwardRef(({ projectId }: ProgressReportTabPro
             {/* Placeholder for Modals */}
             {isGeneratorOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 sm:p-4">
-                    <div className="w-full h-full sm:h-auto sm:max-w-4xl sm:max-h-[90vh] bg-white sm:rounded-2xl overflow-hidden shadow-2xl">
+                    <div className="w-full h-full sm:max-w-4xl sm:max-h-[90vh] bg-white sm:rounded-2xl overflow-hidden shadow-2xl flex flex-col">
                         <ReportGenerator
                             projectId={projectId}
                             onClose={() => setIsGeneratorOpen(false)}

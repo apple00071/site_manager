@@ -587,10 +587,6 @@ export default function ProjectDetailsPage() {
                             </dd>
                           </div>
                           <div>
-                            <dt className="text-sm font-medium text-gray-500 mb-1">Workflow Stage</dt>
-                            <dd className="text-sm text-gray-900">{project.workflow_stage?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Not set'}</dd>
-                          </div>
-                          <div>
                             <dt className="text-sm font-medium text-gray-500 mb-1">Start Date</dt>
                             <dd className="text-sm text-gray-900">{formatDateIST(project.start_date)}</dd>
                           </div>
@@ -608,6 +604,21 @@ export default function ProjectDetailsPage() {
                             <div>
                               <dt className="text-sm font-medium text-gray-500 mb-1">Project Budget</dt>
                               <dd className="text-sm text-gray-900 font-medium">₹{project.project_budget.toLocaleString('en-IN')}</dd>
+                            </div>
+                          )}
+                          {project.requirements_pdf_url && (
+                            <div>
+                              <dt className="text-sm font-medium text-gray-500 mb-1">Requirements Document</dt>
+                              <dd className="text-sm">
+                                <a
+                                  href={project.requirements_pdf_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-amber-600 hover:text-amber-700 hover:underline font-medium"
+                                >
+                                  📄 View Requirements PDF
+                                </a>
+                              </dd>
                             </div>
                           )}
                         </div>

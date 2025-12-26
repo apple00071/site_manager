@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
+import { getViewpointName } from './viewpoints';
 
 // Helper to fetch image and convert to base64 for embedding
 async function fetchImageAsBase64(url: string): Promise<string | null> {
@@ -172,7 +173,7 @@ export async function generateDPR(report: any, project: any) {
             // Add viewpoint name below image
             doc.setFontSize(9);
             doc.setFont('helvetica', 'bold');
-            const vpName = vp.viewpoint?.name || 'Viewpoint';
+            const vpName = vp.viewpoint?.name || getViewpointName(vp.viewpoint_id) || 'Viewpoint';
             doc.text(vpName, xPos, currentY + photoHeight + 5);
             doc.setFont('helvetica', 'normal');
 
