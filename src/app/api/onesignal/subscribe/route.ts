@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/authHelpers';
-import { supabaseAdmin } from '@/lib/supabase-server';
+import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 
 /**
  * Save OneSignal Player ID to user's profile
@@ -9,9 +8,9 @@ import { supabaseAdmin } from '@/lib/supabase-server';
 export async function POST(request: NextRequest) {
     try {
         // Get current user
-        const user = await getCurrentUser(request);
+        const { user, error: authError } = await getAuthUser();
 
-        if (!user) {
+        if (authError || !user) {
             return NextResponse.json(
                 { error: 'Unauthorized' },
                 { status: 401 }
@@ -27,9 +26,9 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Update user's profile with OneSignal Player ID
+        // Update user's record with OneSignal Player ID
         const { error } = await supabaseAdmin
-            .from('profiles')
+            .from('users')
             .update({ onesignal_player_id: playerId })
             .eq('id', user.id);
 
