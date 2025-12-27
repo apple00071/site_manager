@@ -88,21 +88,25 @@ export class NotificationService {
   }
 
   // Helper methods for common notification types
-  static async notifyTaskAssigned(userId: string, taskTitle: string, projectName: string) {
+  static async notifyTaskAssigned(userId: string, taskTitle: string, projectName: string, taskId?: string) {
     return this.createNotification({
       userId,
       title: 'New Task Assigned',
       message: `You have been assigned to "${taskTitle}" in project "${projectName}"`,
       type: 'task_assigned',
+      relatedId: taskId,
+      relatedType: 'task'
     });
   }
 
-  static async notifyProjectUpdate(userId: string, projectName: string, updateMessage: string) {
+  static async notifyProjectUpdate(userId: string, projectName: string, updateMessage: string, projectId?: string) {
     return this.createNotification({
       userId,
       title: `Project Update: ${projectName}`,
       message: updateMessage,
       type: 'project_update',
+      relatedId: projectId,
+      relatedType: 'project'
     });
   }
 
@@ -115,12 +119,14 @@ export class NotificationService {
     });
   }
 
-  static async notifySnagCreated(userId: string, description: string, projectName: string) {
+  static async notifySnagCreated(userId: string, description: string, projectName: string, snagId?: string) {
     return this.createNotification({
       userId,
       title: 'New Snag Created',
       message: `A new snag has been reported in project "${projectName}": ${description}`,
       type: 'snag_created',
+      relatedId: snagId,
+      relatedType: 'snag'
     });
   }
 

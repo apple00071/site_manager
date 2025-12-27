@@ -15,74 +15,71 @@ export default function OneSignalInit() {
         if (typeof window === 'undefined') return;
 
         const setupOneSignal = async () => {
-            // Wait for OneSignal to be available
-            if (!window.OneSignal) {
-                console.log('⏳ Waiting for OneSignal to load...');
-                setTimeout(setupOneSignal, 1000);
-                return;
-            }
+            // Use the recommended OneSignal push queue pattern
+            window.OneSignal = window.OneSignal || [];
 
-            console.log('✅ OneSignal SDK detected');
+            window.OneSignal.push(async () => {
+                console.log('🔔 OneSignal SDK ready, attempting user identification...');
 
-            // Get current user from Supabase
-            const { data: { user } } = await supabase.auth.getUser();
-            const userId = user?.id;
+                // 1. Get current user from Supabase
+                const { data: { user }, error: authError } = await supabase.auth.getUser();
+                const userId = user?.id;
 
-            if (!userId) {
-                console.log('⚠️ No user logged in, will retry OneSignal setup later');
-                setTimeout(setupOneSignal, 5000);
-                return;
-            }
-
-            console.log('🔔 Setting up OneSignal for user:', userId);
-
-            try {
-                // 1. Set External User ID (Best for Median/Native apps)
-                // This allows targeting by our database userId
-                if (window.OneSignal.setExternalUserId) {
-                    window.OneSignal.setExternalUserId(userId);
-                    console.log('📲 OneSignal External User ID set:', userId);
+                if (authError || !userId) {
+                    console.log('⚠️ OneSignal: No active user session found. Waiting for login...');
+                    return;
                 }
 
-                // Median-specific bridge for OneSignal External ID
-                const isMedian = typeof navigator !== 'undefined' && /GoNative/i.test(navigator.userAgent);
-                if (isMedian) {
-                    window.location.href = "gonative://onesignal/externalid/set?id=" + userId;
-                    console.log('📲 Median External ID bridge called');
-                }
+                console.log('🎯 Identifying user in OneSignal:', userId);
 
-                // 2. Get the OneSignal Player ID and save it as backup
-                window.OneSignal.getUserId((playerId: string) => {
+                try {
+                    // 2. Identify User (External ID)
+                    // The standard modern way (Web SDK 16+)
+                    if (typeof window.OneSignal.login === 'function') {
+                        await window.OneSignal.login(userId);
+                        console.log('✅ OneSignal.login successful');
+                    } else if (typeof window.OneSignal.setExternalUserId === 'function') {
+                        // Support for older SDK versions or specific wrappers
+                        await window.OneSignal.setExternalUserId(userId);
+                        console.log('✅ OneSignal.setExternalUserId successful');
+                    }
+
+                    // 3. Median Native Bridge
+                    // Ensures the native iOS/Android SDK is also informed of the user identity
+                    const isMedian = typeof navigator !== 'undefined' && /GoNative/i.test(navigator.userAgent);
+                    if (isMedian) {
+                        console.log('📲 Triggering Median native bridge for External ID');
+                        window.location.href = "gonative://onesignal/externalid/set?id=" + userId;
+                    }
+
+                    // 4. Backup: Sync OneSignal Player ID to our database
+                    // This is still useful as a fallback for targeting
+                    let playerId = null;
+
+                    if (window.OneSignal.getUser && typeof window.OneSignal.getUser === 'function') {
+                        // Web SDK 16+ way
+                        const osUser = window.OneSignal.getUser();
+                        playerId = osUser?.onesignalId;
+                    } else if (typeof window.OneSignal.getUserId === 'function') {
+                        // Older SDK way
+                        playerId = await new Promise((resolve) => window.OneSignal.getUserId(resolve));
+                    }
+
                     if (playerId) {
-                        console.log('📲 OneSignal Player ID:', playerId);
-
-                        // Save Player ID to database as backup
+                        console.log('💾 Saving OneSignal ID to database:', playerId);
                         fetch('/api/onesignal/subscribe', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ playerId }),
-                        })
-                            .then(response => {
-                                if (response.ok) {
-                                    console.log('✅ OneSignal Player ID saved to database!');
-                                } else {
-                                    console.error('❌ Failed to save OneSignal Player ID');
-                                }
-                            })
-                            .catch(error => {
-                                console.error('❌ Error saving OneSignal Player ID:', error);
-                            });
-                    } else {
-                        console.log('⚠️ No Player ID available yet, will retry...');
-                        setTimeout(setupOneSignal, 5000);
+                        }).catch(e => console.error('Failed to sync OneSignal ID to DB', e));
                     }
-                });
-            } catch (error) {
-                console.error('❌ Error setting up OneSignal:', error);
-            }
+                } catch (err) {
+                    console.error('❌ OneSignal User Identification failed:', err);
+                }
+            });
         };
 
-        // Start checking for OneSignal
+        // Initialize setup
         setupOneSignal();
     }, []);
 

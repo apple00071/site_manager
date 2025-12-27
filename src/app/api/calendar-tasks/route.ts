@@ -225,7 +225,8 @@ export async function POST(request: NextRequest) {
         await NotificationService.notifyTaskAssigned(
           assignedTo as string,
           (inserted.title as string) || data.title,
-          projectData?.title || 'Apple Interior'
+          projectData?.title || 'Apple Interior',
+          inserted.id
         );
         console.log('✅ DEBUG: NotificationService call completed');
       }
@@ -395,7 +396,8 @@ export async function PATCH(request: NextRequest) {
         await NotificationService.notifyTaskAssigned(
           newAssigned,
           (updated.title as string) || (existing.title as string),
-          projectDataForUpdate?.title || 'Apple Interior'
+          projectDataForUpdate?.title || 'Apple Interior',
+          updated.id
         );
       } else if (statusChanged && (updated.assigned_to || prevAssigned)) {
         // Notify assigned user on status change

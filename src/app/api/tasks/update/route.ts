@@ -134,29 +134,21 @@ export async function PATCH(request: NextRequest) {
         await NotificationService.notifyTaskAssigned(
           newAssigned,
           updatedTask.title || currentTask.title,
-          updatedTask.step?.project?.title || 'Apple Interior'
+          updatedTask.step?.project?.title || 'Apple Interior',
+          updatedTask.id
         );
       } else if (statusChanged && (updatedTask.assigned_to || prevAssigned)) {
-        // Notify assigned user on status change as well
+        // Trigger in-app/push notification for status change
         const targetUserId = (updatedTask.assigned_to || prevAssigned) as string | null;
         if (targetUserId) {
-          const { data: assignedUser } = await supabaseAdmin
-            .from('users')
-            .select('phone_number, full_name')
-            .eq('id', targetUserId)
-            .single();
-          if (assignedUser?.phone_number) {
-            const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-            const projectId = updatedTask.step?.project?.id;
-            const link = projectId ? `${origin}/dashboard/projects/${projectId}` : `${origin}/dashboard/tasks`;
-            await sendTaskWhatsAppNotification(
-              assignedUser.phone_number,
-              updatedTask.title || currentTask.title,
-              updatedTask.step?.project?.title,
-              updatedTask.status,
-              link
-            );
-          }
+          await NotificationService.createNotification({
+            userId: targetUserId,
+            title: 'Task Status Updated',
+            message: `Task "${updatedTask.title || currentTask.title}" changed to ${updatedTask.status}`,
+            type: 'project_update',
+            relatedId: updatedTask.id,
+            relatedType: 'task'
+          });
         }
       }
     } catch (waError) {
