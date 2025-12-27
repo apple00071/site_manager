@@ -69,7 +69,7 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: `key ${ONESIGNAL_REST_API_KEY}`, // Confirming lowercase 'key' works with os_v2 keys
+                // IMPORTANT: Use Legacy REST API Key (long alphanumeric string)\n                // Do NOT use os_v2_app_* or os_v2_org_* keys - those won't work\n                Authorization: `key ${ONESIGNAL_REST_API_KEY}`,
             },
             body: JSON.stringify(payload),
         });

@@ -180,28 +180,6 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Handle push notifications
-self.addEventListener('push', (event) => {
-  if (event.data) {
-    const data = event.data.json();
-    const options = {
-      body: data.body,
-      icon: '/icon-192x192.png',
-      badge: '/icon-192x192.png',
-      data: data.data || {}
-    };
-
-    event.waitUntil(
-      self.registration.showNotification(data.title, options)
-    );
-  }
-});
-
-// Handle notification clicks
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-
-  event.waitUntil(
-    clients.openWindow('/dashboard')
-  );
-});
+// REMOVED: Push notification handlers
+// OneSignal push is handled NATIVELY by Median's SDK
+// Do NOT add push event listeners here - it causes conflicts and duplicate notifications

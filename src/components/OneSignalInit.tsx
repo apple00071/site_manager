@@ -96,6 +96,14 @@ export default function OneSignalInit() {
             console.log('═══════════════════════════════════════');
 
             try {
+                // 0. Request notification permission FIRST (Android 13+ requirement)
+                if (window.median?.onesignal?.requestPermission) {
+                    console.log('0️⃣ Requesting notification permission (Android 13+)...');
+                    window.median.onesignal.requestPermission();
+                    // Small delay to allow permission dialog to process
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+
                 // 1. Set External User ID (links device to user)
                 console.log('1️⃣ Setting External User ID...');
                 window.median!.onesignal!.login(userId);
@@ -116,6 +124,7 @@ export default function OneSignalInit() {
                 }
 
                 // 4. Get OneSignal info and save to our database (delayed to let SDK process)
+                // Using 5 second delay for more reliable SDK processing
                 setTimeout(async () => {
                     try {
                         console.log('4️⃣ Getting OneSignal subscription info...');
@@ -131,11 +140,13 @@ export default function OneSignalInit() {
                             });
                             const result = await response.json();
                             console.log('   ✅ Database result:', result);
+                        } else {
+                            console.log('   ⚠️ No OneSignal User ID yet - user may not have granted permission');
                         }
                     } catch (err) {
                         console.log('   ⚠️ Could not get/save OneSignal info:', err);
                     }
-                }, 3000);
+                }, 5000);
 
                 hasSyncedRef.current = true;
                 console.log('═══════════════════════════════════════');
@@ -153,7 +164,9 @@ export default function OneSignalInit() {
         const { data: authData } = supabase.auth.onAuthStateChange((event: any, session: any) => {
             console.log('🔑 Auth event:', event);
 
-            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            // ONLY sync on actual sign-in, NOT on token refresh
+            // TOKEN_REFRESHED was causing duplicate registrations
+            if (event === 'SIGNED_IN') {
                 if (session?.user) {
                     hasSyncedRef.current = false; // Reset for new sign in
                     syncUserToOneSignal(session.user);
