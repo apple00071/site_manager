@@ -1,6 +1,6 @@
-const CACHE_NAME = 'apple-interior-manager-v4';
-const STATIC_CACHE = 'static-v4';
-const DYNAMIC_CACHE = 'dynamic-v4';
+const CACHE_NAME = 'apple-interior-manager-v5';
+const STATIC_CACHE = 'static-v5';
+const DYNAMIC_CACHE = 'dynamic-v5';
 
 // Static assets to cache on install
 const staticAssets = [
@@ -15,6 +15,7 @@ const noCacheUrls = [
   '/api/',           // All API routes
   '/auth/',          // Authentication routes
   '/_next/data/',    // Next.js data fetching
+  '/_next/static/',  // Next.js JS/CSS bundles - ALWAYS get fresh
 ];
 
 // Check if URL should never be cached
@@ -22,14 +23,16 @@ function shouldNeverCache(url) {
   return noCacheUrls.some(pattern => url.includes(pattern));
 }
 
-// Check if request is for a static asset
+// Check if request is for a static asset (EXCLUDE .js files to prevent stale code)
 function isStaticAsset(url) {
-  return url.match(/\.(png|jpg|jpeg|svg|gif|webp|ico|css|js|woff|woff2|ttf|eot)$/);
+  // Only cache images, fonts, and CSS - NOT JavaScript
+  return url.match(/\.(png|jpg|jpeg|svg|gif|webp|ico|css|woff|woff2|ttf|eot)$/);
 }
+
 
 // Install event - cache static resources only
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing Service Worker v4...');
+  console.log('[SW] Installing Service Worker v5...');
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then((cache) => {
@@ -45,6 +48,7 @@ self.addEventListener('install', (event) => {
       })
   );
 });
+
 
 // Fetch event - smart caching strategy
 self.addEventListener('fetch', (event) => {
@@ -95,7 +99,7 @@ self.addEventListener('fetch', (event) => {
             .then((response) => {
               // Cache successful responses (only http/https)
               if (response && response.status === 200 &&
-                  (url.startsWith('http://') || url.startsWith('https://'))) {
+                (url.startsWith('http://') || url.startsWith('https://'))) {
                 const responseToCache = response.clone();
                 caches.open(STATIC_CACHE).then((cache) => {
                   cache.put(request, responseToCache).catch((err) => {
@@ -117,7 +121,7 @@ self.addEventListener('fetch', (event) => {
         .then((response) => {
           // Optionally cache the page for offline access (only http/https)
           if (response && response.status === 200 &&
-              (url.startsWith('http://') || url.startsWith('https://'))) {
+            (url.startsWith('http://') || url.startsWith('https://'))) {
             const responseToCache = response.clone();
             caches.open(DYNAMIC_CACHE).then((cache) => {
               cache.put(request, responseToCache).catch((err) => {
@@ -153,7 +157,7 @@ self.addEventListener('fetch', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating Service Worker v4...');
+  console.log('[SW] Activating Service Worker v5...');
 
   const currentCaches = [CACHE_NAME, STATIC_CACHE, DYNAMIC_CACHE];
 
@@ -196,7 +200,7 @@ self.addEventListener('push', (event) => {
 // Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  
+
   event.waitUntil(
     clients.openWindow('/dashboard')
   );
