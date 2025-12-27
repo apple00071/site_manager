@@ -13,6 +13,7 @@ declare global {
                 logout: () => void;
                 setEmail: (email: string) => void;
                 setSMSNumber: (phone: string) => void;
+                requestPermission: () => void; // Android 13+ permission request
                 onesignalInfo: () => Promise<{
                     oneSignalUserId: string;
                     oneSignalPushToken: string;
@@ -20,12 +21,12 @@ declare global {
                 }>;
             };
         };
-        gonative?: any; // Alternative Median bridge
     }
 }
 
 export default function OneSignalInit() {
     const hasSyncedRef = useRef(false);
+    const hasRequestedPermissionRef = useRef(false);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -33,13 +34,12 @@ export default function OneSignalInit() {
         // Helper function to check if Median bridge is available
         const isMedianBridgeAvailable = (): boolean => {
             const hasMedian = typeof window.median?.onesignal?.login === 'function';
-            const hasGonative = typeof window.gonative !== 'undefined';
-            console.log('🔍 Median Bridge Check:', { hasMedian, hasGonative });
+            console.log('🔍 Median Bridge Available:', hasMedian);
             return hasMedian;
         };
 
         // Wait for Median bridge to be available (with timeout)
-        const waitForMedianBridge = (maxAttempts = 10, interval = 500): Promise<boolean> => {
+        const waitForMedianBridge = (maxAttempts = 20, interval = 300): Promise<boolean> => {
             return new Promise((resolve) => {
                 let attempts = 0;
                 const check = () => {
@@ -56,6 +56,39 @@ export default function OneSignalInit() {
                 };
                 check();
             });
+        };
+
+        // Request notification permission (Android 13+)
+        const requestNotificationPermission = async () => {
+            if (hasRequestedPermissionRef.current) return;
+
+            console.log('📲 Requesting notification permission...');
+
+            const hasMedian = await waitForMedianBridge(10, 500);
+
+            if (hasMedian && window.median?.onesignal?.requestPermission) {
+                try {
+                    window.median.onesignal.requestPermission();
+                    hasRequestedPermissionRef.current = true;
+                    console.log('✅ Permission request triggered via Median bridge');
+                } catch (err) {
+                    console.error('❌ Failed to request permission:', err);
+                }
+            } else {
+                // Fallback: Try URL scheme
+                console.log('📲 Trying URL scheme for permission request...');
+                try {
+                    const iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    iframe.src = 'gonative://onesignal/requestPermission';
+                    document.body.appendChild(iframe);
+                    setTimeout(() => document.body.removeChild(iframe), 100);
+                    hasRequestedPermissionRef.current = true;
+                    console.log('✅ Permission request triggered via URL scheme');
+                } catch (err) {
+                    console.error('❌ URL scheme failed:', err);
+                }
+            }
         };
 
         // Main sync function
@@ -128,7 +161,7 @@ export default function OneSignalInit() {
                         } catch (infoError) {
                             console.log('⚠️ Could not get OneSignal info:', infoError);
                         }
-                    }, 2000); // Wait 2 seconds for OneSignal to process the login
+                    }, 2000);
 
                     hasSyncedRef.current = true;
                     console.log('========================================');
@@ -139,11 +172,10 @@ export default function OneSignalInit() {
                     console.error('❌ Median OneSignal Sync Error:', err);
                 }
             } else {
-                // Fallback: Try URL scheme bridge (gonative://)
+                // Fallback: Try URL scheme bridge
                 console.log('📲 Trying URL scheme bridge (gonative://)...');
 
                 try {
-                    // Create hidden iframe to trigger URL scheme
                     const triggerUrlScheme = (url: string) => {
                         console.log('Triggering:', url);
                         const iframe = document.createElement('iframe');
@@ -178,7 +210,10 @@ export default function OneSignalInit() {
                 if (session?.user) {
                     // Reset sync flag on new sign in
                     hasSyncedRef.current = false;
-                    syncWithOneSignal(session.user);
+                    // First request permission, then sync user data
+                    requestNotificationPermission().then(() => {
+                        syncWithOneSignal(session.user);
+                    });
                 }
             } else if (event === 'SIGNED_OUT') {
                 hasSyncedRef.current = false;
@@ -189,6 +224,9 @@ export default function OneSignalInit() {
         });
 
         const subscription = authData?.subscription;
+
+        // Request permission on app load (for Android 13+)
+        requestNotificationPermission();
 
         // Check if already logged in on mount
         console.log('🔔 OneSignalInit: Checking existing session...');
