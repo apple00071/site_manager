@@ -3,7 +3,6 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import ClientLayout from './ClientLayout';
 import OneSignalInit from '@/components/OneSignalInit';
-import Script from 'next/script';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -47,10 +46,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning data-no-dark-mode>
       <head>
-        <Script
-          src="https://cdn.onesignal.com/sdks/OneSignalSDK.js"
-          strategy="afterInteractive"
-        />
+        {/* OneSignal Web SDK removed - Median apps handle OneSignal natively */}
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <OneSignalInit />
@@ -59,3 +55,4 @@ export default function RootLayout({
     </html>
   );
 }
+

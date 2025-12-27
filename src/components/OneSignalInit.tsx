@@ -3,17 +3,28 @@
 import { useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
+/**
+ * OneSignal Integration for Median Apps
+ * 
+ * IMPORTANT: For Median/GoNative apps, OneSignal is initialized NATIVELY by Median.
+ * We should NOT load the OneSignal Web SDK or call init methods from JavaScript.
+ * 
+ * This component only calls Median's JS bridge methods to:
+ * - Set External User ID (to link the device to our user)
+ * - Set Email/Phone for targeting
+ * - Get subscription info for our database
+ */
+
 // Declare global types for Median JS Bridge
 declare global {
     interface Window {
-        OneSignal?: any;
         median?: {
             onesignal?: {
                 login: (externalId: string) => void;
                 logout: () => void;
                 setEmail: (email: string) => void;
                 setSMSNumber: (phone: string) => void;
-                requestPermission: () => void; // Android 13+ permission request
+                requestPermission: () => void;
                 onesignalInfo: () => Promise<{
                     oneSignalUserId: string;
                     oneSignalPushToken: string;
@@ -26,29 +37,26 @@ declare global {
 
 export default function OneSignalInit() {
     const hasSyncedRef = useRef(false);
-    const hasRequestedPermissionRef = useRef(false);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
-        // Helper function to check if Median bridge is available
-        const isMedianBridgeAvailable = (): boolean => {
-            const hasMedian = typeof window.median?.onesignal?.login === 'function';
-            console.log('🔍 Median Bridge Available:', hasMedian);
-            return hasMedian;
+        // Check if Median bridge is available (we're in a Median app)
+        const isMedianApp = (): boolean => {
+            return typeof window.median?.onesignal?.login === 'function';
         };
 
-        // Wait for Median bridge to be available (with timeout)
-        const waitForMedianBridge = (maxAttempts = 20, interval = 300): Promise<boolean> => {
+        // Wait for Median bridge with polling
+        const waitForMedian = (maxAttempts = 30, interval = 200): Promise<boolean> => {
             return new Promise((resolve) => {
                 let attempts = 0;
                 const check = () => {
                     attempts++;
-                    if (isMedianBridgeAvailable()) {
-                        console.log(`✅ Median bridge found after ${attempts} attempts`);
+                    if (isMedianApp()) {
+                        console.log(`✅ Median OneSignal bridge ready (attempt ${attempts})`);
                         resolve(true);
                     } else if (attempts >= maxAttempts) {
-                        console.log(`⚠️ Median bridge not found after ${maxAttempts} attempts`);
+                        console.log('⚠️ Not a Median app or bridge not available');
                         resolve(false);
                     } else {
                         setTimeout(check, interval);
@@ -58,166 +66,102 @@ export default function OneSignalInit() {
             });
         };
 
-        // Request notification permission (Android 13+)
-        const requestNotificationPermission = async () => {
-            if (hasRequestedPermissionRef.current) return;
-
-            console.log('📲 Requesting notification permission...');
-
-            const hasMedian = await waitForMedianBridge(10, 500);
-
-            if (hasMedian && window.median?.onesignal?.requestPermission) {
-                try {
-                    window.median.onesignal.requestPermission();
-                    hasRequestedPermissionRef.current = true;
-                    console.log('✅ Permission request triggered via Median bridge');
-                } catch (err) {
-                    console.error('❌ Failed to request permission:', err);
-                }
-            } else {
-                // Fallback: Try URL scheme
-                console.log('📲 Trying URL scheme for permission request...');
-                try {
-                    const iframe = document.createElement('iframe');
-                    iframe.style.display = 'none';
-                    iframe.src = 'gonative://onesignal/requestPermission';
-                    document.body.appendChild(iframe);
-                    setTimeout(() => document.body.removeChild(iframe), 100);
-                    hasRequestedPermissionRef.current = true;
-                    console.log('✅ Permission request triggered via URL scheme');
-                } catch (err) {
-                    console.error('❌ URL scheme failed:', err);
-                }
-            }
-        };
-
-        // Main sync function
-        const syncWithOneSignal = async (targetUser: any) => {
-            const userId = targetUser?.id;
-            const email = targetUser?.email;
-            const phone = targetUser?.user_metadata?.phone_number || targetUser?.app_metadata?.phone_number;
-
-            if (!userId) {
-                console.log('🔔 OneSignal: No user ID to sync');
+        // Main sync function - ONLY uses Median bridge
+        const syncUserToOneSignal = async (user: any) => {
+            if (!user?.id) {
+                console.log('🔔 No user to sync');
                 return;
             }
 
-            // Prevent duplicate syncs
             if (hasSyncedRef.current) {
-                console.log('🔔 OneSignal: Already synced, skipping');
+                console.log('🔔 Already synced in this session');
                 return;
             }
 
-            console.log('========================================');
-            console.log('🎯 OneSignal SYNC STARTING');
-            console.log('User ID:', userId);
-            console.log('Email:', email);
-            console.log('Phone:', phone);
-            console.log('========================================');
+            const hasMedian = await waitForMedian();
+            if (!hasMedian) {
+                console.log('⚠️ Skipping OneSignal sync (not a Median app)');
+                return;
+            }
 
-            // Wait for Median bridge
-            const hasMedian = await waitForMedianBridge();
+            const userId = user.id;
+            const email = user.email;
+            const phone = user.user_metadata?.phone_number || user.app_metadata?.phone_number;
 
-            if (hasMedian && window.median?.onesignal) {
-                console.log('📲 Using MEDIAN JS Bridge');
+            console.log('═══════════════════════════════════════');
+            console.log('🎯 SYNCING USER TO ONESIGNAL VIA MEDIAN');
+            console.log('   User ID:', userId);
+            console.log('   Email:', email);
+            console.log('   Phone:', phone);
+            console.log('═══════════════════════════════════════');
 
-                try {
-                    // Step 1: Login (set External ID)
-                    console.log('Step 1: Calling median.onesignal.login...');
-                    window.median.onesignal.login(userId);
-                    console.log('✅ median.onesignal.login() called with:', userId);
+            try {
+                // 1. Set External User ID (links device to user)
+                console.log('1️⃣ Setting External User ID...');
+                window.median!.onesignal!.login(userId);
+                console.log('   ✅ login() called');
 
-                    // Step 2: Set Email
-                    if (email) {
-                        console.log('Step 2: Calling median.onesignal.setEmail...');
-                        window.median.onesignal.setEmail(email);
-                        console.log('✅ median.onesignal.setEmail() called with:', email);
-                    }
+                // 2. Set Email if available
+                if (email) {
+                    console.log('2️⃣ Setting Email...');
+                    window.median!.onesignal!.setEmail(email);
+                    console.log('   ✅ setEmail() called');
+                }
 
-                    // Step 3: Set Phone
-                    if (phone) {
-                        console.log('Step 3: Calling median.onesignal.setSMSNumber...');
-                        window.median.onesignal.setSMSNumber(phone);
-                        console.log('✅ median.onesignal.setSMSNumber() called with:', phone);
-                    }
+                // 3. Set Phone if available
+                if (phone) {
+                    console.log('3️⃣ Setting Phone...');
+                    window.median!.onesignal!.setSMSNumber(phone);
+                    console.log('   ✅ setSMSNumber() called');
+                }
 
-                    // Step 4: Get OneSignal Info and save to DB
-                    console.log('Step 4: Getting OneSignal info...');
-                    setTimeout(async () => {
-                        try {
-                            const info = await window.median!.onesignal!.onesignalInfo();
-                            console.log('📊 OneSignal Info:', info);
+                // 4. Get OneSignal info and save to our database (delayed to let SDK process)
+                setTimeout(async () => {
+                    try {
+                        console.log('4️⃣ Getting OneSignal subscription info...');
+                        const info = await window.median!.onesignal!.onesignalInfo();
+                        console.log('   📊 OneSignal Info:', JSON.stringify(info));
 
-                            if (info?.oneSignalUserId) {
-                                console.log('💾 Saving OneSignal ID to database:', info.oneSignalUserId);
-                                const response = await fetch('/api/onesignal/subscribe', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ playerId: info.oneSignalUserId }),
-                                });
-                                const result = await response.json();
-                                console.log('📊 DB Save Result:', result);
-                            }
-                        } catch (infoError) {
-                            console.log('⚠️ Could not get OneSignal info:', infoError);
+                        if (info?.oneSignalUserId) {
+                            console.log('5️⃣ Saving to database...');
+                            const response = await fetch('/api/onesignal/subscribe', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ playerId: info.oneSignalUserId }),
+                            });
+                            const result = await response.json();
+                            console.log('   ✅ Database result:', result);
                         }
-                    }, 2000);
-
-                    hasSyncedRef.current = true;
-                    console.log('========================================');
-                    console.log('🎉 OneSignal SYNC COMPLETE');
-                    console.log('========================================');
-
-                } catch (err) {
-                    console.error('❌ Median OneSignal Sync Error:', err);
-                }
-            } else {
-                // Fallback: Try URL scheme bridge
-                console.log('📲 Trying URL scheme bridge (gonative://)...');
-
-                try {
-                    const triggerUrlScheme = (url: string) => {
-                        console.log('Triggering:', url);
-                        const iframe = document.createElement('iframe');
-                        iframe.style.display = 'none';
-                        iframe.src = url;
-                        document.body.appendChild(iframe);
-                        setTimeout(() => document.body.removeChild(iframe), 100);
-                    };
-
-                    triggerUrlScheme(`gonative://onesignal/externalUserId/set?externalUserId=${encodeURIComponent(userId)}`);
-
-                    if (email) {
-                        setTimeout(() => {
-                            triggerUrlScheme(`gonative://onesignal/setEmail?email=${encodeURIComponent(email)}`);
-                        }, 500);
+                    } catch (err) {
+                        console.log('   ⚠️ Could not get/save OneSignal info:', err);
                     }
+                }, 3000);
 
-                    hasSyncedRef.current = true;
-                    console.log('✅ URL scheme triggers sent');
-                } catch (err) {
-                    console.error('❌ URL scheme bridge error:', err);
-                }
+                hasSyncedRef.current = true;
+                console.log('═══════════════════════════════════════');
+                console.log('🎉 ONESIGNAL SYNC COMPLETE');
+                console.log('═══════════════════════════════════════');
+
+            } catch (err) {
+                console.error('❌ OneSignal sync error:', err);
             }
         };
 
-        // Listen for auth state changes
-        console.log('🔔 OneSignalInit: Setting up auth listener...');
+        // Set up auth state listener
+        console.log('🔔 OneSignalInit mounted, setting up auth listener...');
+
         const { data: authData } = supabase.auth.onAuthStateChange((event: any, session: any) => {
-            console.log('🔑 Auth Event:', event, 'Has User:', !!session?.user);
+            console.log('🔑 Auth event:', event);
 
             if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
                 if (session?.user) {
-                    // Reset sync flag on new sign in
-                    hasSyncedRef.current = false;
-                    // First request permission, then sync user data
-                    requestNotificationPermission().then(() => {
-                        syncWithOneSignal(session.user);
-                    });
+                    hasSyncedRef.current = false; // Reset for new sign in
+                    syncUserToOneSignal(session.user);
                 }
             } else if (event === 'SIGNED_OUT') {
                 hasSyncedRef.current = false;
                 if (window.median?.onesignal?.logout) {
+                    console.log('🔓 Logging out of OneSignal...');
                     window.median.onesignal.logout();
                 }
             }
@@ -225,15 +169,11 @@ export default function OneSignalInit() {
 
         const subscription = authData?.subscription;
 
-        // Request permission on app load (for Android 13+)
-        requestNotificationPermission();
-
-        // Check if already logged in on mount
-        console.log('🔔 OneSignalInit: Checking existing session...');
+        // Check for existing session on mount
         supabase.auth.getSession().then(({ data }: any) => {
-            console.log('📊 Existing session check:', !!data?.session?.user);
             if (data?.session?.user) {
-                syncWithOneSignal(data.session.user);
+                console.log('📱 Found existing session, syncing...');
+                syncUserToOneSignal(data.session.user);
             }
         });
 
