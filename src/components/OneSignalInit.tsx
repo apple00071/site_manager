@@ -3,9 +3,23 @@
 import { useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
+// Declare global types for Median JS Bridge
 declare global {
     interface Window {
         OneSignal?: any;
+        median?: {
+            onesignal?: {
+                login: (externalId: string) => void;
+                logout: () => void;
+                setEmail: (email: string) => void;
+                setSMSNumber: (phone: string) => void;
+                onesignalInfo: () => Promise<{
+                    oneSignalUserId: string;
+                    oneSignalPushToken: string;
+                    oneSignalSubscribed: boolean;
+                }>;
+            };
+        };
     }
 }
 
@@ -14,9 +28,6 @@ export default function OneSignalInit() {
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
-
-        // Use the recommended OneSignal push queue pattern
-        window.OneSignal = window.OneSignal || [];
 
         const syncWithOneSignal = async (targetUser: any) => {
             const userId = targetUser?.id;
@@ -30,69 +41,70 @@ export default function OneSignalInit() {
 
             console.log('🎯 OneSignal Syncing:', { userId, email, phone });
 
-            // 1. Median Native Bridge (Most reliable for Median apps)
-            const isMedian = typeof navigator !== 'undefined' && /GoNative/i.test(navigator.userAgent);
+            // Check if running in Median native app
+            const isMedian = typeof window.median?.onesignal !== 'undefined';
 
             if (isMedian) {
+                // Use Median JS Bridge (recommended for Median apps)
                 console.log('📲 Using Median JS Bridge for OneSignal sync');
 
-                // Set External ID
-                window.location.href = `gonative://onesignal/externalid/set?id=${userId}`;
-
-                // Set Email (if available)
-                if (email) {
-                    window.location.href = `gonative://onesignal/email/set?email=${encodeURIComponent(email)}`;
-                }
-
-                // Set Phone (if available)
-                if (phone) {
-                    window.location.href = `gonative://onesignal/user/addSms?phone=${encodeURIComponent(phone)}`;
-                }
-            }
-
-            // 2. OneSignal Web SDK (Standard way)
-            window.OneSignal.push(async () => {
                 try {
-                    console.log('🐝 OneSignal SDK push queue processing...');
+                    // Set External ID (links this device to the user)
+                    window.median!.onesignal!.login(userId);
+                    console.log('✅ Median: External ID set to:', userId);
 
-                    // Identify User (External ID)
-                    if (typeof window.OneSignal.login === 'function') {
-                        await window.OneSignal.login(userId);
-                        console.log('✅ Web SDK OneSignal.login successful');
-                    } else if (typeof window.OneSignal.setExternalUserId === 'function') {
-                        await window.OneSignal.setExternalUserId(userId);
-                        console.log('✅ Web SDK OneSignal.setExternalUserId successful');
+                    // Set Email (appears in dashboard)
+                    if (email) {
+                        window.median!.onesignal!.setEmail(email);
+                        console.log('📧 Median: Email set to:', email);
                     }
 
-                    // Sync Email/Phone
-                    if (email && window.OneSignal.User?.addEmail) {
-                        window.OneSignal.User.addEmail(email);
-                    }
-                    if (phone && window.OneSignal.User?.addSms) {
-                        window.OneSignal.User.addSms(phone);
+                    // Set Phone (appears in dashboard)
+                    if (phone) {
+                        window.median!.onesignal!.setSMSNumber(phone);
+                        console.log('📱 Median: Phone set to:', phone);
                     }
 
-                    // Backup: Store Player ID to our DB
-                    let playerId = null;
-                    if (window.OneSignal.getUser) {
-                        const osUser = window.OneSignal.getUser();
-                        playerId = osUser?.onesignalId;
-                    } else if (window.OneSignal.getUserId) {
-                        playerId = await new Promise((resolve) => window.OneSignal.getUserId(resolve));
-                    }
-
-                    if (playerId) {
-                        console.log('💾 Backup: Syncing Player ID to DB:', playerId);
-                        fetch('/api/onesignal/subscribe', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ playerId }),
-                        }).catch(() => { });
+                    // Backup: Sync OneSignal User ID to our database
+                    try {
+                        const info = await window.median!.onesignal!.onesignalInfo();
+                        if (info?.oneSignalUserId) {
+                            console.log('💾 Syncing OneSignal ID to DB:', info.oneSignalUserId);
+                            fetch('/api/onesignal/subscribe', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ playerId: info.oneSignalUserId }),
+                            }).catch(() => { });
+                        }
+                    } catch (infoError) {
+                        console.log('OneSignal info not available yet, will sync later');
                     }
                 } catch (err) {
-                    console.error('❌ OneSignal Web SDK Sync Failed:', err);
+                    console.error('❌ Median OneSignal Sync Failed:', err);
                 }
-            });
+            } else {
+                // Fallback: Use standard OneSignal Web SDK (for non-Median browsers)
+                console.log('🌐 Using OneSignal Web SDK (non-Median environment)');
+                window.OneSignal = window.OneSignal || [];
+
+                window.OneSignal.push(async () => {
+                    try {
+                        if (typeof window.OneSignal.login === 'function') {
+                            await window.OneSignal.login(userId);
+                            console.log('✅ Web SDK: OneSignal.login successful');
+                        }
+
+                        if (email && window.OneSignal.User?.addEmail) {
+                            window.OneSignal.User.addEmail(email);
+                        }
+                        if (phone && window.OneSignal.User?.addSms) {
+                            window.OneSignal.User.addSms(phone);
+                        }
+                    } catch (err) {
+                        console.error('❌ OneSignal Web SDK Sync Failed:', err);
+                    }
+                });
+            }
         };
 
         // Listen for auth state changes
@@ -103,10 +115,14 @@ export default function OneSignalInit() {
                     syncWithOneSignal(session.user);
                 }
             } else if (event === 'SIGNED_OUT') {
-                // Optional: Logout from OneSignal
-                window.OneSignal.push(() => {
-                    if (window.OneSignal.logout) window.OneSignal.logout();
-                });
+                // Logout from OneSignal
+                if (window.median?.onesignal) {
+                    window.median.onesignal.logout();
+                } else {
+                    window.OneSignal?.push(() => {
+                        if (window.OneSignal.logout) window.OneSignal.logout();
+                    });
+                }
             }
         });
 
@@ -121,7 +137,7 @@ export default function OneSignalInit() {
         }
 
         return () => {
-            subscription.unsubscribe();
+            subscription?.unsubscribe();
         };
     }, []);
 
