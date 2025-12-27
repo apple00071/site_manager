@@ -44,7 +44,20 @@ export default function OneSignalInit() {
                         console.log('✅ OneSignal.setExternalUserId successful');
                     }
 
-                    // 3. Median Native Bridge
+                    // 3. Sync Email and Phone (to show in dashboard)
+                    if (user?.email && window.OneSignal.User?.addEmail) {
+                        window.OneSignal.User.addEmail(user.email);
+                        console.log('📧 Email synced to OneSignal:', user.email);
+                    }
+
+                    // Note: Phone number is usually in user_metadata or app_metadata
+                    const phone = user.user_metadata?.phone_number || user.app_metadata?.phone_number;
+                    if (phone && window.OneSignal.User?.addSms) {
+                        window.OneSignal.User.addSms(phone);
+                        console.log('📱 Phone synced to OneSignal:', phone);
+                    }
+
+                    // 4. Median Native Bridge
                     // Ensures the native iOS/Android SDK is also informed of the user identity
                     const isMedian = typeof navigator !== 'undefined' && /GoNative/i.test(navigator.userAgent);
                     if (isMedian) {
@@ -52,7 +65,7 @@ export default function OneSignalInit() {
                         window.location.href = "gonative://onesignal/externalid/set?id=" + userId;
                     }
 
-                    // 4. Backup: Sync OneSignal Player ID to our database
+                    // 5. Backup: Sync OneSignal Player ID to our database
                     // This is still useful as a fallback for targeting
                     let playerId = null;
 
