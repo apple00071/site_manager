@@ -41,19 +41,28 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
             contents: { en: params.message },
             data: params.data || {},
             url: params.url,
+            target_channel: "push"
         };
 
-        // Prefer External User IDs (better for Median apps)
+        // Modern OneSignal V2 targeting via Aliases
+        const aliases: any = {};
+
         if (params.externalUserIds && params.externalUserIds.length > 0) {
-            payload.include_external_user_ids = params.externalUserIds;
-            console.log('📲 Sending OneSignal push notification to external user IDs:', params.externalUserIds);
-        } else if (params.userIds && params.userIds.length > 0) {
-            // Updated targeting to use aliases (works better with newer OneSignal IDs)
-            payload.include_aliases = {
-                onesignal_id: params.userIds
-            };
-            payload.target_channel = "push";
-            console.log('📲 Sending OneSignal push notification to OneSignal IDs:', params.userIds);
+            aliases.external_id = params.externalUserIds;
+            console.log('📲 Targeting via external_id:', params.externalUserIds);
+        }
+
+        if (params.userIds && params.userIds.length > 0) {
+            // onesignal_id is their internal UUID
+            aliases.onesignal_id = params.userIds;
+            console.log('📲 Targeting via onesignal_id:', params.userIds);
+        }
+
+        if (Object.keys(aliases).length > 0) {
+            payload.include_aliases = aliases;
+        } else {
+            console.warn('⚠️ No targeting aliases found');
+            return false;
         }
 
         const response = await fetch(ONESIGNAL_API_URL, {
@@ -82,7 +91,6 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
 
 /**
  * Send push notification to a user by their database user ID
- * Looks up OneSignal Player ID from database
  */
 export async function sendPushNotificationByUserId(
     userId: string,
@@ -97,23 +105,28 @@ export async function sendPushNotificationByUserId(
         // Import supabaseAdmin dynamically to avoid circular dependencies
         const { supabaseAdmin } = await import('@/lib/supabase-server');
 
-        // Fetch user's OneSignal Player ID from database
-        const { data: user, error } = await supabaseAdmin
+        // Fetch user's OneSignal Player ID from database (as fallback/verification)
+        const { data: user } = await supabaseAdmin
             .from('users')
             .select('onesignal_player_id')
             .eq('id', userId)
             .single();
 
-        if (error || !user?.onesignal_player_id) {
-            console.warn(`⚠️ No OneSignal Player ID found for user ${userId}`);
-            return false;
+        // We can ALWAYS attempt to send using external_id (userId)
+        // OneSignal is clever enough to ignore it if no device is linked to this external_id
+        const externalUserIds = [userId];
+        const userIds = user?.onesignal_player_id ? [user.onesignal_player_id] : [];
+
+        if (userIds.length > 0) {
+            console.log('✅ Found OneSignal ID in DB:', userIds[0]);
+        } else {
+            console.log('ℹ️ No OneSignal ID in DB, using External User ID targeting exclusively');
         }
 
-        console.log('✅ Found Player ID:', user.onesignal_player_id);
-
-        // Send using Player ID
+        // Send using both for maximum reliability
         return await sendPushNotification({
-            userIds: [user.onesignal_player_id],
+            externalUserIds,
+            userIds,
             title,
             message,
             data,
@@ -127,7 +140,6 @@ export async function sendPushNotificationByUserId(
 
 /**
  * Send push notification to multiple users by their database user IDs
- * Looks up OneSignal Player IDs from database
  */
 export async function sendPushNotificationToMultipleUsers(
     userIds: string[],
@@ -142,30 +154,21 @@ export async function sendPushNotificationToMultipleUsers(
         // Import supabaseAdmin dynamically to avoid circular dependencies
         const { supabaseAdmin } = await import('@/lib/supabase-server');
 
-        // Fetch OneSignal Player IDs for all users
-        const { data: users, error } = await supabaseAdmin
+        // Fetch OneSignal Player IDs for all users (as fallback)
+        const { data: users } = await supabaseAdmin
             .from('users')
             .select('onesignal_player_id')
             .in('id', userIds);
 
-        if (error || !users || users.length === 0) {
-            console.warn('⚠️ No OneSignal Player IDs found for provided user IDs');
-            return false;
-        }
-
         const playerIds = users
-            .map((u: { onesignal_player_id: string | null }) => u.onesignal_player_id)
-            .filter((id: string | null): id is string => !!id);
+            ? users.map((u: { onesignal_player_id: string | null }) => u.onesignal_player_id).filter((id: string | null): id is string => !!id)
+            : [];
 
-        if (playerIds.length === 0) {
-            console.warn('⚠️ No valid OneSignal Player IDs found');
-            return false;
-        }
+        console.log(`✅ Targeted ${userIds.length} users (Found ${playerIds.length} Player IDs in DB)`);
 
-        console.log('✅ Found', playerIds.length, 'Player IDs');
-
-        // Send using Player IDs
+        // Send using both for maximum reliability
         return await sendPushNotification({
+            externalUserIds: userIds,
             userIds: playerIds,
             title,
             message,
