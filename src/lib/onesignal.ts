@@ -67,14 +67,14 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
 
         // Determine auth header format based on key type
         // os_v2_app_* or os_v2_org_* keys use Bearer auth
-        // Legacy REST API keys use "Basic" prefix
+        // Legacy REST API keys use "key" prefix
         let authHeader: string;
         if (ONESIGNAL_REST_API_KEY.startsWith('os_v2_')) {
             authHeader = `Bearer ${ONESIGNAL_REST_API_KEY}`;
             console.log('📲 Using V2 API key authentication (Bearer)');
         } else {
-            authHeader = `Basic ${ONESIGNAL_REST_API_KEY}`;
-            console.log('📲 Using Legacy API key authentication (Basic)');
+            authHeader = `key ${ONESIGNAL_REST_API_KEY}`;
+            console.log('📲 Using Legacy API key authentication (key)');
         }
 
         const response = await fetch(ONESIGNAL_API_URL, {
