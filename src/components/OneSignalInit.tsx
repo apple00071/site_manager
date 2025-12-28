@@ -31,11 +31,15 @@ declare global {
                 }>;
             };
         };
+        median_onesignal_push_opened?: (data: any) => void;
     }
 }
 
+import { useRouter } from 'next/navigation';
+
 export default function OneSignalInit() {
     const hasSyncedRef = useRef(false);
+    const router = useRouter();
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -191,10 +195,40 @@ export default function OneSignalInit() {
             }
         });
 
+        // Handle deep linking from OneSignal push notifications
+        const handlePushOpened = (data: any) => {
+            console.log('🔔 OneSignal Push Opened event:', JSON.stringify(data, null, 2));
+
+            // Median passes data in a specific format
+            // Often the URL is in additionalData or in the root
+            const targetUrl = data?.additionalData?.url || data?.url;
+
+            if (targetUrl) {
+                console.log('🚀 Deep linking to:', targetUrl);
+
+                // If it's a full URL, we might want to extract the path
+                let path = targetUrl;
+                try {
+                    if (targetUrl.startsWith('http')) {
+                        const urlObj = new URL(targetUrl);
+                        path = urlObj.pathname + urlObj.search;
+                    }
+                } catch (e) {
+                    console.error('Error parsing target URL:', e);
+                }
+
+                router.push(path);
+            }
+        };
+
+        // Attach to window so Median bridge can call it
+        window.median_onesignal_push_opened = handlePushOpened;
+
         return () => {
             authData?.subscription?.unsubscribe();
+            // Optional: delete window.median_onesignal_push_opened = undefined;
         };
-    }, []);
+    }, [router]);
 
     return null;
 }

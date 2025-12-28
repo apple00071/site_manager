@@ -36,7 +36,8 @@ export interface CreateNotificationParams {
 export class NotificationService {
   static getNotificationUrl(type: NotificationType, relatedId?: string, relatedType?: string): string | undefined {
     // Base dashboard URL
-    const baseUrl = '/dashboard';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://appleinterior.in';
+    const baseUrl = `${appUrl}/dashboard`;
 
     switch (type) {
       case 'task_assigned':
