@@ -39,7 +39,7 @@ export async function middleware(request: NextRequest) {
                 });
                 cookiesModified = true;
               }
-              
+
               request.cookies.set({
                 name,
                 value,
@@ -65,7 +65,7 @@ export async function middleware(request: NextRequest) {
                 });
                 cookiesModified = true;
               }
-              
+
               request.cookies.set({
                 name,
                 value: '',
@@ -117,7 +117,7 @@ export async function middleware(request: NextRequest) {
         clearResponse.cookies.set('sb-uswdtcmemgfqlkzmfkxs-auth-token.1', '', { maxAge: 0 });
         return clearResponse;
       }
-      
+
       const redirectUrl = new URL('/login', request.url);
       redirectUrl.searchParams.set('redirectedFrom', request.nextUrl.pathname);
       return NextResponse.redirect(redirectUrl);
@@ -160,8 +160,9 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - .well-known (App Links verification files)
      * - public folder
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|manifest.json|sw.js|icon-192x192.png|icon-512x512.png|public).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|manifest.json|sw.js|icon-192x192.png|icon-512x512.png|\\.well-known|public).*)',
   ],
 };

@@ -57,7 +57,7 @@ const nextConfig = {
   // Output configuration
   output: 'standalone',
 
-  // Headers for PWA files
+  // Headers for PWA files and App Links
   async headers() {
     return [
       {
@@ -79,6 +79,26 @@ const nextConfig = {
           {
             key: 'Service-Worker-Allowed',
             value: '/',
+          },
+        ],
+      },
+      {
+        // Android App Links - Digital Asset Links
+        source: '/.well-known/assetlinks.json',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'application/json',
+          },
+        ],
+      },
+      {
+        // iOS Universal Links - Apple App Site Association (without extension)
+        source: '/.well-known/apple-app-site-association',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'application/json',
           },
         ],
       },
