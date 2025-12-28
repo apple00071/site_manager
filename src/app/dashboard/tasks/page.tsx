@@ -1,5 +1,6 @@
 'use client';
 
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
@@ -334,6 +335,20 @@ export default function TasksPage() {
   useEffect(() => {
     fetchAssignees();
   }, []);
+
+  const searchParams = useSearchParams();
+  const taskIdParam = searchParams?.get('taskId');
+
+  useEffect(() => {
+    if (taskIdParam && tasks.length > 0) {
+      const task = tasks.find(t => t.id === taskIdParam);
+      if (task) {
+        console.log('🎯 Deep linking to task:', task.id);
+        setViewTask(task);
+        setViewModalOpen(true);
+      }
+    }
+  }, [taskIdParam, tasks]);
 
   useEffect(() => {
     fetchTasks();

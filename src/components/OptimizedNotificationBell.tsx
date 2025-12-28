@@ -6,6 +6,43 @@ import { getRelativeTime } from '@/lib/dateUtils';
 import { notificationCache, cacheInvalidation } from '@/lib/cache';
 import { supabase } from '@/lib/supabase-client-helper';
 import { FiClipboard, FiCheckCircle, FiXCircle, FiFolder, FiMic, FiPackage, FiMessageSquare, FiBell, FiInfo } from 'react-icons/fi';
+import { useRouter } from 'next/navigation';
+
+const getNotificationUrl = (type: string, relatedId?: string | null, relatedType?: string | null) => {
+  const baseUrl = '/dashboard';
+  switch (type) {
+    case 'task_assigned':
+      return relatedId ? `${baseUrl}/tasks?taskId=${relatedId}` : `${baseUrl}/tasks`;
+    case 'snag_created':
+    case 'snag_assigned':
+    case 'snag_resolved':
+    case 'snag_verified':
+      if (relatedType === 'project' && relatedId) {
+        return `${baseUrl}/projects/${relatedId}?stage=snag`;
+      }
+      return relatedId ? `${baseUrl}/snags?snagId=${relatedId}` : `${baseUrl}/snags`;
+    case 'design_approved':
+    case 'design_rejected':
+    case 'design_uploaded':
+      return relatedId ? `${baseUrl}/projects/${relatedId}?stage=design` : undefined;
+    case 'project_update':
+    case 'mention':
+      return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=updates` : undefined;
+    case 'inventory_added':
+      return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=inventory` : undefined;
+    case 'bill_approved':
+    case 'bill_rejected':
+    case 'invoice_created':
+    case 'invoice_approved':
+    case 'invoice_rejected':
+    case 'proposal_sent':
+    case 'proposal_approved':
+    case 'proposal_rejected':
+      return relatedId ? `${baseUrl}/projects/${relatedId}?stage=orders` : `${baseUrl}/tasks?category=proposals`;
+    default:
+      return undefined;
+  }
+};
 
 const getNotificationIcon = (type: string) => {
   switch (type) {
@@ -394,6 +431,25 @@ export function OptimizedNotificationBell() {
     }
   };
 
+  const router = useRouter();
+
+  const handleNotificationClick = async (notification: Notification) => {
+    // Mark as read
+    if (!notification.is_read) {
+      await markAsRead(notification.id);
+    }
+
+    // Navigate to URL
+    const url = getNotificationUrl(notification.type, notification.related_id, notification.related_type);
+    if (url) {
+      console.log('🚀 Navigating to:', url);
+      router.push(url);
+    }
+
+    // Close dropdown
+    setIsOpen(false);
+  };
+
   const deleteNotification = async (notificationId: string) => {
     try {
       const response = await fetch(`/api/notifications?id=${notificationId}`, {
@@ -410,19 +466,6 @@ export function OptimizedNotificationBell() {
       }
     } catch (error) {
       console.error('Error deleting notification:', error);
-    }
-  };
-
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'task_assigned': return <FiClipboard className="w-6 h-6 text-blue-500" />;
-      case 'design_approved': return <FiCheckCircle className="w-6 h-6 text-green-500" />;
-      case 'design_rejected': return <FiXCircle className="w-6 h-6 text-red-500" />;
-      case 'design_uploaded': return <FiFolder className="w-6 h-6 text-yellow-500" />;
-      case 'project_update': return <FiInfo className="w-6 h-6 text-indigo-500" />;
-      case 'inventory_added': return <FiPackage className="w-6 h-6 text-purple-500" />;
-      case 'comment_added': return <FiMessageSquare className="w-6 h-6 text-gray-500" />;
-      default: return <FiBell className="w-6 h-6 text-gray-400" />;
     }
   };
 
@@ -524,7 +567,8 @@ export function OptimizedNotificationBell() {
                   {notifications.map(notification => (
                     <div
                       key={notification.id}
-                      className={`px-4 py-3 hover:bg-gray-50 transition-colors ${!notification.is_read ? 'bg-yellow-50' : ''
+                      onClick={() => handleNotificationClick(notification)}
+                      className={`px-4 py-3 hover:bg-gray-50 transition-colors pointer-cursor ${!notification.is_read ? 'bg-yellow-50' : ''
                         }`}
                     >
                       <div className="flex items-start gap-3">
@@ -537,7 +581,10 @@ export function OptimizedNotificationBell() {
                               {notification.title}
                             </p>
                             <button
-                              onClick={() => deleteNotification(notification.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteNotification(notification.id);
+                              }}
                               className="text-gray-400 hover:text-red-600 flex-shrink-0"
                               aria-label="Delete notification"
                             >

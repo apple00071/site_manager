@@ -34,6 +34,46 @@ export interface CreateNotificationParams {
 }
 
 export class NotificationService {
+  static getNotificationUrl(type: NotificationType, relatedId?: string, relatedType?: string): string | undefined {
+    // Base dashboard URL
+    const baseUrl = '/dashboard';
+
+    switch (type) {
+      case 'task_assigned':
+        return relatedId ? `${baseUrl}/tasks?taskId=${relatedId}` : `${baseUrl}/tasks`;
+      case 'snag_created':
+      case 'snag_assigned':
+      case 'snag_resolved':
+      case 'snag_verified':
+        // If we have a project ID (relatedId for snag_created often is snagId, but we need projectId for the sub-tab)
+        // For global snags page, we can just use /dashboard/snags
+        if (relatedType === 'project' && relatedId) {
+          return `${baseUrl}/projects/${relatedId}?stage=snag`;
+        }
+        return relatedId ? `${baseUrl}/snags?snagId=${relatedId}` : `${baseUrl}/snags`;
+      case 'design_approved':
+      case 'design_rejected':
+      case 'design_uploaded':
+        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=design` : undefined;
+      case 'project_update':
+      case 'mention':
+        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=updates` : undefined;
+      case 'inventory_added':
+        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=inventory` : undefined;
+      case 'bill_approved':
+      case 'bill_rejected':
+      case 'invoice_created':
+      case 'invoice_approved':
+      case 'invoice_rejected':
+      case 'proposal_sent':
+      case 'proposal_approved':
+      case 'proposal_rejected':
+        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=orders` : `${baseUrl}/tasks?category=proposals`;
+      default:
+        return undefined;
+    }
+  }
+
   static async createNotification(params: CreateNotificationParams) {
     console.log('📢 NotificationService.createNotification called with:', JSON.stringify(params, null, 2));
     try {
@@ -59,6 +99,10 @@ export class NotificationService {
 
       console.log('✅ Notification created successfully:', data);
 
+      // Generate deep link URL
+      const deepLinkUrl = this.getNotificationUrl(params.type, params.relatedId, params.relatedType);
+      console.log('🔗 Generated deep link URL:', deepLinkUrl);
+
       // Send push notification via OneSignal (non-blocking)
       console.log('🔔 Attempting to send OneSignal push notification to user:', params.userId);
       try {
@@ -72,7 +116,9 @@ export class NotificationService {
             type: params.type,
             relatedId: params.relatedId,
             relatedType: params.relatedType,
-          }
+            url: deepLinkUrl,
+          },
+          deepLinkUrl // Pass as URL parameter too
         );
         console.log('📲 OneSignal push result:', pushResult);
       } catch (pushError) {

@@ -4,7 +4,7 @@ import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { useEffect, useState } from 'react';
 import { FiPlus, FiFilter, FiCheckCircle, FiAlertTriangle, FiUser, FiMapPin, FiCamera, FiX, FiInfo } from 'react-icons/fi';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -77,11 +77,24 @@ export default function SnagsPage() {
     const [uploadingPhotos, setUploadingPhotos] = useState(false);
     const [viewingImage, setViewingImage] = useState<string | null>(null);
 
+    const searchParams = useSearchParams();
+    const snagIdParam = searchParams?.get('snagId');
+
     useEffect(() => {
         setTitle('Snag List');
         setSubtitle('');
         fetchGlobalSnags();
     }, []);
+
+    useEffect(() => {
+        if (snagIdParam && snags.length > 0) {
+            const snag = snags.find(s => s.id === snagIdParam);
+            if (snag) {
+                console.log('🎯 Deep linking to snag:', snag.id);
+                handleSnagClick(snag);
+            }
+        }
+    }, [snagIdParam, snags]);
 
     const handleSnagClick = (snag: Snag) => {
         if (snag.project_id && snag.project_id !== 'null') {
