@@ -304,7 +304,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                                     key={user.id}
                                     className="px-4 py-3 hover:bg-gray-50 transition-colors"
                                 >
-                                    <div className="flex items-start gap-3">
+                                    <div className="flex items-center gap-3">
                                         {/* Avatar */}
                                         <div
                                             className={`w-9 h-9 rounded-full ${getAvatarColor(user.name)} flex items-center justify-center text-white text-xs font-medium flex-shrink-0`}
@@ -320,31 +320,20 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                                             <p className="text-xs text-gray-500 truncate">
                                                 {user.designation || 'Team Member'}
                                             </p>
-                                            {user.phone_number && (
-                                                <a
-                                                    href={`tel:${user.phone_number}`}
-                                                    className="text-xs text-yellow-600 hover:text-yellow-700 flex items-center gap-1 mt-1"
-                                                >
-                                                    <FiPhone className="w-3 h-3" />
-                                                    {user.phone_number}
-                                                </a>
-                                            )}
                                         </div>
-                                    </div>
 
-                                    {/* Action button - hide for assigned employee and admin users */}
-                                    {canManageUsers && assignedEmployee?.id !== user.id && user.role !== 'admin' && (
-                                        <div className="mt-2 ml-12">
+                                        {/* Delete button - inline, hide for assigned employee and admin users */}
+                                        {canManageUsers && assignedEmployee?.id !== user.id && user.role !== 'admin' && (
                                             <button
                                                 onClick={() => handleRemoveUser(user.id)}
                                                 disabled={isDeleting}
-                                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 flex-shrink-0"
                                                 title="Remove user from project"
                                             >
-                                                <FiTrash2 className="w-3.5 h-3.5" />
+                                                <FiTrash2 className="w-4 h-4" />
                                             </button>
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </div>

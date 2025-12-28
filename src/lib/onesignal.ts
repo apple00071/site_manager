@@ -65,11 +65,23 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
             return false;
         }
 
+        // Determine auth header format based on key type
+        // os_v2_app_* or os_v2_org_* keys use Basic auth
+        // Legacy REST API keys use "key" prefix
+        let authHeader: string;
+        if (ONESIGNAL_REST_API_KEY.startsWith('os_v2_')) {
+            authHeader = `Basic ${ONESIGNAL_REST_API_KEY}`;
+            console.log('📲 Using V2 API key authentication');
+        } else {
+            authHeader = `key ${ONESIGNAL_REST_API_KEY}`;
+            console.log('📲 Using Legacy API key authentication');
+        }
+
         const response = await fetch(ONESIGNAL_API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                // IMPORTANT: Use Legacy REST API Key (long alphanumeric string)\n                // Do NOT use os_v2_app_* or os_v2_org_* keys - those won't work\n                Authorization: `key ${ONESIGNAL_REST_API_KEY}`,
+                'Authorization': authHeader,
             },
             body: JSON.stringify(payload),
         });

@@ -4,10 +4,21 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
-import { FiPlus, FiClock, FiCheckCircle, FiAlertCircle, FiBriefcase, FiCheck, FiPlay, FiPause } from 'react-icons/fi';
+import { FiPlus, FiClock, FiCheckCircle, FiAlertCircle, FiBriefcase, FiCheck, FiPlay, FiPause, FiUsers, FiUser } from 'react-icons/fi';
 import { formatDateIST } from '@/lib/dateUtils';
 import { useToast } from '@/components/ui/Toast';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
+
+interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  activeProjects: number;
+  completedProjects: number;
+  projectNames: string[];
+  isFree: boolean;
+}
 
 export default function DashboardPage() {
   const { user, isAdmin } = useAuth();
@@ -25,6 +36,7 @@ export default function DashboardPage() {
   });
   const [recentProjects, setRecentProjects] = useState<any[]>([]);
   const [recentTasks, setRecentTasks] = useState<any[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Set header title
@@ -120,6 +132,102 @@ export default function DashboardPage() {
           console.error('Error fetching tasks:', error);
           setRecentTasks([]); // Set empty array on error
         }
+
+        // Fetch all employees/team members and their project assignments
+        try {
+          // Fetch all users via API (uses admin client to bypass RLS)
+          const usersResponse = await fetch('/api/admin/users');
+          let allUsers: any[] = [];
+
+          if (usersResponse.ok) {
+            allUsers = await usersResponse.json();
+            // Filter out customers and admins (admins assign work, not receive it)
+            allUsers = allUsers.filter((u: any) => u.role !== 'customer' && u.role !== 'admin');
+          } else {
+            console.error('Error fetching users:', usersResponse.status);
+          }
+
+          if (allUsers && allUsers.length > 0) {
+            // Create a map to track each user's projects
+            const userProjectMap = new Map<string, { active: Set<string>, completed: Set<string> }>();
+
+            // Initialize map for all users with Sets to avoid duplicates
+            allUsers.forEach((u: any) => {
+              userProjectMap.set(u.id, { active: new Set(), completed: new Set() });
+            });
+
+            // Create a project lookup for easy access by ID
+            const projectLookup = new Map<string, { title: string, status: string }>();
+            if (Array.isArray(projects)) {
+              projects.forEach((project: any) => {
+                projectLookup.set(project.id, { title: project.title, status: project.status });
+
+                // Map main designer (assigned_employee_id)
+                const employeeId = project.assigned_employee_id;
+                if (employeeId && userProjectMap.has(employeeId)) {
+                  const userProjects = userProjectMap.get(employeeId)!;
+                  if (project.status === 'completed') {
+                    userProjects.completed.add(project.title);
+                  } else {
+                    userProjects.active.add(project.title);
+                  }
+                }
+              });
+            }
+
+            // Fetch project_members to get all team assignments (via API to bypass RLS)
+            try {
+              const membersResponse = await fetch('/api/project-members/all');
+              if (membersResponse.ok) {
+                const projectMembers = await membersResponse.json();
+
+                if (projectMembers && Array.isArray(projectMembers)) {
+                  projectMembers.forEach((member: any) => {
+                    const project = projectLookup.get(member.project_id);
+                    if (project && userProjectMap.has(member.user_id)) {
+                      const userProjects = userProjectMap.get(member.user_id)!;
+                      if (project.status === 'completed') {
+                        userProjects.completed.add(project.title);
+                      } else {
+                        userProjects.active.add(project.title);
+                      }
+                    }
+                  });
+                }
+              }
+            } catch (membersErr) {
+              console.error('Error fetching project members:', membersErr);
+            }
+
+            // Build team members array
+            const teamMembersData: TeamMember[] = allUsers.map((u: any) => {
+              const userProjects = userProjectMap.get(u.id) || { active: new Set<string>(), completed: new Set<string>() };
+              const activeArray = Array.from(userProjects.active);
+              const completedArray = Array.from(userProjects.completed);
+              return {
+                id: u.id,
+                name: u.full_name || 'Unknown',
+                email: u.email || '',
+                role: u.role || 'employee',
+                activeProjects: activeArray.length,
+                completedProjects: completedArray.length,
+                projectNames: activeArray,
+                isFree: activeArray.length === 0,
+              };
+            });
+
+            // Sort: free members first, then by active projects (ascending)
+            teamMembersData.sort((a, b) => {
+              if (a.isFree && !b.isFree) return -1;
+              if (!a.isFree && b.isFree) return 1;
+              return a.activeProjects - b.activeProjects;
+            });
+
+            setTeamMembers(teamMembersData);
+          }
+        } catch (error) {
+          console.error('Error fetching team members:', error);
+        }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -159,28 +267,41 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Recent projects skeleton */}
-        <div className="bg-white rounded-2xl shadow-card border border-gray-100">
-          <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200">
-            <div className="h-6 bg-gray-200 rounded w-40"></div>
-          </div>
-          <div className="divide-y divide-gray-100">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="px-4 sm:px-6 py-4 sm:py-5">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
-                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                  </div>
-                  <div className="h-6 bg-gray-200 rounded-full w-20"></div>
-                </div>
-              </div>
-            ))}
-          </div>
+        {/* Charts skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="bg-white rounded-2xl shadow-card border border-gray-100 p-6">
+              <div className="h-6 bg-gray-200 rounded w-32 mb-4"></div>
+              <div className="h-40 bg-gray-100 rounded-lg"></div>
+            </div>
+          ))}
         </div>
       </div>
     );
   }
+
+  // Calculate percentages for charts
+  const projectCompletionPercent = stats.totalProjects > 0
+    ? Math.round((stats.completedProjects / stats.totalProjects) * 100)
+    : 0;
+  const taskCompletionPercent = stats.totalTasks > 0
+    ? Math.round((stats.doneTasks / stats.totalTasks) * 100)
+    : 0;
+
+  // Generate avatar color based on name
+  const getAvatarColor = (name: string) => {
+    const colors = [
+      'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-pink-500',
+      'bg-indigo-500', 'bg-teal-500', 'bg-orange-500', 'bg-cyan-500'
+    ];
+    const index = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length;
+    return colors[index];
+  };
+
+  // Get initials from name
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
 
   return (
     <div className="space-y-4">
@@ -293,299 +414,288 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Visual Progress Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-      {/* Two Column Layout: Tasks on Left, Recent Projects on Right */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Tasks - Left Column */}
-        <div className="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden animate-slide-up">
-          <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200 flex items-center justify-between">
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Recent Tasks</h2>
-            <Link
-              href="/dashboard/tasks"
-              className="text-sm text-yellow-600 hover:text-yellow-700 font-medium"
-            >
-              View All
-            </Link>
-          </div>
-          <div className="divide-y divide-gray-100">
-            {recentTasks.length > 0 ? (
-              recentTasks.map((task, index) => (
-                <div
-                  key={task.id}
-                  className="px-4 sm:px-6 py-4 sm:py-5 hover:bg-gray-50 transition-all duration-200"
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm sm:text-base font-semibold text-gray-900 truncate">
-                        {task.title}
-                      </h3>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                        {task.step && task.step.project ? (
-                          <>
-                            <span>{task.step.project.title}</span>
-                            <span>•</span>
-                            <span>{task.step.title}</span>
-                          </>
-                        ) : (
-                          <span className="italic">Daily Task</span>
-                        )}
-                      </div>
-                      <div className="mt-2 flex items-center gap-2">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${task.status === 'todo' ? 'bg-gray-100 text-gray-700' :
-                          task.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-                            task.status === 'blocked' ? 'bg-red-100 text-red-700' :
-                              'bg-green-100 text-green-700'
-                          }`}>
-                          {task.status === 'todo' ? 'To Do' :
-                            task.status === 'in_progress' ? 'In Progress' :
-                              task.status === 'blocked' ? 'Blocked' : 'Done'}
-                        </span>
-                        {task.priority && (
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${task.priority === 'low' ? 'bg-green-100 text-green-700' :
-                            task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                              task.priority === 'high' ? 'bg-orange-100 text-orange-700' :
-                                'bg-red-100 text-red-700'
-                            }`}>
-                            {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 ml-4">
-                      {task.status !== 'done' && (
-                        <button
-                          onClick={async () => {
-                            // Optimistic update - immediately update UI
-                            const previousTasks = [...recentTasks];
-                            setRecentTasks(prev => prev.map(t =>
-                              t.id === task.id ? { ...t, status: 'done' } : t
-                            ));
-                            setStats(prev => ({
-                              ...prev,
-                              doneTasks: prev.doneTasks + 1,
-                              todoTasks: task.status === 'todo' ? prev.todoTasks - 1 : prev.todoTasks,
-                              inProgressTasks: task.status === 'in_progress' ? prev.inProgressTasks - 1 : prev.inProgressTasks,
-                            }));
-
-                            try {
-                              // Determine correct endpoint based on task type
-                              const isProjectTask = !!task.step;
-                              const endpoint = isProjectTask ? '/api/tasks' : '/api/calendar-tasks';
-                              const response = await fetch(endpoint, {
-                                method: 'PATCH',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  id: task.id,
-                                  status: 'done',
-                                  ...(isProjectTask && { step_id: task.step?.id })
-                                }),
-                              });
-
-                              if (!response.ok) {
-                                // Revert on error
-                                setRecentTasks(previousTasks);
-                                setStats(prev => ({
-                                  ...prev,
-                                  doneTasks: prev.doneTasks - 1,
-                                  todoTasks: task.status === 'todo' ? prev.todoTasks + 1 : prev.todoTasks,
-                                  inProgressTasks: task.status === 'in_progress' ? prev.inProgressTasks + 1 : prev.inProgressTasks,
-                                }));
-                                showToast('error', 'Failed to update task status');
-                              }
-                            } catch (error) {
-                              // Revert on error
-                              setRecentTasks(previousTasks);
-                              setStats(prev => ({
-                                ...prev,
-                                doneTasks: prev.doneTasks - 1,
-                                todoTasks: task.status === 'todo' ? prev.todoTasks + 1 : prev.todoTasks,
-                                inProgressTasks: task.status === 'in_progress' ? prev.inProgressTasks + 1 : prev.inProgressTasks,
-                              }));
-                              console.error('Error updating task:', error);
-                              showToast('error', 'Failed to update task');
-                            }
-                          }}
-                          className="text-green-600 hover:text-green-800 p-1 rounded hover:bg-green-50"
-                          title="Mark as Done"
-                        >
-                          <FiCheck className="h-4 w-4" />
-                        </button>
-                      )}
-                      {task.status === 'todo' && (
-                        <button
-                          onClick={async () => {
-                            // Optimistic update - immediately update UI
-                            const previousTasks = [...recentTasks];
-                            setRecentTasks(prev => prev.map(t =>
-                              t.id === task.id ? { ...t, status: 'in_progress' } : t
-                            ));
-                            setStats(prev => ({
-                              ...prev,
-                              todoTasks: prev.todoTasks - 1,
-                              inProgressTasks: prev.inProgressTasks + 1,
-                            }));
-
-                            try {
-                              // Determine correct endpoint based on task type
-                              const isProjectTask = !!task.step;
-                              const endpoint = isProjectTask ? '/api/tasks' : '/api/calendar-tasks';
-                              const response = await fetch(endpoint, {
-                                method: 'PATCH',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  id: task.id,
-                                  status: 'in_progress',
-                                  ...(isProjectTask && { step_id: task.step?.id })
-                                }),
-                              });
-
-                              if (!response.ok) {
-                                // Revert on error
-                                setRecentTasks(previousTasks);
-                                setStats(prev => ({
-                                  ...prev,
-                                  todoTasks: prev.todoTasks + 1,
-                                  inProgressTasks: prev.inProgressTasks - 1,
-                                }));
-                                alert('Failed to update task status');
-                              }
-                            } catch (error) {
-                              // Revert on error
-                              setRecentTasks(previousTasks);
-                              setStats(prev => ({
-                                ...prev,
-                                todoTasks: prev.todoTasks + 1,
-                                inProgressTasks: prev.inProgressTasks - 1,
-                              }));
-                              console.error('Error updating task:', error);
-                              showToast('error', 'Failed to update task');
-                            }
-                          }}
-                          className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
-                          title="Start Task"
-                        >
-                          <FiPlay className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="px-4 sm:px-6 py-8 sm:py-12 text-center text-gray-500">
-                <FiCheckCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p className="text-sm sm:text-base font-medium">No tasks found</p>
-                <p className="text-xs sm:text-sm mt-1">Create your first task to get started</p>
+        {/* Project Status Chart */}
+        <div className="bg-white rounded-2xl shadow-card border border-gray-100 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Project Status</h3>
+          <div className="flex items-center justify-center">
+            <div className="relative w-40 h-40">
+              {/* SVG Donut Chart */}
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                {/* Background circle */}
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  fill="none"
+                  stroke="#e5e7eb"
+                  strokeWidth="12"
+                />
+                {/* Completed segment (Green) */}
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  fill="none"
+                  stroke="#22c55e"
+                  strokeWidth="12"
+                  strokeDasharray={`${(stats.completedProjects / Math.max(stats.totalProjects, 1)) * 251.2} 251.2`}
+                  strokeLinecap="round"
+                  className="transition-all duration-1000 ease-out"
+                />
+                {/* Active segment (Blue) */}
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  fill="none"
+                  stroke="#3b82f6"
+                  strokeWidth="12"
+                  strokeDasharray={`${(stats.activeProjects / Math.max(stats.totalProjects, 1)) * 251.2} 251.2`}
+                  strokeDashoffset={`${-((stats.completedProjects / Math.max(stats.totalProjects, 1)) * 251.2)}`}
+                  strokeLinecap="round"
+                  className="transition-all duration-1000 ease-out"
+                />
+              </svg>
+              {/* Center text */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-2xl font-bold text-gray-900">{stats.totalProjects}</span>
+                <span className="text-xs text-gray-500">Total</span>
               </div>
-            )}
+            </div>
+          </div>
+          {/* Legend */}
+          <div className="flex justify-center gap-6 mt-4">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+              <span className="text-sm text-gray-600">Completed ({stats.completedProjects})</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+              <span className="text-sm text-gray-600">Active ({stats.activeProjects})</span>
+            </div>
           </div>
         </div>
 
-        {/* Recent Projects - Right Column */}
-        <div className="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden animate-slide-up">
-          <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200 flex items-center justify-between">
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Recent Projects</h2>
-            <Link
-              href="/dashboard/projects"
-              className="text-sm text-yellow-600 hover:text-yellow-700 font-medium"
-            >
-              View All
-            </Link>
-          </div>
-          <div className="divide-y divide-gray-100">
-            {recentProjects.length > 0 ? (
-              recentProjects.map((project, index) => (
-                <Link
-                  key={project.id}
-                  href={`/dashboard/projects/${project.id}`}
-                  className="block hover:bg-gray-50 active:bg-gray-100 transition-all duration-200 touch-target"
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
-                  <div className="px-4 sm:px-6 py-4 sm:py-5">
-                    <div className="flex flex-col gap-3">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-sm sm:text-base font-semibold text-gray-900 truncate leading-tight">
-                          {project.title}
-                        </h3>
-                        <div className="mt-1 text-xs sm:text-sm text-gray-500">
-                          <span className="font-medium">{project.customer_name || 'N/A'}</span>
-                        </div>
-                        <div className="mt-2 grid grid-cols-1 gap-1 text-xs text-gray-600">
-                          {project.flat_number && (
-                            <div>
-                              <span className="text-gray-500">Flat No:</span>
-                              <span className="ml-1 text-gray-900 font-medium">{project.flat_number}</span>
-                            </div>
-                          )}
-                          {project.phone_number && (
-                            <div>
-                              <span className="text-gray-500">Phone:</span>
-                              <a href={`tel:${project.phone_number}`} className="ml-1 text-blue-600 hover:text-blue-800 font-medium">
-                                {project.phone_number}
-                              </a>
-                            </div>
-                          )}
-                          {project.property_type && (
-                            <div>
-                              <span className="text-gray-500">Type:</span>
-                              <span className="ml-1 text-gray-900 font-medium capitalize">{project.property_type.replace(/_/g, ' ')}</span>
-                            </div>
-                          )}
-                          {project.area_sqft && (
-                            <div>
-                              <span className="text-gray-500">Area:</span>
-                              <span className="ml-1 text-gray-900 font-medium">{project.area_sqft} sq ft</span>
-                            </div>
-                          )}
-                          {project.estimated_completion_date && (
-                            <div>
-                              <span className="text-gray-500">Est. Completion:</span>
-                              <span className="ml-1 text-gray-900 font-medium">
-                                {formatDateIST(project.estimated_completion_date)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex flex-row sm:flex-col items-start sm:items-end gap-2">
-                        {project.workflow_stage && (
-                          <span
-                            className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap ${project.workflow_stage === 'design_completed'
-                              ? 'bg-green-100 text-green-700'
-                              : project.workflow_stage === 'design_in_progress'
-                                ? 'bg-blue-100 text-blue-700'
-                                : project.workflow_stage === 'design_pending'
-                                  ? 'bg-amber-100 text-amber-700'
-                                  : 'bg-gray-100 text-gray-700'
-                              }`}
-                          >
-                            {project.workflow_stage.replace(/_/g, ' ')}
-                          </span>
-                        )}
-                        <span className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap ${project.status === 'completed'
-                          ? 'bg-green-100 text-green-700'
-                          : project.status === 'in_progress'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-amber-100 text-amber-700'
-                          }`}>
-                          {project.status.replace('_', ' ')}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              ))
-            ) : (
-              <div className="px-4 sm:px-6 py-8 sm:py-12 text-center text-gray-500">
-                <FiBriefcase className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p className="text-sm sm:text-base font-medium">No projects found</p>
-                <p className="text-xs sm:text-sm mt-1">Create your first project to get started</p>
+        {/* Task Status Chart */}
+        <div className="bg-white rounded-2xl shadow-card border border-gray-100 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Task Status</h3>
+          <div className="flex items-center justify-center">
+            <div className="relative w-40 h-40">
+              {/* SVG Donut Chart */}
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                {/* Background circle */}
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  fill="none"
+                  stroke="#e5e7eb"
+                  strokeWidth="12"
+                />
+                {/* Done segment (Green) */}
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  fill="none"
+                  stroke="#22c55e"
+                  strokeWidth="12"
+                  strokeDasharray={`${(stats.doneTasks / Math.max(stats.totalTasks, 1)) * 251.2} 251.2`}
+                  strokeLinecap="round"
+                  className="transition-all duration-1000 ease-out"
+                />
+                {/* In Progress segment (Blue) */}
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  fill="none"
+                  stroke="#3b82f6"
+                  strokeWidth="12"
+                  strokeDasharray={`${(stats.inProgressTasks / Math.max(stats.totalTasks, 1)) * 251.2} 251.2`}
+                  strokeDashoffset={`${-((stats.doneTasks / Math.max(stats.totalTasks, 1)) * 251.2)}`}
+                  strokeLinecap="round"
+                  className="transition-all duration-1000 ease-out"
+                />
+                {/* To Do segment (Gray) */}
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  fill="none"
+                  stroke="#9ca3af"
+                  strokeWidth="12"
+                  strokeDasharray={`${(stats.todoTasks / Math.max(stats.totalTasks, 1)) * 251.2} 251.2`}
+                  strokeDashoffset={`${-(((stats.doneTasks + stats.inProgressTasks) / Math.max(stats.totalTasks, 1)) * 251.2)}`}
+                  strokeLinecap="round"
+                  className="transition-all duration-1000 ease-out"
+                />
+              </svg>
+              {/* Center text */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-2xl font-bold text-gray-900">{stats.totalTasks}</span>
+                <span className="text-xs text-gray-500">Total</span>
               </div>
-            )}
+            </div>
+          </div>
+          {/* Legend */}
+          <div className="flex flex-wrap justify-center gap-4 mt-4">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+              <span className="text-sm text-gray-600">Done ({stats.doneTasks})</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+              <span className="text-sm text-gray-600">In Progress ({stats.inProgressTasks})</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+              <span className="text-sm text-gray-600">To Do ({stats.todoTasks})</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Completion Progress */}
+        <div className="bg-white rounded-2xl shadow-card border border-gray-100 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Completion Progress</h3>
+
+          {/* Project Completion */}
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-700">Projects</span>
+              <span className="text-sm font-bold text-yellow-600">{projectCompletionPercent}%</span>
+            </div>
+            <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-full transition-all duration-1000 ease-out"
+                style={{ width: `${projectCompletionPercent}%` }}
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {stats.completedProjects} of {stats.totalProjects} completed
+            </p>
+          </div>
+
+          {/* Task Completion */}
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-700">Tasks</span>
+              <span className="text-sm font-bold text-green-600">{taskCompletionPercent}%</span>
+            </div>
+            <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full transition-all duration-1000 ease-out"
+                style={{ width: `${taskCompletionPercent}%` }}
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {stats.doneTasks} of {stats.totalTasks} completed
+            </p>
+          </div>
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-100">
+            <div className="text-center p-3 bg-amber-50 rounded-lg">
+              <p className="text-2xl font-bold text-amber-600">{stats.upcomingDeadlines}</p>
+              <p className="text-xs text-gray-600">Due This Week</p>
+            </div>
+            <div className="text-center p-3 bg-blue-50 rounded-lg">
+              <p className="text-2xl font-bold text-blue-600">{stats.inProgressTasks}</p>
+              <p className="text-xs text-gray-600">In Progress</p>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Team Overview - Admin Only, Desktop Only */}
+      {isAdmin && (<div className="hidden lg:block">
+        <div className="bg-white rounded-2xl shadow-card border border-gray-100 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-purple-100 text-purple-600">
+                <FiUsers className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Team Overview</h3>
+                <p className="text-xs text-gray-500">{teamMembers.length} members • {teamMembers.filter(m => !m.isFree).length} assigned</p>
+              </div>
+            </div>
+            <Link
+              href="/dashboard/settings"
+              className="text-sm text-yellow-600 hover:text-yellow-700 font-medium"
+            >
+              Manage Team
+            </Link>
+          </div>
+
+          {teamMembers.length > 0 ? (
+            <div className="overflow-hidden rounded-xl border border-gray-200">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-3">Team Member</th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-3">Current Projects</th>
+                    <th className="text-center text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-3">Status</th>
+                    <th className="text-right text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-3">Quick Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {teamMembers.slice(0, 8).map((member) => (
+                    <tr key={member.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full ${getAvatarColor(member.name)} flex items-center justify-center text-white font-medium text-xs`}>
+                            {getInitials(member.name)}
+                          </div>
+                          <span className="font-medium text-gray-900">{member.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-gray-600">
+                          {member.projectNames.length > 0
+                            ? member.projectNames.slice(0, 2).join(', ') + (member.projectNames.length > 2 ? ` +${member.projectNames.length - 2}` : '')
+                            : '—'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${member.isFree
+                          ? 'bg-green-50 text-green-700'
+                          : 'bg-blue-50 text-blue-700'
+                          }`}>
+                          {member.isFree ? 'Available' : `${member.activeProjects} Project${member.activeProjects !== 1 ? 's' : ''}`}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Link
+                          href={`/dashboard/tasks?assign=${member.id}`}
+                          className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-yellow-700 bg-yellow-50 hover:bg-yellow-100 rounded-lg transition-colors"
+                        >
+                          <FiPlus className="h-3 w-3 mr-1" />
+                          Task
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {teamMembers.length > 8 && (
+                <div className="px-4 py-2 bg-gray-50 text-center border-t border-gray-200">
+                  <span className="text-sm text-gray-500">+{teamMembers.length - 8} more team members</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8 border border-gray-200 rounded-xl">
+              <FiUser className="h-10 w-10 mx-auto mb-3 text-gray-300" />
+              <p className="text-gray-500 font-medium">No team members found</p>
+              <p className="text-sm text-gray-400 mt-1">Add employees to see team availability</p>
+            </div>
+          )}
+        </div>
+      </div>)}
     </div>
   );
 }

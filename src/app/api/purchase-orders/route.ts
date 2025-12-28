@@ -26,6 +26,19 @@ const poSchema = z.object({
 // Helper to check project access
 async function checkProjectAccess(userId: string, projectId: string, userRole: string) {
     if (userRole === 'admin') return true;
+
+    // Check if user is assigned to the project directly
+    const { data: project } = await supabaseAdmin
+        .from('projects')
+        .select('assigned_employee_id, created_by')
+        .eq('id', projectId)
+        .single();
+
+    if (project && (project.assigned_employee_id === userId || project.created_by === userId)) {
+        return true;
+    }
+
+    // Check if user is a project member
     const { data } = await supabaseAdmin
         .from('project_members')
         .select('permissions')
