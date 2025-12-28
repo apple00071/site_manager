@@ -13,7 +13,8 @@ interface SendNotificationParams {
     title: string;
     message: string;
     data?: Record<string, unknown>; // Optional custom data
-    url?: string; // Optional URL to open when notification is clicked
+    url?: string; // Launch URL (Caution: can trigger browser)
+    targetUrl?: string; // Median-specific internal navigation URL
 }
 
 /**
@@ -39,7 +40,10 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
             app_id: ONESIGNAL_APP_ID,
             headings: { en: params.title },
             contents: { en: params.message },
-            data: params.data || {},
+            data: {
+                ...(params.data || {}),
+                targetUrl: params.targetUrl || params.url // Ensure targetUrl is present for Median
+            },
             url: params.url,
             target_channel: "push"
         };

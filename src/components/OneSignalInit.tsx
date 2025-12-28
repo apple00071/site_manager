@@ -200,8 +200,11 @@ export default function OneSignalInit() {
             console.log('🔔 OneSignal Push Opened event:', JSON.stringify(data, null, 2));
 
             // Median passes data in a specific format
-            // Often the URL is in additionalData or in the root
-            const targetUrl = data?.additionalData?.url || data?.url;
+            // Often the URL is in additionalData, targetUrl, or in the root
+            const targetUrl = data?.additionalData?.targetUrl ||
+                data?.additionalData?.url ||
+                data?.targetUrl ||
+                data?.url;
 
             if (targetUrl) {
                 console.log('🚀 Deep linking to:', targetUrl);
