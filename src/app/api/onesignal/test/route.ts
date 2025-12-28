@@ -15,10 +15,16 @@ export async function GET() {
         const hasApiKey = !!ONESIGNAL_REST_API_KEY;
         const keyType = ONESIGNAL_REST_API_KEY?.startsWith('os_v2_') ? 'V2' : 'Legacy';
 
+        // Debug info to catch if the value is literally the name of the variable
+        const keyLength = ONESIGNAL_REST_API_KEY?.length || 0;
+        const keyStart = ONESIGNAL_REST_API_KEY?.substring(0, 10) || 'NONE';
+
         return NextResponse.json({
             configured: hasAppId && hasApiKey,
             app_id: hasAppId ? `${ONESIGNAL_APP_ID?.substring(0, 10)}...` : 'NOT SET',
-            api_key_type: hasApiKey ? keyType : 'NOT SET',
+            api_key_type: keyType,
+            api_key_length: keyLength,
+            api_key_starts_with: keyStart,
             api_key_preview: hasApiKey ? `${ONESIGNAL_REST_API_KEY?.substring(0, 20)}...` : 'NOT SET',
         });
     } catch (error) {
