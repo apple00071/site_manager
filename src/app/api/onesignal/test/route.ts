@@ -44,10 +44,10 @@ export async function POST(request: NextRequest) {
         const { targetUserId } = await request.json();
         const userId = targetUserId || user.id;
 
-        // Determine auth header
+        // Determine auth header - V2 keys use Bearer, Legacy use Basic
         const authHeader = ONESIGNAL_REST_API_KEY.startsWith('os_v2_')
-            ? `Basic ${ONESIGNAL_REST_API_KEY}`
-            : `key ${ONESIGNAL_REST_API_KEY}`;
+            ? `Bearer ${ONESIGNAL_REST_API_KEY}`
+            : `Basic ${ONESIGNAL_REST_API_KEY}`;
 
         const payload = {
             app_id: ONESIGNAL_APP_ID,

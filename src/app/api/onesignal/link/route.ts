@@ -30,10 +30,10 @@ export async function POST(request: NextRequest) {
         // API docs: https://documentation.onesignal.com/reference/create-aliases
         const aliasUrl = `https://api.onesignal.com/apps/${ONESIGNAL_APP_ID}/users/by/onesignal_id/${oneSignalId}/identity`;
 
-        // Determine auth header
+        // Determine auth header - V2 keys use Bearer, Legacy use Basic
         const authHeader = ONESIGNAL_REST_API_KEY.startsWith('os_v2_')
-            ? `Basic ${ONESIGNAL_REST_API_KEY}`
-            : `key ${ONESIGNAL_REST_API_KEY}`;
+            ? `Bearer ${ONESIGNAL_REST_API_KEY}`
+            : `Basic ${ONESIGNAL_REST_API_KEY}`;
 
         const response = await fetch(aliasUrl, {
             method: 'PATCH',
