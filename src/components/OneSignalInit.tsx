@@ -23,6 +23,7 @@ declare global {
                 setSMSNumber: (phone: string) => void;
                 requestPermission: () => void;
                 setExternalUserId: (externalId: string) => void;
+                onNotificationOpened: (callback: (event: any) => void) => void;
                 onesignalInfo: () => Promise<{
                     oneSignalUserId: string;
                     oneSignalPushToken: string;
@@ -195,41 +196,35 @@ export default function OneSignalInit() {
             }
         });
 
-        // Handle deep linking from OneSignal push notifications
-        const handlePushOpened = (data: any) => {
-            console.log('🔔 OneSignal Push Opened event:', JSON.stringify(data, null, 2));
+        // Handle deep linking from OneSignal push notifications via Median bridge
+        const handlePushOpened = (event: any) => {
+            console.log('🔔 OneSignal Push Opened event:', JSON.stringify(event, null, 2));
 
-            // Median passes data in a specific format
-            // Often the URL is in additionalData, targetUrl, or in the root
-            const targetUrl = data?.additionalData?.targetUrl ||
-                data?.additionalData?.url ||
-                data?.targetUrl ||
-                data?.url;
+            // Get route from notification data payload
+            const route = event?.notification?.additionalData?.route ||
+                event?.additionalData?.route ||
+                event?.route;
 
-            if (targetUrl) {
-                console.log('🚀 Deep linking to:', targetUrl);
-
-                // If it's a full URL, we might want to extract the path
-                let path = targetUrl;
-                try {
-                    if (targetUrl.startsWith('http')) {
-                        const urlObj = new URL(targetUrl);
-                        path = urlObj.pathname + urlObj.search;
-                    }
-                } catch (e) {
-                    console.error('Error parsing target URL:', e);
-                }
-
-                router.push(path);
+            if (route) {
+                console.log('🚀 Navigating to route:', route);
+                window.location.href = route;
+            } else {
+                console.log('⚠️ No route found in notification, navigating to dashboard');
+                window.location.href = '/dashboard';
             }
         };
 
-        // Attach to window so Median bridge can call it
+        // Use Median's native onNotificationOpened callback
+        if (window.median?.onesignal?.onNotificationOpened) {
+            console.log('📲 Registering Median onNotificationOpened callback');
+            window.median.onesignal.onNotificationOpened(handlePushOpened);
+        }
+
+        // Also attach to window as fallback
         window.median_onesignal_push_opened = handlePushOpened;
 
         return () => {
             authData?.subscription?.unsubscribe();
-            // Optional: delete window.median_onesignal_push_opened = undefined;
         };
     }, [router]);
 

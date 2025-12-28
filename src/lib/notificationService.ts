@@ -35,9 +35,8 @@ export interface CreateNotificationParams {
 
 export class NotificationService {
   static getNotificationUrl(type: NotificationType, relatedId?: string, relatedType?: string): string | undefined {
-    // Base dashboard URL (Using absolute URLs for Android App Links support)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://app.appleinteriors.in';
-    const baseUrl = `${appUrl}/dashboard`;
+    // Base dashboard URL (Relative paths for Median internal navigation)
+    const baseUrl = '/dashboard';
 
     switch (type) {
       case 'task_assigned':
@@ -100,9 +99,9 @@ export class NotificationService {
 
       console.log('✅ Notification created successfully:', data);
 
-      // Generate deep link URL (Absolute path for App Links)
-      const deepLinkUrl = this.getNotificationUrl(params.type, params.relatedId, params.relatedType);
-      console.log('🔗 Generated deep link absolute URL:', deepLinkUrl);
+      // Generate deep link route (Relative path for Median internal navigation)
+      const deepLinkRoute = this.getNotificationUrl(params.type, params.relatedId, params.relatedType);
+      console.log('🔗 Generated deep link route:', deepLinkRoute);
 
       // Send push notification via OneSignal (non-blocking)
       console.log('🔔 Attempting to send OneSignal push notification to user:', params.userId);
@@ -117,9 +116,9 @@ export class NotificationService {
             type: params.type,
             relatedId: params.relatedId,
             relatedType: params.relatedType,
-            targetUrl: deepLinkUrl, // Send as targetUrl for Median internal session
+            route: deepLinkRoute, // Use 'route' for Median internal navigation
           },
-          deepLinkUrl // Pass as top-level URL for Android App Links support
+          deepLinkRoute // Pass as targetUrl parameter (will become data.route)
         );
         console.log('📲 OneSignal push result:', pushResult);
       } catch (pushError) {
