@@ -46,7 +46,31 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning data-no-dark-mode>
       <head>
-        {/* OneSignal Web SDK removed - Median apps handle OneSignal natively */}
+        {/* Median OneSignal Boot-Time Capture */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.PENDING_PUSH_PAYLOAD = null;
+              
+              function handleMedianPush(data) {
+                console.log('📦 BOOT-TIME PUSH RECEIVED:', data);
+                window.PENDING_PUSH_PAYLOAD = data;
+                
+                // Extract route immediately and store in localStorage
+                var additionalData = data.additionalData || (data.notification && data.notification.additionalData) || data;
+                var route = additionalData.route || additionalData.url || additionalData.path || additionalData.targetUrl;
+                
+                if (route) {
+                  localStorage.setItem('pending_push_route', route);
+                  console.log('💾 Stored pending route in localStorage:', route);
+                }
+              }
+              
+              window.median_onesignal_push_opened = handleMedianPush;
+              window.gonative_onesignal_push_opened = handleMedianPush;
+            `,
+          }}
+        />
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <OneSignalInit />

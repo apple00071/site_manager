@@ -254,13 +254,27 @@ export default function OneSignalInit() {
 
         // Use Median's native onNotificationOpened callback
         const registerBridge = async () => {
+            // 1. Check for immediate pending route captured by boot script
             checkPendingRoute();
+
+            // 2. Check if a payload was captured before this component mounted
+            // @ts-ignore
+            if (window.PENDING_PUSH_PAYLOAD) {
+                // @ts-ignore
+                console.log('🎯 Processing boot-time captured payload');
+                // @ts-ignore
+                handlePushOpened(window.PENDING_PUSH_PAYLOAD);
+                // @ts-ignore
+                window.PENDING_PUSH_PAYLOAD = null;
+            }
+
             const hasMedian = await waitForMedian();
             if (hasMedian && window.median?.onesignal?.onNotificationOpened) {
                 console.log('📲 Registering Median onNotificationOpened callback');
                 window.median.onesignal.onNotificationOpened(handlePushOpened);
             }
-            // Fallbacks for various Median/GoNative versions
+
+            // Keep fallbacks active
             window.median_onesignal_push_opened = handlePushOpened;
             // @ts-ignore
             window.gonative_onesignal_push_opened = handlePushOpened;
