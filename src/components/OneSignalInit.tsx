@@ -197,8 +197,9 @@ export default function OneSignalInit() {
             const eventStr = JSON.stringify(event, null, 2);
             console.log('🔔 OneSignal Push Opened event:', eventStr);
 
-            // VISUAL DEBUGGING FOR MOBILE DEVICES
-            alert('DEBUG - Push Received:\n' + eventStr.substring(0, 400));
+            // Log to a global for the debug UI
+            // @ts-ignore
+            window.LAST_PUSH_EVENT = event;
 
             // Extract route from notification data payload
             const additionalData = event?.notification?.additionalData || event?.additionalData || event;
@@ -209,8 +210,6 @@ export default function OneSignalInit() {
                 additionalData?.targetUrl ||
                 additionalData?.link ||
                 event?.notification?.launchURL;
-
-            alert('DEBUG - Route Extracted: ' + (route || 'NOT FOUND'));
 
             if (route) {
                 console.log('🚀 Navigating to route:', route);
@@ -236,11 +235,11 @@ export default function OneSignalInit() {
             const pendingRoute = localStorage.getItem('pending_push_route');
             if (pendingRoute) {
                 console.log('🔄 Attending to pending route:', pendingRoute);
-                localStorage.removeItem('pending_push_route');
 
                 // Perform navigation if we're on a default page
                 const currentPath = window.location.pathname;
                 if (currentPath === '/' || currentPath === '/dashboard' || currentPath === '/login') {
+                    localStorage.removeItem('pending_push_route'); // Clear only when used
                     if (pendingRoute.startsWith('http')) {
                         window.location.href = pendingRoute;
                     } else {
@@ -254,10 +253,12 @@ export default function OneSignalInit() {
 
         // Use Median's native onNotificationOpened callback
         const registerBridge = async () => {
-            // 1. Check for immediate pending route captured by boot script
             checkPendingRoute();
 
-            // 2. Check if a payload was captured before this component mounted
+            // Periodically check for pending route in case of slow redirects
+            const interval = setInterval(checkPendingRoute, 1000);
+
+            // Check if a payload was captured before this component mounted
             // @ts-ignore
             if (window.PENDING_PUSH_PAYLOAD) {
                 // @ts-ignore
@@ -274,16 +275,26 @@ export default function OneSignalInit() {
                 window.median.onesignal.onNotificationOpened(handlePushOpened);
             }
 
-            // Keep fallbacks active
+            // Fallbacks for various Median/GoNative versions
             window.median_onesignal_push_opened = handlePushOpened;
             // @ts-ignore
             window.gonative_onesignal_push_opened = handlePushOpened;
+
+            return () => clearInterval(interval);
         };
 
-        registerBridge();
+        let stopInterval: (() => void) | null = null;
+
+        const setupBridge = async () => {
+            const cleanup = await registerBridge();
+            if (cleanup) stopInterval = cleanup;
+        };
+
+        setupBridge();
 
         return () => {
             authSubscription.unsubscribe();
+            if (stopInterval) stopInterval();
         };
     }, [router]);
 

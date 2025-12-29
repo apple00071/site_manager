@@ -10,7 +10,15 @@ export default function Home() {
   useEffect(() => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
+      // CRITICAL: Check if there's a pending deep link redirect waiting
+      // We wait a tiny bit to see if OneSignalInit.tsx or the boot script has flagged a route
+      const pendingRoute = localStorage.getItem('pending_push_route');
+      if (pendingRoute) {
+        console.log('🏁 Deep link detected in page.tsx, allowing OneSignalInit to handle it');
+        return;
+      }
+
       if (session) {
         router.push('/dashboard');
       } else {
