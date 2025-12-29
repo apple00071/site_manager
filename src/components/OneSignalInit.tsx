@@ -194,13 +194,12 @@ export default function OneSignalInit() {
 
         // Handle deep linking from OneSignal push notifications via Median bridge
         const handlePushOpened = (event: any) => {
-            console.log('🔔 OneSignal Push Opened event:', JSON.stringify(event, null, 2));
+            const eventStr = JSON.stringify(event, null, 2);
+            console.log('🔔 OneSignal Push Opened event:', eventStr);
 
             // Extract route from notification data payload
-            // OneSignal payload can be deeply nested depending on how it's sent
             const additionalData = event?.notification?.additionalData || event?.additionalData || event;
 
-            // Try to find a route/url in all possible common keys
             const route = additionalData?.route ||
                 additionalData?.url ||
                 additionalData?.path ||
@@ -210,9 +209,12 @@ export default function OneSignalInit() {
 
             if (route) {
                 console.log('🚀 Navigating to route:', route);
+                // alert('Deep Link Found: ' + route); // Unleash this if logs aren't enough
 
-                // IMPORTANT: For mobile webviews, window.location.href is often more reliable
-                // than router.push for cold starts or background wakeups
+                // Store in localStorage as a backup
+                localStorage.setItem('pending_push_route', route);
+
+                // Perform navigation immediately
                 if (route.startsWith('http')) {
                     window.location.href = route;
                 } else {
@@ -221,19 +223,43 @@ export default function OneSignalInit() {
                     window.location.href = targetUrl;
                 }
             } else {
-                console.log('⚠️ No route found in notification payload:', JSON.stringify(additionalData));
+                console.log('⚠️ No route found in notification payload');
+            }
+        };
+
+        // Check for a pending redirect on mount (survives middleware redirects)
+        const checkPendingRoute = () => {
+            const pendingRoute = localStorage.getItem('pending_push_route');
+            if (pendingRoute) {
+                console.log('🔄 Attending to pending route:', pendingRoute);
+                localStorage.removeItem('pending_push_route');
+
+                // Perform navigation if we're on a default page
+                const currentPath = window.location.pathname;
+                if (currentPath === '/' || currentPath === '/dashboard' || currentPath === '/login') {
+                    if (pendingRoute.startsWith('http')) {
+                        window.location.href = pendingRoute;
+                    } else {
+                        const baseUrl = window.location.origin;
+                        const targetUrl = pendingRoute.startsWith('/') ? `${baseUrl}${pendingRoute}` : `${baseUrl}/${pendingRoute}`;
+                        window.location.href = targetUrl;
+                    }
+                }
             }
         };
 
         // Use Median's native onNotificationOpened callback
         const registerBridge = async () => {
+            checkPendingRoute();
             const hasMedian = await waitForMedian();
             if (hasMedian && window.median?.onesignal?.onNotificationOpened) {
                 console.log('📲 Registering Median onNotificationOpened callback');
                 window.median.onesignal.onNotificationOpened(handlePushOpened);
             }
-            // Always attach to window as fallback - Median calls this global function if it exists
+            // Fallbacks for various Median/GoNative versions
             window.median_onesignal_push_opened = handlePushOpened;
+            // @ts-ignore
+            window.gonative_onesignal_push_opened = handlePushOpened;
         };
 
         registerBridge();
