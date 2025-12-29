@@ -197,6 +197,9 @@ export default function OneSignalInit() {
             const eventStr = JSON.stringify(event, null, 2);
             console.log('🔔 OneSignal Push Opened event:', eventStr);
 
+            // VISUAL DEBUGGING FOR MOBILE DEVICES
+            alert('DEBUG - Push Received:\n' + eventStr.substring(0, 400));
+
             // Extract route from notification data payload
             const additionalData = event?.notification?.additionalData || event?.additionalData || event;
 
@@ -207,9 +210,10 @@ export default function OneSignalInit() {
                 additionalData?.link ||
                 event?.notification?.launchURL;
 
+            alert('DEBUG - Route Extracted: ' + (route || 'NOT FOUND'));
+
             if (route) {
                 console.log('🚀 Navigating to route:', route);
-                // alert('Deep Link Found: ' + route); // Unleash this if logs aren't enough
 
                 // Store in localStorage as a backup
                 localStorage.setItem('pending_push_route', route);
