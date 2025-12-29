@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
 
 /**
  * OneSignal Integration for Median Apps
@@ -35,8 +36,6 @@ declare global {
         median_onesignal_push_opened?: (data: any) => void;
     }
 }
-
-import { useRouter } from 'next/navigation';
 
 export default function OneSignalInit() {
     const hasSyncedRef = useRef(false);
@@ -99,17 +98,19 @@ export default function OneSignalInit() {
                 if (window.median?.onesignal?.requestPermission) {
                     console.log('1️⃣ Requesting notification permission...');
                     window.median.onesignal.requestPermission();
-                    await new Promise(resolve => setTimeout(resolve, 1000));
                 }
 
-                // 2. Try to set External ID via Median bridge
-                console.log('2️⃣ Calling login() to set External User ID...');
+                // 2. Set External ID via Median bridge
+                console.log('2️⃣ Setting External User ID via login/setExternalUserId...');
                 if (typeof window.median?.onesignal?.login === 'function') {
                     window.median.onesignal.login(userId);
                     console.log('   ✅ login() called');
+                } else if (typeof window.median?.onesignal?.setExternalUserId === 'function') {
+                    window.median.onesignal.setExternalUserId(userId);
+                    console.log('   ✅ setExternalUserId() called');
                 }
 
-                // 3. Get OneSignal info and link via backend API
+                // 3. Get OneSignal info and link via backend API (delayed to ensure setExternalUserId took effect)
                 setTimeout(async () => {
                     try {
                         console.log('3️⃣ Getting OneSignal subscription info...');
@@ -128,12 +129,7 @@ export default function OneSignalInit() {
                                         body: JSON.stringify({ oneSignalId: info.oneSignalUserId }),
                                     });
                                     const linkResult = await linkResponse.json();
-
-                                    if (linkResponse.ok) {
-                                        console.log('   ✅ External ID linked:', linkResult);
-                                    } else {
-                                        console.log('   ⚠️ Link failed:', linkResult);
-                                    }
+                                    console.log('   ✅ Link result:', linkResult);
                                 } catch (e) {
                                     console.log('   ⚠️ Link API error:', e);
                                 }
@@ -158,7 +154,7 @@ export default function OneSignalInit() {
                     } catch (err) {
                         console.log('   ⚠️ OneSignal info error:', err);
                     }
-                }, 5000);
+                }, 3000);
 
                 hasSyncedRef.current = true;
                 console.log('🎉 ONESIGNAL SYNC INITIATED');
@@ -170,7 +166,7 @@ export default function OneSignalInit() {
 
         console.log('🔔 OneSignalInit mounted');
 
-        const { data: authData } = supabase.auth.onAuthStateChange((event: any, session: any) => {
+        const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event: any, session: any) => {
             console.log('🔑 Auth event:', event);
 
             if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
@@ -200,31 +196,40 @@ export default function OneSignalInit() {
         const handlePushOpened = (event: any) => {
             console.log('🔔 OneSignal Push Opened event:', JSON.stringify(event, null, 2));
 
-            // Get route from notification data payload
-            const route = event?.notification?.additionalData?.route ||
-                event?.additionalData?.route ||
-                event?.route;
+            // Extract route from notification data payload
+            // OneSignal payload can be deeply nested depending on how it's sent
+            const additionalData = event?.notification?.additionalData || event?.additionalData || event;
+            const route = additionalData?.route || additionalData?.url || additionalData?.path;
 
             if (route) {
                 console.log('🚀 Navigating to route:', route);
-                window.location.href = route;
+                // For Next.js, use router.push for client-side navigation if possible
+                // Otherwise use window.location.href for a hard reload
+                if (route.startsWith('/')) {
+                    router.push(route);
+                } else {
+                    window.location.href = route;
+                }
             } else {
-                console.log('⚠️ No route found in notification, navigating to dashboard');
-                window.location.href = '/dashboard';
+                console.log('⚠️ No route found in notification');
             }
         };
 
         // Use Median's native onNotificationOpened callback
-        if (window.median?.onesignal?.onNotificationOpened) {
-            console.log('📲 Registering Median onNotificationOpened callback');
-            window.median.onesignal.onNotificationOpened(handlePushOpened);
-        }
+        const registerBridge = async () => {
+            const hasMedian = await waitForMedian();
+            if (hasMedian && window.median?.onesignal?.onNotificationOpened) {
+                console.log('📲 Registering Median onNotificationOpened callback');
+                window.median.onesignal.onNotificationOpened(handlePushOpened);
+            }
+            // Always attach to window as fallback - Median calls this global function if it exists
+            window.median_onesignal_push_opened = handlePushOpened;
+        };
 
-        // Also attach to window as fallback
-        window.median_onesignal_push_opened = handlePushOpened;
+        registerBridge();
 
         return () => {
-            authData?.subscription?.unsubscribe();
+            authSubscription.unsubscribe();
         };
     }, [router]);
 

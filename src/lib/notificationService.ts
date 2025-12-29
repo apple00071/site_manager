@@ -116,7 +116,7 @@ export class NotificationService {
             type: params.type,
             relatedId: params.relatedId,
             relatedType: params.relatedType,
-            route: deepLinkRoute, // Use 'route' for Median internal navigation
+            route: deepLinkRoute, // Use 'route' for Capacitor internal navigation
           },
           deepLinkRoute // Pass as targetUrl parameter (will become data.route)
         );
