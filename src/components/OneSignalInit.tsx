@@ -199,19 +199,29 @@ export default function OneSignalInit() {
             // Extract route from notification data payload
             // OneSignal payload can be deeply nested depending on how it's sent
             const additionalData = event?.notification?.additionalData || event?.additionalData || event;
-            const route = additionalData?.route || additionalData?.url || additionalData?.path;
+
+            // Try to find a route/url in all possible common keys
+            const route = additionalData?.route ||
+                additionalData?.url ||
+                additionalData?.path ||
+                additionalData?.targetUrl ||
+                additionalData?.link ||
+                event?.notification?.launchURL;
 
             if (route) {
                 console.log('🚀 Navigating to route:', route);
-                // For Next.js, use router.push for client-side navigation if possible
-                // Otherwise use window.location.href for a hard reload
-                if (route.startsWith('/')) {
-                    router.push(route);
-                } else {
+
+                // IMPORTANT: For mobile webviews, window.location.href is often more reliable
+                // than router.push for cold starts or background wakeups
+                if (route.startsWith('http')) {
                     window.location.href = route;
+                } else {
+                    const baseUrl = window.location.origin;
+                    const targetUrl = route.startsWith('/') ? `${baseUrl}${route}` : `${baseUrl}/${route}`;
+                    window.location.href = targetUrl;
                 }
             } else {
-                console.log('⚠️ No route found in notification');
+                console.log('⚠️ No route found in notification payload:', JSON.stringify(additionalData));
             }
         };
 
