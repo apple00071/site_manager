@@ -16,6 +16,8 @@ const createTaskSchema = z.object({
   project_id: z.string().uuid().nullable().optional(),
   status: z.enum(['todo', 'in_progress', 'blocked', 'done']).optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
+  location: z.string().optional().nullable(),
+  meeting_link: z.string().optional().nullable(),
 });
 
 const updateTaskSchema = createTaskSchema.partial().extend({
@@ -176,6 +178,8 @@ export async function POST(request: NextRequest) {
       assigned_to: assignedTo,
       project_id: projectData?.id ?? null,
       created_by: user.id,
+      location: data.location || null,
+      meeting_link: data.meeting_link || null,
     };
 
     const { data: inserted, error } = await supabaseAdmin
@@ -325,6 +329,8 @@ export async function PATCH(request: NextRequest) {
     updatePayload.end_at = endIso;
     if (data.status !== undefined) updatePayload.status = data.status;
     if (data.priority !== undefined) updatePayload.priority = data.priority;
+    if (data.location !== undefined) updatePayload.location = data.location || null;
+    if (data.meeting_link !== undefined) updatePayload.meeting_link = data.meeting_link || null;
     updatePayload.assigned_to = assignedTo;
     updatePayload.project_id = projectId;
     updatePayload.updated_at = new Date().toISOString();

@@ -26,6 +26,8 @@ type CalendarTask = {
   assigned_to?: string | null;
   assigned_to_id?: string | null;
   project_id?: string | null;
+  location?: string | null;
+  meeting_link?: string | null;
   created_at?: string;
   created_by?: string;
   updated_at?: string;
@@ -153,6 +155,364 @@ function extractRange(range: any): { start: Date; end: Date } | null {
   }
   return null;
 }
+
+// --- Global Helper Functions ---
+
+const titleSuggestions = [
+  'Site Visit',
+  'Client Meeting',
+  'Material Delivery',
+  'Electrical Fitting',
+  'Carpentry Work',
+  'Painting',
+  'Granite Installation',
+  'Glass Fitting',
+  'Final Cleanup',
+];
+
+function formatISTDate(d: Date) {
+  if (!d || !(d instanceof Date) || Number.isNaN(d.getTime())) return 'Invalid Date';
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }).format(d);
+  } catch (e) {
+    return 'Invalid Date';
+  }
+}
+
+function formatISTTime(d: Date) {
+  if (!d || !(d instanceof Date) || Number.isNaN(d.getTime())) return 'Invalid Time';
+  try {
+    return new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }).format(d);
+  } catch (e) {
+    return 'Invalid Time';
+  }
+}
+
+function parseISTToISO(dateStr: string, timeStr: string) {
+  const parts = dateStr.split('/');
+  if (parts.length !== 3) return undefined;
+  const [dd, mm, yyyy] = parts.map(p => parseInt(p, 10));
+  if (!dd || !mm || !yyyy) return undefined;
+  const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return undefined;
+  let hour = parseInt(match[1], 10);
+  const minute = parseInt(match[2], 10);
+  const ampm = match[3].toUpperCase();
+  if (ampm === 'PM' && hour !== 12) hour += 12;
+  if (ampm === 'AM' && hour === 12) hour = 0;
+  const ms = Date.UTC(yyyy, mm - 1, dd, hour, minute);
+  const offsetMs = 5.5 * 60 * 60 * 1000; // IST offset
+  const finalDate = new Date(ms - offsetMs);
+  if (Number.isNaN(finalDate.getTime())) return undefined;
+  return finalDate.toISOString();
+}
+
+function partsToTimeString(h: string, m: string, ap: string) {
+  const hh = h.padStart(2, '0');
+  const mm = m.padStart(2, '0');
+  return `${hh}:${mm} ${ap}`;
+}
+
+function toDDMMYYYYFromPicker(yyyyMmDd: string) {
+  const [y, m, d] = yyyyMmDd.split('-');
+  if (!y || !m || !d) return '';
+  return `${d}/${m}/${y}`;
+}
+
+// --- Sub-components ---
+
+interface TaskFormContentProps {
+  form: any;
+  setForm: React.Dispatch<React.SetStateAction<any>>;
+  projects: { id: string; title: string }[];
+  assignees: { id: string; name: string }[];
+  titleSuggestions: string[];
+  timeOptions: string[];
+  isEditing: boolean;
+  saveTask: () => Promise<void>;
+  closeModal: () => void;
+  partsToTimeString: (h: string, m: string, ap: string) => string;
+}
+
+const TaskFormContent = ({
+  form,
+  setForm,
+  projects,
+  assignees,
+  titleSuggestions,
+  timeOptions,
+  isEditing,
+  saveTask,
+  closeModal,
+  partsToTimeString
+}: TaskFormContentProps) => (
+  <div className="space-y-3">
+    <div>
+      <label className="block text-xs text-gray-600 mb-1">Title *</label>
+      <input list="task-title-templates" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-required="true" />
+      <datalist id="task-title-templates">
+        {titleSuggestions.map((s, i) => (
+          <option key={i} value={s} />
+        ))}
+      </datalist>
+    </div>
+    <div>
+      <label className="block text-xs text-gray-600 mb-1">Description</label>
+      <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+    </div>
+    <div>
+      <label className="block text-xs text-gray-600 mb-1">Project (optional)</label>
+      <select value={form.project_id} onChange={e => setForm({ ...form, project_id: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md">
+        <option value="">No Project</option>
+        {projects.map(p => (
+          <option key={p.id} value={p.id}>{p.title}</option>
+        ))}
+      </select>
+    </div>
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs text-gray-600 mb-1">Start Date</label>
+          <input type="date" value={form.start_date_picker} onChange={e => setForm({ ...form, start_date_picker: e.target.value, end_date_picker: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-label="Calendar start date picker" />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-600 mb-1">Start Time</label>
+          <select
+            value={partsToTimeString(form.start_hour, form.start_minute, form.start_ampm)}
+            onChange={e => {
+              const value = e.target.value;
+              const [time, ap] = value.split(' ');
+              const [hh, mm] = time.split(':');
+              setForm((prev: any) => ({
+                ...prev,
+                start_hour: hh,
+                start_minute: mm,
+                start_ampm: ap as 'AM' | 'PM',
+              }));
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            aria-label="Start time"
+          >
+            {timeOptions.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs text-gray-600 mb-1">End Date</label>
+          <input type="date" value={form.end_date_picker} onChange={e => setForm({ ...form, end_date_picker: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-label="Calendar end date picker" />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-600 mb-1">End Time</label>
+          <select
+            value={partsToTimeString(form.end_hour, form.end_minute, form.end_ampm)}
+            onChange={e => {
+              const value = e.target.value;
+              const [time, ap] = value.split(' ');
+              const [hh, mm] = time.split(':');
+              setForm((prev: any) => ({
+                ...prev,
+                end_hour: hh,
+                end_minute: mm,
+                end_ampm: ap as 'AM' | 'PM',
+              }));
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            aria-label="End time"
+          >
+            {timeOptions.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs text-gray-600 mb-1">Priority</label>
+          <select value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value as 'low' | 'medium' | 'high' | 'urgent' })} className="w-full px-3 py-2 border border-gray-300 rounded-md">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-600 mb-1">Assign to</label>
+          <select value={form.assigned_to} onChange={e => setForm({ ...form, assigned_to: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md">
+            <option value="">Unassigned</option>
+            {assignees.map(a => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs text-gray-600 mb-1">Location (optional)</label>
+        <input type="text" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Site address or office location" />
+      </div>
+      <div>
+        <label className="block text-xs text-gray-600 mb-1">Meeting Link (optional)</label>
+        <input type="url" value={form.meeting_link} onChange={e => setForm({ ...form, meeting_link: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="https://zoom.us/j/..." />
+      </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <button onClick={closeModal} className="btn-secondary">Cancel</button>
+        <button onClick={saveTask} className="btn-primary">{isEditing ? 'Save Changes' : 'Create Task'}</button>
+      </div>
+    </div>
+  </div>
+);
+
+interface ViewTaskContentProps {
+  viewTask: CalendarTask;
+  projects: { id: string; title: string }[];
+  assignees: { id: string; name: string }[];
+  onClose: () => void;
+  onEdit: (task: CalendarTask) => void;
+  onMarkAsDone: (task: CalendarTask) => Promise<void>;
+  formatISTDate: (d: Date) => string;
+  formatISTTime: (d: Date) => string;
+}
+
+const ViewTaskContent = ({
+  viewTask,
+  projects,
+  assignees,
+  onClose,
+  onEdit,
+  onMarkAsDone,
+  formatISTDate,
+  formatISTTime
+}: ViewTaskContentProps) => (
+  <div className="space-y-3 text-sm text-gray-700">
+    <div>
+      <p className="text-xs text-gray-500 mb-1">Title</p>
+      <p className="font-medium text-gray-900">{viewTask.title}</p>
+    </div>
+    {viewTask.description && (
+      <div>
+        <p className="text-xs text-gray-500 mb-1">Description</p>
+        <p className="whitespace-pre-line">{viewTask.description}</p>
+      </div>
+    )}
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <p className="text-xs text-gray-500 mb-1">Start</p>
+        <p className="text-gray-900">
+          {formatISTDate(new Date(viewTask.start_at))}, {formatISTTime(new Date(viewTask.start_at))}
+        </p>
+      </div>
+      <div>
+        <p className="text-xs text-gray-500 mb-1">End</p>
+        <p className="text-gray-900">
+          {formatISTDate(new Date(viewTask.end_at))}, {formatISTTime(new Date(viewTask.end_at))}
+        </p>
+      </div>
+    </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <p className="text-xs text-gray-500 mb-1">Status</p>
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${viewTask.status === 'done' ? 'bg-green-100 text-green-800' :
+          viewTask.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+            viewTask.status === 'blocked' ? 'bg-red-100 text-red-800' :
+              'bg-gray-100 text-gray-800'
+          }`}>
+          {viewTask.status.replace('_', ' ').charAt(0).toUpperCase() + viewTask.status.replace('_', ' ').slice(1)}
+        </span>
+      </div>
+      <div>
+        <p className="text-xs text-gray-500 mb-1">Project</p>
+        <p className="text-gray-900">
+          {viewTask.project_id ? (projects.find(p => p.id === viewTask.project_id)?.title || 'No project') : 'No project'}
+        </p>
+      </div>
+    </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <p className="text-xs text-gray-500 mb-1">Assigned To</p>
+        {viewTask.assigned_to || viewTask.assigned_to_id ? (
+          (() => {
+            const assigneeId = viewTask.assigned_to || viewTask.assigned_to_id;
+            const assignee = assignees.find(a => a.id === assigneeId);
+            if (!assignee) {
+              return (
+                <div className="flex items-center gap-2 text-yellow-700">
+                  <FiUserX className="h-4 w-4 flex-shrink-0" />
+                  <span>User not found</span>
+                </div>
+              );
+            }
+            return (
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-indigo-100 text-indigo-800 text-xs font-medium">
+                  {assignee.name?.charAt(0).toUpperCase() || '?'}
+                </span>
+                <span className="text-gray-900">{assignee.name}</span>
+              </div>
+            );
+          })()
+        ) : (
+          <span className="text-gray-500 italic">Unassigned</span>
+        )}
+      </div>
+      <div>
+        <p className="text-xs text-gray-500 mb-1">Priority</p>
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${viewTask.priority === 'high' ? 'bg-red-100 text-red-800' :
+          viewTask.priority === 'urgent' ? 'bg-red-100 text-red-800 font-bold' :
+            viewTask.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+              'bg-blue-100 text-blue-800'
+          }`}>
+          {viewTask.priority.charAt(0).toUpperCase() + viewTask.priority.slice(1)}
+        </span>
+      </div>
+    </div>
+    {viewTask.location && (
+      <div>
+        <p className="text-xs text-gray-500 mb-1">Location</p>
+        <p className="text-gray-900">{viewTask.location}</p>
+      </div>
+    )}
+    {viewTask.meeting_link && (
+      <div>
+        <p className="text-xs text-gray-500 mb-1">Meeting Link</p>
+        <a href={viewTask.meeting_link} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800 underline break-all">
+          {viewTask.meeting_link}
+        </a>
+      </div>
+    )}
+    <div className="flex justify-end gap-2 pt-4">
+      <button
+        onClick={onClose}
+        className="btn-secondary"
+      >
+        Close
+      </button>
+      {viewTask.status !== 'done' && (
+        <button
+          onClick={() => onMarkAsDone(viewTask)}
+          className="btn-primary bg-green-600 hover:bg-green-700"
+        >
+          <FiCheck className="w-4 h-4 mr-1" />
+          Mark as Done
+        </button>
+      )}
+      <button
+        onClick={() => onEdit(viewTask)}
+        className="btn-primary"
+      >
+        Edit Task
+      </button>
+    </div>
+  </div>
+);
 
 export default function TasksPage() {
   const { user } = useAuth();
@@ -707,6 +1067,8 @@ export default function TasksPage() {
     end_date_picker: '',
     assigned_to: '' as string,
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
+    location: '',
+    meeting_link: '',
   });
 
   const [editingTask, setEditingTask] = useState<CalendarTask | null>(null);
@@ -734,17 +1096,7 @@ export default function TasksPage() {
     return () => document.removeEventListener('keydown', handleEscKey);
   }, [modalOpen, viewModalOpen]);
 
-  const titleSuggestions = [
-    'Site Visit',
-    'Client Meeting',
-    'Material Delivery',
-    'Electrical Fitting',
-    'Carpentry Work',
-    'Painting',
-    'Granite Installation',
-    'Glass Fitting',
-    'Final Cleanup',
-  ];
+
 
   const [projects, setProjects] = useState<{ id: string; title: string }[]>([]);
 
@@ -765,58 +1117,6 @@ export default function TasksPage() {
     }
     return options;
   }, []);
-
-  function formatISTDate(d: Date) {
-    if (!d || !(d instanceof Date) || Number.isNaN(d.getTime())) return 'Invalid Date';
-    try {
-      return new Intl.DateTimeFormat('en-GB', {
-        timeZone: 'Asia/Kolkata',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      }).format(d);
-    } catch (e) {
-      return 'Invalid Date';
-    }
-  }
-  function formatISTTime(d: Date) {
-    if (!d || !(d instanceof Date) || Number.isNaN(d.getTime())) return 'Invalid Time';
-    try {
-      return new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }).format(d);
-    } catch (e) {
-      return 'Invalid Time';
-    }
-  }
-  function parseISTToISO(dateStr: string, timeStr: string) {
-    const parts = dateStr.split('/');
-    if (parts.length !== 3) return undefined;
-    const [dd, mm, yyyy] = parts.map(p => parseInt(p, 10));
-    if (!dd || !mm || !yyyy) return undefined;
-    const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-    if (!match) return undefined;
-    let hour = parseInt(match[1], 10);
-    const minute = parseInt(match[2], 10);
-    const ampm = match[3].toUpperCase();
-    if (ampm === 'PM' && hour !== 12) hour += 12;
-    if (ampm === 'AM' && hour === 12) hour = 0;
-    const ms = Date.UTC(yyyy, mm - 1, dd, hour, minute);
-    const offsetMs = 5.5 * 60 * 60 * 1000; // IST offset
-    const finalDate = new Date(ms - offsetMs);
-    if (Number.isNaN(finalDate.getTime())) return undefined;
-    return finalDate.toISOString();
-  }
-
-  function partsToTimeString(h: string, m: string, ap: string) {
-    const hh = h.padStart(2, '0');
-    const mm = m.padStart(2, '0');
-    return `${hh}:${mm} ${ap}`;
-  }
-
-  function toDDMMYYYYFromPicker(yyyyMmDd: string) {
-    const [y, m, d] = yyyyMmDd.split('-');
-    if (!y || !m || !d) return '';
-    return `${d}/${m}/${y}`;
-  }
 
   const openCreateAt = (dateArg: Date) => {
     console.log('openCreateAt called with:', dateArg);
@@ -863,6 +1163,49 @@ export default function TasksPage() {
     setModalOpen(true);
   };
 
+  const handleCloseFormModal = () => {
+    setModalOpen(false);
+    setEditingTask(null);
+    setForm({
+      title: '',
+      description: '',
+      project_id: '',
+      start_date_picker: format(new Date(), 'yyyy-MM-dd'),
+      start_hour: '10',
+      start_minute: '00',
+      start_ampm: 'AM',
+      end_hour: '11',
+      end_minute: '00',
+      end_ampm: 'AM',
+      end_date_picker: format(new Date(), 'yyyy-MM-dd'),
+      assigned_to: '',
+      priority: 'medium',
+      location: '',
+      meeting_link: '',
+    });
+  };
+
+  const handleCloseViewModal = () => {
+    setViewModalOpen(false);
+    setViewTask(null);
+  };
+
+  const handleMarkAsDone = async (task: CalendarTask) => {
+    try {
+      const res = await fetch('/api/calendar-tasks', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: task.id, status: 'done' }),
+      });
+      if (!res.ok) throw new Error('Failed to mark task as done');
+      showToast('success', 'Task marked as done');
+      handleCloseViewModal();
+      fetchTasks();
+    } catch (e: any) {
+      showToast('error', e.message);
+    }
+  };
+
   const openViewTask = (task: CalendarTask) => {
     setViewTask(task);
     setViewModalOpen(true);
@@ -886,6 +1229,8 @@ export default function TasksPage() {
       end_date_picker: format(end, 'yyyy-MM-dd'),
       assigned_to: task.assigned_to || '',
       priority: task.priority || 'medium',
+      location: task.location || '',
+      meeting_link: task.meeting_link || '',
     });
     setEditingTask(task);
     setViewModalOpen(false);
@@ -913,6 +1258,8 @@ export default function TasksPage() {
         assigned_to_id: form.assigned_to || null,
         project_id: form.project_id || null,
         priority: form.priority,
+        location: form.location || null,
+        meeting_link: form.meeting_link || null,
       };
       let res: Response;
 
@@ -951,7 +1298,9 @@ export default function TasksPage() {
         end_ampm: 'AM',
         end_date_picker: '',
         assigned_to: '',
-        priority: 'medium'
+        priority: 'medium',
+        location: '',
+        meeting_link: '',
       });
       fetchTasks();
     } catch (e: any) {
@@ -977,253 +1326,6 @@ export default function TasksPage() {
     fetchProjects();
   }, []);
 
-  // Task form content (used in both modal and bottom sheet)
-  const TaskFormContent = () => (
-    <div className="space-y-3">
-      <div>
-        <label className="block text-xs text-gray-600 mb-1">Title *</label>
-        <input list="task-title-templates" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-required="true" />
-        <datalist id="task-title-templates">
-          {titleSuggestions.map((s, i) => (
-            <option key={i} value={s} />
-          ))}
-        </datalist>
-      </div>
-      <div>
-        <label className="block text-xs text-gray-600 mb-1">Description</label>
-        <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
-      </div>
-      <div>
-        <label className="block text-xs text-gray-600 mb-1">Project (optional)</label>
-        <select value={form.project_id} onChange={e => setForm({ ...form, project_id: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md">
-          <option value="">No Project</option>
-          {projects.map(p => (
-            <option key={p.id} value={p.id}>{p.title}</option>
-          ))}
-        </select>
-      </div>
-      <div className="space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Start Date</label>
-            <input type="date" value={form.start_date_picker} onChange={e => setForm({ ...form, start_date_picker: e.target.value, end_date_picker: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-label="Calendar start date picker" />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Start Time</label>
-            <select
-              value={partsToTimeString(form.start_hour, form.start_minute, form.start_ampm)}
-              onChange={e => {
-                const value = e.target.value;
-                const [time, ap] = value.split(' ');
-                const [hh, mm] = time.split(':');
-                setForm(prev => ({
-                  ...prev,
-                  start_hour: hh,
-                  start_minute: mm,
-                  start_ampm: ap as 'AM' | 'PM',
-                }));
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              aria-label="Start time"
-            >
-              {timeOptions.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">End Date</label>
-            <input type="date" value={form.end_date_picker} onChange={e => setForm({ ...form, end_date_picker: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-label="Calendar end date picker" />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">End Time</label>
-            <select
-              value={partsToTimeString(form.end_hour, form.end_minute, form.end_ampm)}
-              onChange={e => {
-                const value = e.target.value;
-                const [time, ap] = value.split(' ');
-                const [hh, mm] = time.split(':');
-                setForm(prev => ({
-                  ...prev,
-                  end_hour: hh,
-                  end_minute: mm,
-                  end_ampm: ap as 'AM' | 'PM',
-                }));
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              aria-label="End time"
-            >
-              {timeOptions.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Priority</label>
-            <select value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value as 'low' | 'medium' | 'high' | 'urgent' })} className="w-full px-3 py-2 border border-gray-300 rounded-md">
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="urgent">Urgent</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Assign to</label>
-            <select value={form.assigned_to} onChange={e => setForm({ ...form, assigned_to: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md">
-              <option value="">Unassigned</option>
-              {assignees.map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <button onClick={() => { setModalOpen(false); setEditingTask(null); }} className="btn-secondary">Cancel</button>
-          <button onClick={saveTask} className="btn-primary">{isEditing ? 'Save Changes' : 'Create Task'}</button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // View task content (used in both modal and bottom sheet)
-  const ViewTaskContent = () => viewTask ? (
-    <div className="space-y-3 text-sm text-gray-700">
-      <div>
-        <p className="text-xs text-gray-500 mb-1">Title</p>
-        <p className="font-medium text-gray-900">{viewTask.title}</p>
-      </div>
-      {viewTask.description && (
-        <div>
-          <p className="text-xs text-gray-500 mb-1">Description</p>
-          <p className="whitespace-pre-line">{viewTask.description}</p>
-        </div>
-      )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <p className="text-xs text-gray-500 mb-1">Start</p>
-          <p className="text-gray-900">
-            {formatISTDate(new Date(viewTask.start_at))}, {formatISTTime(new Date(viewTask.start_at))}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-500 mb-1">End</p>
-          <p className="text-gray-900">
-            {formatISTDate(new Date(viewTask.end_at))}, {formatISTTime(new Date(viewTask.end_at))}
-          </p>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <p className="text-xs text-gray-500 mb-1">Status</p>
-          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${viewTask.status === 'done' ? 'bg-green-100 text-green-800' :
-            viewTask.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-              viewTask.status === 'blocked' ? 'bg-red-100 text-red-800' :
-                'bg-gray-100 text-gray-800'
-            }`}>
-            {viewTask.status.replace('_', ' ').charAt(0).toUpperCase() + viewTask.status.replace('_', ' ').slice(1)}
-          </span>
-        </div>
-        <div>
-          <p className="text-xs text-gray-500 mb-1">Project</p>
-          <p className="text-gray-900">
-            {viewTask.project_id ? (projects.find(p => p.id === viewTask.project_id)?.title || 'No project') : 'No project'}
-          </p>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <p className="text-xs text-gray-500 mb-1">Assigned To</p>
-          {viewTask.assigned_to || viewTask.assigned_to_id ? (
-            (() => {
-              const assigneeId = viewTask.assigned_to || viewTask.assigned_to_id;
-              const assignee = assignees.find(a => a.id === assigneeId);
-              if (!assignee) {
-                return (
-                  <div className="flex items-center gap-2 text-yellow-700">
-                    <FiUserX className="h-4 w-4 flex-shrink-0" />
-                    <span>User not found</span>
-                  </div>
-                );
-              }
-              return (
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-indigo-100 text-indigo-800 text-xs font-medium">
-                    {assignee.name?.charAt(0).toUpperCase() || '?'}
-                  </span>
-                  <span className="text-gray-900">{assignee.name}</span>
-                </div>
-              );
-            })()
-          ) : (
-            <span className="text-gray-500 italic">Unassigned</span>
-          )}
-        </div>
-        <div>
-          <p className="text-xs text-gray-500 mb-1">Priority</p>
-          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${viewTask.priority === 'high' ? 'bg-red-100 text-red-800' :
-            viewTask.priority === 'urgent' ? 'bg-red-100 text-red-800 font-bold' :
-              viewTask.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                'bg-blue-100 text-blue-800'
-            }`}>
-            {viewTask.priority.charAt(0).toUpperCase() + viewTask.priority.slice(1)}
-          </span>
-        </div>
-      </div>
-      <div className="flex justify-end gap-2 pt-4">
-        <button
-          onClick={() => { setViewModalOpen(false); setViewTask(null); }}
-          className="btn-secondary"
-        >
-          Close
-        </button>
-        {viewTask.status !== 'done' && (
-          <button
-            onClick={async () => {
-              if (!viewTask) return;
-              try {
-                const response = await fetch('/api/calendar-tasks', {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    id: viewTask.id,
-                    status: 'done'
-                  }),
-                });
-                if (response.ok) {
-                  showToast('success', 'Task marked as done');
-                  setViewModalOpen(false);
-                  setViewTask(null);
-                  fetchTasks(); // Refresh the task list
-                } else {
-                  const data = await response.json();
-                  showToast('error', data.error || 'Failed to update task');
-                }
-              } catch (error) {
-                console.error('Error marking task as done:', error);
-                showToast('error', 'Failed to update task');
-              }
-            }}
-            className="btn-primary bg-green-600 hover:bg-green-700"
-          >
-            <FiCheck className="w-4 h-4 mr-1" />
-            Mark as Done
-          </button>
-        )}
-        <button
-          onClick={() => { if (viewTask) { openEditTask(viewTask); } }}
-          className="btn-primary"
-        >
-          Edit Task
-        </button>
-      </div>
-    </div>
-  ) : null;
 
 
 
@@ -1557,10 +1659,21 @@ export default function TasksPage() {
               {/* Mobile: BottomSheet for View Task */}
               <BottomSheet
                 isOpen={viewModalOpen && isMobile}
-                onClose={() => { setViewModalOpen(false); setViewTask(null); }}
+                onClose={handleCloseViewModal}
                 title="Task Details"
               >
-                <ViewTaskContent />
+                {viewTask && (
+                  <ViewTaskContent
+                    viewTask={viewTask}
+                    projects={projects}
+                    assignees={assignees}
+                    onClose={handleCloseViewModal}
+                    onEdit={openEditTask}
+                    onMarkAsDone={handleMarkAsDone}
+                    formatISTDate={formatISTDate}
+                    formatISTTime={formatISTTime}
+                  />
+                )}
               </BottomSheet>
 
               {/* Desktop: Modal for View Task */}
@@ -1568,7 +1681,7 @@ export default function TasksPage() {
                 viewModalOpen && !isMobile && viewTask && (
                   <div
                     className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
-                    onClick={() => { setViewModalOpen(false); setViewTask(null); }}
+                    onClick={handleCloseViewModal}
                   >
                     <div
                       className="bg-white rounded-lg shadow-xl w-full max-w-lg p-5"
@@ -1577,13 +1690,22 @@ export default function TasksPage() {
                       <div className="flex items-center justify-between mb-3">
                         <h2 className="text-lg font-semibold text-gray-900">Task Details</h2>
                         <button
-                          onClick={() => { setViewModalOpen(false); setViewTask(null); }}
+                          onClick={handleCloseViewModal}
                           className="btn-ghost rounded-md"
                         >
                           <FiX className="w-5 h-5" />
                         </button>
                       </div>
-                      <ViewTaskContent />
+                      <ViewTaskContent
+                        viewTask={viewTask}
+                        projects={projects}
+                        assignees={assignees}
+                        onClose={handleCloseViewModal}
+                        onEdit={openEditTask}
+                        onMarkAsDone={handleMarkAsDone}
+                        formatISTDate={formatISTDate}
+                        formatISTTime={formatISTTime}
+                      />
                     </div>
                   </div>
                 )
@@ -1592,10 +1714,21 @@ export default function TasksPage() {
               {/* Mobile: BottomSheet for Create/Edit Task */}
               <BottomSheet
                 isOpen={modalOpen && isMobile}
-                onClose={() => { setModalOpen(false); setEditingTask(null); }}
+                onClose={handleCloseFormModal}
                 title={isEditing ? 'Edit Task' : 'Create Task'}
               >
-                <TaskFormContent />
+                <TaskFormContent
+                  form={form}
+                  setForm={setForm}
+                  projects={projects}
+                  assignees={assignees}
+                  titleSuggestions={titleSuggestions}
+                  timeOptions={timeOptions}
+                  isEditing={isEditing}
+                  saveTask={saveTask}
+                  closeModal={handleCloseFormModal}
+                  partsToTimeString={partsToTimeString}
+                />
               </BottomSheet>
 
               {/* Desktop: Modal for Create/Edit Task */}
@@ -1603,7 +1736,7 @@ export default function TasksPage() {
                 modalOpen && !isMobile && (
                   <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-3 sm:px-0"
-                    onClick={() => { setModalOpen(false); setEditingTask(null); }}
+                    onClick={handleCloseFormModal}
                   >
                     <div
                       className="bg-white rounded-lg shadow-xl w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto p-3 sm:p-5"
@@ -1612,13 +1745,24 @@ export default function TasksPage() {
                       <div className="flex items-center justify-between mb-3">
                         <h2 className="text-lg font-semibold text-gray-900">{isEditing ? 'Edit Task' : 'Create Task'}</h2>
                         <button
-                          onClick={() => { setModalOpen(false); setEditingTask(null); }}
+                          onClick={handleCloseFormModal}
                           className="btn-ghost rounded-md"
                         >
                           <FiX className="w-5 h-5" />
                         </button>
                       </div>
-                      <TaskFormContent />
+                      <TaskFormContent
+                        form={form}
+                        setForm={setForm}
+                        projects={projects}
+                        assignees={assignees}
+                        titleSuggestions={titleSuggestions}
+                        timeOptions={timeOptions}
+                        isEditing={isEditing}
+                        saveTask={saveTask}
+                        closeModal={handleCloseFormModal}
+                        partsToTimeString={partsToTimeString}
+                      />
                     </div>
                   </div>
                 )
@@ -1631,8 +1775,7 @@ export default function TasksPage() {
                     <div className="flex justify-around">
                       <button
                         onClick={() => setActiveCategory('for-me')}
-                        className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'for-me' ? 'text-yellow-600' : 'text-gray-600'
-                          }`}
+                        className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'for-me' ? 'text-yellow-600' : 'text-gray-600'}`}
                       >
                         <FiUser className="w-5 h-5" />
                         <span className="text-xs">For Me</span>
@@ -1644,8 +1787,7 @@ export default function TasksPage() {
                       </button>
                       <button
                         onClick={() => setActiveCategory('by-me')}
-                        className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'by-me' ? 'text-yellow-600' : 'text-gray-600'
-                          }`}
+                        className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'by-me' ? 'text-yellow-600' : 'text-gray-600'}`}
                       >
                         <FiClock className="w-5 h-5" />
                         <span className="text-xs">By Me</span>
@@ -1657,8 +1799,7 @@ export default function TasksPage() {
                       </button>
                       <button
                         onClick={() => setActiveCategory('all')}
-                        className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'all' ? 'text-yellow-600' : 'text-gray-600'
-                          }`}
+                        className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'all' ? 'text-yellow-600' : 'text-gray-600'}`}
                       >
                         <FiList className="w-5 h-5" />
                         <span className="text-xs">All</span>
