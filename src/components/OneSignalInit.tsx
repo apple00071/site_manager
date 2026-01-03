@@ -24,21 +24,26 @@ export default function OneSignalInit() {
 
     // Sync user information to OneSignal
     const syncUserToOneSignal = async (user: any) => {
-        if (!user || hasSyncedRef.current) return;
+        if (!user) return;
+
+        // Don't skip if already synced - we might need to retry if bridge wasn't ready
+        // But do prevent rapid-fire duplicate calls if one is in progress
 
         try {
             console.log('📱 Syncing User to OneSignal:', user.email);
 
             const waitForMedian = () => {
                 return new Promise<boolean>((resolve) => {
+                    // Check if OneSignal bridge exists
                     if (window.median?.onesignal) return resolve(true);
+
                     let attempts = 0;
                     const interval = setInterval(() => {
                         attempts++;
                         if (window.median?.onesignal) {
                             clearInterval(interval);
                             resolve(true);
-                        } else if (attempts > 50) {
+                        } else if (attempts > 50) { // 5 seconds timeout
                             clearInterval(interval);
                             resolve(false);
                         }
@@ -48,29 +53,44 @@ export default function OneSignalInit() {
 
             const hasMedian = await waitForMedian();
             if (!hasMedian) {
-                console.log('⚠️ Median bridge not available for OneSignal sync');
+                console.warn('⚠️ Median bridge not available for OneSignal sync - retrying in 3s...');
+                // Retry once after a delay if bridge failed
+                setTimeout(() => syncUserToOneSignal(user), 3000);
                 return;
             }
 
-            // Sync External User ID
             const externalId = user.id;
+            console.log('📲 Setting External ID:', externalId);
+
+            // TRY ALL METHODS - OneSignal SDK versions have changed method names
+            // 1. New V4/V5 method
             if (window.median.onesignal.login) {
+                console.log('🔹 Using onesignal.login()');
                 window.median.onesignal.login(externalId);
-            } else if (window.median.onesignal.setExternalUserId) {
+            }
+            // 2. Older method
+            else if (window.median.onesignal.setExternalUserId) {
+                console.log('🔹 Using onesignal.setExternalUserId()');
                 window.median.onesignal.setExternalUserId(externalId);
+            }
+            // 3. Fallback generic run wrapper if available
+            else if (window.median.run) {
+                console.log('🔹 Using median.run to inject OneSignal code');
+                window.median.run(`
+                    if (window.OneSignal) {
+                        window.OneSignal.login ? window.OneSignal.login('${externalId}') : window.OneSignal.setExternalUserId('${externalId}');
+                    }
+                 `);
             }
 
             // Sync email and phone if available
             if (user.email && window.median.onesignal.setEmail) {
                 window.median.onesignal.setEmail(user.email);
             }
-            if (user.phone && window.median.onesignal.setSMSNumber) {
-                window.median.onesignal.setSMSNumber(user.phone);
-            }
 
-            // Mark as synced
+            // Log success
+            console.log('✅ OneSignal sync command sent');
             hasSyncedRef.current = true;
-            console.log('✅ OneSignal sync complete');
 
         } catch (err) {
             console.error('❌ OneSignal sync error:', err);
@@ -80,7 +100,7 @@ export default function OneSignalInit() {
     useEffect(() => {
         // 1. Initial Session Check
         supabase.auth.getSession().then(({ data }: any) => {
-            if (data.session) {
+            if (data.session?.user) {
                 setAuthSession(data.session);
                 syncUserToOneSignal(data.session.user);
             }
@@ -91,12 +111,15 @@ export default function OneSignalInit() {
             console.log('🔑 Auth event:', event);
             setAuthSession(session);
 
-            if (session?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+            if (session?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED')) {
+                // Always attempt sync on valid session events to ensure ID is set
                 syncUserToOneSignal(session.user);
             } else if (event === 'SIGNED_OUT') {
                 hasSyncedRef.current = false;
                 if (window.median?.onesignal?.logout) {
                     window.median.onesignal.logout();
+                } else if (window.median?.onesignal?.removeExternalUserId) {
+                    window.median.onesignal.removeExternalUserId();
                 }
             }
         });
