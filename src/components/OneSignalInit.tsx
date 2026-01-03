@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Session } from '@supabase/supabase-js';
+import { getOneSignalStats } from '@/app/actions/onesignal';
 
 // Extend window for Median JS Bridge
 declare global {
@@ -26,11 +27,21 @@ export default function OneSignalInit() {
     const syncUserToOneSignal = async (user: any) => {
         if (!user) return;
 
-        // Don't skip if already synced - we might need to retry if bridge wasn't ready
-        // But do prevent rapid-fire duplicate calls if one is in progress
-
         try {
             console.log('📱 Syncing User to OneSignal:', user.email);
+
+            let identityHash = '';
+            try {
+                identityHash = (await getOneSignalStats(user.id)) || '';
+            } catch (e) {
+                console.warn('⚠️ Could not generate OneSignal Identity Hash locally');
+            }
+
+            if (!identityHash) {
+                console.warn('⚠️ No Identity Hash generated - check ONESIGNAL_REST_API_KEY if Identity Verification is enabled');
+            } else {
+                console.log('🔐 Identity Hash generated');
+            }
 
             const waitForMedian = () => {
                 return new Promise<boolean>((resolve) => {
@@ -66,26 +77,44 @@ export default function OneSignalInit() {
             // 1. New V4/V5 method
             if (window.median.onesignal.login) {
                 console.log('🔹 Using onesignal.login()');
-                window.median.onesignal.login(externalId);
+                if (identityHash) {
+                    window.median.onesignal.login(externalId, identityHash);
+                } else {
+                    window.median.onesignal.login(externalId);
+                }
             }
             // 2. Older method
             else if (window.median.onesignal.setExternalUserId) {
                 console.log('🔹 Using onesignal.setExternalUserId()');
-                window.median.onesignal.setExternalUserId(externalId);
+                if (identityHash) {
+                    window.median.onesignal.setExternalUserId(externalId, identityHash);
+                } else {
+                    window.median.onesignal.setExternalUserId(externalId);
+                }
             }
             // 3. Fallback generic run wrapper if available
             else if (window.median.run) {
                 console.log('🔹 Using median.run to inject OneSignal code');
                 window.median.run(`
                     if (window.OneSignal) {
-                        window.OneSignal.login ? window.OneSignal.login('${externalId}') : window.OneSignal.setExternalUserId('${externalId}');
+                        var extId = '${externalId}';
+                        var hash = '${identityHash || ''}';
+                        if (window.OneSignal.login) {
+                             window.OneSignal.login(extId, hash);
+                        } else if (window.OneSignal.setExternalUserId) {
+                             window.OneSignal.setExternalUserId(extId, hash);
+                        }
                     }
-                 `);
+                `);
             }
 
             // Sync email and phone if available
             if (user.email && window.median.onesignal.setEmail) {
-                window.median.onesignal.setEmail(user.email);
+                if (identityHash) {
+                    window.median.onesignal.setEmail(user.email, identityHash);
+                } else {
+                    window.median.onesignal.setEmail(user.email);
+                }
             }
 
             // Log success
