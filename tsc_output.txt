@@ -1,4 +1,0 @@
-src/app/api/reports/send/route.ts(5,24): error TS2307: Cannot find module 'nodemailer' or its corresponding type declarations.
-src/app/api/snags/route.ts(80,49): error TS7006: Parameter 'm' implicitly has an 'any' type.
-src/lib/reports/pdfGenerator.ts(1,23): error TS2307: Cannot find module 'jspdf' or its corresponding type declarations.
-src/lib/reports/pdfGenerator.ts(2,23): error TS2307: Cannot find module 'jspdf-autotable' or its corresponding type declarations.

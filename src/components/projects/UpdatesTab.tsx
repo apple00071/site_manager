@@ -143,19 +143,30 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
       // Helper to normalize photos to always be an array
       const normalizePhotos = (photos: any): string[] => {
         if (!photos) return [];
-        if (Array.isArray(photos)) return photos;
+
+        // If it's already an array, filter out non-strings
+        if (Array.isArray(photos)) {
+          return photos.filter(p => typeof p === 'string' && p.trim().length > 0);
+        }
+
         if (typeof photos === 'string') {
+          const trimmed = photos.trim();
           // Check if it's a JSON array string
-          if (photos.startsWith('[')) {
+          if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
             try {
-              const parsed = JSON.parse(photos);
-              return Array.isArray(parsed) ? parsed : [photos];
-            } catch {
-              return [photos];
+              const parsed = JSON.parse(trimmed);
+              return Array.isArray(parsed)
+                ? parsed.filter((p: any) => typeof p === 'string' && p.length > 0)
+                : [];
+            } catch (e) {
+              console.warn('Failed to parse photos JSON:', trimmed);
+              return [];
             }
           }
-          return [photos];
+          // Treat as single URL if it looks like one (basic check) or just non-empty
+          return trimmed.length > 0 ? [trimmed] : [];
         }
+
         return [];
       };
 

@@ -7,7 +7,7 @@ import { ImageModal } from '@/components/ui/ImageModal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDateReadable, getTodayDateString, formatDateTimeIST } from '@/lib/dateUtils';
-import { FiPlus, FiCalendar, FiUsers, FiUser, FiPhone, FiImage, FiMoreVertical, FiEdit2, FiTrash2, FiCheckCircle, FiX, FiCheckSquare } from 'react-icons/fi';
+import { FiPlus, FiCalendar, FiUsers, FiUser, FiPhone, FiImage, FiMoreVertical, FiEdit2, FiTrash2, FiCheckCircle, FiX, FiCheckSquare, FiLoader } from 'react-icons/fi';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 interface SiteLog {
@@ -44,6 +44,7 @@ export const SiteLogTab = forwardRef<SiteLogTabHandle, SiteLogTabProps>(({ proje
     const [loading, setLoading] = useState(true);
     const [isPanelOpen, setIsPanelOpen] = useState(false); // Controls both SidePanel and BottomSheet
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
 
     // Menu State
@@ -125,24 +126,42 @@ export const SiteLogTab = forwardRef<SiteLogTabHandle, SiteLogTabProps>(({ proje
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
-        const newPhotos: string[] = [];
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${user?.id}/${Date.now()}_${i}.${fileExt}`;
+        try {
+            setIsUploading(true);
+            const uploadPromises = Array.from(files).map(async (file, i) => {
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${user?.id}/${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
 
-            const { error: uploadError } = await supabase.storage
-                .from('project-update-photos')
-                .upload(fileName, file);
+                const { error: uploadError } = await supabase.storage
+                    .from('project-update-photos')
+                    .upload(fileName, file);
 
-            if (!uploadError) {
+                if (uploadError) {
+                    console.error('Upload error:', uploadError);
+                    return null;
+                }
+
                 const { data: { publicUrl } } = supabase.storage
                     .from('project-update-photos')
                     .getPublicUrl(fileName);
-                newPhotos.push(publicUrl);
+                return publicUrl;
+            });
+
+            const results = await Promise.all(uploadPromises);
+            const successfulUploads = results.filter((url): url is string => url !== null);
+
+            if (successfulUploads.length < files.length) {
+                alert(`Successfully uploaded ${successfulUploads.length} of ${files.length} images.`);
             }
+
+            setFormData(prev => ({ ...prev, photos: [...prev.photos, ...successfulUploads] }));
+        } catch (error) {
+            console.error('Error handling uploads:', error);
+            alert('An error occurred while uploading images.');
+        } finally {
+            setIsUploading(false);
+            e.target.value = '';
         }
-        setFormData(prev => ({ ...prev, photos: [...prev.photos, ...newPhotos] }));
     };
 
     const handleEdit = (log: SiteLog) => {
@@ -360,9 +379,17 @@ export const SiteLogTab = forwardRef<SiteLogTabHandle, SiteLogTabProps>(({ proje
                         </div>
                     ))}
                 </div>
-                <label className="flex items-center gap-2 cursor-pointer text-yellow-600 hover:text-yellow-700 text-sm font-medium">
-                    <FiImage /> Attach Photos
-                    <input type="file" multiple accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                <label className={`flex items-center gap-2 text-yellow-600 hover:text-yellow-700 text-sm font-medium ${isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                    {isUploading ? <FiLoader className="animate-spin" /> : <FiImage />}
+                    {isUploading ? 'Uploading...' : 'Attach Photos'}
+                    <input 
+                        type="file" 
+                        multiple 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handlePhotoUpload} 
+                        disabled={isUploading}
+                    />
                 </label>
             </div>
         </div>
