@@ -96,20 +96,20 @@ function DashboardLayoutContent({
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-gray-900 bg-opacity-50 lg:hidden backdrop-blur-sm"
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden backdrop-blur-sm"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-14 hover:w-32 sm:w-16 hover:sm:w-36 lg:w-14 hover:lg:w-32 bg-white text-gray-900 shadow-lg border-r border-gray-200 transform transition-all duration-300 ease-in-out group peer
+        fixed inset-y-0 left-0 z-50 w-32 lg:w-14 lg:hover:w-32 bg-white text-gray-900 shadow-lg border-r border-gray-200 transform transition-all duration-300 ease-in-out group peer
         lg:translate-x-0 lg:fixed lg:top-0 lg:h-screen lg:left-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Logo at top */}
         <div className="p-2 lg:p-3">
-          <div className="flex items-center justify-center">
+          <div className="flex items-center justify-start pl-3 lg:pl-1">
             <img
               src="/icon.png"
               alt="Apple Interiors"
@@ -122,53 +122,53 @@ function DashboardLayoutContent({
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-3">
+        <nav className="flex-1 py-2 lg:py-3 lg:px-0">
           <div className="space-y-1">
             <Link
               href="/dashboard"
-              className="flex items-center justify-start pl-[14px] sm:pl-[18px] lg:pl-[14px] pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
+              className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
               onClick={() => setSidebarOpen(false)}
               title="Dashboard"
             >
               <FiHome className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
-              <span className="ml-3 text-xs font-medium hidden group-hover:block whitespace-nowrap">Dashboard</span>
+              <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Dashboard</span>
             </Link>
             <Link
               href="/dashboard/projects"
-              className="flex items-center justify-start pl-[14px] sm:pl-[18px] lg:pl-[14px] pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
+              className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
               onClick={() => setSidebarOpen(false)}
               title="Projects"
             >
               <FiBriefcase className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
-              <span className="ml-3 text-xs font-medium hidden group-hover:block whitespace-nowrap">Projects</span>
+              <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Projects</span>
             </Link>
             <Link
               href="/dashboard/tasks"
-              className="flex items-center justify-start pl-[14px] sm:pl-[18px] lg:pl-[14px] pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
+              className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
               onClick={() => setSidebarOpen(false)}
               title="All Tasks"
             >
               <FiCheckSquare className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
-              <span className="ml-3 text-xs font-medium hidden group-hover:block whitespace-nowrap">Tasks</span>
+              <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Tasks</span>
             </Link>
             <Link
               href="/dashboard/snags"
-              className="flex items-center justify-start pl-[14px] sm:pl-[18px] lg:pl-[14px] pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
+              className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
               onClick={() => setSidebarOpen(false)}
               title="Snags"
             >
               <FiAlertTriangle className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
-              <span className="ml-3 text-xs font-medium hidden group-hover:block whitespace-nowrap">Snags</span>
+              <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Snags</span>
             </Link>
             {isAdmin && (
               <Link
                 href="/dashboard/organization"
-                className="flex items-center justify-start pl-[14px] sm:pl-[18px] lg:pl-[14px] pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg mx-1 touch-target"
+                className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
                 onClick={() => setSidebarOpen(false)}
                 title="Org"
               >
                 <FiUsers className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
-                <span className="ml-3 text-xs font-medium hidden group-hover:block whitespace-nowrap">Org</span>
+                <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Org</span>
               </Link>
             )}
           </div>
