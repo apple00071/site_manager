@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Session } from '@supabase/supabase-js';
-import { getOneSignalStats } from '@/app/actions/onesignal';
+import { getOneSignalIdentityHash } from '@/app/actions/onesignal';
 
 // Extend window for Median JS Bridge
 declare global {
@@ -25,27 +25,31 @@ export default function OneSignalInit() {
 
     // Sync user information to OneSignal
     const syncUserToOneSignal = async (user: any) => {
-        if (!user) return;
+        if (!user || hasSyncedRef.current) return;
 
         try {
-            console.log('📱 Syncing User to OneSignal:', user.email);
+            console.log('📱 [OneSignal] Starting sync for:', user.email);
 
-            let identityHash = '';
+            // 1. Generate Identity Hashes (for Identity Verification)
+            // OneSignal requires distinct hashes for the ID and the Email if verification is enabled.
+            let idHash = '';
+            let emailHash = '';
+
             try {
-                identityHash = (await getOneSignalStats(user.id)) || '';
+                const [idResult, emailResult] = await Promise.all([
+                    getOneSignalIdentityHash(user.id),
+                    user.email ? getOneSignalIdentityHash(user.email) : Promise.resolve(null)
+                ]);
+                idHash = idResult || '';
+                emailHash = emailResult || '';
+                console.log('🔐 [OneSignal] Identity hashes prepared');
             } catch (e) {
-                console.warn('⚠️ Could not generate OneSignal Identity Hash locally');
+                console.warn('⚠️ [OneSignal] Could not generate Identity Hashes');
             }
 
-            if (!identityHash) {
-                console.warn('⚠️ No Identity Hash generated - check ONESIGNAL_REST_API_KEY if Identity Verification is enabled');
-            } else {
-                console.log('🔐 Identity Hash generated');
-            }
-
+            // 2. Wait for Median Bridge
             const waitForMedian = () => {
                 return new Promise<boolean>((resolve) => {
-                    // Check if OneSignal bridge exists
                     if (window.median?.onesignal) return resolve(true);
 
                     let attempts = 0;
@@ -54,7 +58,7 @@ export default function OneSignalInit() {
                         if (window.median?.onesignal) {
                             clearInterval(interval);
                             resolve(true);
-                        } else if (attempts > 50) { // 5 seconds timeout
+                        } else if (attempts > 100) { // 10 seconds timeout (increased for reliability)
                             clearInterval(interval);
                             resolve(false);
                         }
@@ -64,92 +68,90 @@ export default function OneSignalInit() {
 
             const hasMedian = await waitForMedian();
             if (!hasMedian) {
-                console.warn('⚠️ Median bridge not available for OneSignal sync - retrying in 3s...');
-                // Retry once after a delay if bridge failed
-                setTimeout(() => syncUserToOneSignal(user), 3000);
+                console.warn('⚠️ [OneSignal] Median bridge not available after timeout - sync failed');
                 return;
             }
 
             const externalId = user.id;
-            console.log('📲 Setting External ID:', externalId);
+            const onesignal = window.median.onesignal;
 
-            // TRY ALL METHODS - OneSignal SDK versions have changed method names
-            // 1. New V4/V5 method
-            if (window.median.onesignal.login) {
-                console.log('🔹 Using onesignal.login()');
-                if (identityHash) {
-                    window.median.onesignal.login(externalId, identityHash);
-                } else {
-                    window.median.onesignal.login(externalId);
-                }
+            // 3. Set External ID (Primary User Identification)
+            // We use the Supabase User ID as the OneSignal External ID
+            if (onesignal.login) {
+                console.log('🔹 [OneSignal] Syncing External ID via login()');
+                onesignal.login(externalId, idHash || undefined);
+            } else if (onesignal.setExternalUserId) {
+                console.log('🔹 [OneSignal] Syncing External ID via setExternalUserId()');
+                onesignal.setExternalUserId(externalId, idHash || undefined);
             }
-            // 2. Older method
-            else if (window.median.onesignal.setExternalUserId) {
-                console.log('🔹 Using onesignal.setExternalUserId()');
-                if (identityHash) {
-                    window.median.onesignal.setExternalUserId(externalId, identityHash);
-                } else {
-                    window.median.onesignal.setExternalUserId(externalId);
-                }
+
+            // 4. Set Email (For notification deliverability)
+            if (user.email && onesignal.setEmail) {
+                console.log('🔹 [OneSignal] Syncing Email');
+                onesignal.setEmail(user.email, emailHash || undefined);
             }
-            // 3. Fallback generic run wrapper if available
-            else if (window.median.run) {
-                console.log('🔹 Using median.run to inject OneSignal code');
-                window.median.run(`
-                    if (window.OneSignal) {
-                        var extId = '${externalId}';
-                        var hash = '${identityHash || ''}';
-                        if (window.OneSignal.login) {
-                             window.OneSignal.login(extId, hash);
-                        } else if (window.OneSignal.setExternalUserId) {
-                             window.OneSignal.setExternalUserId(extId, hash);
-                        }
+
+            // 5. Secondary Link (Save Player ID to our DB for backend push)
+            // Attempt to get the OneSignal ID (Player ID) and link it in our backend
+            const getOneSignalId = () => {
+                return new Promise<string | null>((resolve) => {
+                    if (onesignal.onesignal_id) return resolve(onesignal.onesignal_id);
+                    if (onesignal.playerId) return resolve(onesignal.playerId);
+
+                    // Fallback to getPlayerId callback if available
+                    if (onesignal.getPlayerId) {
+                        onesignal.getPlayerId((id: string) => resolve(id));
+                    } else {
+                        resolve(null);
                     }
-                `);
+                });
+            };
+
+            const oneSignalId = await getOneSignalId();
+            if (oneSignalId) {
+                console.log('🔗 [OneSignal] Linking ID in backend:', oneSignalId);
+                await fetch('/api/onesignal/link', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ oneSignalId })
+                }).catch(err => console.error('❌ [OneSignal] Backend link failed:', err));
             }
 
-            // Sync email and phone if available
-            if (user.email && window.median.onesignal.setEmail) {
-                if (identityHash) {
-                    window.median.onesignal.setEmail(user.email, identityHash);
-                } else {
-                    window.median.onesignal.setEmail(user.email);
-                }
-            }
-
-            // Log success
-            console.log('✅ OneSignal sync command sent');
+            console.log('✅ [OneSignal] Sync sequence complete');
             hasSyncedRef.current = true;
 
         } catch (err) {
-            console.error('❌ OneSignal sync error:', err);
+            console.error('❌ [OneSignal] Sync error:', err);
         }
     };
 
     useEffect(() => {
-        // 1. Initial Session Check
-        supabase.auth.getSession().then(({ data }: any) => {
-            if (data.session?.user) {
-                setAuthSession(data.session);
-                syncUserToOneSignal(data.session.user);
-            }
-        });
-
-        // 2. Auth State Change Listener
+        // 1. Auth State Monitoring
         const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event: any, session: any) => {
-            console.log('🔑 Auth event:', event);
-            setAuthSession(session);
+            console.log('🔑 [Auth] Event:', event);
 
-            if (session?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED')) {
-                // Always attempt sync on valid session events to ensure ID is set
-                syncUserToOneSignal(session.user);
+            if (session?.user) {
+                setAuthSession(session);
+                // Trigger sync on sign in or initial load
+                if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
+                    syncUserToOneSignal(session.user);
+                }
             } else if (event === 'SIGNED_OUT') {
                 hasSyncedRef.current = false;
+                setAuthSession(null);
                 if (window.median?.onesignal?.logout) {
                     window.median.onesignal.logout();
                 } else if (window.median?.onesignal?.removeExternalUserId) {
                     window.median.onesignal.removeExternalUserId();
                 }
+            }
+        });
+
+        // 2. Initial Session Check (Bootstrap)
+        supabase.auth.getSession().then(({ data }: any) => {
+            if (data.session?.user) {
+                setAuthSession(data.session);
+                syncUserToOneSignal(data.session.user);
             }
         });
 
