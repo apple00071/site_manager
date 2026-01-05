@@ -100,17 +100,31 @@ export default function OneSignalInit() {
             const externalId = `user_${user.id}`;
             await window.median.onesignal.login(externalId);
 
-            // 4. Verification View
+            // 4. Set Email (Safely)
+            if (user.email) {
+                if (typeof window.median.onesignal.setEmail === 'function') {
+                    await window.median.onesignal.setEmail(user.email);
+                } else {
+                    console.warn("OneSignal setEmail not supported");
+                }
+            }
+
+            // 5. Set Phone (Safely)
+            if (user.phone) {
+                if (typeof window.median.onesignal.setSMSNumber === 'function') {
+                    await window.median.onesignal.setSMSNumber(user.phone);
+                } else {
+                    console.warn("OneSignal setSMSNumber not supported");
+                }
+            }
+
+            // 6. Verification View
             if (DEBUG) {
                 if (window.median.onesignal.info) {
                     const finalInfo = await window.median.onesignal.info();
                     alert("✅ SUCCESS: " + JSON.stringify(finalInfo));
                 }
             }
-
-            // Set extras silently
-            if (user.email) await window.median.onesignal.setEmail(user.email);
-            if (user.phone) await window.median.onesignal.setSMSNumber(user.phone);
 
         } catch (error: any) {
             if (DEBUG) alert("❌ Error: " + error.message);
