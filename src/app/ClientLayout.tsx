@@ -7,7 +7,6 @@ import { useEffect, useState } from 'react';
 import { AuthProvider } from '@/contexts/AuthContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { ToastProvider } from '@/components/ui/Toast';
-import NewYearPopup from '@/components/NewYearPopup';
 
 export default function ClientLayout({
   children,
@@ -74,7 +73,6 @@ export default function ClientLayout({
     <ErrorBoundary>
       <ToastProvider>
         <AuthProvider>
-          <NewYearPopup />
           {children}
         </AuthProvider>
       </ToastProvider>
