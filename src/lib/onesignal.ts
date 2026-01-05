@@ -132,14 +132,14 @@ export async function sendPushNotificationByUserId(
 
         // We can ALWAYS attempt to send using external_id (userId)
         // OneSignal is clever enough to ignore it if no device is linked to this external_id
-        const externalUserIds = [userId];
+        // IMPORTANT: Client registers as `user_${id}`, so we must match that format.
+        const externalUserIds = [`user_${userId}`];
         const userIds = user?.onesignal_player_id ? [user.onesignal_player_id] : [];
 
         if (userIds.length > 0) {
             console.log('✅ Found OneSignal ID in DB:', userIds[0]);
-        } else {
-            console.log('ℹ️ No OneSignal ID in DB, using External User ID targeting exclusively');
         }
+        console.log('🎯 Targeting External ID:', externalUserIds[0]);
 
         // Send using both for maximum reliability
         return await sendPushNotification({
@@ -184,9 +184,12 @@ export async function sendPushNotificationToMultipleUsers(
 
         console.log(`✅ Targeted ${userIds.length} users (Found ${playerIds.length} Player IDs in DB)`);
 
+        // IMPORTANT: Map to `user_${id}` to match client registration
+        const formattedExternalIds = userIds.map(id => `user_${id}`);
+
         // Send using both for maximum reliability
         return await sendPushNotification({
-            externalUserIds: userIds,
+            externalUserIds: formattedExternalIds,
             userIds: playerIds,
             title,
             message,
