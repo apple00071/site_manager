@@ -151,13 +151,13 @@ export const SiteLogTab = forwardRef<SiteLogTabHandle, SiteLogTabProps>(({ proje
             const successfulUploads = results.filter((url): url is string => url !== null);
 
             if (successfulUploads.length < files.length) {
-                alert(`Successfully uploaded ${successfulUploads.length} of ${files.length} images.`);
+                alert(`Successfully uploaded ${successfulUploads.length} of ${files.length} files.`);
             }
 
             setFormData(prev => ({ ...prev, photos: [...prev.photos, ...successfulUploads] }));
         } catch (error) {
             console.error('Error handling uploads:', error);
-            alert('An error occurred while uploading images.');
+            alert('An error occurred while uploading files.');
         } finally {
             setIsUploading(false);
             e.target.value = '';
@@ -369,7 +369,14 @@ export const SiteLogTab = forwardRef<SiteLogTabHandle, SiteLogTabProps>(({ proje
                 <div className="flex flex-wrap gap-2 mb-2">
                     {formData.photos.map((p, i) => (
                         <div key={i} className="relative group">
-                            <img src={p} className="w-16 h-16 object-cover rounded border border-gray-300" />
+                            {p.toLowerCase().endsWith('.pdf') ? (
+                                <div className="w-16 h-16 bg-gray-50 rounded border border-gray-200 flex flex-col items-center justify-center p-1">
+                                    <FiCheckSquare className="w-5 h-5 text-red-500" />
+                                    <span className="text-[8px] text-gray-500 font-bold mt-1">PDF</span>
+                                </div>
+                            ) : (
+                                <img src={p} className="w-16 h-16 object-cover rounded border border-gray-300" />
+                            )}
                             <button
                                 onClick={() => setFormData(prev => ({ ...prev, photos: prev.photos.filter((_, idx) => idx !== i) }))}
                                 className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -381,13 +388,13 @@ export const SiteLogTab = forwardRef<SiteLogTabHandle, SiteLogTabProps>(({ proje
                 </div>
                 <label className={`flex items-center gap-2 text-yellow-600 hover:text-yellow-700 text-sm font-medium ${isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
                     {isUploading ? <FiLoader className="animate-spin" /> : <FiImage />}
-                    {isUploading ? 'Uploading...' : 'Attach Photos'}
-                    <input 
-                        type="file" 
-                        multiple 
-                        accept="image/*" 
-                        className="hidden" 
-                        onChange={handlePhotoUpload} 
+                    {isUploading ? 'Uploading...' : 'Attach Photos/Files'}
+                    <input
+                        type="file"
+                        multiple
+                        accept="image/*,application/pdf"
+                        className="hidden"
+                        onChange={handlePhotoUpload}
                         disabled={isUploading}
                     />
                 </label>
@@ -535,15 +542,31 @@ export const SiteLogTab = forwardRef<SiteLogTabHandle, SiteLogTabProps>(({ proje
 
                             {log.photos && log.photos.length > 0 && (
                                 <div className="flex gap-2 mt-4 overflow-x-auto pb-2 scrollbar-hide">
-                                    {log.photos.map((url, idx) => (
-                                        <button
-                                            key={idx}
-                                            onClick={() => openImageModal(log.photos || [], idx)}
-                                            className="block w-20 h-20 flex-shrink-0 cursor-zoom-in"
-                                        >
-                                            <img src={url} alt="Log attachment" className="w-full h-full object-cover rounded-lg border border-gray-200 hover:opacity-90 transition-opacity" />
-                                        </button>
-                                    ))}
+                                    {log.photos.map((url, idx) => {
+                                        const isPDF = url.toLowerCase().endsWith('.pdf');
+                                        return (
+                                            <button
+                                                key={idx}
+                                                onClick={() => {
+                                                    if (isPDF) {
+                                                        window.open(url, '_blank');
+                                                    } else {
+                                                        openImageModal(log.photos || [], idx);
+                                                    }
+                                                }}
+                                                className="block w-20 h-20 flex-shrink-0 cursor-zoom-in"
+                                            >
+                                                {isPDF ? (
+                                                    <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 border border-gray-200 rounded-lg p-2 text-center">
+                                                        <FiCheckSquare className="w-6 h-6 text-red-500 mb-1" />
+                                                        <span className="text-[10px] text-gray-500 font-bold uppercase">PDF</span>
+                                                    </div>
+                                                ) : (
+                                                    <img src={url} alt="Log attachment" className="w-full h-full object-cover rounded-lg border border-gray-200 hover:opacity-90 transition-opacity" />
+                                                )}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>

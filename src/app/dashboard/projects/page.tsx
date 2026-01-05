@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { FiPlus, FiEdit2, FiTrash2, FiEye, FiMoreVertical, FiSearch, FiX } from 'react-icons/fi';
@@ -20,7 +21,16 @@ export default function ProjectsPage() {
   const [activeTab, setActiveTab] = useState<string>('all');
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const searchParams = useSearchParams();
   const { setTitle, setSubtitle } = useHeaderTitle();
+
+  // Handle status filter from URL
+  useEffect(() => {
+    const status = searchParams.get('status');
+    if (status) {
+      setActiveTab(status);
+    }
+  }, [searchParams]);
 
   // Set header title
   useEffect(() => {
@@ -97,8 +107,8 @@ export default function ProjectsPage() {
   const statusTabs = useMemo(() => {
     const tabs = [
       { key: 'all', label: 'All Projects', count: projects.length },
-      { key: 'pending', label: 'Pending', count: projects.filter(p => p.status === 'pending' || !p.status).length },
-      { key: 'in_progress', label: 'In Progress', count: projects.filter(p => p.status === 'in_progress').length },
+      { key: 'pending', label: 'Design Phase', count: projects.filter(p => p.status === 'pending' || !p.status).length },
+      { key: 'in_progress', label: 'Execution Phase', count: projects.filter(p => p.status === 'in_progress').length },
       { key: 'on_hold', label: 'On Hold', count: projects.filter(p => p.status === 'on_hold').length },
       { key: 'completed', label: 'Completed', count: projects.filter(p => p.status === 'completed').length },
       { key: 'cancelled', label: 'Cancelled', count: projects.filter(p => p.status === 'cancelled').length },
@@ -137,8 +147,8 @@ export default function ProjectsPage() {
     const status = project.status || 'pending';
 
     const configs: Record<string, { bg: string; text: string; label: string }> = {
-      'pending': { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Pending' },
-      'in_progress': { bg: 'bg-blue-100', text: 'text-blue-700', label: 'In Progress' },
+      'pending': { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Design Phase' },
+      'in_progress': { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Execution Phase' },
       'on_hold': { bg: 'bg-orange-100', text: 'text-orange-700', label: 'On Hold' },
       'completed': { bg: 'bg-green-100', text: 'text-green-700', label: 'Completed' },
       'cancelled': { bg: 'bg-red-100', text: 'text-red-700', label: 'Cancelled' },

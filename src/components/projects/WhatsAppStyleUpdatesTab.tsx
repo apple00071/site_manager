@@ -50,7 +50,7 @@ const Avatar = ({ name, src, size = 'md' }: { name: string; src?: string; size?:
   }
 
   return (
-    <div 
+    <div
       className={`${sizeClasses[size]} rounded-full bg-green-100 text-green-800 flex items-center justify-center font-medium`}
     >
       {name.charAt(0).toUpperCase()}
@@ -93,7 +93,7 @@ export function WhatsAppStyleUpdatesTab({ projectId, currentUserId }: UpdatesTab
       setLoading(true);
       const response = await fetch(`/api/project-updates?project_id=${projectId}`);
       if (!response.ok) throw new Error('Failed to fetch updates');
-      
+
       const { updates: fetchedUpdates } = await response.json();
       setUpdates(fetchedUpdates || []);
     } catch (error) {
@@ -138,7 +138,7 @@ export function WhatsAppStyleUpdatesTab({ projectId, currentUserId }: UpdatesTab
       });
 
       if (!response.ok) throw new Error('Failed to send message');
-      
+
       setMessage('');
       setSelectedImages([]);
       setReplyingTo(null);
@@ -148,8 +148,8 @@ export function WhatsAppStyleUpdatesTab({ projectId, currentUserId }: UpdatesTab
     }
   };
 
-  // Handle image selection
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle file selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setSelectedImages(Array.from(e.target.files));
     }
@@ -190,9 +190,9 @@ export function WhatsAppStyleUpdatesTab({ projectId, currentUserId }: UpdatesTab
       </div>
 
       {/* Messages */}
-      <div 
+      <div
         className="flex-1 overflow-y-auto p-4 space-y-4 pb-24"
-        style={{ 
+        style={{
           scrollBehavior: 'smooth',
           paddingBottom: '6rem' /* Space for input */
         }}
@@ -204,12 +204,12 @@ export function WhatsAppStyleUpdatesTab({ projectId, currentUserId }: UpdatesTab
                 {date}
               </span>
             </div>
-            
+
             {dateMessages.map((update) => {
               const isMe = update.user_id === currentUserId;
               return (
-                <div 
-                  key={update.id} 
+                <div
+                  key={update.id}
                   className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-2`}
                 >
                   {!isMe && (
@@ -217,44 +217,60 @@ export function WhatsAppStyleUpdatesTab({ projectId, currentUserId }: UpdatesTab
                       <Avatar name={update.user.full_name} src={update.user.avatar_url} size="md" />
                     </div>
                   )}
-                  
+
                   <div className={`max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl 2xl:max-w-2xl ${isMe ? 'bg-[#d9fdd3]' : 'bg-white'} rounded-lg p-2 shadow`}>
                     {update.photos?.length > 0 && (
                       <div className="flex gap-3 overflow-x-auto pb-2 mb-2 scrollbar-hide">
-                        {update.photos.map((photo, idx) => (
-                          <div 
-                            key={idx}
-                            className="flex-shrink-0 relative group"
-                            onClick={() => {
-                              setSelectedImage(photo);
-                              setSelectedImageIndex(idx);
-                              setCurrentImages(update.photos);
-                            }}
-                          >
-                            <div className="w-40 h-28 md:w-48 md:h-32 lg:w-56 lg:h-36 relative rounded-lg overflow-hidden border border-gray-200">
-                              <img 
-                                src={photo}
-                                alt={`Update ${idx + 1}`}
-                                className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-                                loading="lazy"
-                              />
-                              {update.photos.length > 1 && (
-                                <div className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded-full">
-                                  {idx + 1}/{update.photos.length}
-                                </div>
-                              )}
+                        {update.photos.map((photo, idx) => {
+                          const isPDF = photo.toLowerCase().endsWith('.pdf');
+                          return (
+                            <div
+                              key={idx}
+                              className="flex-shrink-0 relative group"
+                              onClick={() => {
+                                if (isPDF) {
+                                  window.open(photo, '_blank');
+                                } else {
+                                  setSelectedImage(photo);
+                                  setSelectedImageIndex(idx);
+                                  setCurrentImages(update.photos);
+                                }
+                              }}
+                            >
+                              <div className="w-40 h-28 md:w-48 md:h-32 lg:w-56 lg:h-36 relative rounded-lg overflow-hidden border border-gray-200 cursor-pointer">
+                                {isPDF ? (
+                                  <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 p-2 text-center">
+                                    <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mb-1">
+                                      <span className="text-red-600 font-bold text-xs">PDF</span>
+                                    </div>
+                                    <span className="text-[10px] text-gray-500 font-medium truncate w-full">Document</span>
+                                  </div>
+                                ) : (
+                                  <img
+                                    src={photo}
+                                    alt={`Update ${idx + 1}`}
+                                    className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                                    loading="lazy"
+                                  />
+                                )}
+                                {update.photos.length > 1 && (
+                                  <div className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded-full">
+                                    {idx + 1}/{update.photos.length}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
-                    
+
                     <p className="text-gray-800">{update.description}</p>
-                    
+
                     <div className={`flex items-center justify-end mt-1 space-x-1`}>
-                      <StatusIndicator 
-                        isRead={update.is_read} 
-                        time={update.created_at} 
+                      <StatusIndicator
+                        isRead={update.is_read}
+                        time={update.created_at}
                       />
                     </div>
                   </div>
@@ -269,16 +285,16 @@ export function WhatsAppStyleUpdatesTab({ projectId, currentUserId }: UpdatesTab
       {/* Fixed Message Input */}
       <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 p-3">
         <form onSubmit={handleSendMessage} className="flex items-center max-w-4xl mx-auto w-full px-4">
-          <input 
-            type="file" 
+          <input
+            type="file"
             id="file-upload"
-            className="hidden" 
-            multiple 
-            accept="image/*"
-            onChange={handleImageSelect}
+            className="hidden"
+            multiple
+            accept="image/*,application/pdf"
+            onChange={handleFileSelect}
           />
-          <button 
-            type="button" 
+          <button
+            type="button"
             className="p-2 text-gray-500 hover:text-yellow-600 transition-colors"
             onClick={() => document.getElementById('file-upload')?.click()}
             title="Attach image"
@@ -302,8 +318,8 @@ export function WhatsAppStyleUpdatesTab({ projectId, currentUserId }: UpdatesTab
               }}
             />
           </div>
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             className="p-2 bg-yellow-500 text-white rounded-full hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={!message.trim() && selectedImages.length === 0}
             title="Send message"

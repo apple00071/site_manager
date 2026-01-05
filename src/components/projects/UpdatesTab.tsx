@@ -317,7 +317,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
           .upload(fileName, file);
 
         if (error) {
-          console.error('Error uploading photo:', error);
+          console.error('Error uploading file:', error);
           continue;
         }
 
@@ -330,8 +330,8 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
 
       setForm(prev => ({ ...prev, photos: [...prev.photos, ...uploadedUrls] }));
     } catch (error) {
-      console.error('Error uploading photos:', error);
-      alert('Failed to upload some photos');
+      console.error('Error uploading files:', error);
+      alert('Failed to upload some files');
     } finally {
       setUploadingPhotos(false);
     }
@@ -857,7 +857,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                 </svg>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/*,application/pdf"
                   multiple
                   onChange={handlePhotoUpload}
                   disabled={uploadingPhotos}
@@ -892,19 +892,45 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
 
           {/* Photo previews */}
           {form.photos.length > 0 && (
-            <div className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg">
-              <div className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <span className="text-sm text-gray-700">{form.photos.length} photo(s) selected</span>
+            <div className="flex flex-col gap-3 p-3 bg-white border border-gray-200 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm font-medium text-gray-700">{form.photos.length} file(s) selected</span>
+                </div>
+                <button
+                  onClick={() => setForm(prev => ({ ...prev, photos: [] }))}
+                  className="text-red-500 hover:text-red-700 text-sm font-medium"
+                >
+                  Clear All
+                </button>
               </div>
-              <button
-                onClick={() => setForm(prev => ({ ...prev, photos: [] }))}
-                className="text-red-500 hover:text-red-700 text-sm"
-              >
-                Clear
-              </button>
+              <div className="flex flex-wrap gap-2">
+                {form.photos.map((url, idx) => {
+                  const isPDF = url.toLowerCase().endsWith('.pdf');
+                  return (
+                    <div key={idx} className="relative group">
+                      {isPDF ? (
+                        <div className="w-12 h-12 bg-gray-50 rounded border border-gray-200 flex flex-col items-center justify-center p-1">
+                          <span className="text-[10px] text-red-600 font-bold">PDF</span>
+                        </div>
+                      ) : (
+                        <img src={url} className="w-12 h-12 object-cover rounded border border-gray-200" />
+                      )}
+                      <button
+                        onClick={() => setForm(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== idx) }))}
+                        className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 shadow-sm"
+                      >
+                        <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
@@ -949,23 +975,39 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                         {update.photos && update.photos.length > 0 && (
                           <div className="mb-3">
                             <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-0.5">
-                              {update.photos.map((photo: string, photoIndex: number) => (
-                                <div
-                                  key={photoIndex}
-                                  className="aspect-square rounded-sm overflow-hidden cursor-pointer border border-gray-200"
-                                  onClick={() => {
-                                    setCurrentImages(update.photos);
-                                    setSelectedImageIndex(photoIndex);
-                                    setSelectedImage(photo);
-                                  }}
-                                >
-                                  <img
-                                    src={photo}
-                                    alt={`Update photo ${photoIndex + 1}`}
-                                    className="w-full h-full object-cover hover:opacity-90 transition-opacity"
-                                  />
-                                </div>
-                              ))}
+                              {update.photos.map((photo: string, photoIndex: number) => {
+                                const isPDF = photo.toLowerCase().endsWith('.pdf');
+                                return (
+                                  <div
+                                    key={photoIndex}
+                                    className="aspect-square rounded-sm overflow-hidden cursor-pointer border border-gray-200 bg-gray-50"
+                                    onClick={() => {
+                                      if (isPDF) {
+                                        window.open(photo, '_blank');
+                                      } else {
+                                        setCurrentImages(update.photos);
+                                        setSelectedImageIndex(photoIndex);
+                                        setSelectedImage(photo);
+                                      }
+                                    }}
+                                  >
+                                    {isPDF ? (
+                                      <div className="w-full h-full flex flex-col items-center justify-center p-1">
+                                        <svg className="w-6 h-6 text-red-500 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                        </svg>
+                                        <span className="text-[8px] text-gray-500 font-bold uppercase">PDF</span>
+                                      </div>
+                                    ) : (
+                                      <img
+                                        src={photo}
+                                        alt={`Update photo ${photoIndex + 1}`}
+                                        className="w-full h-full object-cover hover:opacity-90 transition-opacity"
+                                      />
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         )}

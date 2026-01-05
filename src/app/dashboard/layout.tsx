@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX, FiCheckSquare, FiAlertTriangle } from 'react-icons/fi';
+import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX, FiCheckSquare, FiAlertTriangle, FiCreditCard } from 'react-icons/fi';
 import { supabase } from '@/lib/supabase';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 import { OptimizedNotificationBell } from '@/components/OptimizedNotificationBell';
@@ -160,6 +160,15 @@ function DashboardLayoutContent({
               <FiAlertTriangle className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
               <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Snags</span>
             </Link>
+            <Link
+              href="/dashboard/office-expenses"
+              className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
+              onClick={() => setSidebarOpen(false)}
+              title="Expenses"
+            >
+              <FiCreditCard className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
+              <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Expenses</span>
+            </Link>
             {isAdmin && (
               <Link
                 href="/dashboard/organization"
@@ -227,8 +236,13 @@ function DashboardLayoutContent({
                 <div className="flex items-center gap-2 text-sm">
                   {typeof subtitle === 'string' ? (
                     <>
-                      <span className="hidden sm:inline text-gray-500">Project Status:</span>
-                      <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium text-xs">
+                      {pathname?.startsWith('/dashboard/projects/') && (
+                        <span className="hidden sm:inline text-gray-500">Project Status:</span>
+                      )}
+                      <span className={`px-2 py-0.5 rounded-full font-medium text-xs ${pathname?.startsWith('/dashboard/projects/')
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-yellow-50 text-yellow-700 border border-yellow-100'
+                        }`}>
                         {subtitle}
                       </span>
                     </>

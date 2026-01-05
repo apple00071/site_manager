@@ -109,6 +109,12 @@ export const PERMISSION_NODES = {
     TASKS_CREATE: 'tasks.create',
     TASKS_EDIT: 'tasks.edit',
     TASKS_BULK: 'tasks.bulk',
+
+    // Office Expenses Permissions
+    OFFICE_EXPENSES_VIEW: 'office_expenses.view',
+    OFFICE_EXPENSES_CREATE: 'office_expenses.create',
+    OFFICE_EXPENSES_APPROVE: 'office_expenses.approve',
+    OFFICE_EXPENSES_DELETE: 'office_expenses.delete',
 } as const;
 
 export type PermissionNode = typeof PERMISSION_NODES[keyof typeof PERMISSION_NODES];

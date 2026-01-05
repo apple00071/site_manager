@@ -165,8 +165,18 @@ export default function ProjectDetailsPage() {
           default: return 'bg-yellow-100 text-yellow-700';
         }
       };
+      const getStatusLabel = (s: string) => {
+        switch (s?.toLowerCase()) {
+          case 'pending': return 'DESIGN PHASE';
+          case 'in_progress': return 'EXECUTION PHASE';
+          case 'on_hold': return 'ON HOLD';
+          case 'completed': return 'COMPLETED';
+          default: return s?.toUpperCase() || 'UNKNOWN';
+        }
+      };
+
       const status = project.status;
-      const displayStatus = status?.replace(/_/g, ' ').toUpperCase() || 'UNKNOWN';
+      const displayStatus = getStatusLabel(status);
       const StatusBadge = (
         <div className="flex items-center gap-2 text-sm">
           <span className="hidden sm:inline text-gray-500">Project Status:</span>
@@ -593,7 +603,9 @@ export default function ProjectDetailsPage() {
                                   project.status === 'on_hold' ? 'bg-yellow-100 text-yellow-800' :
                                     'bg-gray-100 text-gray-800'
                                 }`}>
-                                {project.status?.replace('_', ' ').toUpperCase() || 'PENDING'}
+                                {project.status === 'pending' ? 'DESIGN PHASE' :
+                                  project.status === 'in_progress' ? 'EXECUTION PHASE' :
+                                    project.status?.replace('_', ' ').toUpperCase() || 'PENDING'}
                               </span>
                             </dd>
                           </div>

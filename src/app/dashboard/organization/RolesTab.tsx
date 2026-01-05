@@ -218,6 +218,17 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
             { id: 'settings.workflows', label: 'Manage workflows' }
         ],
         notifications: []
+    },
+    {
+        module: 'Office Expenses',
+        icon: '🏢',
+        permissions: [
+            { id: 'office_expenses.view', label: 'View office expenses' },
+            { id: 'office_expenses.create', label: 'Add office expenses' },
+            { id: 'office_expenses.approve', label: 'Approve office expenses' },
+            { id: 'office_expenses.delete', label: 'Delete office expenses' }
+        ],
+        notifications: ['Office expense added', 'Office expense approved']
     }
 ];
 
@@ -245,7 +256,8 @@ const MODULE_PREFIX_MAP: Record<string, string[]> = {
     'Finance': ['finance.'],
     'Expenses': ['inventory.'],
     'User & Role Management': ['user.', 'users.', 'role.'],
-    'Settings': ['settings.']
+    'Settings': ['settings.'],
+    'Office Expenses': ['office_expenses.']
 };
 
 export default function RolesTab() {
@@ -568,7 +580,7 @@ export default function RolesTab() {
             {/* Side Panel */}
             {showPanel && (
                 <>
-                    <div className="fixed inset-0 bg-gray-900 bg-opacity-20 z-40" onClick={() => setShowPanel(false)} />
+                    <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setShowPanel(false)} />
                     <div className="fixed right-0 top-0 h-full w-full max-w-xl bg-white shadow-2xl z-50 flex flex-col overflow-hidden animate-slide-in-right">
                         {/* Header */}
                         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">

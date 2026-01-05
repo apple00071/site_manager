@@ -66,7 +66,7 @@ export function SidePanel({
         <>
             {/* Backdrop */}
             <div
-                className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 transition-opacity duration-300"
+                className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-opacity duration-300"
                 onClick={onClose}
                 aria-hidden="true"
                 data-side-panel="true"
@@ -88,18 +88,20 @@ export function SidePanel({
                 aria-labelledby="side-panel-title"
             >
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
-                    <h2 id="side-panel-title" className="text-lg font-semibold text-gray-900">
-                        {title}
-                    </h2>
-                    <button
-                        onClick={onClose}
-                        className="btn-ghost"
-                        aria-label="Close panel"
-                    >
-                        <FiX className="w-5 h-5" />
-                    </button>
-                </div>
+                {title && (
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+                        <h2 id="side-panel-title" className="text-lg font-semibold text-gray-900">
+                            {title}
+                        </h2>
+                        <button
+                            onClick={onClose}
+                            className="btn-ghost"
+                            aria-label="Close panel"
+                        >
+                            <FiX className="w-5 h-5" />
+                        </button>
+                    </div>
+                )}
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-6">

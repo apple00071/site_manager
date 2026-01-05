@@ -72,7 +72,7 @@ export function BottomSheet({
 
     return (
         <div
-            className={`fixed inset-0 z-50 transition-colors duration-300 ${isAnimating ? 'bg-black/40' : 'bg-transparent'
+            className={`fixed inset-0 z-50 transition-colors duration-300 ${isAnimating ? 'bg-black/20' : 'bg-transparent'
                 }`}
             onClick={handleBackdropClick}
             aria-modal="true"

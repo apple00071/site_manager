@@ -16,6 +16,7 @@ const createInventoryItemSchema = z.object({
   supplier_name: z.string().min(1, 'Supplier name is required').optional(),
   date_purchased: z.string().optional(),
   bill_url: z.string().url('Invalid bill URL').optional(),
+  bill_urls: z.array(z.string().url('Invalid bill URL')).optional().default([]),
   total_cost: z.number().min(0, 'Total cost must be positive').optional(),
   po_id: z.string().uuid().optional(), // Added po_id
 });
@@ -27,6 +28,7 @@ const updateInventoryItemSchema = z.object({
   supplier_name: z.string().min(1, 'Supplier name is required').optional(),
   date_purchased: z.string().optional(),
   bill_url: z.string().url('Invalid bill URL').optional(),
+  bill_urls: z.array(z.string().url('Invalid bill URL')).optional(),
   total_cost: z.number().min(0, 'Total cost must be positive').optional(),
 });
 
@@ -57,6 +59,7 @@ export async function GET(request: NextRequest) {
         supplier_name,
         date_purchased,
         bill_url,
+        bill_urls,
         created_by,
         created_at,
         bill_approval_status,
@@ -115,6 +118,7 @@ export async function POST(request: NextRequest) {
         supplier_name,
         date_purchased,
         bill_url,
+        bill_urls: parsed.data.bill_urls || (bill_url ? [bill_url] : []),
         total_cost,
         created_by: userId,
         bill_approval_status: 'pending', // Default to pending approval
@@ -213,6 +217,11 @@ export async function PATCH(request: NextRequest) {
     }
 
     const { id, ...updates } = parsed.data;
+
+    // Ensure bill_urls is handled (if provided in updates)
+    if ((updates as any).bill_urls && !(updates as any).bill_url && (updates as any).bill_urls.length > 0) {
+      (updates as any).bill_url = (updates as any).bill_urls[0];
+    }
 
     // Check if user owns this item or is admin
     const { data: existingItem, error: fetchError } = await supabaseAdmin

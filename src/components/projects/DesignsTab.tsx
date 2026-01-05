@@ -57,12 +57,12 @@ type DesignFile = {
 
 interface DesignUploadFormProps {
   uploadForm: {
-    file: File | null;
+    files: File[];
     category: string;
     version_number: number;
   };
   setUploadForm: React.Dispatch<React.SetStateAction<{
-    file: File | null;
+    files: File[];
     category: string;
     version_number: number;
   }>>;
@@ -82,20 +82,33 @@ const DesignUploadForm = ({ uploadForm, setUploadForm, onClose, onUpload, upload
     )}
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-2">
-        Select File *
+        Select Files *
       </label>
       <input
         type="file"
-        accept="image/*,.pdf,.dwg,.dxf"
+        multiple
+        accept="image/*,application/pdf,.dwg,.dxf"
         onChange={(e) => {
           e.stopPropagation();
-          const file = e.target.files?.[0] || null;
-          setUploadForm(prev => ({ ...prev, file }));
+          const files = e.target.files ? Array.from(e.target.files) : [];
+          setUploadForm(prev => ({ ...prev, files: [...prev.files, ...files] }));
         }}
         className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-yellow-500"
       />
-      {uploadForm.file && (
-        <p className="mt-2 text-sm text-gray-600">Selected: {uploadForm.file.name}</p>
+      {uploadForm.files.length > 0 && (
+        <div className="mt-3 space-y-2">
+          {uploadForm.files.map((file, i) => (
+            <div key={i} className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-100 text-xs">
+              <span className="truncate flex-1 mr-2">{file.name}</span>
+              <button
+                onClick={() => setUploadForm(prev => ({ ...prev, files: prev.files.filter((_, idx) => idx !== i) }))}
+                className="text-red-500 hover:text-red-700"
+              >
+                <FiX className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
       )}
     </div>
 
@@ -132,7 +145,7 @@ const DesignUploadForm = ({ uploadForm, setUploadForm, onClose, onUpload, upload
       <button
         type="button"
         onClick={onUpload}
-        disabled={uploading || !uploadForm.file}
+        disabled={uploading || uploadForm.files.length === 0}
         className="flex-1 btn-primary disabled:opacity-50"
       >
         {uploading ? 'Uploading...' : 'Upload'}
@@ -195,7 +208,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
   const [uploadForm, setUploadForm] = useState({
-    file: null as File | null,
+    files: [] as File[],
     category: '', // Room category like "Kitchen", "Bedroom", etc.
     version_number: 1,
   });
@@ -388,13 +401,13 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
   }, [projectId]);
 
   const resetForm = () => {
-    setUploadForm({ file: null, category: '', version_number: 1 });
+    setUploadForm({ files: [], category: '', version_number: 1 });
     setFormError(null);
   };
 
   const handleFileUpload = async () => {
-    if (!uploadForm.file) {
-      setFormError('Please select a file');
+    if (uploadForm.files.length === 0) {
+      setFormError('Please select at least one file');
       return;
     }
 
@@ -407,38 +420,47 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
     setFormError(null);
 
     try {
-      const fileExt = uploadForm.file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `designs/${projectId}/${fileName}`;
+      let successCount = 0;
+      for (const file of uploadForm.files) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `designs/${projectId}/${fileName}`;
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('design-files')
-        .upload(filePath, uploadForm.file);
+        const { error: uploadError } = await supabase.storage
+          .from('design-files')
+          .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error('Error uploading file:', file.name, uploadError);
+          continue;
+        }
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('design-files')
-        .getPublicUrl(filePath);
+        const { data: { publicUrl } } = supabase.storage
+          .from('design-files')
+          .getPublicUrl(filePath);
 
-      const fileType = uploadForm.file.type.startsWith('image/') ? 'image' :
-        uploadForm.file.type === 'application/pdf' ? 'pdf' : 'other';
+        const fileType = file.type.startsWith('image/') ? 'image' :
+          file.type === 'application/pdf' ? 'pdf' : 'other';
 
-      const response = await fetch('/api/design-files', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project_id: projectId,
-          file_name: uploadForm.file.name,
-          file_url: publicUrl,
-          file_type: fileType,
-          category: uploadForm.category.trim(),
-        }),
-      });
+        const response = await fetch('/api/design-files', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_id: projectId,
+            file_name: file.name,
+            file_url: publicUrl,
+            file_type: fileType,
+            category: uploadForm.category.trim(),
+          }),
+        });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create design');
+        if (response.ok) {
+          successCount++;
+        }
+      }
+
+      if (successCount === 0) {
+        throw new Error('Failed to upload any files');
       }
 
       await fetchDesigns();
@@ -447,10 +469,10 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
       // Clear recovery state after successful upload
       sessionStorage.removeItem(UPLOAD_STORAGE_KEY);
       setUploadRecoveryMessage(null);
-      showToast('success', 'Design uploaded successfully');
+      showToast('success', `Successfully uploaded ${successCount} design(s)`);
     } catch (error: any) {
-      console.error('Error uploading design:', error);
-      showToast('error', error.message || 'Failed to upload design');
+      console.error('Error uploading designs:', error);
+      showToast('error', error.message || 'Failed to upload designs');
     } finally {
       setUploading(false);
     }

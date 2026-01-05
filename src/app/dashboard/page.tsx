@@ -316,7 +316,7 @@ export default function DashboardPage() {
       {/* Stats - Compact Single Row */}
       <div className="grid grid-cols-2 xs:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3">
         {/* Project Stats */}
-        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+        <Link href="/dashboard/projects?status=all" className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-lg bg-yellow-100 text-yellow-700">
               <FiBriefcase className="h-4 w-4" />
@@ -326,9 +326,9 @@ export default function DashboardPage() {
               <p className="text-lg font-bold text-gray-900">{stats.totalProjects}</p>
             </div>
           </div>
-        </div>
+        </Link>
 
-        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+        <Link href="/dashboard/projects?status=in_progress" className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
               <FiAlertCircle className="h-4 w-4" />
@@ -338,9 +338,9 @@ export default function DashboardPage() {
               <p className="text-lg font-bold text-gray-900">{stats.activeProjects}</p>
             </div>
           </div>
-        </div>
+        </Link>
 
-        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+        <Link href="/dashboard/projects?status=completed" className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-lg bg-green-100 text-green-600">
               <FiCheckCircle className="h-4 w-4" />
@@ -350,9 +350,9 @@ export default function DashboardPage() {
               <p className="text-lg font-bold text-gray-900">{stats.completedProjects}</p>
             </div>
           </div>
-        </div>
+        </Link>
 
-        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+        <Link href="/dashboard/projects" className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-lg bg-amber-100 text-amber-600">
               <FiClock className="h-4 w-4" />
@@ -362,10 +362,10 @@ export default function DashboardPage() {
               <p className="text-lg font-bold text-gray-900">{stats.upcomingDeadlines}</p>
             </div>
           </div>
-        </div>
+        </Link>
 
         {/* Task Stats */}
-        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+        <Link href="/dashboard/tasks" className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-lg bg-purple-100 text-purple-700">
               <FiCheckCircle className="h-4 w-4" />
@@ -375,9 +375,9 @@ export default function DashboardPage() {
               <p className="text-lg font-bold text-gray-900">{stats.totalTasks}</p>
             </div>
           </div>
-        </div>
+        </Link>
 
-        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+        <Link href="/dashboard/tasks" className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-lg bg-gray-100 text-gray-700">
               <FiClock className="h-4 w-4" />
@@ -387,9 +387,9 @@ export default function DashboardPage() {
               <p className="text-lg font-bold text-gray-900">{stats.todoTasks}</p>
             </div>
           </div>
-        </div>
+        </Link>
 
-        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+        <Link href="/dashboard/tasks" className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
               <FiPlay className="h-4 w-4" />
@@ -399,9 +399,9 @@ export default function DashboardPage() {
               <p className="text-lg font-bold text-gray-900">{stats.inProgressTasks}</p>
             </div>
           </div>
-        </div>
+        </Link>
 
-        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+        <Link href="/dashboard/tasks" className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-lg bg-green-100 text-green-600">
               <FiCheck className="h-4 w-4" />
@@ -411,7 +411,7 @@ export default function DashboardPage() {
               <p className="text-lg font-bold text-gray-900">{stats.doneTasks}</p>
             </div>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Visual Progress Charts Section */}

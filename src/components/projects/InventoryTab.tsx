@@ -24,6 +24,7 @@ type InventoryItem = {
   supplier_name: string | null;
   date_purchased: string | null;
   bill_url: string | null;
+  bill_urls: string[] | null;
   created_by: string;
   created_at: string;
   bill_approval_status: string | null;
@@ -45,7 +46,7 @@ interface InventoryItemFormProps {
     quantity: string;
     amount: string;
     date_purchased: string;
-    bill_url: string;
+    bill_urls: string[];
     po_id: string;
   };
   setForm: React.Dispatch<React.SetStateAction<{
@@ -54,12 +55,14 @@ interface InventoryItemFormProps {
     quantity: string;
     amount: string;
     date_purchased: string;
-    bill_url: string;
+    bill_urls: string[];
+    bill_url: string; // Keep for compatibility if needed
     po_id: string;
   }>>;
   onClose: () => void;
   onSubmit: () => Promise<void>;
   onBillUpload: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
+  onRemoveBill: (url: string) => void;
   saving: boolean;
   uploadingBill: boolean;
   isEditing: boolean;
@@ -67,7 +70,7 @@ interface InventoryItemFormProps {
 }
 
 const InventoryItemForm = ({
-  form, setForm, onClose, onSubmit, onBillUpload, saving, uploadingBill, isEditing, projectId
+  form, setForm, onClose, onSubmit, onBillUpload, onRemoveBill, saving, uploadingBill, isEditing, projectId
 }: InventoryItemFormProps) => {
   const [usePO, setUsePO] = useState(false);
   const [pos, setPos] = useState<any[]>([]);
@@ -241,19 +244,39 @@ const InventoryItemForm = ({
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Bill/Invoice</label>
+
+        {form.bill_urls && form.bill_urls.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {form.bill_urls.map((url, idx) => (
+              <div key={idx} className="relative group">
+                {url.toLowerCase().endsWith('.pdf') ? (
+                  <div className="w-16 h-16 bg-gray-100 rounded border flex flex-col items-center justify-center p-1">
+                    <FiUpload className="w-4 h-4 text-red-500" />
+                    <span className="text-[8px] text-gray-500 uppercase mt-0.5">PDF</span>
+                  </div>
+                ) : (
+                  <img src={url} alt="bill" className="w-16 h-16 object-cover rounded border" />
+                )}
+                <button
+                  type="button"
+                  onClick={() => onRemoveBill(url)}
+                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <FiX className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <input
           type="file"
-          accept="image/*,application/pdf"
-          onChange={(e) => {
-            e.stopPropagation();
-            onBillUpload(e);
-          }}
+          accept="application/pdf,image/*"
+          multiple
+          onChange={onBillUpload}
           disabled={uploadingBill}
           className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-yellow-50 file:text-yellow-700"
         />
-        {form.bill_url && (
-          <p className="mt-1 text-xs text-green-600">✓ Bill uploaded</p>
-        )}
       </div>
       <div className="flex gap-3 pt-2">
         <button
@@ -325,7 +348,8 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
     quantity: '',
     amount: '',
     date_purchased: new Date().toISOString().split('T')[0], // Default to today
-    bill_url: '',
+    bill_urls: [] as string[],
+    bill_url: '', // keep for schema compatibility
     po_id: '',
   });
 
@@ -398,6 +422,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
       quantity: '',
       amount: '',
       date_purchased: new Date().toISOString().split('T')[0], // Default to today
+      bill_urls: [],
       bill_url: '',
       po_id: ''
     });
@@ -405,33 +430,46 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
   };
 
   const handleBillUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setUploadingBill(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `bills/${projectId}/${fileName}`;
+      const uploadPromises = Array.from(files).map(async (file) => {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `bills/${projectId}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('inventory-bills')
-        .upload(filePath, file);
+        const { error: uploadError } = await supabase.storage
+          .from('inventory-bills')
+          .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+        if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('inventory-bills')
-        .getPublicUrl(filePath);
+        const { data: { publicUrl } } = supabase.storage
+          .from('inventory-bills')
+          .getPublicUrl(filePath);
 
-      setForm(prev => ({ ...prev, bill_url: publicUrl }));
-      showToast('success', 'Bill uploaded');
+        return publicUrl;
+      });
+
+      const urls = await Promise.all(uploadPromises);
+      setForm(prev => ({ ...prev, bill_urls: [...(prev.bill_urls || []), ...urls] }));
+      showToast('success', `${urls.length} files uploaded`);
     } catch (error) {
       console.error('Error uploading bill:', error);
-      showToast('error', 'Failed to upload bill');
+      showToast('error', 'Failed to upload files');
     } finally {
       setUploadingBill(false);
+      e.target.value = '';
     }
+  };
+
+  const removeBill = (urlToRemove: string) => {
+    setForm(prev => ({
+      ...prev,
+      bill_urls: (prev.bill_urls || []).filter(url => url !== urlToRemove)
+    }));
   };
 
   const handleSubmit = async () => {
@@ -455,7 +493,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
           quantity: form.quantity ? parseFloat(form.quantity) : undefined,
           total_cost: form.amount ? parseFloat(form.amount) : undefined,
           date_purchased: form.date_purchased || undefined,
-          bill_url: form.bill_url || undefined,
+          bill_urls: form.bill_urls || [],
           po_id: form.po_id || undefined,
         }),
       });
@@ -504,6 +542,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
       quantity: item.quantity?.toString() || '',
       amount: item.total_cost?.toString() || '',
       date_purchased: item.date_purchased || new Date().toISOString().split('T')[0],
+      bill_urls: (item as any).bill_urls || (item.bill_url ? [item.bill_url] : []),
       bill_url: item.bill_url || '',
       po_id: '',
     });
@@ -596,6 +635,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
           onClose={() => { setIsAddingNew(false); resetForm(); }}
           onSubmit={handleSubmit}
           onBillUpload={handleBillUpload}
+          onRemoveBill={removeBill}
           saving={saving}
           uploadingBill={uploadingBill}
           isEditing={!!editingItem}
@@ -615,6 +655,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
           onClose={() => { setIsAddingNew(false); resetForm(); }}
           onSubmit={handleSubmit}
           onBillUpload={handleBillUpload}
+          onRemoveBill={removeBill}
           saving={saving}
           uploadingBill={uploadingBill}
           isEditing={!!editingItem}
