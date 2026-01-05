@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { createPortal } from 'react-dom';
 import { FiPlus, FiFilter, FiSearch, FiDollarSign, FiClock, FiCheckCircle, FiXCircle, FiMoreVertical, FiEye, FiEdit2, FiTrash2, FiChevronDown, FiX, FiCircle, FiUpload, FiSend, FiColumns, FiLayers } from 'react-icons/fi';
@@ -32,6 +32,18 @@ export default function OfficeExpensesPage() {
     const [showActions, setShowActions] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setActiveMenuId(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const { setTitle, setSubtitle } = useHeaderTitle();
     const { showToast } = useToast();
@@ -287,47 +299,72 @@ export default function OfficeExpensesPage() {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                {canApprove && expense.status === 'pending' && (
-                                                    <button
-                                                        onClick={() => setApprovingExpense(expense)}
-                                                        className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
-                                                        title="Approve/Reject"
+                                            <div className="relative flex justify-end">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setActiveMenuId(activeMenuId === expense.id ? null : expense.id);
+                                                    }}
+                                                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                                                >
+                                                    <FiMoreVertical className="w-5 h-5" />
+                                                </button>
+
+                                                {activeMenuId === expense.id && (
+                                                    <div
+                                                        ref={menuRef}
+                                                        className="absolute right-0 top-8 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50 animate-in fade-in zoom-in-95 duration-100"
+                                                        onClick={(e) => e.stopPropagation()}
                                                     >
-                                                        <FiCheckCircle className="w-5 h-5" />
-                                                    </button>
-                                                )}
-                                                {expense.bill_url && (
-                                                    <a
-                                                        href={expense.bill_url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                        title="View Bill"
-                                                    >
-                                                        <FiEye className="w-5 h-5" />
-                                                    </a>
-                                                )}
-                                                {(user?.id === expense.user_id || isAdmin) && expense.status === 'pending' && (
-                                                    <button
-                                                        onClick={() => {
-                                                            setEditingExpense(expense);
-                                                            setShowForm(true);
-                                                        }}
-                                                        className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                                                        title="Edit"
-                                                    >
-                                                        <FiEdit2 className="w-5 h-5" />
-                                                    </button>
-                                                )}
-                                                {canDelete && (
-                                                    <button
-                                                        onClick={() => handleDelete(expense.id)}
-                                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                        title="Delete"
-                                                    >
-                                                        <FiTrash2 className="w-5 h-5" />
-                                                    </button>
+                                                        {canApprove && expense.status === 'pending' && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setApprovingExpense(expense);
+                                                                    setActiveMenuId(null);
+                                                                }}
+                                                                className="w-full text-left px-4 py-2.5 text-sm text-yellow-600 hover:bg-yellow-50 flex items-center gap-2"
+                                                            >
+                                                                <FiCheckCircle className="w-4 h-4" /> Approve/Reject
+                                                            </button>
+                                                        )}
+
+                                                        {expense.bill_url && (
+                                                            <a
+                                                                href={expense.bill_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="w-full text-left px-4 py-2.5 text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+                                                                onClick={() => setActiveMenuId(null)}
+                                                            >
+                                                                <FiEye className="w-4 h-4" /> View Bill
+                                                            </a>
+                                                        )}
+
+                                                        {(user?.id === expense.user_id || isAdmin) && expense.status === 'pending' && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEditingExpense(expense);
+                                                                    setShowForm(true);
+                                                                    setActiveMenuId(null);
+                                                                }}
+                                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                                            >
+                                                                <FiEdit2 className="w-4 h-4" /> Edit
+                                                            </button>
+                                                        )}
+
+                                                        {canDelete && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    handleDelete(expense.id);
+                                                                    setActiveMenuId(null);
+                                                                }}
+                                                                className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                                            >
+                                                                <FiTrash2 className="w-4 h-4" /> Delete
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
                                         </td>

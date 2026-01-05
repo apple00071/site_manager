@@ -58,7 +58,6 @@ export async function GET(request: NextRequest) {
         total_cost,
         supplier_name,
         date_purchased,
-        bill_url,
         bill_urls,
         created_by,
         created_at,

@@ -87,7 +87,7 @@ const DesignUploadForm = ({ uploadForm, setUploadForm, onClose, onUpload, upload
       <input
         type="file"
         multiple
-        accept="image/*,application/pdf,.dwg,.dxf"
+        accept="*"
         onChange={(e) => {
           e.stopPropagation();
           const files = e.target.files ? Array.from(e.target.files) : [];
