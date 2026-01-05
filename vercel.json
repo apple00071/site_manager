@@ -3,5 +3,17 @@
   "buildCommand": "npm run build",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "regions": ["iad1"]
+  "regions": [
+    "iad1"
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/daily-briefing",
+      "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/cron/task-reminders",
+      "schedule": "30 12 * * *"
+    }
+  ]
 }

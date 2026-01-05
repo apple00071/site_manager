@@ -1,0 +1,102 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase-server';
+import { NotificationService } from '@/lib/notificationService';
+
+export const dynamic = 'force-dynamic';
+
+export async function GET(req: NextRequest) {
+    // 1. Validate Cron Secret
+    const authHeader = req.headers.get('authorization');
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+        // Return 401 but generic message to avoid leaking existence
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    try {
+        console.log('⏰ Starting Task Reminder Cron Job');
+
+        // Calculate "tomorrow" date string (YYYY-MM-DD)
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+        // 2. Fetch tasks due tomorrow
+        // We check two tables: `tasks` (Calendar Tasks) and `project_step_tasks` (Project Tasks)
+
+        // standard tasks
+        const { data: calendarTasks, error: tasksError } = await supabaseAdmin
+            .from('tasks')
+            .select('id, title, assigned_to, end_at, project_id, projects(name)')
+            .eq('status', 'todo') // Only pending tasks
+            .filter('end_at', 'gte', `${tomorrowStr}T00:00:00`)
+            .filter('end_at', 'lt', `${tomorrowStr}T23:59:59`);
+
+        if (tasksError) throw tasksError;
+
+        // project step tasks
+        const { data: projectTasks, error: stepTasksError } = await supabaseAdmin
+            .from('project_step_tasks')
+            .select('id, title, assigned_to, estimated_completion_date, step_id, project_steps(project_id, projects(name))')
+            .eq('status', 'todo') // Only pending
+            .eq('estimated_completion_date', tomorrowStr);
+
+        if (stepTasksError) throw stepTasksError;
+
+        // 3. Process & Send Notifications
+        const updates = [];
+
+        // Process Calendar Tasks
+        if (calendarTasks) {
+            for (const task of calendarTasks) {
+                if (task.assigned_to) {
+                    console.log(`Sending reminder for Task ${task.id} to User ${task.assigned_to}`);
+                    updates.push(
+                        NotificationService.createNotification({
+                            userId: task.assigned_to,
+                            title: 'Task Due Tomorrow',
+                            message: `Reminder: "${task.title}" is due tomorrow.`,
+                            type: 'task_assigned', // Re-using existing type or could add 'reminder'
+                            relatedId: task.id,
+                            relatedType: 'task'
+                        })
+                    );
+                }
+            }
+        }
+
+        // Process Project Tasks
+        if (projectTasks) {
+            for (const task of projectTasks) {
+                if (task.assigned_to) {
+                    const projectName = task.project_steps?.projects?.name || 'Project';
+                    console.log(`Sending reminder for Project Task ${task.id} to User ${task.assigned_to}`);
+                    updates.push(
+                        NotificationService.createNotification({
+                            userId: task.assigned_to,
+                            title: 'Project Task Due Tomorrow',
+                            message: `Reminder: "${task.title}" in ${projectName} is due tomorrow.`,
+                            type: 'task_assigned',
+                            relatedId: task.id,
+                            relatedType: 'project_task'
+                        })
+                    );
+                }
+            }
+        }
+
+        await Promise.allSettled(updates);
+
+        return NextResponse.json({
+            success: true,
+            message: `Sent ${updates.length} reminders`,
+            processed: {
+                calendarTasks: calendarTasks?.length || 0,
+                projectTasks: projectTasks?.length || 0
+            }
+        });
+
+    } catch (error: any) {
+        console.error('Task Reminder Cron Failed:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
