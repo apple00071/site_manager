@@ -4,6 +4,8 @@ import { useEffect, useRef } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
+import { useRouter } from 'next/navigation';
+
 // Extend window for Median JS Bridge
 declare global {
     interface Window {
@@ -16,6 +18,7 @@ const DEBUG = false; // Set to false after debugging
 
 export default function OneSignalInit() {
     const mounted = useRef(false);
+    const router = useRouter();
 
     // Use createBrowserClient from @supabase/ssr to match Middleware's createServerClient
     const supabase = createBrowserClient(
@@ -102,18 +105,38 @@ export default function OneSignalInit() {
             // 2. Subscription
             await waitForOneSignalSubscription();
 
-            // 3. Login
+            // 3. Server-side Link (More reliable than JS bridge login for initial targeting)
+            try {
+                let oneSignalId = null;
+                if (window.median?.onesignal?.info) {
+                    const info = await window.median.onesignal.info();
+                    oneSignalId = info.oneSignalId || info.subscription?.id;
+                }
+
+                if (oneSignalId) {
+                    if (DEBUG) alert(`🔗 Linking OneSignal ID: ${oneSignalId}`);
+                    await fetch('/api/onesignal/link', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ oneSignalId }),
+                    });
+                }
+            } catch (linkError) {
+                console.error("Link error:", linkError);
+            }
+
+            // 4. Login (JS Bridge)
             const externalId = `user_${user.id}`;
             await window.median.onesignal.login(externalId);
 
-            // 4. Set Email (Safely)
+            // 5. Set Email (Safely)
             if (user.email) {
                 if (typeof window.median.onesignal.setEmail === 'function') {
                     await window.median.onesignal.setEmail(user.email);
                 }
             }
 
-            // 5. Verification View
+            // 6. Verification View
             if (DEBUG) {
                 if (window.median.onesignal.info) {
                     const finalInfo = await window.median.onesignal.info();
@@ -137,6 +160,14 @@ export default function OneSignalInit() {
 
             if (DEBUG) alert(`🔔 Event: ${authEvent}`);
 
+            // --- DEEP LINK HANDLING ---
+            const pendingRoute = localStorage.getItem('pending_push_route');
+            if (pendingRoute) {
+                console.log('🔗 OneSignalInit: Consuming pending deep link:', pendingRoute);
+                localStorage.removeItem('pending_push_route');
+                router.push(pendingRoute);
+            }
+
             // Handle BOTH Initial Session (Page Load) and Signed In (New Login)
             if ((authEvent === "SIGNED_IN" || authEvent === "INITIAL_SESSION") && session?.user) {
                 // Wait for bridge logic
@@ -145,7 +176,8 @@ export default function OneSignalInit() {
                 setTimeout(() => {
                     registerPushAfterLogin(session.user, authEvent);
                 }, 1000);
-            } else if (!session?.user && authEvent === "INITIAL_SESSION") {
+            }
+            else if (!session?.user && authEvent === "INITIAL_SESSION") {
                 if (DEBUG) alert("❌ INITIAL_SESSION: No User (Logged Out)");
             }
         });

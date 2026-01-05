@@ -1,7 +1,7 @@
 // OneSignal Push Notification Service
 // Handles sending push notifications via OneSignal REST API
 
-const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID;
+const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID || process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
 const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
 
 // Use new API endpoint per OneSignal migration guide
@@ -44,7 +44,8 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
             contents: { en: params.message },
             data: {
                 ...(params.data || {}),
-                route: params.targetUrl // Use 'route' for Median internal navigation
+                route: params.targetUrl, // Use 'route' for Median internal navigation
+                url: params.targetUrl    // Fallback for Median
             },
             // DO NOT include url or launch_url for Median apps
             target_channel: "push"
