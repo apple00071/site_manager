@@ -14,93 +14,79 @@ declare global {
 
 export default function OneSignalInit() {
 
-    // 1️⃣ Hard check: Median environment
-    function isRunningInMedian() {
-        return (
-            typeof window !== "undefined" &&
-            !!window.median &&
-            !!window.median.onesignal
-        );
-    }
+    // 2️⃣ After login, poll until subscription is ready
+    async function waitForSubscription(timeout = 30000) {
+        const start = Date.now();
 
-    // 2️⃣ Wait for Median OneSignal bridge
-    function waitForMedianOneSignal(timeout = 15000): Promise<void> {
-        return new Promise((resolve, reject) => {
-            const start = Date.now();
+        while (Date.now() - start < timeout) {
+            try {
+                // Check if median exists first to avoid errors
+                // We assume onesignalInfo based on user snippet, but check safe access
+                if (window.median?.onesignal?.onesignalInfo) {
+                    const info = await window.median.onesignal.onesignalInfo();
 
-            const interval = setInterval(() => {
-                if (
-                    window.median?.onesignal &&
-                    typeof window.median.onesignal.login === "function"
-                ) {
-                    clearInterval(interval);
-                    resolve();
+                    // User Rule: Check if subscribed and userId exists
+                    if (info?.subscribed === true && info?.userId) {
+                        return info;
+                    }
                 }
-
-                if (Date.now() - start > timeout) {
-                    clearInterval(interval);
-                    reject("Median OneSignal bridge not ready");
+                // Fallback for different OS/Versions where 'info' might be used
+                else if (window.median?.onesignal?.info) {
+                    const info = await window.median.onesignal.info();
+                    if (info?.subscribed === true && info?.userId) {
+                        return info;
+                    }
                 }
-            }, 400);
-        });
-    }
-
-    // 3️⃣ Identity sync (FINAL)
-    async function syncIdentityToOneSignal(user: {
-        id: string;
-        email?: string;
-        phone?: string;
-    }) {
-        if (!isRunningInMedian()) return;
-
-        try {
-            // 1. Wait for native bridge
-            await waitForMedianOneSignal();
-
-            // 2. Request permission (Android 13+)
-            if (window.median.onesignal.requestPermission) {
-                await window.median.onesignal.requestPermission();
+            } catch (e) {
+                // Ignore transient errors during polling
             }
 
-            // 3. Login (this sets External ID)
+            await new Promise(res => setTimeout(res, 700));
+        }
+
+        throw new Error("OneSignal subscription not ready");
+    }
+
+    // 3️⃣ Bind identity ONLY after that
+    async function bindOneSignalIdentity(user: any) {
+        // Basic check to bail if not in Median at all
+        if (!window.median?.onesignal) return;
+
+        try {
+            console.log("⏳ [OneSignal] Waiting for native subscription...");
+
+            // 🔑 Wait for native subscription to fully complete
+            const subInfo = await waitForSubscription();
+            console.log("✅ [OneSignal] Subscription Ready:", subInfo);
+
+            // 🔑 NOW bind user
             const externalId = `user_${user.id}`;
+            console.log(`🔐 [OneSignal] Binding Identity: ${externalId}`);
             await window.median.onesignal.login(externalId);
 
-            // 4. Optional attributes
             if (user.email) {
                 await window.median.onesignal.setEmail(user.email);
             }
 
-            if (user.phone) {
-                await window.median.onesignal.setSMSNumber(user.phone);
+            if (user.phone || user.user_metadata?.phone_number) {
+                const phone = user.phone || user.user_metadata?.phone_number;
+                await window.median.onesignal.setSMSNumber(phone);
             }
 
-            // 5. Verify
-            if (window.median.onesignal.onesignalInfo) {
-                const info = await window.median.onesignal.onesignalInfo();
-                console.log("✅ OneSignal identity synced:", info);
-            } else if (window.median.onesignal.info) {
-                // Fallback if onesignalInfo isn't present but info is (documentation mismatch coverage)
-                const info = await window.median.onesignal.info();
-                console.log("✅ OneSignal identity synced (via info):", info);
-            }
+            console.log("✅ [OneSignal] Identity Binding Complete");
 
         } catch (e) {
-            console.error("❌ OneSignal identity sync failed", e);
+            console.error("❌ [OneSignal] bind failed", e);
         }
     }
 
-    // 4️⃣ Call it ONLY on real login
+    // 4️⃣ Call ONLY after login success
     useEffect(() => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange((authEvent: AuthChangeEvent, session: Session | null) => {
             const user = session?.user;
 
             if (authEvent === "SIGNED_IN" && user) {
-                syncIdentityToOneSignal({
-                    id: user.id,
-                    email: user.email,
-                    phone: user.user_metadata?.phone_number
-                });
+                bindOneSignalIdentity(user);
             }
         });
 
