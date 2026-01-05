@@ -3,7 +3,8 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { FiPlus, FiFilter, FiSearch, FiDollarSign, FiClock, FiCheckCircle, FiXCircle, FiMoreVertical, FiEye, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import { createPortal } from 'react-dom';
+import { FiPlus, FiFilter, FiSearch, FiDollarSign, FiClock, FiCheckCircle, FiXCircle, FiMoreVertical, FiEye, FiEdit2, FiTrash2, FiChevronDown, FiX, FiCircle, FiUpload, FiSend, FiColumns, FiLayers } from 'react-icons/fi';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { formatDateIST } from '@/lib/dateUtils';
@@ -28,6 +29,9 @@ export default function OfficeExpensesPage() {
     const [editingExpense, setEditingExpense] = useState<any | null>(null);
     const [approvingExpense, setApprovingExpense] = useState<any | null>(null);
     const [isMobile, setIsMobile] = useState(false);
+    const [showActions, setShowActions] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [mounted, setMounted] = useState(false);
 
     const { setTitle, setSubtitle } = useHeaderTitle();
     const { showToast } = useToast();
@@ -39,6 +43,7 @@ export default function OfficeExpensesPage() {
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.innerWidth < 768);
         checkMobile();
+        setMounted(true);
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
@@ -51,16 +56,9 @@ export default function OfficeExpensesPage() {
         if (!user) return;
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('office_expenses')
-                .select(`
-          *,
-          user:users!user_id(full_name, email),
-          approver:users!approved_by(full_name)
-        `)
-                .order('expense_date', { ascending: false });
-
-            if (error) throw error;
+            const response = await fetch('/api/office-expenses');
+            if (!response.ok) throw new Error('Failed to fetch expenses');
+            const { expenses: data } = await response.json();
             setExpenses(data || []);
         } catch (error: any) {
             console.error('Error fetching office expenses:', error);
@@ -85,12 +83,14 @@ export default function OfficeExpensesPage() {
         if (!confirm('Are you sure you want to delete this expense?')) return;
 
         try {
-            const { error } = await supabase
-                .from('office_expenses')
-                .delete()
-                .eq('id', id);
+            const response = await fetch(`/api/office-expenses?id=${id}`, {
+                method: 'DELETE'
+            });
 
-            if (error) throw error;
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to delete expense');
+            }
 
             showToast('success', 'Expense deleted successfully');
             fetchExpenses();
@@ -108,6 +108,13 @@ export default function OfficeExpensesPage() {
             totalAmount: expenses.filter(e => e.status === 'approved').reduce((sum, e) => sum + Number(e.amount), 0)
         };
     }, [expenses]);
+
+    const statusTabs = useMemo(() => [
+        { key: 'pending', label: 'Pending', count: stats.pending },
+        { key: 'approved', label: 'Approved', count: stats.approved },
+        { key: 'rejected', label: 'Rejected', count: stats.rejected },
+        { key: 'all', label: 'All', count: expenses.length }
+    ], [stats, expenses.length]);
 
     return (
         <div className="space-y-6">
@@ -131,54 +138,90 @@ export default function OfficeExpensesPage() {
                 </div>
             </div>
 
-            {/* Filters & Actions */}
-            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                <div className="flex bg-gray-100 p-1 rounded-lg w-full sm:w-auto overflow-x-auto no-scrollbar">
-                    {(['pending', 'approved', 'rejected', 'all'] as const).map((tab) => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all ${activeTab === tab
-                                ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                            {tab !== 'all' && stats[tab] > 0 && (
-                                <span className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] ${tab === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                                    tab === 'approved' ? 'bg-green-100 text-green-700' :
-                                        'bg-red-100 text-red-700'
+            {/* Control Bar - Standardized Card Style */}
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm mb-6">
+                <div className="flex flex-col sm:flex-row items-center justify-between px-2 py-1.5 sm:py-0">
+                    {/* Status Tabs */}
+                    <div className="flex overflow-x-auto w-full sm:w-auto no-scrollbar border-b sm:border-b-0 border-gray-100 mb-2 sm:mb-0">
+                        {statusTabs.map(tab => (
+                            <button
+                                key={tab.key}
+                                onClick={() => setActiveTab(tab.key as any)}
+                                className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors flex items-center gap-2 ${activeTab === tab.key
+                                    ? 'border-yellow-500 text-yellow-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    }`}
+                            >
+                                {tab.label}
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeTab === tab.key
+                                    ? 'bg-yellow-100 text-yellow-700'
+                                    : 'bg-gray-100 text-gray-500'
                                     }`}>
-                                    {stats[tab]}
+                                    {tab.count}
                                 </span>
-                            )}
-                        </button>
-                    ))}
-                </div>
-
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                    <div className="relative flex-1 sm:w-64">
-                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                            type="text"
-                            placeholder="Search expenses..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
-                        />
+                            </button>
+                        ))}
                     </div>
-                    {canCreate && (
-                        <button
-                            onClick={() => {
-                                setEditingExpense(null);
-                                setShowForm(true);
-                            }}
-                            className="btn-primary whitespace-nowrap flex items-center gap-2"
-                        >
-                            <FiPlus className="w-4 h-4" />
-                            Add Expense
-                        </button>
-                    )}
+
+                    {/* Search and Actions */}
+                    <div className="flex items-center gap-3 w-full sm:w-auto px-2 pb-2 sm:pb-0 sm:py-2">
+                        <div className="relative flex-1 sm:w-64">
+                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+                            <input
+                                type="text"
+                                placeholder="Search expenses..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => setSearchQuery('')}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                >
+                                    <FiX className="h-4 w-4" />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Desktop Actions Dropdown */}
+                        {canCreate && (
+                            <div className="relative hidden sm:block">
+                                <button
+                                    onClick={() => setShowActions(!showActions)}
+                                    className="btn-primary py-2 flex items-center gap-2 min-w-[120px]"
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <FiPlus className="w-4 h-4" />
+                                        Actions
+                                    </span>
+                                    <FiChevronDown className={`w-4 h-4 transition-transform ${showActions ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                {showActions && (
+                                    <>
+                                        <div
+                                            className="fixed inset-0 z-10"
+                                            onClick={() => setShowActions(false)}
+                                        />
+                                        <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-20 animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
+                                            <button
+                                                onClick={() => {
+                                                    setEditingExpense(null);
+                                                    setShowForm(true);
+                                                    setShowActions(false);
+                                                }}
+                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 flex items-center gap-3 transition-colors border-b border-gray-50 last:border-0"
+                                            >
+                                                <FiPlus className="text-gray-400" />
+                                                <span className="font-medium">Add Expense</span>
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -342,6 +385,55 @@ export default function OfficeExpensesPage() {
                     onClose={() => setApprovingExpense(null)}
                 />
             </BottomSheet>
+            {/* Mobile Actions FAB & Bottom Sheet (Matching Project Page) */}
+            {mounted && canCreate && (
+                createPortal(
+                    <>
+                        <div className="fixed bottom-6 right-6 z-40 md:hidden">
+                            <button
+                                onClick={() => setMobileMenuOpen(true)}
+                                className="w-14 h-14 bg-yellow-400 text-yellow-900 rounded-full shadow-lg flex items-center justify-center hover:bg-yellow-500 active:scale-95 transition-all duration-200"
+                            >
+                                <FiPlus className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        {mobileMenuOpen && (
+                            <>
+                                <div
+                                    className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+                                    onClick={() => setMobileMenuOpen(false)}
+                                />
+                                <div className="fixed bottom-0 left-0 right-0 z-[61] bg-white rounded-t-2xl shadow-2xl animate-in slide-in-from-bottom duration-300 md:hidden">
+                                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                                        <h3 className="text-sm font-semibold text-gray-900">Actions</h3>
+                                        <button
+                                            onClick={() => setMobileMenuOpen(false)}
+                                            className="p-1 rounded-full text-gray-400 hover:bg-gray-100"
+                                        >
+                                            <FiX className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                    <div className="p-2 space-y-1 pb-8">
+                                        <button
+                                            onClick={() => {
+                                                setEditingExpense(null);
+                                                setShowForm(true);
+                                                setMobileMenuOpen(false);
+                                            }}
+                                            className="w-full text-left px-4 py-3 text-base text-gray-700 hover:bg-gray-50 flex items-center gap-4 rounded-xl active:bg-yellow-50 transition-colors"
+                                        >
+                                            <span className="text-gray-500 text-xl"><FiPlus /></span>
+                                            <span className="font-medium">Add Expense</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </>,
+                    document.body
+                )
+            )}
         </div>
     );
 }

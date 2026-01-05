@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
-import { FiCheck, FiX, FiAlertCircle } from 'react-icons/fi';
+import { FiCheck, FiX, FiAlertCircle, FiUpload } from 'react-icons/fi';
 import { formatDateIST } from '@/lib/dateUtils';
 
 interface OfficeExpenseApprovalModalProps {
@@ -29,17 +29,19 @@ export default function OfficeExpenseApprovalModal({ expense, onSuccess, onClose
 
         setLoading(true);
         try {
-            const { error } = await supabase
-                .from('office_expenses')
-                .update({
+            const response = await fetch(`/api/office-expenses?id=${expense.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
                     status,
-                    approved_by: user.id,
-                    approved_at: new Date().toISOString(),
                     admin_remarks: remarks,
                 })
-                .eq('id', expense.id);
+            });
 
-            if (error) throw error;
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to update status');
+            }
 
             showToast('success', `Expense ${status} successfully`);
             onSuccess();
@@ -82,14 +84,35 @@ export default function OfficeExpenseApprovalModal({ expense, onSuccess, onClose
                 </div>
             </div>
 
-            {expense.bill_url && (
+            {(expense.bill_urls?.length > 0 || expense.bill_url) && (
                 <div>
-                    <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-2">Attached Receipt</p>
-                    <img
-                        src={expense.bill_url}
-                        alt="Receipt"
-                        className="w-full h-auto max-h-64 object-contain rounded-lg border border-gray-200"
-                    />
+                    <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-2">
+                        Attached Receipt(s)
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                        {(expense.bill_urls || [expense.bill_url]).filter(Boolean).map((url: string, idx: number) => (
+                            <a
+                                key={idx}
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="relative group"
+                            >
+                                {url.toLowerCase().endsWith('.pdf') ? (
+                                    <div className="w-full h-32 flex flex-col items-center justify-center bg-gray-50 border border-gray-200 rounded-lg p-2 text-center hover:bg-gray-100 transition-colors">
+                                        <FiUpload className="w-6 h-6 text-red-500 mb-1" />
+                                        <span className="text-[10px] text-gray-500 truncate w-full">PDF Document</span>
+                                    </div>
+                                ) : (
+                                    <img
+                                        src={url}
+                                        alt={`Receipt ${idx + 1}`}
+                                        className="w-full h-32 object-cover rounded-lg border border-gray-200 hover:opacity-90 transition-opacity"
+                                    />
+                                )}
+                            </a>
+                        ))}
+                    </div>
                 </div>
             )}
 

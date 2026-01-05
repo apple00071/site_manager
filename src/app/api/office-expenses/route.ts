@@ -11,36 +11,180 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // For list view, we want to see expenses
-        // If admin, see all. If employee, maybe only own?
-        // Let's check permissions or just filter by user_id if not admin
+        if (!supabaseAdmin) {
+            console.error('supabaseAdmin is not initialized');
+            return NextResponse.json({ error: 'Database connection error' }, { status: 500 });
+        }
 
         let query = supabaseAdmin
             .from('office_expenses')
             .select(`
                 *,
-                user:users!user_id(full_name, avatar_url)
+                user:users!user_id(full_name, email)
             `)
             .order('created_at', { ascending: false });
 
-        // If not admin, only show own expenses (simplified version)
+        // Fetch user data for role check
+        const { data: userData, error: userError } = await supabaseAdmin
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle();
+
+        if (userError) {
+            console.error('Error fetching userData:', userError);
+        }
+
+        const isAdmin = userData?.role === 'admin';
+
+        if (!isAdmin) {
+            query = query.eq('user_id', user.id);
+        }
+
+        const { data: expenses, error } = await query;
+
+        if (error) {
+            throw error;
+        }
+
+        return NextResponse.json({
+            expenses: expenses || []
+        });
+    } catch (error: any) {
+        console.error('Error fetching office expenses:', error);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
+}
+
+export async function PATCH(request: NextRequest) {
+    try {
+        const { user, error: authError } = await getAuthUser();
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const { searchParams } = new URL(request.url);
+        const id = searchParams.get('id');
+
+        if (!id) {
+            return NextResponse.json({ error: 'Missing expense ID' }, { status: 400 });
+        }
+
+        const body = await request.json();
+        const { amount, description, category, expense_date, bill_urls, status, admin_remarks } = body;
+
+        // Check ownership or admin status
+        const { data: existing, error: fetchError } = await supabaseAdmin
+            .from('office_expenses')
+            .select('user_id, status')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !existing) {
+            return NextResponse.json({ error: 'Expense not found' }, { status: 404 });
+        }
+
         const { data: userData } = await supabaseAdmin
             .from('users')
             .select('role')
             .eq('id', user.id)
             .single();
 
-        if (userData?.role !== 'admin') {
-            query = query.eq('user_id', user.id);
+        const isAdmin = userData?.role === 'admin';
+
+        if (!isAdmin && existing.user_id !== user.id) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
-        const { data: expenses, error } = await query;
+        // Only admins can change status or add remarks
+        const updateData: any = {};
+        if (amount !== undefined) updateData.amount = amount;
+        if (description !== undefined) updateData.description = description;
+        if (category !== undefined) updateData.category = category;
+        if (expense_date !== undefined) updateData.expense_date = expense_date;
+        if (bill_urls !== undefined) updateData.bill_urls = bill_urls;
+
+        if (isAdmin) {
+            if (status !== undefined) {
+                updateData.status = status;
+                updateData.approved_by = user.id;
+                updateData.approved_at = new Date().toISOString();
+            }
+            if (admin_remarks !== undefined) updateData.admin_remarks = admin_remarks;
+        } else {
+            // Non-admins can only update if status is pending
+            if (existing.status !== 'pending') {
+                return NextResponse.json({ error: 'Cannot update non-pending expense' }, { status: 400 });
+            }
+        }
+
+        const { data: expense, error } = await supabaseAdmin
+            .from('office_expenses')
+            .update(updateData)
+            .eq('id', id)
+            .select()
+            .single();
 
         if (error) throw error;
 
-        return NextResponse.json({ expenses });
+        return NextResponse.json({ expense });
     } catch (error: any) {
-        console.error('Error fetching office expenses:', error);
+        console.error('Error updating office expense:', error);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
+}
+
+export async function DELETE(request: NextRequest) {
+    try {
+        const { user, error: authError } = await getAuthUser();
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const { searchParams } = new URL(request.url);
+        const id = searchParams.get('id');
+
+        if (!id) {
+            return NextResponse.json({ error: 'Missing expense ID' }, { status: 400 });
+        }
+
+        // Check ownership or admin status
+        const { data: existing, error: fetchError } = await supabaseAdmin
+            .from('office_expenses')
+            .select('user_id, status')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !existing) {
+            return NextResponse.json({ error: 'Expense not found' }, { status: 404 });
+        }
+
+        const { data: userData } = await supabaseAdmin
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+
+        const isAdmin = userData?.role === 'admin';
+
+        if (!isAdmin && existing.user_id !== user.id) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
+        if (!isAdmin && existing.status !== 'pending') {
+            return NextResponse.json({ error: 'Cannot delete non-pending expense' }, { status: 400 });
+        }
+
+        const { error } = await supabaseAdmin
+            .from('office_expenses')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+
+        return NextResponse.json({ success: true });
+    } catch (error: any) {
+        console.error('Error deleting office expense:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

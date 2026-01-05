@@ -83,7 +83,7 @@ export default function OfficeExpenseForm({ expense, onSuccess, onCancel }: Offi
     const removeFile = (urlToRemove: string) => {
         setFormData(prev => ({
             ...prev,
-            bill_urls: prev.bill_urls.filter(url => url !== urlToRemove)
+            bill_urls: prev.bill_urls.filter((url: string) => url !== urlToRemove)
         }));
     };
 
@@ -214,7 +214,7 @@ export default function OfficeExpenseForm({ expense, onSuccess, onCancel }: Offi
                 <div className="space-y-3">
                     {formData.bill_urls.length > 0 && (
                         <div className="grid grid-cols-2 gap-3">
-                            {formData.bill_urls.map((url, idx) => (
+                            {formData.bill_urls.map((url: string, idx: number) => (
                                 <div key={idx} className="relative group">
                                     {url.toLowerCase().endsWith('.pdf') ? (
                                         <div className="w-full h-32 flex flex-col items-center justify-center bg-gray-50 border border-gray-200 rounded-lg p-2 text-center">
