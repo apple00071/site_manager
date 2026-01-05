@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
@@ -18,12 +18,14 @@ function log(msg: string, data?: any) {
     if (DEBUG) {
         // Prepare safe string for alert
         const dataStr = data ? JSON.stringify(data, null, 2) : '';
-        alert(`[OS]: ${msg} ${dataStr}`);
+        // alert(`[OS]: ${msg} ${dataStr}`); 
+        // Commented out general log alert to reduce noise, kept explicit alerts below
     }
     console.log(`[OS]: ${msg}`, data);
 }
 
 export default function OneSignalInit() {
+    const mounted = useRef(false);
 
     // Helper: Wait for Median Bridge
     function waitForMedianOneSignal(timeout = 15000): Promise<void> {
@@ -57,7 +59,6 @@ export default function OneSignalInit() {
                     if (window.median?.onesignal?.info) {
                         const info = await window.median.onesignal.info();
                         if (info && (info.oneSignalId || info.pushToken || info.subscription?.id)) {
-                            // log("Sub Active", info); // Too spammy for alert
                             clearInterval(interval);
                             resolve();
                             return;
@@ -82,7 +83,7 @@ export default function OneSignalInit() {
     }
 
     async function registerPushAfterLogin(user: any) {
-        if (DEBUG) alert("Starting Register Push Sequence");
+        if (DEBUG) alert(`⏩ Starting Sync for: ${user.email || user.id}`);
 
         // Pre-flight check
         if (!window.median?.onesignal) {
@@ -93,26 +94,29 @@ export default function OneSignalInit() {
         try {
             // 1. Permission
             if (typeof window.median.onesignal.requestPermission === 'function') {
-                if (DEBUG) alert("Requesting Permission...");
+                // Only alert if we think we need to
+                // alert("Requesting Permission..."); 
                 await window.median.onesignal.requestPermission();
             } else {
                 if (DEBUG) alert("⚠️ requestPermission function MISSING");
             }
 
             // 2. Subscription
-            if (DEBUG) alert("Waiting for Sub ID...");
+            // alert("Waiting for Sub ID...");
             await waitForOneSignalSubscription();
 
             // 3. Login
             const externalId = `user_${user.id}`;
-            if (DEBUG) alert(`Logging in: ${externalId}`);
+            // alert(`Logging in: ${externalId}`);
             await window.median.onesignal.login(externalId);
 
             // 4. Verification View
             if (DEBUG) {
                 if (window.median.onesignal.info) {
                     const finalInfo = await window.median.onesignal.info();
-                    alert("Final State: " + JSON.stringify(finalInfo));
+                    alert("✅ SUCCESS: " + JSON.stringify(finalInfo));
+                } else {
+                    alert("✅ SUCCESS (No info)");
                 }
             }
 
@@ -126,21 +130,32 @@ export default function OneSignalInit() {
     }
 
     useEffect(() => {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (authEvent: AuthChangeEvent, session: Session | null) => {
-            const user = session?.user;
+        if (mounted.current) return;
+        mounted.current = true;
 
-            // Only trigger on SIGNED_IN
-            if (authEvent === "SIGNED_IN" && user) {
-                if (DEBUG) alert("Auth: SIGNED_IN detected. Waiting for bridge...");
+        if (DEBUG) alert("✅ Component MOUNTED");
 
+        // 1. Check existing session immediately
+        const checkSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                if (DEBUG) alert("Found Session on Load");
                 await waitForMedianOneSignal();
+                setTimeout(() => registerPushAfterLogin(session.user), 1000);
+            } else {
+                if (DEBUG) alert("No Session on Load");
+            }
+        };
+        checkSession();
 
-                if (DEBUG) alert("Bridge Ready? " + (!!window.median?.onesignal));
+        // 2. Listen for changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (authEvent: AuthChangeEvent, session: Session | null) => {
 
-                // Add Small delay to ensure bridge is chemically pure
-                setTimeout(() => {
-                    registerPushAfterLogin(user);
-                }, 1000);
+            // Only trigger on explicit SIGNED_IN (ignore INITIAL_SESSION since we handled it above)
+            if (authEvent === "SIGNED_IN" && session?.user) {
+                if (DEBUG) alert("Event: SIGNED_IN");
+                await waitForMedianOneSignal();
+                setTimeout(() => registerPushAfterLogin(session.user), 1000);
             }
         });
 
