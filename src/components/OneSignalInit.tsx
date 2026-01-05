@@ -88,9 +88,15 @@ export default function OneSignalInit() {
         }
 
         try {
-            // 1. Permission
-            if (typeof window.median.onesignal.requestPermission === 'function') {
+            // 1. Permission (Using 'register' as per Median Docs)
+            if (typeof window.median.onesignal.register === 'function') {
+                if (DEBUG) alert("📱 Calling median.onesignal.register()...");
+                await window.median.onesignal.register();
+            } else if (typeof window.median.onesignal.requestPermission === 'function') {
+                if (DEBUG) alert("📱 Calling requestPermission fallback...");
                 await window.median.onesignal.requestPermission();
+            } else {
+                if (DEBUG) alert("⚠️ No Permission function found (register/requestPermission)");
             }
 
             // 2. Subscription
@@ -104,21 +110,10 @@ export default function OneSignalInit() {
             if (user.email) {
                 if (typeof window.median.onesignal.setEmail === 'function') {
                     await window.median.onesignal.setEmail(user.email);
-                } else {
-                    console.warn("OneSignal setEmail not supported");
                 }
             }
 
-            // 5. Set Phone (Safely)
-            if (user.phone) {
-                if (typeof window.median.onesignal.setSMSNumber === 'function') {
-                    await window.median.onesignal.setSMSNumber(user.phone);
-                } else {
-                    console.warn("OneSignal setSMSNumber not supported");
-                }
-            }
-
-            // 6. Verification View
+            // 5. Verification View
             if (DEBUG) {
                 if (window.median.onesignal.info) {
                     const finalInfo = await window.median.onesignal.info();
