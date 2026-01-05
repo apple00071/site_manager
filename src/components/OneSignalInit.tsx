@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserClient } from '@supabase/ssr';
 import { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 // Extend window for Median JS Bridge
@@ -16,8 +16,12 @@ const DEBUG = true; // Set to false after debugging
 
 export default function OneSignalInit() {
     const mounted = useRef(false);
-    // Use the Auth Helper client to access cookie-based session
-    const supabase = createClientComponentClient();
+
+    // Use createBrowserClient from @supabase/ssr to match Middleware's createServerClient
+    const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
 
     // Helper: Wait for Median Bridge
     function waitForMedianOneSignal(timeout = 15000): Promise<void> {
@@ -87,8 +91,6 @@ export default function OneSignalInit() {
             // 1. Permission
             if (typeof window.median.onesignal.requestPermission === 'function') {
                 await window.median.onesignal.requestPermission();
-            } else {
-                if (DEBUG) alert("⚠️ requestPermission function MISSING");
             }
 
             // 2. Subscription
@@ -103,8 +105,6 @@ export default function OneSignalInit() {
                 if (window.median.onesignal.info) {
                     const finalInfo = await window.median.onesignal.info();
                     alert("✅ SUCCESS: " + JSON.stringify(finalInfo));
-                } else {
-                    alert("✅ SUCCESS (No info)");
                 }
             }
 
@@ -121,9 +121,9 @@ export default function OneSignalInit() {
         if (mounted.current) return;
         mounted.current = true;
 
-        if (DEBUG) alert("✅ Component MOUNTED & Listening (Cookies)...");
+        if (DEBUG) alert("✅ Component MOUNTED & Listening (SSR)...");
 
-        // 1. Listen for changes (using cookie client)
+        // 1. Listen for changes (using SSR client)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (authEvent: AuthChangeEvent, session: Session | null) => {
 
             if (DEBUG) alert(`🔔 Event: ${authEvent}`);
