@@ -194,11 +194,11 @@ export default function ProjectDetailsPage() {
 
   const stageActions = useMemo<ActionItem[]>(() => {
     if (activeStage === 'work_progress') {
-      if (activeSubTab === 'inventory' && hasPermission('inventory.add')) {
+      if (activeSubTab === 'daily_logs' && hasPermission('site_logs.create')) {
         return [
           {
-            label: 'Add Item',
-            onClick: () => inventoryRef.current?.openAddItem(),
+            label: 'Add Daily Log',
+            onClick: () => siteLogRef.current?.openAddLog(),
             icon: <FiPlus className="w-4 h-4" />
           }
         ];
@@ -259,6 +259,17 @@ export default function ProjectDetailsPage() {
           icon: <FiPlus className="w-4 h-4" />
         }
       ];
+    }
+    if (activeStage === 'finance') {
+      if (activeSubTab === 'inventory' && hasPermission('inventory.add')) {
+        return [
+          {
+            label: 'Add Expense',
+            onClick: () => inventoryRef.current?.openAddItem(),
+            icon: <FiPlus className="w-4 h-4" />
+          }
+        ];
+      }
     }
     return [];
   }, [activeStage, activeSubTab, hasPermission, id, router]);

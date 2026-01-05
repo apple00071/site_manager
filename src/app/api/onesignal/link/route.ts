@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
             },
             body: JSON.stringify({
                 identity: {
-                    external_id: user.id
+                    external_id: `user_${user.id}`
                 }
             }),
         });
