@@ -88,8 +88,8 @@ export default function OneSignalInit() {
             }
 
             // Optional: Verify sync status
-            if (window.median.onesignal.onesignalInfo) {
-                const info = await window.median.onesignal.onesignalInfo();
+            if (window.median.onesignal.info) {
+                const info = await window.median.onesignal.info();
                 console.log("✅ OneSignal info after sync:", info);
             }
 
