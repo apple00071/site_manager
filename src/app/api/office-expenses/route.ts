@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 import { PERMISSION_NODES, verifyPermission } from '@/lib/rbac';
+import { NotificationService } from '@/lib/notificationService';
+import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 
@@ -127,6 +129,53 @@ export async function PATCH(request: NextRequest) {
 
         if (error) throw error;
 
+        // --- NOTIFICATIONS ---
+        try {
+            if (isAdmin && existing.status !== status && existing.user_id) {
+                const { data: expenseUser } = await supabaseAdmin
+                    .from('users')
+                    .select('phone_number')
+                    .eq('id', existing.user_id)
+                    .single();
+
+                const { data: adminUser } = await supabaseAdmin
+                    .from('users')
+                    .select('full_name')
+                    .eq('id', user.id)
+                    .single();
+
+                if (status === 'approved') {
+                    await NotificationService.notifyExpenseApproved(
+                        existing.user_id,
+                        existing.description,
+                        existing.amount
+                    );
+
+                    if (expenseUser?.phone_number) {
+                        await sendCustomWhatsAppNotification(
+                            expenseUser.phone_number,
+                            `✅ *Expense Approved*\n\nExpense: ${existing.description}\nAmount: ₹${existing.amount}\nApproved By: ${adminUser?.full_name || 'Admin'}\n\nCheck dashboard for details.`
+                        );
+                    }
+                } else if (status === 'rejected') {
+                    await NotificationService.notifyExpenseRejected(
+                        existing.user_id,
+                        existing.description,
+                        existing.amount
+                    );
+
+                    if (expenseUser?.phone_number) {
+                        await sendCustomWhatsAppNotification(
+                            expenseUser.phone_number,
+                            `❌ *Expense Rejected*\n\nExpense: ${existing.description}\nAmount: ₹${existing.amount}\nRejected By: ${adminUser?.full_name || 'Admin'}\n\nCheck dashboard for details.`
+                        );
+                    }
+                }
+            }
+        } catch (notifError) {
+            console.error('Error sending expense status notification:', notifError);
+        }
+
         return NextResponse.json({ expense });
     } catch (error: any) {
         console.error('Error updating office expense:', error);
@@ -223,6 +272,48 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (error) throw error;
+
+        // --- NOTIFICATIONS ---
+        try {
+            // Notify all admins
+            const { data: admins } = await supabaseAdmin
+                .from('users')
+                .select('id, phone_number')
+                .eq('role', 'admin');
+
+            const { data: requester } = await supabaseAdmin
+                .from('users')
+                .select('full_name')
+                .eq('id', user.id)
+                .single();
+
+            const requesterName = requester?.full_name || 'Unknown User';
+
+            if (admins && admins.length > 0) {
+                // In-app notifications
+                await Promise.all(admins.map((admin: { id: string }) =>
+                    NotificationService.notifyExpenseCreated(
+                        admin.id,
+                        description,
+                        amount,
+                        requesterName
+                    )
+                ));
+
+                // WhatsApp notifications
+                await Promise.all(admins.map((admin: { phone_number: string | null }) => {
+                    if (admin.phone_number) {
+                        return sendCustomWhatsAppNotification(
+                            admin.phone_number,
+                            `💰 *New Expense Request*\n\nUser: ${requesterName}\nExpense: ${description}\nAmount: ₹${amount}\n\nLogin to approve/reject.`
+                        );
+                    }
+                    return Promise.resolve();
+                }));
+            }
+        } catch (notifError) {
+            console.error('Error sending expense creation notification:', notifError);
+        }
 
         return NextResponse.json({ expense }, { status: 201 });
     } catch (error: any) {

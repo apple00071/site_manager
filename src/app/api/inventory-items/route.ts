@@ -64,6 +64,7 @@ export async function GET(request: NextRequest) {
         bill_approval_status,
         bill_rejection_reason,
         is_bill_resubmission,
+        bill_urls,
         created_by_user:users!inventory_items_created_by_fkey(id, full_name, email)
       `)
       .eq('project_id', project_id)

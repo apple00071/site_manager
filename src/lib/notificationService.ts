@@ -22,7 +22,10 @@ export type NotificationType =
   | 'invoice_approved'
   | 'invoice_rejected'
   | 'mention'
-  | 'general';
+  | 'general'
+  | 'expense_created'
+  | 'expense_approved'
+  | 'expense_rejected';
 
 export interface CreateNotificationParams {
   userId: string;
@@ -69,6 +72,10 @@ export class NotificationService {
       case 'proposal_approved':
       case 'proposal_rejected':
         return relatedId ? `${baseUrl}/projects/${relatedId}?stage=orders` : `${baseUrl}/tasks?category=proposals`;
+      case 'expense_created':
+      case 'expense_approved':
+      case 'expense_rejected':
+        return `${baseUrl}/office-expenses`;
       default:
         return undefined;
     }
@@ -265,6 +272,33 @@ export class NotificationService {
       type: 'mention',
       relatedId,
       relatedType: 'project_update'
+    });
+  }
+
+  static async notifyExpenseCreated(userId: string, description: string, amount: number, requesterName: string) {
+    return this.createNotification({
+      userId,
+      title: 'New Expense Request',
+      message: `${requesterName} requested ₹${amount} for "${description}"`,
+      type: 'expense_created',
+    });
+  }
+
+  static async notifyExpenseApproved(userId: string, description: string, amount: number) {
+    return this.createNotification({
+      userId,
+      title: 'Expense Approved',
+      message: `Your request for "${description}" (₹${amount}) has been approved`,
+      type: 'expense_approved',
+    });
+  }
+
+  static async notifyExpenseRejected(userId: string, description: string, amount: number) {
+    return this.createNotification({
+      userId,
+      title: 'Expense Rejected',
+      message: `Your request for "${description}" (₹${amount}) has been rejected`,
+      type: 'expense_rejected',
     });
   }
 }

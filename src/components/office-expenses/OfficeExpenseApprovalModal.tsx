@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
-import { FiCheck, FiX, FiAlertCircle, FiUpload } from 'react-icons/fi';
+import { FiCheck, FiX, FiAlertCircle, FiUpload, FiCalendar, FiUser, FiTag, FiFileText } from 'react-icons/fi';
+import { ImageModal } from '@/components/ui/ImageModal';
 import { formatDateIST } from '@/lib/dateUtils';
 
 interface OfficeExpenseApprovalModalProps {
@@ -18,6 +18,12 @@ export default function OfficeExpenseApprovalModal({ expense, onSuccess, onClose
     const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
     const [remarks, setRemarks] = useState('');
+    const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+
+    // Prevent crash if expense is null (rendering race condition)
+    if (!expense) return null;
+
+    const allAttachments = (expense.bill_urls || [expense.bill_url]).filter(Boolean);
 
     const handleAction = async (status: 'approved' | 'rejected') => {
         if (!user) return;
@@ -55,103 +61,141 @@ export default function OfficeExpenseApprovalModal({ expense, onSuccess, onClose
 
     return (
         <div className="space-y-6">
-            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-3">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Description</p>
-                        <p className="text-sm font-medium text-gray-900">{expense.description}</p>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Amount</p>
-                        <p className="text-lg font-bold text-gray-900">₹{Number(expense.amount).toLocaleString()}</p>
+            <ImageModal
+                isOpen={previewIndex !== null}
+                onClose={() => setPreviewIndex(null)}
+                images={allAttachments}
+                currentIndex={previewIndex || 0}
+                onNavigate={setPreviewIndex}
+            />
+
+            {/* Main Details Card */}
+            <div className="bg-white rounded-xl overflow-hidden">
+                {/* Amount Header */}
+                <div className="text-center pb-6 border-b border-dashed border-gray-200">
+                    <p className="text-sm font-medium text-gray-500 mb-1 uppercase tracking-wider">Total Amount</p>
+                    <div className="text-4xl font-extrabold text-gray-900 tracking-tight">
+                        ₹{Number(expense.amount).toLocaleString()}
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Category</p>
-                        <p className="text-sm text-gray-700">{expense.category}</p>
+                {/* Info Grid */}
+                <div className="py-6 grid grid-cols-2 gap-y-6 gap-x-4">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                            <FiTag className="w-3 h-3" /> Category
+                        </div>
+                        <p className="font-medium text-gray-900">{expense.category}</p>
                     </div>
-                    <div>
-                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Date</p>
-                        <p className="text-sm text-gray-700">{formatDateIST(expense.expense_date)}</p>
-                    </div>
-                </div>
 
-                <div>
-                    <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Requested By</p>
-                    <p className="text-sm text-gray-700">{expense.user?.full_name}</p>
+                    <div className="text-right space-y-1">
+                        <div className="flex items-center justify-end gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                            Date <FiCalendar className="w-3 h-3" />
+                        </div>
+                        <p className="font-medium text-gray-900">{formatDateIST(expense.expense_date)}</p>
+                    </div>
+
+                    <div className="col-span-2 space-y-1 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                            <FiFileText className="w-3 h-3" /> Description
+                        </div>
+                        <p className="text-sm text-gray-800 leading-relaxed font-medium">
+                            {expense.description}
+                        </p>
+                    </div>
+
+                    <div className="col-span-2 flex items-center gap-3 pt-2">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+                            <FiUser className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Requested By</p>
+                            <p className="text-sm font-bold text-gray-900">{expense.user?.full_name}</p>
+                        </div>
+                        <div className="text-right">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                                Pending Review
+                            </span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {(expense.bill_urls?.length > 0 || expense.bill_url) && (
-                <div>
-                    <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-2">
-                        Attached Receipt(s)
+            {/* Attachments Section */}
+            {allAttachments.length > 0 && (
+                <div className="space-y-2">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                        <FiUpload className="w-3 h-3" /> Attachments
                     </p>
-                    <div className="grid grid-cols-2 gap-3">
-                        {(expense.bill_urls || [expense.bill_url]).filter(Boolean).map((url: string, idx: number) => (
-                            <a
+                    <div className="flex overflow-x-auto gap-3 pb-2 scrollbar-hide">
+                        {allAttachments.map((url: string, idx: number) => (
+                            <button
                                 key={idx}
-                                href={url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="relative group"
+                                onClick={() => setPreviewIndex(idx)}
+                                className="shrink-0 group relative block w-32 aspect-[4/3] rounded-lg border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-all hover:border-gray-300 text-left"
                             >
                                 {url.toLowerCase().endsWith('.pdf') ? (
-                                    <div className="w-full h-32 flex flex-col items-center justify-center bg-gray-50 border border-gray-200 rounded-lg p-2 text-center hover:bg-gray-100 transition-colors">
-                                        <FiUpload className="w-6 h-6 text-red-500 mb-1" />
-                                        <span className="text-[10px] text-gray-500 truncate w-full">PDF Document</span>
+                                    <div className="h-full w-full bg-slate-50 flex flex-col items-center justify-center p-2">
+                                        <div className="w-8 h-8 bg-red-50 text-red-500 rounded-lg flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
+                                            <FiFileText className="w-4 h-4" />
+                                        </div>
+                                        <span className="text-[10px] font-medium text-gray-500 truncate w-full text-center">PDF Document</span>
                                     </div>
                                 ) : (
-                                    <img
-                                        src={url}
-                                        alt={`Receipt ${idx + 1}`}
-                                        className="w-full h-32 object-cover rounded-lg border border-gray-200 hover:opacity-90 transition-opacity"
-                                    />
+                                    <div className="h-full w-full bg-gray-100 relative">
+                                        <img
+                                            src={url}
+                                            alt="Receipt"
+                                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                        />
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                                    </div>
                                 )}
-                            </a>
+                            </button>
                         ))}
                     </div>
                 </div>
             )}
 
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Admin Remarks {expense.status === 'rejected' ? '*' : '(Optional)'}
-                </label>
-                <textarea
-                    value={remarks}
-                    onChange={(e) => setRemarks(e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
-                    placeholder="Add specific comments or reason for rejection..."
-                />
-            </div>
+            {/* Action Area */}
+            <div className="space-y-4 pt-2 border-t border-gray-100">
+                <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">
+                        Admin Remarks <span className="font-normal text-gray-400 normal-case ml-1">{remarks ? '' : '(Optional)'}</span>
+                    </label>
+                    <textarea
+                        value={remarks}
+                        onChange={(e) => setRemarks(e.target.value)}
+                        rows={3}
+                        className="w-full px-4 py-3 bg-gray-50 border-0 ring-1 ring-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-gray-400 text-sm resize-none"
+                        placeholder="Add notes about approval or rejection reason..."
+                    />
+                </div>
 
-            <div className="flex gap-3">
-                <button
-                    onClick={() => handleAction('rejected')}
-                    disabled={loading}
-                    className="flex-1 px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                    <FiX className="w-4 h-4" />
-                    Reject
-                </button>
-                <button
-                    onClick={() => handleAction('approved')}
-                    disabled={loading}
-                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
-                >
-                    <FiCheck className="w-4 h-4" />
-                    Approve
-                </button>
-            </div>
-
-            <div className="flex items-center gap-2 p-3 bg-amber-50 text-amber-700 rounded-lg text-xs border border-amber-100 italic">
-                <FiAlertCircle className="shrink-0" />
-                Once approved, the status is final and the expense will be locked.
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                    <button
+                        onClick={() => handleAction('rejected')}
+                        disabled={loading}
+                        className="btn-danger-outline py-3 flex items-center justify-center gap-2 group"
+                    >
+                        <div className="w-5 h-5 rounded-full border border-current flex items-center justify-center group-hover:bg-red-500 group-hover:text-white transition-colors group-hover:border-transparent">
+                            <FiX className="w-3 h-3" />
+                        </div>
+                        <span>Reject</span>
+                    </button>
+                    <button
+                        onClick={() => handleAction('approved')}
+                        disabled={loading}
+                        className="bg-green-600 hover:bg-green-700 text-white rounded-lg py-3 font-semibold text-sm shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2 active:transform active:scale-[0.98]"
+                    >
+                        <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
+                            <FiCheck className="w-3 h-3" />
+                        </div>
+                        <span>Approve Expense</span>
+                    </button>
+                </div>
             </div>
         </div>
     );
 }
+

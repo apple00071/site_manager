@@ -82,7 +82,7 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
   if (!currentUrl) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-95">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black bg-opacity-95">
       {/* Close Button */}
       <button
         onClick={onClose}

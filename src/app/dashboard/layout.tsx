@@ -44,6 +44,8 @@ function DashboardLayoutContent({
     if (pathname === '/dashboard/my-projects') return 'My Projects';
     if (pathname === '/dashboard/my-tasks') return 'My Tasks';
     if (pathname === '/dashboard/tasks') return 'All Tasks';
+    if (pathname === '/dashboard/office-expenses') return 'Expenses';
+    if (pathname === '/dashboard/snags') return 'Snags';
     if (pathname.startsWith('/dashboard/projects/')) {
       if (pathname.endsWith('/edit')) return 'Edit Project';
       if (pathname.endsWith('/members')) return 'Project Members';
