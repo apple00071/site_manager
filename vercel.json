@@ -5,11 +5,5 @@
   "framework": "nextjs",
   "regions": [
     "iad1"
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/master",
-      "schedule": "30 2,11,12 * * *"
-    }
   ]
 }
