@@ -8,16 +8,8 @@
   ],
   "crons": [
     {
-      "path": "/api/cron/daily-briefing",
-      "schedule": "30 2 * * *"
-    },
-    {
-      "path": "/api/cron/task-reminders",
-      "schedule": "30 12 * * *"
-    },
-    {
-      "path": "/api/cron/site-log-reminder",
-      "schedule": "30 11 * * *"
+      "path": "/api/cron/master",
+      "schedule": "30 2,11,12 * * *"
     }
   ]
 }
