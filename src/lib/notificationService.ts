@@ -1,5 +1,6 @@
 // Notification Service for creating and managing notifications
 import { supabaseAdmin } from '@/lib/supabase-server';
+import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 
 export type NotificationType =
   | 'task_assigned'
@@ -25,6 +26,9 @@ export type NotificationType =
   | 'general'
   | 'expense_created'
   | 'expense_approved'
+  | 'site_log_submitted'
+  | 'report_generated'
+  | 'payment_recorded'
   | 'expense_rejected';
 
 export interface CreateNotificationParams {
@@ -34,6 +38,7 @@ export interface CreateNotificationParams {
   type: NotificationType;
   relatedId?: string;
   relatedType?: string;
+  skipInApp?: boolean;
 }
 
 export class NotificationService {
@@ -48,8 +53,6 @@ export class NotificationService {
       case 'snag_assigned':
       case 'snag_resolved':
       case 'snag_verified':
-        // If we have a project ID (relatedId for snag_created often is snagId, but we need projectId for the sub-tab)
-        // For global snags page, we can just use /dashboard/snags
         if (relatedType === 'project' && relatedId) {
           return `${baseUrl}/projects/${relatedId}?stage=snag`;
         }
@@ -62,59 +65,92 @@ export class NotificationService {
       case 'mention':
         return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=updates` : undefined;
       case 'inventory_added':
-        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=inventory` : undefined;
       case 'bill_approved':
       case 'bill_rejected':
+        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=inventory` : undefined;
       case 'invoice_created':
       case 'invoice_approved':
       case 'invoice_rejected':
       case 'proposal_sent':
       case 'proposal_approved':
       case 'proposal_rejected':
+      case 'payment_recorded':
         return relatedId ? `${baseUrl}/projects/${relatedId}?stage=orders` : `${baseUrl}/tasks?category=proposals`;
       case 'expense_created':
       case 'expense_approved':
       case 'expense_rejected':
         return `${baseUrl}/office-expenses`;
+      case 'site_log_submitted':
+        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=dlogs` : undefined;
+      case 'report_generated':
+        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=reports` : undefined;
       default:
         return undefined;
     }
   }
 
+  /**
+   * Primary method to send Push and WhatsApp notifications.
+   * Optionally inserts into DB for In-App Bell notifications.
+   */
   static async createNotification(params: CreateNotificationParams) {
-    console.log('📢 NotificationService.createNotification called with:', JSON.stringify(params, null, 2));
-    try {
-      // Use shared admin client
-      const { data, error } = await supabaseAdmin
-        .from('notifications')
-        .insert({
-          user_id: params.userId,
-          title: params.title,
-          message: params.message,
-          type: params.type,
-          related_id: params.relatedId || null,
-          related_type: params.relatedType || null,
-          is_read: false,
-        })
-        .select()
-        .single();
+    console.log('📢 NotificationService called:', JSON.stringify(params, null, 2));
 
-      if (error) {
-        console.error('Supabase error creating notification:', error);
-        throw new Error(`Failed to create notification: ${error.message}`);
+    try {
+      // 1. In-App Notification (Database Insertion)
+      let savedNotification = null;
+      if (!params.skipInApp) {
+        const { data, error } = await supabaseAdmin
+          .from('notifications')
+          .insert({
+            user_id: params.userId,
+            title: params.title,
+            message: params.message,
+            type: params.type,
+            related_id: params.relatedId || null,
+            related_type: params.relatedType || null,
+            is_read: false,
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('❌ Supabase insert failed:', error);
+        } else {
+          savedNotification = data;
+          console.log('✅ In-app notification saved:', data.id);
+        }
+      } else {
+        console.log('⏭️ Skipping in-app storage for this notification (reminder).');
       }
 
-      console.log('✅ Notification created successfully:', data);
+      // 2. Fetch User Data (Phone & OneSignal ID)
+      const { data: user, error: userError } = await supabaseAdmin
+        .from('users')
+        .select('phone_number, onesignal_player_id')
+        .eq('id', params.userId)
+        .single();
 
-      // Generate deep link route (Relative path for Median internal navigation)
+      if (userError) {
+        console.error('User lookup error:', userError);
+      }
+
       const deepLinkRoute = this.getNotificationUrl(params.type, params.relatedId, params.relatedType);
-      console.log('🔗 Generated deep link route:', deepLinkRoute);
 
-      // Send push notification via OneSignal (non-blocking)
-      console.log('🔔 Attempting to send OneSignal push notification to user:', params.userId);
+      // 3. WhatsApp Notification
+      if (user?.phone_number) {
+        try {
+          const waMessage = `🔔 *${params.title}*\n\n${params.message}${deepLinkRoute ? `\n\nOpen: ${process.env.NEXT_PUBLIC_APP_URL || ''}${deepLinkRoute}` : ''}`;
+          await sendCustomWhatsAppNotification(user.phone_number, waMessage);
+          console.log('✅ WhatsApp sent to:', user.phone_number);
+        } catch (waError) {
+          console.error('❌ WhatsApp failed:', waError);
+        }
+      }
+
+      // 4. OneSignal Push Notification
       try {
         const { sendPushNotificationByUserId } = await import('@/lib/onesignal');
-        console.log('📲 OneSignal module imported successfully');
         const pushResult = await sendPushNotificationByUserId(
           params.userId,
           params.title,
@@ -123,19 +159,18 @@ export class NotificationService {
             type: params.type,
             relatedId: params.relatedId,
             relatedType: params.relatedType,
-            route: deepLinkRoute, // Use 'route' for Capacitor internal navigation
+            route: deepLinkRoute,
           },
-          deepLinkRoute // Pass as targetUrl parameter (will become data.route)
+          deepLinkRoute
         );
         console.log('📲 OneSignal push result:', pushResult);
       } catch (pushError) {
-        // Don't fail the notification creation if push fails
-        console.error('❌ Error sending push notification:', pushError);
+        console.error('❌ Push failed:', pushError);
       }
 
-      return data;
+      return { success: true, notification: savedNotification };
     } catch (error) {
-      console.error('Error creating notification:', error);
+      console.error('Error in NotificationService:', error);
       throw error;
     }
   }
@@ -299,6 +334,33 @@ export class NotificationService {
       title: 'Expense Rejected',
       message: `Your request for "${description}" (₹${amount}) has been rejected`,
       type: 'expense_rejected',
+    });
+  }
+
+  static async notifySiteLogSubmitted(userId: string, projectName: string, creatorName: string) {
+    return this.createNotification({
+      userId,
+      title: 'Daily Site Log Submitted',
+      message: `${creatorName} submitted a new site log for project "${projectName}"`,
+      type: 'site_log_submitted',
+    });
+  }
+
+  static async notifyReportGenerated(userId: string, projectName: string, reportDate: string, pdfUrl?: string) {
+    return this.createNotification({
+      userId,
+      title: 'DPR Generated',
+      message: `A new Progress Report (DPR) for "${projectName}" (${reportDate}) has been generated.${pdfUrl ? `\n\nView PDF: ${pdfUrl}` : ''}`,
+      type: 'report_generated',
+    });
+  }
+
+  static async notifyPaymentRecorded(userId: string, projectName: string, amount: number) {
+    return this.createNotification({
+      userId,
+      title: 'Payment Recorded',
+      message: `A payment of ₹${amount} has been recorded for project "${projectName}"`,
+      type: 'payment_recorded',
     });
   }
 }

@@ -14,6 +14,10 @@
     {
       "path": "/api/cron/task-reminders",
       "schedule": "30 12 * * *"
+    },
+    {
+      "path": "/api/cron/site-log-reminder",
+      "schedule": "30 11 * * *"
     }
   ]
 }

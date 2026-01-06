@@ -172,9 +172,7 @@ export async function POST(request: NextRequest) {
         // --- NOTIFICATIONS ---
         try {
             let projectName = 'General Snag';
-
             if (project_id) {
-                // Get project details
                 const { data: project } = await supabaseAdmin
                     .from('projects')
                     .select('title')
@@ -185,31 +183,15 @@ export async function POST(request: NextRequest) {
 
             const description = snagData.description || 'New snag reported';
 
-            // 1. Notify Assigned User (if any)
             if (assigned_to_user_id) {
-                const { data: assignee } = await supabaseAdmin
-                    .from('users')
-                    .select('full_name, phone_number')
-                    .eq('id', assigned_to_user_id)
-                    .single();
-
-                if (assignee) {
-                    // In-app
-                    await NotificationService.notifySnagAssigned(assigned_to_user_id, description, projectName);
-
-                    // WhatsApp
-                    if (assignee.phone_number) {
-                        await sendSnagWhatsAppNotification(assignee.phone_number, description, projectName, 'assigned');
-                    }
-                }
-            } else {
-                // Notify Admins if no one is assigned? 
-                // Typically you notify the relevant project manager or admins.
-                // For now, let's notify the creator that it was reported successfully (handled by frontend)
+                await NotificationService.notifySnagAssigned(
+                    assigned_to_user_id,
+                    description,
+                    projectName
+                );
             }
         } catch (notifError) {
             console.error('Error sending snag creation notifications:', notifError);
-            // Don't fail the request if notification fails
         }
 
         return NextResponse.json({ snag: data }, { status: 201 });
@@ -299,55 +281,20 @@ export async function PATCH(request: NextRequest) {
 
         // --- NOTIFICATIONS ---
         try {
-            // Get project and creator details for notification
+            const description = updates.description || existing.description || 'Snag update';
             const { data: project } = await supabaseAdmin
                 .from('projects')
                 .select('title, created_by')
                 .eq('id', existing.project_id)
                 .single();
-
-            const description = updates.description || existing.description || 'Snag update';
             const projectName = project?.title || 'Unknown Project';
 
             if (action === 'assign' && updates.assigned_to_user_id) {
-                const { data: assignee } = await supabaseAdmin
-                    .from('users')
-                    .select('phone_number')
-                    .eq('id', updates.assigned_to_user_id)
-                    .single();
-
                 await NotificationService.notifySnagAssigned(updates.assigned_to_user_id, description, projectName);
-                if (assignee?.phone_number) {
-                    await sendSnagWhatsAppNotification(assignee.phone_number, description, projectName, 'assigned');
-                }
-            } else if (action === 'resolve') {
-                // Notify Project Creator or Admins that snag is resolved
-                if (project?.created_by) {
-                    const { data: creator } = await supabaseAdmin
-                        .from('users')
-                        .select('phone_number')
-                        .eq('id', project.created_by)
-                        .single();
-
-                    await NotificationService.notifySnagResolved(project.created_by, description, projectName);
-                    if (creator?.phone_number) {
-                        await sendSnagWhatsAppNotification(creator.phone_number, description, projectName, 'resolved');
-                    }
-                }
-            } else if (action === 'verify' || action === 'close') {
-                // Notify Assignee that their work was verified/closed
-                if (existing.assigned_to_user_id) {
-                    const { data: assignee } = await supabaseAdmin
-                        .from('users')
-                        .select('phone_number')
-                        .eq('id', existing.assigned_to_user_id)
-                        .single();
-
-                    await NotificationService.notifySnagVerified(existing.assigned_to_user_id, description, projectName);
-                    if (assignee?.phone_number) {
-                        await sendSnagWhatsAppNotification(assignee.phone_number, description, projectName, action);
-                    }
-                }
+            } else if (action === 'resolve' && project?.created_by) {
+                await NotificationService.notifySnagResolved(project.created_by, description, projectName);
+            } else if ((action === 'verify' || action === 'close') && existing.assigned_to_user_id) {
+                await NotificationService.notifySnagVerified(existing.assigned_to_user_id, description, projectName);
             }
         } catch (notifError) {
             console.error('Error sending snag update notifications:', notifError);

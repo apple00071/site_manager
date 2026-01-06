@@ -298,12 +298,6 @@ export async function POST(request: NextRequest) {
                 .single();
 
             if (project?.created_by) {
-                const { data: creator } = await supabaseAdmin
-                    .from('users')
-                    .select('phone_number')
-                    .eq('id', project.created_by)
-                    .single();
-
                 const projectName = project.title || 'Unknown Project';
                 const poNum = po.po_number || 'N/A';
                 const amount = po.total_amount || 0;
@@ -316,13 +310,6 @@ export async function POST(request: NextRequest) {
                     relatedId: po.id,
                     relatedType: 'purchase_order'
                 });
-
-                if (creator?.phone_number) {
-                    await sendCustomWhatsAppNotification(
-                        creator.phone_number,
-                        `📦 *New Purchase Order*\n\nProject: ${projectName}\nPO: ${poNum}\nAmount: ₹${amount.toLocaleString()}\n\n🔗 Login to your dashboard for details.`
-                    );
-                }
             }
         } catch (notifError) {
             console.error('Error sending PO creation notification:', notifError);
@@ -412,31 +399,18 @@ export async function PATCH(request: NextRequest) {
                     .single();
 
                 if (project?.created_by) {
-                    const { data: creator } = await supabaseAdmin
-                        .from('users')
-                        .select('phone_number')
-                        .eq('id', project.created_by)
-                        .single();
-
                     const projectName = project.title || 'Unknown Project';
                     const poNum = data.po_number || 'N/A';
-                    const status = updates.status.replace('_', ' ').toUpperCase();
+                    const statusText = updates.status.replace('_', ' ').toUpperCase();
 
                     await NotificationService.createNotification({
                         userId: project.created_by,
                         title: 'Purchase Order Updated',
-                        message: `PO ${poNum} for project "${projectName}" is now ${status}`,
+                        message: `PO ${poNum} for project "${projectName}" is now ${statusText}`,
                         type: 'project_update',
                         relatedId: id,
                         relatedType: 'purchase_order'
                     });
-
-                    if (creator?.phone_number) {
-                        await sendCustomWhatsAppNotification(
-                            creator.phone_number,
-                            `📦 *PO Status Update*\n\nProject: ${projectName}\nPO: ${poNum}\nStatus: ${status}\n\n🔗 Login to your dashboard for details.`
-                        );
-                    }
                 }
             }
         } catch (notifError) {

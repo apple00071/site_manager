@@ -165,27 +165,9 @@ export async function POST(request: NextRequest) {
           relatedId: project_id,
           relatedType: 'project'
         });
-        console.log('Inventory notification sent to admin:', projectData.created_by);
-
-        try {
-          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-          const link = `${origin}/dashboard/projects/${project_id}`;
-          const { data: adminUser } = await supabaseAdmin
-            .from('users')
-            .select('phone_number')
-            .eq('id', projectData.created_by)
-            .single();
-          if (adminUser?.phone_number) {
-            await sendCustomWhatsAppNotification(
-              adminUser.phone_number,
-              `📦 Inventory Added\n\n${userFullName} added "${item_name}"${quantityText} to project "${projectData.title}"\n\nOpen: ${link}`
-            );
-          }
-        } catch (_) { }
       }
     } catch (notificationError) {
       console.error('Failed to send inventory notification:', notificationError);
-      // Don't fail the main operation if notification fails
     }
 
     return NextResponse.json({ item }, { status: 201 });

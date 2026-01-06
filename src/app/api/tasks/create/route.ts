@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
-import { sendTaskWhatsAppNotification } from '@/lib/whatsapp';
 import { NotificationService } from '@/lib/notificationService';
 
 // Force dynamic rendering
@@ -158,14 +157,12 @@ export async function POST(request: NextRequest) {
 
       // Notify assigned user if different from creator
       if (assignedTo && typeof assignedTo === 'string' && assignedTo !== userId) {
-        await NotificationService.createNotification({
-          userId: assignedTo,
-          title: 'Task Assigned',
-          message: `You have been assigned task "${parsed.data.task_title}"${projectData ? ` in project "${projectData.title}"` : ''}`,
-          type: 'task_assigned',
-          relatedId: task.id,
-          relatedType: 'task'
-        });
+        await NotificationService.notifyTaskAssigned(
+          assignedTo,
+          parsed.data.task_title,
+          projectData?.title || 'Standalone',
+          task.id
+        );
       }
 
       // Notify project admin if user is not admin
@@ -178,54 +175,6 @@ export async function POST(request: NextRequest) {
           relatedId: task.id,
           relatedType: 'task'
         });
-
-        // WhatsApp to project admin
-        try {
-          const { data: adminUser } = await supabaseAdmin
-            .from('users')
-            .select('phone_number')
-            .eq('id', projectData.created_by)
-            .single();
-
-          if (adminUser?.phone_number) {
-            const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-            const link = projectId ? `${origin}/dashboard/projects/${projectId}` : `${origin}/dashboard/my-tasks`;
-            await sendTaskWhatsAppNotification(
-              adminUser.phone_number,
-              parsed.data.task_title,
-              projectData.title,
-              'todo',
-              link
-            );
-          }
-        } catch (waError) {
-          console.error('Failed to send WhatsApp to project admin on standalone task creation:', waError);
-        }
-      }
-
-      // WhatsApp: notify assigned employee (if phone available)
-      if (assignedTo) {
-        try {
-          const { data: assignedUser } = await supabaseAdmin
-            .from('users')
-            .select('phone_number, full_name')
-            .eq('id', assignedTo)
-            .single();
-
-          if (assignedUser?.phone_number) {
-            const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-            const link = projectId ? `${origin}/dashboard/projects/${projectId}` : `${origin}/dashboard/my-tasks`;
-            await sendTaskWhatsAppNotification(
-              assignedUser.phone_number,
-              parsed.data.task_title,
-              projectData?.title,
-              'todo',
-              link
-            );
-          }
-        } catch (waError) {
-          console.error('Failed to send WhatsApp to assigned employee:', waError);
-        }
       }
     } catch (notificationError) {
       console.error('Failed to send notifications:', notificationError);

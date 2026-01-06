@@ -104,41 +104,24 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to update task' }, { status: 500 });
     }
 
-    // WhatsApp notifications
+    // Notifications
     try {
       const prevAssigned = currentTask.assigned_to as string | null;
       const newAssigned = updateData.assigned_to as string | null;
       const statusChanged = (currentTask.status !== updatedTask.status);
 
-      // Notify on assignment change (to a valid user)
+      // 1. Notify on assignment change using helper
       if (newAssigned && newAssigned !== prevAssigned) {
-        const { data: assignedUser } = await supabaseAdmin
-          .from('users')
-          .select('phone_number, full_name')
-          .eq('id', newAssigned)
-          .single();
-        if (assignedUser?.phone_number) {
-          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-          const projectId = updatedTask.step?.project?.id;
-          const link = projectId ? `${origin}/dashboard/projects/${projectId}` : `${origin}/dashboard/tasks`;
-          await sendTaskWhatsAppNotification(
-            assignedUser.phone_number,
-            updatedTask.title || currentTask.title,
-            updatedTask.step?.project?.title,
-            updatedTask.status,
-            link
-          );
-        }
-
-        // Trigger in-app/push notification via NotificationService
         await NotificationService.notifyTaskAssigned(
           newAssigned,
           updatedTask.title || currentTask.title,
           updatedTask.step?.project?.title || 'Apple Interior',
           updatedTask.id
         );
-      } else if (statusChanged && (updatedTask.assigned_to || prevAssigned)) {
-        // Trigger in-app/push notification for status change
+      }
+
+      // 2. Notify on status change (unless it's a new assignment already handled above)
+      if (statusChanged && !(newAssigned && newAssigned !== prevAssigned)) {
         const targetUserId = (updatedTask.assigned_to || prevAssigned) as string | null;
         if (targetUserId) {
           await NotificationService.createNotification({
@@ -151,9 +134,8 @@ export async function PATCH(request: NextRequest) {
           });
         }
       }
-    } catch (waError) {
-      console.error('WhatsApp send failed on task update:', waError);
-      // do not fail the response on notification errors
+    } catch (notifError) {
+      console.error('Notification failed on task update:', notifError);
     }
 
     return NextResponse.json({

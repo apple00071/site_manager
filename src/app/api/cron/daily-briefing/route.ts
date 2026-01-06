@@ -78,7 +78,8 @@ export async function GET(req: NextRequest) {
                     message,
                     type: 'general',
                     relatedId: userId, // Direct to their dashboard/tasks
-                    relatedType: 'daily_briefing'
+                    relatedType: 'daily_briefing',
+                    skipInApp: true
                 })
             );
         }

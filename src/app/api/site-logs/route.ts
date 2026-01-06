@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { NotificationService } from '@/lib/notificationService';
 import { handleApiError, sanitizeErrorMessage } from '@/lib/errorHandler';
 import { verifyPermission } from '@/lib/rbac';
 
@@ -111,6 +112,26 @@ export async function POST(req: Request) {
         if (error) {
             console.error('Error creating site log:', error);
             return NextResponse.json({ error: sanitizeErrorMessage(error.message) }, { status: 500 });
+        }
+
+        // Notify project admin
+        try {
+            const { data: project } = await supabaseAdmin
+                .from('projects')
+                .select('title, created_by')
+                .eq('id', data.project_id)
+                .single();
+
+            if (project && project.created_by !== user.id) {
+                const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'A member';
+                await NotificationService.notifySiteLogSubmitted(
+                    project.created_by,
+                    project.title,
+                    userName
+                );
+            }
+        } catch (notifErr) {
+            console.error('Failed to send site log notification:', notifErr);
         }
 
         return NextResponse.json({ log }, { status: 201 });

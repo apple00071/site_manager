@@ -314,34 +314,15 @@ export async function PATCH(request: NextRequest) {
             if (action === 'send') {
                 // Notify Project Manager/Admin that proposal was sent to client
                 if (project?.created_by) {
-                    const { data: creator } = await supabaseAdmin
-                        .from('users')
-                        .select('phone_number')
-                        .eq('id', project.created_by)
-                        .single();
-
                     await NotificationService.notifyProposalSent(project.created_by, proposalTitle, projectName);
-                    if (creator?.phone_number) {
-                        await sendProposalWhatsAppNotification(creator.phone_number, proposalTitle, projectName, 'sent');
-                    }
                 }
             } else if (action === 'approve' || action === 'reject') {
                 // Notify the person who created the proposal
-                const { data: proposer } = await supabaseAdmin
-                    .from('users')
-                    .select('phone_number')
-                    .eq('id', proposal.created_by)
-                    .single();
-
-                if (action === 'approve') {
-                    await NotificationService.notifyProposalApproved(proposal.created_by, proposalTitle, projectName);
-                    if (proposer?.phone_number) {
-                        await sendProposalWhatsAppNotification(proposer.phone_number, proposalTitle, projectName, 'approved');
-                    }
-                } else {
-                    await NotificationService.notifyProposalRejected(proposal.created_by, proposalTitle, projectName);
-                    if (proposer?.phone_number) {
-                        await sendProposalWhatsAppNotification(proposer.phone_number, proposalTitle, projectName, 'rejected');
+                if (proposal.created_by) {
+                    if (action === 'approve') {
+                        await NotificationService.notifyProposalApproved(proposal.created_by, proposalTitle, projectName);
+                    } else {
+                        await NotificationService.notifyProposalRejected(proposal.created_by, proposalTitle, projectName);
                     }
                 }
             }

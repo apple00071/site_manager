@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { generateDPR } from '@/lib/reports/pdfGenerator';
 import { sendDPRWhatsAppNotification } from '@/lib/whatsapp';
+import { NotificationService } from '@/lib/notificationService';
 import nodemailer from 'nodemailer';
 
 export async function POST(request: NextRequest) {
@@ -63,38 +64,25 @@ export async function POST(request: NextRequest) {
             const dateStr = new Date(report.report_date).toLocaleDateString();
 
             for (const sub of subscribers) {
-                // WhatsApp
-                if (sub.phone_number) {
-                    await sendDPRWhatsAppNotification(
-                        sub.phone_number,
-                        publicUrl,
-                        report.project.title,
-                        dateStr
-                    );
-                }
-
-                // Email (Placeholder logic - requires SMTP env vars)
-                if (sub.email && process.env.SMTP_USER) {
+                // Unified Notification via NotificationService (Push + WhatsApp)
+                if (sub.user_id) {
                     try {
-                        const transporter = nodemailer.createTransport({
-                            host: process.env.SMTP_HOST,
-                            port: Number(process.env.SMTP_PORT),
-                            secure: true,
-                            auth: {
-                                user: process.env.SMTP_USER,
-                                pass: process.env.SMTP_PASS,
-                            },
-                        });
-
-                        await transporter.sendMail({
-                            from: `"Apple Interiors" <${process.env.SMTP_USER}>`,
-                            to: sub.email,
-                            subject: `Daily Progress Report - ${report.project.title} - ${dateStr}`,
-                            text: `A new Progress Report has been generated for ${report.project.title}.\n\nView full report: ${publicUrl}`,
-                            html: `<p>A new Progress Report has been generated for <b>${report.project.title}</b>.</p><p><a href="${publicUrl}">Click here to view the full PDF report.</a></p>`,
-                        });
-                    } catch (e) {
-                        console.error('Email failed for', sub.email, e);
+                        await NotificationService.notifyReportGenerated(
+                            sub.user_id,
+                            report.project.title,
+                            dateStr,
+                            publicUrl
+                        );
+                    } catch (notifErr) {
+                        console.error('Unified notification failed for report:', sub.user_id, notifErr);
+                    }
+                } else if (sub.phone_number) {
+                    // Fallback for subscribers without user_id but with phone
+                    try {
+                        const waMessage = `🔔 *DPR Generated*\n\nA new Progress Report (DPR) for "${report.project.title}" (${dateStr}) has been generated.\n\nView PDF: ${publicUrl}`;
+                        await sendDPRWhatsAppNotification(sub.phone_number, publicUrl, report.project.title, dateStr);
+                    } catch (waErr) {
+                        console.error('WhatsApp fallback failed for report:', sub.phone_number, waErr);
                     }
                 }
             }

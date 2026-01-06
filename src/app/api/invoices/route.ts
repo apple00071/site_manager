@@ -157,20 +157,11 @@ export async function POST(request: NextRequest) {
                 .single();
 
             if (project?.created_by) {
-                const { data: creator } = await supabaseAdmin
-                    .from('users')
-                    .select('phone_number')
-                    .eq('id', project.created_by)
-                    .single();
-
                 const projectName = project.title || 'Unknown Project';
                 const invNum = data.invoice_number || 'N/A';
                 const amount = data.total_amount || 0;
 
                 await NotificationService.notifyInvoiceCreated(project.created_by, invNum, projectName, amount);
-                if (creator?.phone_number) {
-                    await sendInvoiceWhatsAppNotification(creator.phone_number, invNum, projectName, 'created', amount);
-                }
             }
         } catch (notifError) {
             console.error('Error sending invoice creation notification:', notifError);
@@ -234,12 +225,6 @@ export async function PATCH(request: NextRequest) {
             // --- NOTIFICATIONS ---
             try {
                 // Notify the person who created the invoice
-                const { data: proposer } = await supabaseAdmin
-                    .from('users')
-                    .select('phone_number')
-                    .eq('id', existing.created_by)
-                    .single();
-
                 const { data: project } = await supabaseAdmin
                     .from('projects')
                     .select('title')
@@ -249,15 +234,11 @@ export async function PATCH(request: NextRequest) {
                 const projectName = project?.title || 'Unknown Project';
                 const invNum = data.invoice_number || 'N/A';
 
-                if (action === 'approve') {
-                    await NotificationService.notifyInvoiceApproved(existing.created_by, invNum, projectName);
-                    if (proposer?.phone_number) {
-                        await sendInvoiceWhatsAppNotification(proposer.phone_number, invNum, projectName, 'approved');
-                    }
-                } else {
-                    await NotificationService.notifyInvoiceRejected(existing.created_by, invNum, projectName);
-                    if (proposer?.phone_number) {
-                        await sendInvoiceWhatsAppNotification(proposer.phone_number, invNum, projectName, 'rejected');
+                if (existing.created_by) {
+                    if (action === 'approve') {
+                        await NotificationService.notifyInvoiceApproved(existing.created_by, invNum, projectName);
+                    } else if (action === 'reject') {
+                        await NotificationService.notifyInvoiceRejected(existing.created_by, invNum, projectName);
                     }
                 }
             } catch (notifError) {

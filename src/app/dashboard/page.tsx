@@ -643,7 +643,7 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {teamMembers.slice(0, 8).map((member) => (
+                  {teamMembers.slice(0, 20).map((member) => (
                     <tr key={member.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
@@ -681,9 +681,9 @@ export default function DashboardPage() {
                   ))}
                 </tbody>
               </table>
-              {teamMembers.length > 8 && (
+              {teamMembers.length > 20 && (
                 <div className="px-4 py-2 bg-gray-50 text-center border-t border-gray-200">
-                  <span className="text-sm text-gray-500">+{teamMembers.length - 8} more team members</span>
+                  <span className="text-sm text-gray-500">+{teamMembers.length - 20} more team members</span>
                 </div>
               )}
             </div>

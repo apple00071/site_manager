@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
         // standard tasks
         const { data: calendarTasks, error: tasksError } = await supabaseAdmin
             .from('tasks')
-            .select('id, title, assigned_to, end_at, project_id, projects(name)')
+            .select('id, title, assigned_to, end_at, project_id, projects(title)')
             .eq('status', 'todo') // Only pending tasks
             .filter('end_at', 'gte', `${tomorrowStr}T00:00:00`)
             .filter('end_at', 'lt', `${tomorrowStr}T23:59:59`);
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
         // project step tasks
         const { data: projectTasks, error: stepTasksError } = await supabaseAdmin
             .from('project_step_tasks')
-            .select('id, title, assigned_to, estimated_completion_date, step_id, project_steps(project_id, projects(name))')
+            .select('id, title, assigned_to, estimated_completion_date, step_id, project_steps(project_id, projects(title))')
             .eq('status', 'todo') // Only pending
             .eq('estimated_completion_date', tomorrowStr);
 
@@ -57,7 +57,8 @@ export async function GET(req: NextRequest) {
                             message: `Reminder: "${task.title}" is due tomorrow.`,
                             type: 'task_assigned', // Re-using existing type or could add 'reminder'
                             relatedId: task.id,
-                            relatedType: 'task'
+                            relatedType: 'task',
+                            skipInApp: true
                         })
                     );
                 }
@@ -68,7 +69,7 @@ export async function GET(req: NextRequest) {
         if (projectTasks) {
             for (const task of projectTasks) {
                 if (task.assigned_to) {
-                    const projectName = task.project_steps?.projects?.name || 'Project';
+                    const projectName = task.project_steps?.projects?.title || 'Project';
                     console.log(`Sending reminder for Project Task ${task.id} to User ${task.assigned_to}`);
                     updates.push(
                         NotificationService.createNotification({
@@ -77,7 +78,8 @@ export async function GET(req: NextRequest) {
                             message: `Reminder: "${task.title}" in ${projectName} is due tomorrow.`,
                             type: 'task_assigned',
                             relatedId: task.id,
-                            relatedType: 'project_task'
+                            relatedType: 'project_task',
+                            skipInApp: true
                         })
                     );
                 }

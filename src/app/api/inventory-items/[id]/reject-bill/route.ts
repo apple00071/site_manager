@@ -66,7 +66,6 @@ export async function POST(
 
     // Create notification for the person who uploaded the bill
     if (item.created_by_user) {
-      // Try to create in-app notification, but don't fail if it breaks (e.g. DB check constraint)
       try {
         await NotificationService.createNotification({
           userId: item.created_by_user.id,
@@ -78,25 +77,6 @@ export async function POST(
         });
       } catch (notificationError) {
         console.error('Failed to create notification:', notificationError);
-      }
-
-      // Always attempt WhatsApp notification independently of in-app notification result
-      try {
-        const { data: uploader } = await supabaseAdmin
-          .from('users')
-          .select('phone_number')
-          .eq('id', item.created_by_user.id)
-          .single();
-        if (uploader?.phone_number) {
-          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-          const link = `${origin}/dashboard/projects/${item.project.id}`;
-          await sendCustomWhatsAppNotification(
-            uploader.phone_number,
-            `❌ Bill Rejected\n\nYour bill for "${item.item_name}" in project "${item.project.title}" was rejected. Reason: ${rejection_reason}\n\nOpen: ${link}`
-          );
-        }
-      } catch (whatsappError) {
-        console.error('Failed to send WhatsApp notification for bill rejection:', whatsappError);
       }
     }
 

@@ -132,44 +132,18 @@ export async function PATCH(request: NextRequest) {
         // --- NOTIFICATIONS ---
         try {
             if (isAdmin && existing.status !== status && existing.user_id) {
-                const { data: expenseUser } = await supabaseAdmin
-                    .from('users')
-                    .select('phone_number')
-                    .eq('id', existing.user_id)
-                    .single();
-
-                const { data: adminUser } = await supabaseAdmin
-                    .from('users')
-                    .select('full_name')
-                    .eq('id', user.id)
-                    .single();
-
                 if (status === 'approved') {
                     await NotificationService.notifyExpenseApproved(
                         existing.user_id,
                         existing.description,
                         existing.amount
                     );
-
-                    if (expenseUser?.phone_number) {
-                        await sendCustomWhatsAppNotification(
-                            expenseUser.phone_number,
-                            `✅ *Expense Approved*\n\nExpense: ${existing.description}\nAmount: ₹${existing.amount}\nApproved By: ${adminUser?.full_name || 'Admin'}\n\nCheck dashboard for details.`
-                        );
-                    }
                 } else if (status === 'rejected') {
                     await NotificationService.notifyExpenseRejected(
                         existing.user_id,
                         existing.description,
                         existing.amount
                     );
-
-                    if (expenseUser?.phone_number) {
-                        await sendCustomWhatsAppNotification(
-                            expenseUser.phone_number,
-                            `❌ *Expense Rejected*\n\nExpense: ${existing.description}\nAmount: ₹${existing.amount}\nRejected By: ${adminUser?.full_name || 'Admin'}\n\nCheck dashboard for details.`
-                        );
-                    }
                 }
             }
         } catch (notifError) {
@@ -278,7 +252,7 @@ export async function POST(request: NextRequest) {
             // Notify all admins
             const { data: admins } = await supabaseAdmin
                 .from('users')
-                .select('id, phone_number')
+                .select('id')
                 .eq('role', 'admin');
 
             const { data: requester } = await supabaseAdmin
@@ -290,7 +264,7 @@ export async function POST(request: NextRequest) {
             const requesterName = requester?.full_name || 'Unknown User';
 
             if (admins && admins.length > 0) {
-                // In-app notifications
+                // Unified notifications
                 await Promise.all(admins.map((admin: { id: string }) =>
                     NotificationService.notifyExpenseCreated(
                         admin.id,
@@ -299,17 +273,6 @@ export async function POST(request: NextRequest) {
                         requesterName
                     )
                 ));
-
-                // WhatsApp notifications
-                await Promise.all(admins.map((admin: { phone_number: string | null }) => {
-                    if (admin.phone_number) {
-                        return sendCustomWhatsAppNotification(
-                            admin.phone_number,
-                            `💰 *New Expense Request*\n\nUser: ${requesterName}\nExpense: ${description}\nAmount: ₹${amount}\n\nLogin to approve/reject.`
-                        );
-                    }
-                    return Promise.resolve();
-                }));
             }
         } catch (notifError) {
             console.error('Error sending expense creation notification:', notifError);

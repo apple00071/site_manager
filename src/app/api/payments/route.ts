@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { NotificationService } from '@/lib/notificationService';
 
 export const dynamic = 'force-dynamic';
 
@@ -167,6 +168,25 @@ export async function POST(request: NextRequest) {
                         .eq('id', invoice_id);
                 }
             }
+        }
+
+        // Notify Project Manager/Designer
+        try {
+            const { data: project } = await supabaseAdmin
+                .from('projects')
+                .select('title, assigned_employee_id')
+                .eq('id', project_id)
+                .single();
+
+            if (project && project.assigned_employee_id && project.assigned_employee_id !== user.id) {
+                await NotificationService.notifyPaymentRecorded(
+                    project.assigned_employee_id,
+                    project.title,
+                    validationResult.data.amount
+                );
+            }
+        } catch (notifErr) {
+            console.error('Failed to send payment notification:', notifErr);
         }
 
         return NextResponse.json({ payment: data }, { status: 201 });

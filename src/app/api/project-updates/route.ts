@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
         .eq('id', project_id)
         .single();
 
-      // 1. Notify admin (existing logic)
+      // 1. Notify admin
       if (projectData && projectData.created_by !== userId) {
         await NotificationService.createNotification({
           userId: projectData.created_by,
@@ -128,105 +128,49 @@ export async function POST(request: NextRequest) {
           relatedId: project_id,
           relatedType: 'project'
         });
-
-        try {
-          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-          const link = `${origin}/dashboard/projects/${project_id}`;
-          const { data: adminUser } = await supabaseAdmin
-            .from('users')
-            .select('phone_number')
-            .eq('id', projectData.created_by)
-            .single();
-          if (adminUser?.phone_number) {
-            await sendCustomWhatsAppNotification(
-              adminUser.phone_number,
-              `📣 Project Update\n\n${userFullName} added an update to project "${projectData.title}"\n\nOpen: ${link}`
-            );
-          }
-        } catch (_) { }
       }
 
-      // 2. Notify all project members (except the user who created the update and admin who was already notified)
+      // 2. Notify all project members
       try {
         const { data: allProjectMembers } = await supabaseAdmin
           .from('project_members')
-          .select(`
-            user_id,
-            users:user_id (
-              id,
-              full_name,
-              phone_number,
-              email
-            )
-          `)
+          .select('user_id')
           .eq('project_id', project_id);
 
         if (allProjectMembers) {
-          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-          const link = `${origin}/dashboard/projects/${project_id}`;
-
           for (const member of allProjectMembers) {
-            const memberUser = member.users as any;
-            if (!memberUser || !memberUser.id) continue;
+            if (!member.user_id || member.user_id === userId) continue;
+            if (projectData && member.user_id === projectData.created_by) continue;
 
-            // Skip the user who created the update
-            if (memberUser.id === userId) continue;
-
-            // Skip admin (already notified above)
-            if (projectData && memberUser.id === projectData.created_by) continue;
-
-            // Send in-app notification
             await NotificationService.createNotification({
-              userId: memberUser.id,
+              userId: member.user_id,
               title: 'Project Update Added',
               message: `${userFullName} added an update to project "${projectData?.title || 'Project'}"`,
               type: 'project_update',
               relatedId: project_id,
               relatedType: 'project'
             });
-
-            // Send WhatsApp notification if phone number exists
-            if (memberUser.phone_number) {
-              try {
-                await sendCustomWhatsAppNotification(
-                  memberUser.phone_number,
-                  `📣 Project Update\n\n${userFullName} added an update to project "${projectData?.title || 'Project'}"\n\nOpen: ${link}`
-                );
-              } catch (waError) {
-                console.error('Failed to send WhatsApp to member:', waError);
-              }
-            }
           }
         }
       } catch (memberNotifyError) {
         console.error('Failed to notify project members:', memberNotifyError);
       }
 
-      // 3. Handle @Mentions (additional notification for specifically mentioned users)
+      // 3. Handle @Mentions
       const mentionRegex = /@(\w+)/g;
       const mentions = description.match(mentionRegex);
 
       if (mentions) {
         const usernames = [...new Set(mentions.map((m: string) => m.substring(1)))];
-
-        // Fetch all project members to resolve fallback mentions (slugified names)
         const { data: projectUsers } = await supabaseAdmin
           .from('project_members')
           .select(`
             user_id,
-            users:user_id (
-              id,
-              full_name,
-              phone_number,
-              username,
-              email
-            )
+            users:user_id (id, full_name, email, username)
           `)
           .eq('project_id', project_id);
 
         if (projectUsers) {
-          const mentionedUsers = [];
-
           for (const username of usernames) {
             const matchedUser = projectUsers.find((m: any) => {
               const u = m.users;
@@ -235,32 +179,14 @@ export async function POST(request: NextRequest) {
               return u.username === username || slug === username || emailPrefix === username;
             });
 
-            if (matchedUser && matchedUser.users) {
-              mentionedUsers.push(matchedUser.users);
-            }
-          }
-
-          if (mentionedUsers.length > 0) {
-            for (const mentionedUser of mentionedUsers) {
-              // Don't notify self
-              if (mentionedUser.id === userId) continue;
-
+            if (matchedUser && matchedUser.users && matchedUser.users.id !== userId) {
               await NotificationService.notifyMention(
-                mentionedUser.id,
+                matchedUser.users.id,
                 userFullName,
                 projectData?.title || 'Project',
                 description,
                 update.id
               );
-
-              if (mentionedUser.phone_number) {
-                const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-                const link = `${origin}/dashboard/projects/${project_id}`;
-                await sendCustomWhatsAppNotification(
-                  mentionedUser.phone_number,
-                  `👋 You were mentioned by ${userFullName} in project "${projectData?.title || 'Project'}":\n\n"${description.substring(0, 100)}${description.length > 100 ? '...' : ''}"\n\nOpen: ${link}`
-                );
-              }
             }
           }
         }
