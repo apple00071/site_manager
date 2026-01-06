@@ -2,73 +2,69 @@ import { supabaseAdmin } from '@/lib/supabase-server';
 import { NotificationService } from '@/lib/notificationService';
 
 export async function runTaskReminders() {
-    console.log('⏰ Starting Task Reminder Logic');
+    console.log('⏰ Starting Task Reminder Logic (Next 30 Mins)');
 
-    // Calculate "tomorrow" date string (YYYY-MM-DD)
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    const now = new Date();
+    const thirtyMinutesFromNow = new Date(now.getTime() + 30 * 60 * 1000);
 
-    // 2. Fetch tasks due tomorrow
-    // We check two tables: `tasks` (Calendar Tasks) and `project_step_tasks` (Project Tasks)
+    // For DATE columns (Project Tasks), we can only sanity check if it's "Today"
+    const todayStr = now.toISOString().split('T')[0];
 
-    // standard tasks
+    // 2. Fetch tasks starting SOON
+
+    // A. Calendar Tasks (Has Time Precision)
+    // We want tasks where start_at is between NOW and NOW+30min
     const { data: calendarTasks, error: tasksError } = await supabaseAdmin
         .from('tasks')
-        .select('id, title, assigned_to, end_at, project_id, projects(title)')
-        .eq('status', 'todo') // Only pending tasks
-        .filter('end_at', 'gte', `${tomorrowStr}T00:00:00`)
-        .filter('end_at', 'lt', `${tomorrowStr}T23:59:59`);
+        .select('id, title, assigned_to, start_at, project_id, projects(title)')
+        .eq('status', 'todo')
+        .gt('start_at', now.toISOString())
+        .lte('start_at', thirtyMinutesFromNow.toISOString());
 
     if (tasksError) throw tasksError;
 
-    // project step tasks
-    const { data: projectTasks, error: stepTasksError } = await supabaseAdmin
-        .from('project_step_tasks')
-        .select('id, title, assigned_to, estimated_completion_date, step_id, project_steps(project_id, projects(title))')
-        .eq('status', 'todo') // Only pending
-        .eq('estimated_completion_date', tomorrowStr);
+    // B. Project Tasks (Date Only - No Time)
+    // We can't do "30 mins" logic here. We can only do "Starts Today".
+    // To avoid spamming every 30 mins, we should arguably NOT include these here 
+    // OR only include them if we had a way to mark them "reminded".
+    // For now, based on user request, we will SKIP project tasks for this high-frequency check
+    // unless the user explicitly asks for "Today" spam.
+    // However, to be safe, let's just log them or maybe only send them ONCE a day?
+    // Let's stick to the Calendar Tasks which support the feature requested ("next 30 mins").
 
-    if (stepTasksError) throw stepTasksError;
+    /* 
+       NOTE: Project Step Tasks only have DATE precision. 
+       We cannot check "next 30 minutes". 
+       So we only return Calendar Tasks for this specific job type.
+    */
+    const projectTasks: any[] = [];
 
     // 3. Process & Send Notifications
     const updates = [];
 
     // Process Calendar Tasks
-    if (calendarTasks) {
+    if (calendarTasks && calendarTasks.length > 0) {
         for (const task of calendarTasks) {
             if (task.assigned_to) {
-                console.log(`Sending reminder for Task ${task.id} to User ${task.assigned_to}`);
-                updates.push(
-                    NotificationService.createNotification({
-                        userId: task.assigned_to,
-                        title: 'Task Due Tomorrow',
-                        message: `Reminder: "${task.title}" is due tomorrow.`,
-                        type: 'task_assigned', // Re-using existing type or could add 'reminder'
-                        relatedId: task.id,
-                        relatedType: 'task',
-                        skipInApp: true
-                    })
-                );
-            }
-        }
-    }
+                console.log(`Sending immediate reminder for Task ${task.id} to User ${task.assigned_to}`);
 
-    // Process Project Tasks
-    if (projectTasks) {
-        for (const task of projectTasks) {
-            if (task.assigned_to) {
-                const projectName = task.project_steps?.projects?.title || 'Project';
-                console.log(`Sending reminder for Project Task ${task.id} to User ${task.assigned_to}`);
+                // Format time for message (e.g. "10:30 AM")
+                const startTime = new Date(task.start_at).toLocaleTimeString('en-IN', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                    timeZone: 'Asia/Kolkata' // Assuming IST presence
+                });
+
                 updates.push(
                     NotificationService.createNotification({
                         userId: task.assigned_to,
-                        title: 'Project Task Due Tomorrow',
-                        message: `Reminder: "${task.title}" in ${projectName} is due tomorrow.`,
+                        title: 'Task Starting Soon',
+                        message: `Reminder: "${task.title}" starts at ${startTime}.`,
                         type: 'task_assigned',
                         relatedId: task.id,
-                        relatedType: 'project_task',
-                        skipInApp: true
+                        relatedType: 'task',
+                        skipInApp: false // Important! Show this!
                     })
                 );
             }
@@ -79,10 +75,10 @@ export async function runTaskReminders() {
 
     return {
         success: true,
-        message: `Sent ${updates.length} reminders`,
+        message: `Sent ${updates.length} immediate reminders`,
         processed: {
             calendarTasks: calendarTasks?.length || 0,
-            projectTasks: projectTasks?.length || 0
+            projectTasks: 0
         }
     };
 }
