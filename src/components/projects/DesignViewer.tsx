@@ -68,6 +68,59 @@ export function DesignViewer({
     const containerRef = useRef<HTMLDivElement>(null);
     const [isMobile, setIsMobile] = useState(false);
 
+    // Use signed URL for viewing to avoid 400 errors with private buckets or react-pdf
+    const [viewUrl, setViewUrl] = useState<string>('');
+    const [isSigning, setIsSigning] = useState(false);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const getSignedUrl = async () => {
+            // Only try to sign if it looks like a Supabase public storage URL
+            if (fileUrl.includes('/storage/v1/object/public/design-files/')) {
+                const path = fileUrl.split('/design-files/')[1];
+                if (path) {
+                    setIsSigning(true);
+                    try {
+                        const { supabase } = await import('@/lib/supabase');
+                        const { data, error } = await supabase.storage
+                            .from('design-files')
+                            .createSignedUrl(path, 3600); // 1 hour expiry
+
+                        if (error) {
+                            console.error('Error creating signed URL:', error);
+                            // Fallback to original URL on error
+                            if (isMounted) setViewUrl(fileUrl);
+                        } else if (isMounted && data?.signedUrl) {
+                            setViewUrl(data.signedUrl);
+                        } else if (isMounted) {
+                            setViewUrl(fileUrl);
+                        }
+                    } catch (err) {
+                        console.error('Failed to generate signed URL:', err);
+                        if (isMounted) setViewUrl(fileUrl);
+                    } finally {
+                        if (isMounted) setIsSigning(false);
+                    }
+                    return;
+                }
+            }
+
+            // For other URLs (already signed, or external), use as is
+            if (isMounted) {
+                setViewUrl(fileUrl);
+                setIsSigning(false);
+            }
+        };
+
+        getSignedUrl();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [fileUrl]);
+
+
     // Pin-drop state
     const [isAddingPin, setIsAddingPin] = useState(false);
     const [pendingPin, setPendingPin] = useState<{ x: number; y: number; page: number } | null>(null);
@@ -287,7 +340,7 @@ export function DesignViewer({
 
                     {/* Download */}
                     <a
-                        href={fileUrl}
+                        href={viewUrl}
                         download
                         className="p-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded"
                     >
@@ -333,7 +386,11 @@ export function DesignViewer({
                         </div>
                     )}
 
-                    {isImage ? (
+                    {(isSigning || !viewUrl) ? (
+                        <div className="flex items-center justify-center h-full">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
+                        </div>
+                    ) : isImage ? (
                         // Image viewer with pan/zoom
                         <TransformWrapper
                             initialScale={1}
@@ -362,7 +419,7 @@ export function DesignViewer({
                                             onClick={handleImageClick}
                                             style={{ cursor: isAddingPin ? 'crosshair' : 'grab' }}
                                         >
-                                            <img src={fileUrl} alt={fileName} className="max-w-full max-h-full object-contain shadow-lg" draggable={false} />
+                                            <img src={viewUrl} alt={fileName} className="max-w-full max-h-full object-contain shadow-lg" draggable={false} />
                                             {renderPins()}
                                             {renderPendingPin()}
                                         </div>
@@ -373,7 +430,7 @@ export function DesignViewer({
                     ) : (
                         // PDF viewer with custom react-pdf renderer
                         <PdfViewer
-                            fileUrl={fileUrl}
+                            fileUrl={viewUrl}
                             comments={comments.map(c => ({
                                 id: c.id,
                                 x_percent: c.x_percent,

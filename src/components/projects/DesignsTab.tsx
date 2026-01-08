@@ -71,9 +71,11 @@ interface DesignUploadFormProps {
   uploading: boolean;
   error: string | null;
   recoveryMessage?: string | null;
+  uploadProgress: number;
+  uploadIndex: { current: number, total: number };
 }
 
-const DesignUploadForm = ({ uploadForm, setUploadForm, onClose, onUpload, uploading, error, recoveryMessage }: DesignUploadFormProps) => (
+const DesignUploadForm = ({ uploadForm, setUploadForm, onClose, onUpload, uploading, error, recoveryMessage, uploadProgress, uploadIndex }: DesignUploadFormProps) => (
   <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
     {recoveryMessage && (
       <div className="p-3 bg-yellow-50 text-yellow-800 rounded-lg text-sm border border-yellow-200">
@@ -131,6 +133,21 @@ const DesignUploadForm = ({ uploadForm, setUploadForm, onClose, onUpload, upload
     {error && (
       <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
         {error}
+      </div>
+    )}
+
+    {uploading && (
+      <div className="mt-4">
+        <div className="flex justify-between text-xs text-gray-500 mb-1">
+          <span>Uploading {uploadIndex.current} of {uploadIndex.total}...</span>
+          <span>{uploadProgress}%</span>
+        </div>
+        <div className="w-full bg-gray-100 rounded-full h-2">
+          <div
+            className="bg-yellow-500 h-2 rounded-full transition-all duration-300"
+            style={{ width: `${uploadProgress}%` }}
+          />
+        </div>
       </div>
     )}
 
@@ -212,6 +229,8 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
     category: '', // Room category like "Kitchen", "Bedroom", etc.
     version_number: 1,
   });
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadIndex, setUploadIndex] = useState({ current: 0, total: 0 });
   const [uploadRecoveryMessage, setUploadRecoveryMessage] = useState<string | null>(null);
 
   // Session storage key for upload recovery
@@ -417,18 +436,44 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
     }
 
     setUploading(true);
+    setUploadProgress(0);
+    setUploadIndex({ current: 0, total: uploadForm.files.length });
     setFormError(null);
+
+    // Debug: Check bucket limit from client side
+    try {
+      const { data: bucket } = await supabase.storage.getBucket('design-files');
+      console.log('📦 Bucket Debug:', {
+        id: bucket?.id,
+        public: bucket?.public,
+        file_size_limit: bucket?.file_size_limit,
+        limit_mb: bucket?.file_size_limit ? bucket.file_size_limit / 1024 / 1024 : 'No limit'
+      });
+    } catch (e) {
+      console.warn('Could not fetch bucket info for debug:', e);
+    }
 
     try {
       let successCount = 0;
+      let currentIndex = 0;
       for (const file of uploadForm.files) {
+        currentIndex++;
+        setUploadIndex(prev => ({ ...prev, current: currentIndex }));
+        setUploadProgress(0); // Reset for each file
+
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `designs/${projectId}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from('design-files')
-          .upload(filePath, file);
+          .upload(filePath, file, {
+            upsert: false,
+            onUploadProgress: (progress: any) => {
+              const percent = Math.round((progress.loaded / progress.total) * 100);
+              setUploadProgress(percent);
+            }
+          });
 
         if (uploadError) {
           console.error('Error uploading file:', file.name, uploadError);
@@ -475,6 +520,8 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
       showToast('error', error.message || 'Failed to upload designs');
     } finally {
       setUploading(false);
+      setUploadProgress(0);
+      setUploadIndex({ current: 0, total: 0 });
     }
   };
 
@@ -628,6 +675,8 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
           uploading={uploading}
           error={formError}
           recoveryMessage={uploadRecoveryMessage}
+          uploadProgress={uploadProgress}
+          uploadIndex={uploadIndex}
         />
       </SidePanel>
 
@@ -645,6 +694,8 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
           uploading={uploading}
           error={formError}
           recoveryMessage={uploadRecoveryMessage}
+          uploadProgress={uploadProgress}
+          uploadIndex={uploadIndex}
         />
       </BottomSheet>
 

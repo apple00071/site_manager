@@ -73,7 +73,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch design files' }, { status: 500 });
     }
 
-    return NextResponse.json({ designs });
+    // Generate signed URLs for each design file to ensure access
+    const transformedDesigns = await Promise.all((designs || []).map(async (design: any) => {
+      if (design.file_url && design.file_url.includes('/storage/v1/object/public/design-files/')) {
+        try {
+          const path = design.file_url.split('/design-files/')[1];
+          if (path) {
+            const { data: signedData, error: signedError } = await supabaseAdmin.storage
+              .from('design-files')
+              .createSignedUrl(path, 3600); // 1 hour
+
+            if (!signedError && signedData?.signedUrl) {
+              return { ...design, file_url: signedData.signedUrl };
+            }
+          }
+        } catch (signedErr) {
+          console.error('Error signing URL for design:', design.id, signedErr);
+        }
+      }
+      return design;
+    }));
+
+    return NextResponse.json({ designs: transformedDesigns });
   } catch (error) {
     console.error('Unexpected error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

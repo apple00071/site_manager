@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
-import { FiChevronLeft, FiChevronRight, FiZoomIn, FiZoomOut, FiMaximize2 } from 'react-icons/fi';
+import { FiChevronLeft, FiChevronRight, FiZoomIn, FiZoomOut, FiMaximize2, FiFileText } from 'react-icons/fi';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
@@ -46,11 +46,23 @@ export function PdfViewer({
     const [numPages, setNumPages] = useState<number>(0);
     const [scale, setScale] = useState(1);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const pageRef = useRef<HTMLDivElement>(null);
 
     const onDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
         setNumPages(numPages);
         setLoading(false);
+        setError(null);
+    }, []);
+
+    const onDocumentLoadError = useCallback((err: Error) => {
+        console.error('PDF Load Error:', err);
+        setLoading(false);
+        if (err.message.includes('404') || err.message.includes('400')) {
+            setError('File not found or inaccessible. Please try re-uploading this design.');
+        } else {
+            setError('Failed to load PDF. The file might be corrupted or in an unsupported format.');
+        }
     }, []);
 
     const handlePageClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -173,33 +185,45 @@ export function PdfViewer({
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
                     </div>
                 )}
-                <Document
-                    file={fileUrl}
-                    onLoadSuccess={onDocumentLoadSuccess}
-                    loading={null}
-                    className="shadow-lg"
-                >
-                    <div
-                        ref={pageRef}
-                        className="relative"
-                        onClick={handlePageClick}
-                        style={{ cursor: isAddingPin ? 'crosshair' : 'default' }}
-                    >
-                        <Page
-                            pageNumber={currentPage}
-                            scale={scale}
-                            renderTextLayer={false}
-                            renderAnnotationLayer={true}
-                        />
-                        {/* Pin overlay - positioned relative to page */}
-                        <div className="absolute inset-0 pointer-events-none">
-                            <div className="pointer-events-auto">
-                                {renderPins()}
-                                {renderPendingPin()}
-                            </div>
+                {error && !loading && (
+                    <div className="flex flex-col items-center justify-center h-full text-center max-w-md mx-auto">
+                        <div className="bg-red-50 text-red-600 p-6 rounded-lg shadow-sm border border-red-100">
+                            <FiFileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                            <h3 className="text-lg font-semibold mb-2">PDF Error</h3>
+                            <p className="text-sm">{error}</p>
                         </div>
                     </div>
-                </Document>
+                )}
+                {!error && (
+                    <Document
+                        file={fileUrl}
+                        onLoadSuccess={onDocumentLoadSuccess}
+                        onLoadError={onDocumentLoadError}
+                        loading={null}
+                        className="shadow-lg"
+                    >
+                        <div
+                            ref={pageRef}
+                            className="relative"
+                            onClick={handlePageClick}
+                            style={{ cursor: isAddingPin ? 'crosshair' : 'default' }}
+                        >
+                            <Page
+                                pageNumber={currentPage}
+                                scale={scale}
+                                renderTextLayer={false}
+                                renderAnnotationLayer={true}
+                            />
+                            {/* Pin overlay - positioned relative to page */}
+                            <div className="absolute inset-0 pointer-events-none">
+                                <div className="pointer-events-auto">
+                                    {renderPins()}
+                                    {renderPendingPin()}
+                                </div>
+                            </div>
+                        </div>
+                    </Document>
+                )}
             </div>
         </div>
     );
