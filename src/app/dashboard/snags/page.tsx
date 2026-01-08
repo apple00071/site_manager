@@ -656,8 +656,10 @@ export default function SnagsPage() {
                                             <div key={i} className="relative w-16 h-16 flex-shrink-0 group">
                                                 <Image src={url} alt="preview" fill className="object-cover rounded-lg" />
                                                 <button
+                                                    type="button"
                                                     onClick={() => setFormData(p => ({ ...p, photos: p.photos.filter((_, idx) => idx !== i) }))}
-                                                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5"
+                                                    className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full !w-5 !h-5 flex items-center justify-center shadow-md z-10 !min-w-0 !min-h-0"
+                                                    style={{ width: '20px', height: '20px', minWidth: '0', minHeight: '0' }}
                                                 >
                                                     <FiX className="w-3 h-3" />
                                                 </button>
@@ -730,8 +732,10 @@ export default function SnagsPage() {
                                         <div key={i} className="relative w-16 h-16 flex-shrink-0 group">
                                             <Image src={url} alt="preview" fill className="object-cover rounded-lg" />
                                             <button
+                                                type="button"
                                                 onClick={() => setResolveData(prev => ({ ...prev, photos: prev.photos.filter((_, idx) => idx !== i) }))}
-                                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full !w-5 !h-5 flex items-center justify-center shadow-md z-10 !min-w-0 !min-h-0"
+                                                style={{ width: '20px', height: '20px', minWidth: '0', minHeight: '0' }}
                                             >
                                                 <FiX className="w-3 h-3" />
                                             </button>
@@ -881,8 +885,10 @@ export default function SnagsPage() {
                                                     <div key={i} className="relative w-16 h-16 flex-shrink-0 group">
                                                         <Image src={url} alt="preview" fill className="object-cover rounded-lg" />
                                                         <button
+                                                            type="button"
                                                             onClick={() => setResolveData(p => ({ ...p, photos: p.photos.filter((_, idx) => idx !== i) }))}
-                                                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5"
+                                                            className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full !w-5 !h-5 flex items-center justify-center shadow-md z-10 !min-w-0 !min-h-0"
+                                                            style={{ width: '20px', height: '20px', minWidth: '0', minHeight: '0' }}
                                                         >
                                                             <FiX className="w-3 h-3" />
                                                         </button>

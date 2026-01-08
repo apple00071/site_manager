@@ -12,43 +12,77 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const manualJob = searchParams.get('job'); // Allow manual override: ?job=daily-briefing
+    const manualJob = searchParams.get('job'); // Allow manual override for testing: ?job=daily-briefing
 
     const now = new Date();
     const utcHour = now.getUTCHours();
+    const utcMin = now.getUTCMinutes();
 
-    console.log(`🤖 Master Cron triggered at UTC Hour: ${utcHour}, Manual Job: ${manualJob || 'none'}`);
+    console.log(`🤖 Master Cron triggered at UTC: ${utcHour}:${utcMin}, Manual Job: ${manualJob || 'none'}`);
 
     try {
-        let result;
+        const results: any = {
+            timestamp: now.toISOString(),
+            executed: []
+        };
 
-        // 1. Daily Briefing (Schedule: 2:30 UTC) -> Checks if hour is 2
-        if (manualJob === 'daily-briefing' || (manualJob === 'all') || (!manualJob && utcHour === 2)) {
-            console.log('Running Daily Briefing...');
-            result = await runDailyBriefing();
+        // 1. ALWAYS Run Immediate Task Reminders (For tasks starting in next 30 mins)
+        // This ensures high-precision notifications regardless of the daily reporting schedule.
+        if (!manualJob || manualJob === 'task-reminders' || manualJob === 'all') {
+            console.log('Running Task Reminders (High Precision)...');
+            results.taskReminders = await runTaskReminders();
+            results.executed.push('taskReminders');
         }
 
-        // 2. Site Log Reminder (Schedule: 11:30 UTC) -> Checks if hour is 11
-        else if (manualJob === 'site-log-reminder' || (manualJob === 'all') || (!manualJob && utcHour === 11)) {
-            console.log('Running Site Log Reminder...');
-            result = await runSiteLogReminder();
+        // 2. Scheduled Status Reports (IST mapped to UTC)
+
+        // A. Daily Briefing: 9:00 AM IST (3:30 AM UTC)
+        if (manualJob === 'daily-briefing' || (!manualJob && utcHour === 3 && utcMin >= 30)) {
+            console.log('Running Daily Briefing (9 AM IST)...');
+            results.dailyBriefing = await runDailyBriefing();
+            results.executed.push('dailyBriefing');
         }
 
-        // 3. Task Reminders (Schedule: 12:30 UTC) -> Checks if hour is 12
-        else if (manualJob === 'task-reminders' || (manualJob === 'all') || (!manualJob && utcHour === 12)) {
-            console.log('Running Task Reminders...');
-            result = await runTaskReminders();
+        // B. Admin Assign Reminder: 10:30 AM IST (5:00 AM UTC)
+        if (manualJob === 'admin-assign' || (!manualJob && utcHour === 5 && utcMin < 30)) {
+            const { runAdminAssignReminder } = await import('@/lib/cron-jobs/dailyStatusReminders');
+            console.log('Running Admin Assign Reminder (10:30 AM IST)...');
+            results.adminAssign = await runAdminAssignReminder();
+            results.executed.push('adminAssign');
         }
 
-        else {
+        // C. Member Check-up: 1:00 PM IST (7:30 AM UTC)
+        if (manualJob === 'member-checkup' || (!manualJob && utcHour === 7 && utcMin >= 30)) {
+            const { runMemberCheckupReminder } = await import('@/lib/cron-jobs/dailyStatusReminders');
+            console.log('Running Member Check-up (1 PM IST)...');
+            results.memberCheckup = await runMemberCheckupReminder();
+            results.executed.push('memberCheckup');
+        }
+
+        // D. Site Log & DPR Reminder: 5:00 PM IST (11:30 AM UTC)
+        if (manualJob === 'site-log-reminder' || (!manualJob && utcHour === 11 && utcMin >= 30)) {
+            console.log('Running Site Log & DPR Reminder (5 PM IST)...');
+            results.siteLogs = await runSiteLogReminder();
+            results.executed.push('siteLogs');
+        }
+
+        // E. Admin Task Review: 5:30 PM IST (12:00 PM UTC)
+        if (manualJob === 'admin-check' || (!manualJob && utcHour === 12 && utcMin < 30)) {
+            const { runAdminTaskCheckReminder } = await import('@/lib/cron-jobs/dailyStatusReminders');
+            console.log('Running Admin Review (5:30 PM IST)...');
+            results.adminCheck = await runAdminTaskCheckReminder();
+            results.executed.push('adminCheck');
+        }
+
+        if (results.executed.length === 0) {
             return NextResponse.json({
                 success: true,
-                message: `No job matched for UTC Hour ${utcHour}.`,
-                hint: 'Jobs run at 2 (Briefing), 11 (Site Logs), 12 (Tasks).'
+                message: `No major status reports scheduled for UTC ${utcHour}:${utcMin}.`,
+                taskReminders: results.taskReminders
             });
         }
 
-        return NextResponse.json(result);
+        return NextResponse.json({ success: true, ...results });
 
     } catch (error: any) {
         console.error('Master Cron Failed:', error);

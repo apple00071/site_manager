@@ -304,36 +304,51 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     if (!files || files.length === 0) return;
 
     setUploadingPhotos(true);
-    const uploadedUrls: string[] = [];
 
     try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${user?.id}/${Date.now()}_${i}.${fileExt}`;
+      const uploadPromises = Array.from(files).map(async (file, i) => {
+        try {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${user?.id}/${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
 
-        const { data, error } = await supabase.storage
-          .from('project-update-photos')
-          .upload(fileName, file);
+          const { error } = await supabase.storage
+            .from('project-update-photos')
+            .upload(fileName, file);
 
-        if (error) {
-          console.error('Error uploading file:', error);
-          continue;
+          if (error) {
+            console.error(`Error uploading ${file.name}:`, error);
+            return null;
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('project-update-photos')
+            .getPublicUrl(fileName);
+
+          return publicUrl;
+        } catch (err) {
+          console.error(`Exception uploading ${file.name}:`, err);
+          return null;
         }
+      });
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('project-update-photos')
-          .getPublicUrl(fileName);
+      const results = await Promise.all(uploadPromises);
+      const successfulUrls = results.filter((url): url is string => url !== null);
 
-        uploadedUrls.push(publicUrl);
+      if (successfulUrls.length > 0) {
+        setForm(prev => ({ ...prev, photos: [...prev.photos, ...successfulUrls] }));
       }
 
-      setForm(prev => ({ ...prev, photos: [...prev.photos, ...uploadedUrls] }));
+      if (successfulUrls.length < files.length) {
+        const failedCount = files.length - successfulUrls.length;
+        alert(`Successfully uploaded ${successfulUrls.length} files. ${failedCount} file(s) failed. (Note: Max 50MB per file)`);
+      }
     } catch (error) {
       console.error('Error uploading files:', error);
-      alert('Failed to upload some files');
+      alert('Failed to upload files. Please try again.');
     } finally {
       setUploadingPhotos(false);
+      // Clear input so same files can be re-selected if needed
+      e.target.value = '';
     }
   };
 
@@ -846,7 +861,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                 </button>
               )}
               {/* Photo upload */}
-              <label className="flex items-center justify-center w-10 h-10 rounded-lg border border-gray-300 bg-white cursor-pointer hover:bg-gray-50 transition-colors">
+              <label className="relative flex items-center justify-center w-10 h-10 rounded-lg border border-gray-300 bg-white cursor-pointer hover:bg-gray-50 transition-colors">
                 <svg
                   className="w-5 h-5 text-gray-700"
                   fill="none"
@@ -856,15 +871,27 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 <input
+                  id="photo-upload-input"
+                  name="photos"
                   type="file"
                   accept="image/*,application/pdf"
                   multiple
                   onChange={handlePhotoUpload}
+                  onClick={(e) => {
+                    (e.target as HTMLInputElement).value = '';
+                  }}
                   disabled={uploadingPhotos}
-                  className="hidden"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  title="Select photos or PDF files"
                 />
               </label>
             </div>
+            {uploadingPhotos && (
+              <div className="flex items-center gap-2 text-xs text-yellow-600 font-medium animate-pulse">
+                <FiLoader className="animate-spin" />
+                Processing {form.photos.length > 0 ? 'additional' : ''} files...
+              </div>
+            )}
             <button
               type="button"
               onClick={handleSubmit}
@@ -920,10 +947,12 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                         <img src={url} className="w-12 h-12 object-cover rounded border border-gray-200" />
                       )}
                       <button
+                        type="button"
                         onClick={() => setForm(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== idx) }))}
-                        className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 shadow-sm"
+                        className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full !w-5 !h-5 flex items-center justify-center shadow-md z-10 !min-w-0 !min-h-0"
+                        style={{ width: '20px', height: '20px', minWidth: '0', minHeight: '0' }}
                       >
-                        <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </button>

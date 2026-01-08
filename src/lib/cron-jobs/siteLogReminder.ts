@@ -27,28 +27,62 @@ export async function runSiteLogReminder() {
 
     const projectsWithLogs = new Set(todayLogs?.map((log: any) => log.project_id) || []);
 
-    // 4. Identify projects missing logs and notify
+    // 4. Identify projects missing logs and notify relevant members
     const updates = [];
     for (const project of projects) {
         if (projectsWithLogs.has(project.id)) continue;
 
-        // Notify Assigned Employee (PM/Designer) or Project Creator
-        const notifyUserId = project.assigned_employee_id || project.created_by;
-        if (!notifyUserId) continue;
+        // Fetch all members of this project to find Site Engineers, Designers, and HR
+        const { data: members } = await supabaseAdmin
+            .from('project_members')
+            .select(`
+                user_id,
+                users:user_id (
+                    id,
+                    full_name,
+                    designation,
+                    role
+                )
+            `)
+            .eq('project_id', project.id);
 
-        console.log(`Reminding User ${notifyUserId} about missing log for project "${project.title}"`);
+        const projectUsers = (members || []).map((m: any) => m.users).filter(Boolean);
 
-        updates.push(
-            NotificationService.createNotification({
-                userId: notifyUserId,
-                title: 'Missing Site Log',
-                message: `Reminder: No site log has been submitted for project "${project.title}" today. Please update the work status.`,
-                type: 'site_log_submitted',
-                relatedId: project.id,
-                relatedType: 'project',
-                skipInApp: true // Periodic reminders bypass in-app bell
-            })
-        );
+        // Always include the project creator/assigned lead
+        const primaryUserId = project.assigned_employee_id || project.created_by;
+        const targetUserIds = new Set<string>();
+        if (primaryUserId) targetUserIds.add(primaryUserId);
+
+        // Add anyone with relevant roles/designations
+        projectUsers.forEach((user: any) => {
+            const role = (user.role || '').toLowerCase();
+            const designation = (user.designation || '').toLowerCase();
+
+            if (
+                role === 'hr' ||
+                designation.includes('site engineer') ||
+                designation.includes('designer') ||
+                designation.includes('hr')
+            ) {
+                targetUserIds.add(user.id);
+            }
+        });
+
+        console.log(`[Missing Site Log] Project: "${project.title}". Notifying ${targetUserIds.size} members.`);
+
+        for (const userId of targetUserIds) {
+            updates.push(
+                NotificationService.createNotification({
+                    userId,
+                    title: 'Missing Site Log & DPR',
+                    message: `Reminder: No site log has been submitted for project "${project.title}" today. Please submit your Site Log and DPR (Daily Progress Report) to Admin.`,
+                    type: 'site_log_submitted',
+                    relatedId: project.id,
+                    relatedType: 'project',
+                    skipInApp: true
+                })
+            );
+        }
     }
 
     const results = await Promise.allSettled(updates);

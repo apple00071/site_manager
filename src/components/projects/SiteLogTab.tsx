@@ -378,10 +378,12 @@ export const SiteLogTab = forwardRef<SiteLogTabHandle, SiteLogTabProps>(({ proje
                                 <img src={p} className="w-16 h-16 object-cover rounded border border-gray-300" />
                             )}
                             <button
+                                type="button"
                                 onClick={() => setFormData(prev => ({ ...prev, photos: prev.photos.filter((_, idx) => idx !== i) }))}
-                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full !w-5 !h-5 flex items-center justify-center shadow-md z-10 !min-w-0 !min-h-0 transition-all active:scale-90"
+                                style={{ width: '20px', height: '20px', minWidth: '0', minHeight: '0' }}
                             >
-                                <FiX className="w-3 h-3" />
+                                <FiX className="w-3" />
                             </button>
                         </div>
                     ))}

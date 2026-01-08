@@ -46,28 +46,34 @@ export async function runDailyBriefing() {
     calendarTasks?.forEach((t: any) => t.assigned_to && processTask(t.assigned_to, t.end_at));
     projectTasks?.forEach((t: any) => t.assigned_to && processTask(t.assigned_to, t.estimated_completion_date));
 
-    // 4. Send Briefings
-    const updates = [];
-    for (const [userId, stats] of Object.entries(userStats)) {
-        if (stats.today === 0 && stats.overdue === 0) continue;
+    // 4. Send Briefings to ALL users with a device token
+    const { data: allUsers } = await supabaseAdmin
+        .from('users')
+        .select('id, full_name');
 
+    const updates = [];
+    for (const user of (allUsers || [])) {
+        const stats = userStats[user.id] || { today: 0, overdue: 0 };
         let message = '';
+
         if (stats.today > 0 && stats.overdue > 0) {
-            message = `Good Morning! You have ${stats.today} tasks due today and ${stats.overdue} overdue tasks.`;
+            message = `Good Morning ${user.full_name}! You have ${stats.today} tasks due today and ${stats.overdue} overdue tasks.`;
         } else if (stats.today > 0) {
-            message = `Good Morning! You have ${stats.today} tasks due today.`;
+            message = `Good Morning ${user.full_name}! You have ${stats.today} tasks due today.`;
+        } else if (stats.overdue > 0) {
+            message = `Good Morning ${user.full_name}! You have ${stats.overdue} overdue tasks to catch up on.`;
         } else {
-            message = `Reminder: You have ${stats.overdue} overdue tasks to catch up on.`;
+            message = `Good Morning ${user.full_name}! Have a productive day at the office!`;
         }
 
-        console.log(`Sending briefing to User ${userId}: ${message}`);
+        console.log(`Sending briefing to ${user.full_name}: ${message}`);
         updates.push(
             NotificationService.createNotification({
-                userId,
+                userId: user.id,
                 title: 'Daily Briefing',
                 message,
                 type: 'general',
-                relatedId: userId, // Direct to their dashboard/tasks
+                relatedId: user.id,
                 relatedType: 'daily_briefing',
                 skipInApp: true
             })

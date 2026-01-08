@@ -563,10 +563,12 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
                                         <div key={i} className="relative w-16 h-16 flex-shrink-0 group">
                                             <Image src={url} alt="preview" fill className="object-cover rounded-lg" />
                                             <button
-                                                onClick={() => removePhoto(i)}
-                                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                type="button"
+                                                onClick={() => setFormData(prev => ({ ...prev, photos: prev.photos.filter((_, idx) => idx !== i) }))}
+                                                className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full !w-5 !h-5 flex items-center justify-center shadow-md z-10 !min-w-0 !min-h-0"
+                                                style={{ width: '20px', height: '20px', minWidth: '0', minHeight: '0' }}
                                             >
-                                                <FiX className="w-3 h-3" />
+                                                <FiX className="w-3" />
                                             </button>
                                         </div>
                                     ))}
@@ -632,10 +634,12 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
                                         <div key={i} className="relative w-16 h-16 flex-shrink-0 group">
                                             <Image src={url} alt="preview" fill className="object-cover rounded-lg" />
                                             <button
+                                                type="button"
                                                 onClick={() => setResolutionPhotos(prev => prev.filter((_, idx) => idx !== i))}
-                                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full !w-5 !h-5 flex items-center justify-center shadow-md z-10 !min-w-0 !min-h-0"
+                                                style={{ width: '20px', height: '20px', minWidth: '0', minHeight: '0' }}
                                             >
-                                                <FiX className="w-3 h-3" />
+                                                <FiX className="w-3" />
                                             </button>
                                         </div>
                                     ))}

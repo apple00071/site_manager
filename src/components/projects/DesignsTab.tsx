@@ -103,8 +103,10 @@ const DesignUploadForm = ({ uploadForm, setUploadForm, onClose, onUpload, upload
             <div key={i} className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-100 text-xs">
               <span className="truncate flex-1 mr-2">{file.name}</span>
               <button
+                type="button"
                 onClick={() => setUploadForm(prev => ({ ...prev, files: prev.files.filter((_, idx) => idx !== i) }))}
-                className="text-red-500 hover:text-red-700"
+                className="text-red-500 hover:text-red-700 !p-1 !min-w-0 !min-h-0"
+                style={{ minWidth: '0', minHeight: '0' }}
               >
                 <FiX className="w-4 h-4" />
               </button>
@@ -434,24 +436,10 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
       setFormError('Please enter a room/category name (e.g. Kitchen, Bedroom)');
       return;
     }
-
     setUploading(true);
     setUploadProgress(0);
     setUploadIndex({ current: 0, total: uploadForm.files.length });
     setFormError(null);
-
-    // Debug: Check bucket limit from client side
-    try {
-      const { data: bucket } = await supabase.storage.getBucket('design-files');
-      console.log('📦 Bucket Debug:', {
-        id: bucket?.id,
-        public: bucket?.public,
-        file_size_limit: bucket?.file_size_limit,
-        limit_mb: bucket?.file_size_limit ? bucket.file_size_limit / 1024 / 1024 : 'No limit'
-      });
-    } catch (e) {
-      console.warn('Could not fetch bucket info for debug:', e);
-    }
 
     try {
       let successCount = 0;
