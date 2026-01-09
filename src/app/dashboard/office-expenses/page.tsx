@@ -349,99 +349,77 @@ export default function OfficeExpensesPage() {
 
                 {/* Table or Card View */}
                 {isMobile ? (
-                    <div className="divide-y divide-gray-100">
+                    <div className="space-y-4">
                         {filteredExpenses.length === 0 ? (
-                            <div className="p-8 text-center text-gray-500 text-sm">
-                                {loading ? "Loading expenses..." : "No expenses found matching your criteria."}
+                            <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-200">
+                                <FiFileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                                <p className="text-gray-500">No expenses found matching your criteria.</p>
                             </div>
                         ) : (
-                            filteredExpenses.map((expense) => (
-                                <div key={expense.id} className="p-4 hover:bg-gray-50 transition-colors">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div className="flex flex-col gap-1">
-                                            <span className="inline-flex w-fit items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-600 uppercase tracking-wider">
-                                                {expense.category}
-                                            </span>
-                                            <h4 className="font-bold text-gray-900 text-sm">{expense.description}</h4>
-                                        </div>
-                                        <div className="flex flex-col items-end gap-1">
-                                            <StatusBadge
-                                                status={expense.status.toUpperCase()}
-                                                variant={expense.status === 'approved' ? 'success' : expense.status === 'rejected' ? 'error' : 'warning'}
-                                            />
-                                            <p className="text-[10px] text-gray-400 font-medium">{formatDateIST(expense.expense_date)}</p>
-                                        </div>
-                                    </div>
+                            filteredExpenses.map((expense) => {
+                                const isOwner = user?.id === expense.user_id;
+                                const isPending = expense.status === 'pending';
+                                const billUrl = (expense.bill_urls && expense.bill_urls.length > 0)
+                                    ? expense.bill_urls[0]
+                                    : expense.bill_url;
 
-                                    <div className="flex items-center justify-between mt-4">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-6 h-6 rounded-full bg-yellow-100 flex items-center justify-center">
-                                                <FiUser className="w-3 h-3 text-yellow-600" />
+                                return (
+                                    <div key={expense.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+                                        {/* Card Header */}
+                                        <div className="px-4 py-3 border-b border-gray-50 flex justify-between items-center">
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                                                    {expense.category || 'Office Expense'}
+                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    <StatusBadge
+                                                        status={expense.status.toUpperCase()}
+                                                        variant={expense.status === 'approved' ? 'success' : expense.status === 'rejected' ? 'error' : 'warning'}
+                                                    />
+                                                </div>
                                             </div>
-                                            <span className="text-xs font-medium text-gray-600">{expense.user?.full_name}</span>
+                                            <button
+                                                onClick={(e) => handleMenuClick(e, expense.id)}
+                                                className="p-2 text-gray-400 hover:bg-gray-50 rounded-lg transition-colors border border-transparent active:border-gray-100"
+                                            >
+                                                <FiMoreVertical className="w-5 h-5" />
+                                            </button>
                                         </div>
-                                        <div className="flex flex-col items-end">
-                                            <span className="text-lg font-black text-gray-900">₹{Number(expense.amount).toLocaleString('en-IN')}</span>
+
+                                        {/* Card Body */}
+                                        <div className="p-4 flex-1">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <h4 className="text-sm font-bold text-gray-900 leading-tight">
+                                                    {expense.description}
+                                                </h4>
+                                                <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap ml-2">
+                                                    {formatDateIST(expense.expense_date)}
+                                                </span>
+                                            </div>
+
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 border border-amber-100 flex-shrink-0">
+                                                        <FiUser className="w-4 h-4" />
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[8px] text-gray-400 font-bold uppercase">Requested by</span>
+                                                        <span className="text-xs font-semibold text-gray-700">
+                                                            {expense.user?.full_name || 'System User'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-[8px] text-gray-400 font-bold uppercase mb-0.5">Amount</div>
+                                                    <div className="text-lg font-black text-gray-900">
+                                                        ₹{Number(expense.amount).toLocaleString('en-IN')}
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-
-                                    {/* Mobile Quick Actions */}
-                                    <div className="flex gap-2 mt-4 pt-4 border-t border-gray-50">
-                                        {(() => {
-                                            const isOwner = user?.id === expense.user_id;
-                                            const isPending = expense.status === 'pending';
-                                            const billUrl = (expense.bill_urls && expense.bill_urls.length > 0)
-                                                ? expense.bill_urls[0]
-                                                : expense.bill_url;
-
-                                            return (
-                                                <>
-                                                    {canApprove && isPending && (
-                                                        <button
-                                                            onClick={() => setApprovingExpense(expense)}
-                                                            className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-green-50 text-green-700 rounded-lg text-xs font-bold hover:bg-green-100 transition-colors"
-                                                        >
-                                                            <FiCheck className="w-3.5 h-3.5" />
-                                                            Review
-                                                        </button>
-                                                    )}
-                                                    {billUrl && (
-                                                        <button
-                                                            onClick={() => setViewingBillUrl(billUrl)}
-                                                            className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold hover:bg-blue-100 transition-colors"
-                                                        >
-                                                            <FiEye className="w-3.5 h-3.5" />
-                                                            View Bill
-                                                        </button>
-                                                    )}
-                                                    {isOwner && isPending && (
-                                                        <button
-                                                            onClick={() => {
-                                                                setEditingExpense(expense);
-                                                                setShowForm(true);
-                                                            }}
-                                                            className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-gray-50 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-100 transition-colors"
-                                                        >
-                                                            <FiEdit2 className="w-3.5 h-3.5" />
-                                                            Edit
-                                                        </button>
-                                                    )}
-                                                    {!isPending && !canApprove && !billUrl && (
-                                                        <div className="flex-1 text-center py-2 text-[10px] text-gray-400 font-medium italic"> No further actions </div>
-                                                    )}
-                                                    {/* Kebab for extra actions if needed */}
-                                                    <button
-                                                        onClick={(e) => handleMenuClick(e, expense.id)}
-                                                        className="p-2 text-gray-400 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100"
-                                                    >
-                                                        <FiMoreVertical className="w-4 h-4" />
-                                                    </button>
-                                                </>
-                                            );
-                                        })()}
-                                    </div>
-                                </div>
-                            ))
+                                );
+                            })
                         )}
                     </div>
                 ) : (
@@ -558,9 +536,38 @@ export default function OfficeExpensesPage() {
                             if (!expense) return null;
                             const isOwner = user?.id === expense.user_id;
                             const isPending = expense.status === 'pending';
+                            const billUrl = (expense.bill_urls && expense.bill_urls.length > 0)
+                                ? expense.bill_urls[0]
+                                : expense.bill_url;
 
                             return (
-                                <>
+                                <div className="divide-y divide-gray-50 -mx-4 -mb-4">
+                                    {canApprove && isPending && (
+                                        <button
+                                            onClick={() => {
+                                                setApprovingExpense(expense);
+                                                setShowMobileActions(null);
+                                            }}
+                                            className="w-full flex items-center gap-4 p-4 text-sm font-semibold text-green-600 hover:bg-green-50 active:bg-green-50 transition-colors"
+                                        >
+                                            <FiCheck className="w-5 h-5" />
+                                            Approve Expense
+                                        </button>
+                                    )}
+
+                                    {billUrl && (
+                                        <button
+                                            onClick={() => {
+                                                setViewingBillUrl(billUrl);
+                                                setShowMobileActions(null);
+                                            }}
+                                            className="w-full flex items-center gap-4 p-4 text-sm font-semibold text-blue-600 hover:bg-blue-50 active:bg-blue-50 transition-colors"
+                                        >
+                                            <FiFileText className="w-5 h-5" />
+                                            View Bill
+                                        </button>
+                                    )}
+
                                     {isOwner && isPending && (
                                         <button
                                             onClick={() => {
@@ -568,9 +575,9 @@ export default function OfficeExpensesPage() {
                                                 setShowForm(true);
                                                 setShowMobileActions(null);
                                             }}
-                                            className="w-full flex items-center gap-3 p-3 bg-gray-50 rounded-xl text-sm font-medium"
+                                            className="w-full flex items-center gap-4 p-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 active:bg-gray-50 transition-colors"
                                         >
-                                            <FiEdit2 className="w-5 h-5 text-gray-600" />
+                                            <FiEdit2 className="w-5 h-5 text-gray-400" />
                                             Edit Expense
                                         </button>
                                     )}
@@ -581,13 +588,13 @@ export default function OfficeExpensesPage() {
                                                 handleDelete(expense.id);
                                                 setShowMobileActions(null);
                                             }}
-                                            className="w-full flex items-center gap-3 p-3 bg-red-50 rounded-xl text-sm font-medium text-red-600"
+                                            className="w-full flex items-center gap-4 p-4 text-sm font-semibold text-red-600 hover:bg-red-50 active:bg-red-50 transition-colors"
                                         >
                                             <FiTrash2 className="w-5 h-5" />
                                             Delete Expense
                                         </button>
                                     )}
-                                </>
+                                </div>
                             );
                         })()}
                     </div>
