@@ -293,24 +293,21 @@ export async function POST(request: NextRequest) {
         try {
             const { data: project } = await supabaseAdmin
                 .from('projects')
-                .select('title, created_by')
+                .select('title')
                 .eq('id', project_id)
                 .single();
 
-            if (project?.created_by) {
-                const projectName = project.title || 'Unknown Project';
-                const poNum = po.po_number || 'N/A';
-                const amount = po.total_amount || 0;
+            const projectName = project?.title || 'Unknown Project';
+            const poNum = po.po_number || 'N/A';
+            const amount = po.total_amount || 0;
 
-                await NotificationService.createNotification({
-                    userId: project.created_by,
-                    title: 'New Purchase Order Created',
-                    message: `A new PO (${poNum}) for ₹${amount.toLocaleString()} was created for project "${projectName}"`,
-                    type: 'project_update',
-                    relatedId: po.id,
-                    relatedType: 'purchase_order'
-                });
-            }
+            await NotificationService.notifyStakeholders(project_id, user.id, {
+                title: 'New Purchase Order Created',
+                message: `A new PO (${poNum}) for ₹${amount.toLocaleString()} was created for project "${projectName}"`,
+                type: 'project_update',
+                relatedId: po.id,
+                relatedType: 'purchase_order'
+            });
         } catch (notifError) {
             console.error('Error sending PO creation notification:', notifError);
         }
@@ -394,24 +391,21 @@ export async function PATCH(request: NextRequest) {
             if (updates.status && updates.status !== existing.status) {
                 const { data: project } = await supabaseAdmin
                     .from('projects')
-                    .select('title, created_by')
+                    .select('title')
                     .eq('id', existing.project_id)
                     .single();
 
-                if (project?.created_by) {
-                    const projectName = project.title || 'Unknown Project';
-                    const poNum = data.po_number || 'N/A';
-                    const statusText = updates.status.replace('_', ' ').toUpperCase();
+                const projectName = project?.title || 'Unknown Project';
+                const poNum = data.po_number || 'N/A';
+                const statusText = updates.status.replace('_', ' ').toUpperCase();
 
-                    await NotificationService.createNotification({
-                        userId: project.created_by,
-                        title: 'Purchase Order Updated',
-                        message: `PO ${poNum} for project "${projectName}" is now ${statusText}`,
-                        type: 'project_update',
-                        relatedId: id,
-                        relatedType: 'purchase_order'
-                    });
-                }
+                await NotificationService.notifyStakeholders(existing.project_id, user.id, {
+                    title: 'Purchase Order Updated',
+                    message: `PO ${poNum} for project "${projectName}" is now ${statusText}`,
+                    type: 'project_update',
+                    relatedId: id,
+                    relatedType: 'purchase_order'
+                });
             }
         } catch (notifError) {
             console.error('Error sending PO update notification:', notifError);

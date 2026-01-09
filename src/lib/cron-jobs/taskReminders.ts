@@ -13,34 +13,20 @@ export async function runTaskReminders() {
     // 2. Fetch tasks starting SOON
 
     // A. Calendar Tasks (Has Time Precision)
-    // We want tasks where start_at is between NOW and NOW+30min
+    // We want tasks where start_at is between NOW and NOW+30min AND NOT reminded yet
     const { data: calendarTasks, error: tasksError } = await supabaseAdmin
         .from('tasks')
-        .select('id, title, assigned_to, start_at, project_id, projects(title)')
+        .select('id, title, assigned_to, start_at, project_id, projects(title), users:assigned_to(full_name)')
         .eq('status', 'todo')
+        .is('reminded_at', null)
         .gt('start_at', now.toISOString())
         .lte('start_at', thirtyMinutesFromNow.toISOString());
 
     if (tasksError) throw tasksError;
 
-    // B. Project Tasks (Date Only - No Time)
-    // We can't do "30 mins" logic here. We can only do "Starts Today".
-    // To avoid spamming every 30 mins, we should arguably NOT include these here 
-    // OR only include them if we had a way to mark them "reminded".
-    // For now, based on user request, we will SKIP project tasks for this high-frequency check
-    // unless the user explicitly asks for "Today" spam.
-    // However, to be safe, let's just log them or maybe only send them ONCE a day?
-    // Let's stick to the Calendar Tasks which support the feature requested ("next 30 mins").
-
-    /* 
-       NOTE: Project Step Tasks only have DATE precision. 
-       We cannot check "next 30 minutes". 
-       So we only return Calendar Tasks for this specific job type.
-    */
-    const projectTasks: any[] = [];
-
     // 3. Process & Send Notifications
     const updates = [];
+    const remindedIds: string[] = [];
 
     // Process Calendar Tasks
     if (calendarTasks && calendarTasks.length > 0) {
@@ -53,22 +39,34 @@ export async function runTaskReminders() {
                     hour: 'numeric',
                     minute: '2-digit',
                     hour12: true,
-                    timeZone: 'Asia/Kolkata' // Assuming IST presence
+                    timeZone: 'Asia/Kolkata' // IST
                 });
+
+                const projectTitle = Array.isArray(task.projects) ? task.projects[0]?.title : (task.projects as any)?.title;
+                const userFullName = (task.users as any)?.full_name || 'there';
 
                 updates.push(
                     NotificationService.createNotification({
                         userId: task.assigned_to,
                         title: 'Task Starting Soon',
-                        message: `Reminder: "${task.title}" starts at ${startTime}.`,
+                        message: `*Task Starting Soon*\n\nJust a reminder that the following task is starting at ${startTime}:\n- Title: ${task.title}\n${projectTitle ? `- Project: ${projectTitle}` : "- Details: Standalone Task"}\n\nHope it goes smoothly!`,
                         type: 'task_assigned',
                         relatedId: task.id,
                         relatedType: 'task',
-                        skipInApp: false // Important! Show this!
+                        skipInApp: false
                     })
                 );
+                remindedIds.push(task.id);
             }
         }
+    }
+
+    // Mark tasks as reminded
+    if (remindedIds.length > 0) {
+        await supabaseAdmin
+            .from('tasks')
+            .update({ reminded_at: now.toISOString() })
+            .in('id', remindedIds);
     }
 
     await Promise.allSettled(updates);

@@ -12,6 +12,7 @@ export type NotificationType =
   | 'comment_added'
   | 'bill_approved'
   | 'bill_rejected'
+  | 'bill_resubmitted'
   | 'snag_created'
   | 'snag_assigned'
   | 'snag_resolved'
@@ -60,6 +61,7 @@ export class NotificationService {
       case 'design_approved':
       case 'design_rejected':
       case 'design_uploaded':
+      case 'comment_added':
         return relatedId ? `${baseUrl}/projects/${relatedId}?stage=design` : undefined;
       case 'project_update':
       case 'mention':
@@ -176,11 +178,12 @@ export class NotificationService {
   }
 
   // Helper methods for common notification types
-  static async notifyTaskAssigned(userId: string, taskTitle: string, projectName: string, taskId?: string) {
+  static async notifyTaskAssigned(userId: string, taskTitle: string, projectName?: string, taskId?: string, priority: string = 'medium') {
+    const projectPart = projectName ? `- Project: ${projectName}` : "- Details: General Task";
     return this.createNotification({
       userId,
-      title: 'New Task Assigned',
-      message: `You have been assigned to "${taskTitle}" in project "${projectName}"`,
+      title: 'New Task Assignment',
+      message: `Hi, you have a new task assigned:\n\n- Title: ${taskTitle}\n${projectPart}\n- Priority: ${priority}\n\nYou can view the full details in your dashboard.`,
       type: 'task_assigned',
       relatedId: taskId,
       relatedType: 'task'
@@ -190,66 +193,78 @@ export class NotificationService {
   static async notifyProjectUpdate(userId: string, projectName: string, updateMessage: string, projectId?: string) {
     return this.createNotification({
       userId,
-      title: `Project Update: ${projectName}`,
-      message: updateMessage,
+      title: 'Project Progress Update',
+      message: `Project: ${projectName}\n\nThere is a new update regarding the progress: ${updateMessage}\n\nThank you for staying updated!`,
       type: 'project_update',
       relatedId: projectId,
       relatedType: 'project'
     });
   }
 
-  static async notifyDesignApproved(userId: string, designName: string) {
+  static async notifyDesignApproved(userId: string, designName: string, projectName: string, projectId?: string) {
     return this.createNotification({
       userId,
-      title: 'Design Approved',
-      message: `Your design "${designName}" has been approved`,
+      title: 'Design Approval Update',
+      message: `Project: ${projectName}\n\nGood news! Your design "${designName}" has been reviewed and approved. You can move forward with the next steps.`,
       type: 'design_approved',
+      relatedId: projectId,
+      relatedType: 'project'
     });
   }
 
-  static async notifySnagCreated(userId: string, description: string, projectName: string, snagId?: string) {
+  static async notifySnagCreated(userId: string, description: string, contextName: string, snagId?: string, isProject: boolean = true) {
+    const contextPrefix = isProject ? "Project" : "Site";
     return this.createNotification({
       userId,
-      title: 'New Snag Created',
-      message: `A new snag has been reported in project "${projectName}": ${description}`,
+      title: 'New Item for Review',
+      message: `${contextPrefix}: ${contextName}\n\nA new snag has been reported and requires your attention:\n\nDescription: ${description}\n\nThank you for your help in resolving this.`,
       type: 'snag_created',
       relatedId: snagId,
       relatedType: 'snag'
     });
   }
 
-  static async notifySnagAssigned(userId: string, description: string, projectName: string) {
+  static async notifySnagAssigned(userId: string, description: string, contextName: string, snagId?: string, isProject: boolean = true) {
+    const contextPrefix = isProject ? "Project" : "Site";
     return this.createNotification({
       userId,
-      title: 'Snag Assigned',
-      message: `You have been assigned a snag in project "${projectName}": ${description}`,
+      title: 'New Item for Review',
+      message: `${contextPrefix}: ${contextName}\n\nYou have been assigned to look into a reported issue:\n\nDescription: ${description}\n\nThank you for your help in resolving this.`,
       type: 'snag_assigned',
+      relatedId: snagId,
+      relatedType: 'snag'
     });
   }
 
-  static async notifySnagResolved(userId: string, description: string, projectName: string) {
+  static async notifySnagResolved(userId: string, description: string, contextName: string, snagId?: string, isProject: boolean = true) {
+    const contextPrefix = isProject ? "Project" : "Site";
     return this.createNotification({
       userId,
       title: 'Snag Resolved',
-      message: `A snag has been resolved in project "${projectName}": ${description}`,
+      message: `${contextPrefix}: ${contextName}\nIssue: ${description}\n\nThis item has been marked as resolved and is now ready for verification.`,
       type: 'snag_resolved',
+      relatedId: snagId,
+      relatedType: 'snag'
     });
   }
 
-  static async notifySnagVerified(userId: string, description: string, projectName: string) {
+  static async notifySnagVerified(userId: string, description: string, contextName: string, snagId?: string, isProject: boolean = true) {
+    const contextPrefix = isProject ? "Project" : "Site";
     return this.createNotification({
       userId,
-      title: 'Snag Verified',
-      message: `A snag has been verified and closed in project "${projectName}": ${description}`,
+      title: 'Snag Verified & Closed',
+      message: `${contextPrefix}: ${contextName}\nIssue: ${description}\n\nThis item has been verified and successfully closed. Great job!`,
       type: 'snag_verified',
+      relatedId: snagId,
+      relatedType: 'snag'
     });
   }
 
   static async notifyProposalSent(userId: string, proposalTitle: string, projectName: string) {
     return this.createNotification({
       userId,
-      title: 'Proposal Sent',
-      message: `Proposal "${proposalTitle}" has been sent for project "${projectName}"`,
+      title: 'Proposal Sent to Client',
+      message: `Project: ${projectName}\nProposal: ${proposalTitle}\n\nThe proposal has been successfully shared with the client for review.`,
       type: 'proposal_sent',
     });
   }
@@ -258,7 +273,7 @@ export class NotificationService {
     return this.createNotification({
       userId,
       title: 'Proposal Approved',
-      message: `Proposal "${proposalTitle}" has been approved for project "${projectName}"`,
+      message: `Project: ${projectName}\nProposal: ${proposalTitle}\n\nGreat news! The client has approved the proposal.`,
       type: 'proposal_approved',
     });
   }
@@ -266,8 +281,8 @@ export class NotificationService {
   static async notifyProposalRejected(userId: string, proposalTitle: string, projectName: string) {
     return this.createNotification({
       userId,
-      title: 'Proposal Rejected',
-      message: `Proposal "${proposalTitle}" was rejected for project "${projectName}"`,
+      title: 'Proposal Update',
+      message: `Project: ${projectName}\nProposal: ${proposalTitle}\n\nThe client has requested some changes to the proposal. Please review the details.`,
       type: 'proposal_rejected',
     });
   }
@@ -275,8 +290,8 @@ export class NotificationService {
   static async notifyInvoiceCreated(userId: string, invoiceNumber: string, projectName: string, amount: number) {
     return this.createNotification({
       userId,
-      title: 'New Invoice Created',
-      message: `A new invoice (${invoiceNumber}) for ₹${amount} was created for project "${projectName}"`,
+      title: 'New Invoice Generated',
+      message: `Project: ${projectName}\nInvoice: ${invoiceNumber}\nAmount: ₹${amount}\n\nThe invoice is now available for your review.`,
       type: 'invoice_created',
     });
   }
@@ -285,7 +300,7 @@ export class NotificationService {
     return this.createNotification({
       userId,
       title: 'Invoice Approved',
-      message: `Invoice ${invoiceNumber} for project "${projectName}" was approved`,
+      message: `Invoice ${invoiceNumber} for project "${projectName}" has been approved. Thank you!`,
       type: 'invoice_approved',
     });
   }
@@ -293,28 +308,62 @@ export class NotificationService {
   static async notifyInvoiceRejected(userId: string, invoiceNumber: string, projectName: string) {
     return this.createNotification({
       userId,
-      title: 'Invoice Rejected',
-      message: `Invoice ${invoiceNumber} for project "${projectName}" was rejected`,
+      title: 'Invoice Review Feedback',
+      message: `Invoice ${invoiceNumber} for project "${projectName}" requires some corrections. Please review the feedback.`,
       type: 'invoice_rejected',
     });
   }
 
-  static async notifyMention(userId: string, mentionerName: string, projectName: string, message: string, relatedId: string) {
+  static async notifyBillResubmitted(userId: string, itemName: string, projectName: string, authorName: string, itemId: string) {
     return this.createNotification({
       userId,
-      title: 'You were mentioned',
-      message: `${mentionerName} mentioned you in project "${projectName}": ${message.substring(0, 50)}${message.length > 50 ? '...' : ''}`,
+      title: 'Bill Resubmitted for Review',
+      message: `*Bill Resubmitted for Review*\n\nProject: ${projectName}\n${authorName} has resubmitted the bill for "${itemName}". Please review it at your convenience.`,
+      type: 'bill_resubmitted',
+      relatedId: itemId,
+      relatedType: 'inventory_item'
+    });
+  }
+
+  static async notifyBillApproved(userId: string, itemName: string, projectName: string, amount: number, itemId: string) {
+    return this.createNotification({
+      userId,
+      title: 'Bill Approval Confirmation',
+      message: `*Bill Approval Confirmation*\n\nProject: ${projectName}\nAmount: ₹${amount}\n\nThe bill for ${itemName} has been approved and is being processed for payment.`,
+      type: 'bill_approved',
+      relatedId: itemId,
+      relatedType: 'inventory_item'
+    });
+  }
+
+  static async notifyBillRejected(userId: string, itemName: string, projectName: string, itemId: string) {
+    return this.createNotification({
+      userId,
+      title: 'Bill Review Feedback',
+      message: `*Bill Review Feedback*\n\nProject: ${projectName}\nItem: ${itemName}\n\nYour submitted bill requires some corrections. Please check the feedback and resubmit when ready.`,
+      type: 'bill_rejected',
+      relatedId: itemId,
+      relatedType: 'inventory_item'
+    });
+  }
+
+  static async notifyMention(userId: string, mentionerName: string, contextName: string, message: string, relatedId: string, relatedType: string = 'project') {
+    const contextLabel = relatedType === 'design_file' ? "Design File" : "Project";
+    return this.createNotification({
+      userId,
+      title: 'New Mention',
+      message: `${mentionerName} mentioned you in a discussion regarding ${contextLabel}: ${contextName}.\n\nContext: "${message.substring(0, 100)}${message.length > 100 ? '...' : ''}"`,
       type: 'mention',
       relatedId,
-      relatedType: 'project_update'
+      relatedType
     });
   }
 
   static async notifyExpenseCreated(userId: string, description: string, amount: number, requesterName: string) {
     return this.createNotification({
       userId,
-      title: 'New Expense Request',
-      message: `${requesterName} requested ₹${amount} for "${description}"`,
+      title: 'New Office Expense Request',
+      message: `Requester: ${requesterName}\nAmount: ₹${amount}\nPurpose: ${description}\n\nPlease take a look and approve this request at your convenience.`,
       type: 'expense_created',
     });
   }
@@ -322,8 +371,8 @@ export class NotificationService {
   static async notifyExpenseApproved(userId: string, description: string, amount: number) {
     return this.createNotification({
       userId,
-      title: 'Expense Approved',
-      message: `Your request for "${description}" (₹${amount}) has been approved`,
+      title: 'Office Expense Approved',
+      message: `Your request for ₹${amount} (${description}) has been approved. Thank you!`,
       type: 'expense_approved',
     });
   }
@@ -331,17 +380,29 @@ export class NotificationService {
   static async notifyExpenseRejected(userId: string, description: string, amount: number) {
     return this.createNotification({
       userId,
-      title: 'Expense Rejected',
-      message: `Your request for "${description}" (₹${amount}) has been rejected`,
+      title: 'Office Expense Review',
+      message: `Your request for ₹${amount} (${description}) could not be approved at this time. Please check the feedback.`,
       type: 'expense_rejected',
+    });
+  }
+
+  static async notifyDesignCommentAdded(userId: string, authorName: string, fileName: string, commentText: string, designFileId: string, projectName?: string) {
+    const contextPrefix = projectName ? `Project: ${projectName}` : `Design File: ${fileName}`;
+    return this.createNotification({
+      userId,
+      title: 'New Design Comment',
+      message: `${contextPrefix}\n\n${authorName} has shared a comment on "${fileName}":\n\n"${commentText.substring(0, 100)}${commentText.length > 100 ? '...' : ''}"`,
+      type: 'comment_added',
+      relatedId: designFileId,
+      relatedType: 'design_file'
     });
   }
 
   static async notifySiteLogSubmitted(userId: string, projectName: string, creatorName: string) {
     return this.createNotification({
       userId,
-      title: 'Daily Site Log Submitted',
-      message: `${creatorName} submitted a new site log for project "${projectName}"`,
+      title: 'New Site Log Submitted',
+      message: `${creatorName} has just submitted the Daily Site Log / DPR for project "${projectName}". You can review it in the dashboard.`,
       type: 'site_log_submitted',
     });
   }
@@ -349,8 +410,8 @@ export class NotificationService {
   static async notifyReportGenerated(userId: string, projectName: string, reportDate: string, pdfUrl?: string) {
     return this.createNotification({
       userId,
-      title: 'DPR Generated',
-      message: `A new Progress Report (DPR) for "${projectName}" (${reportDate}) has been generated.${pdfUrl ? `\n\nView PDF: ${pdfUrl}` : ''}`,
+      title: 'DPR Report Generated',
+      message: `Project: ${projectName}\n\nThe latest progress report for ${reportDate} is now available for review.${pdfUrl ? `\n\nView PDF: ${pdfUrl}` : ''}`,
       type: 'report_generated',
     });
   }
@@ -358,9 +419,79 @@ export class NotificationService {
   static async notifyPaymentRecorded(userId: string, projectName: string, amount: number) {
     return this.createNotification({
       userId,
-      title: 'Payment Recorded',
-      message: `A payment of ₹${amount} has been recorded for project "${projectName}"`,
+      title: 'Payment Confirmation',
+      message: `Project: ${projectName}\nAmount: ₹${amount}\n\nA new payment has been successfully recorded for this project.`,
       type: 'payment_recorded',
     });
+  }
+
+  /**
+   * Fetches all relevant stakeholders for a project:
+   * 1. Project Creator (Primary Admin)
+   * 2. Global Admins
+   * 3. Assigned Designer
+   * 4. Project Members with Site Designations (Site Engineers, Supervisors)
+   */
+  static async getProjectStakeholders(projectId: string) {
+    const stakeholders = new Set<string>();
+
+    try {
+      // 1. Get Project Basics (Creator and Designer)
+      const { data: project } = await supabaseAdmin
+        .from('projects')
+        .select('created_by, designer_id, site_supervisor_id')
+        .eq('id', projectId)
+        .single();
+
+      if (project) {
+        if (project.created_by) stakeholders.add(project.created_by);
+        if (project.designer_id) stakeholders.add(project.designer_id);
+        if (project.site_supervisor_id) stakeholders.add(project.site_supervisor_id);
+      }
+
+      // 2. Get Global Admins
+      const { data: admins } = await supabaseAdmin
+        .from('users')
+        .select('id')
+        .eq('role', 'admin');
+
+      admins?.forEach((admin: { id: string }) => stakeholders.add(admin.id));
+
+      // 3. Get Project Members (specifically site supervisors/engineers)
+      const { data: members } = await supabaseAdmin
+        .from('project_members')
+        .select(`
+          user_id,
+          users:users!project_members_user_id_fkey(id, designation)
+        `)
+        .eq('project_id', projectId);
+
+      members?.forEach((member: any) => {
+        if (member.user_id) {
+          const designation = member.users?.designation?.toLowerCase() || '';
+          // If they are a site supervisor or engineer, they are a stakeholder
+          if (designation.includes('site') || designation.includes('supervisor') || designation.includes('engineer')) {
+            stakeholders.add(member.user_id);
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching project stakeholders:', error);
+    }
+
+    return Array.from(stakeholders);
+  }
+
+  /**
+   * Utility to notify all stakeholders of a project action
+   */
+  static async notifyStakeholders(projectId: string, excludeUserId: string | null, params: Omit<CreateNotificationParams, 'userId'>) {
+    const stakeholderIds = await this.getProjectStakeholders(projectId);
+
+    const notifications = stakeholderIds
+      .filter(id => id !== excludeUserId)
+      .map(userId => this.createNotification({ ...params, userId }));
+
+    return Promise.allSettled(notifications);
   }
 }

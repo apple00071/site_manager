@@ -110,53 +110,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create update' }, { status: 500 });
     }
 
-    // Parse mentions and notify users
+    // Notify stakeholders
     try {
       const { data: projectData } = await supabaseAdmin
         .from('projects')
-        .select('created_by, title')
+        .select('title')
         .eq('id', project_id)
         .single();
 
-      // 1. Notify admin
-      if (projectData && projectData.created_by !== userId) {
-        await NotificationService.createNotification({
-          userId: projectData.created_by,
-          title: 'Project Update Added',
-          message: `${userFullName} added an update to project "${projectData.title}"`,
-          type: 'project_update',
-          relatedId: project_id,
-          relatedType: 'project'
-        });
-      }
+      await NotificationService.notifyStakeholders(project_id, userId, {
+        title: 'Project Update Added',
+        message: `${userFullName} added an update to project "${projectData?.title || 'Project'}"`,
+        type: 'project_update',
+        relatedId: project_id,
+        relatedType: 'project'
+      });
 
-      // 2. Notify all project members
-      try {
-        const { data: allProjectMembers } = await supabaseAdmin
-          .from('project_members')
-          .select('user_id')
-          .eq('project_id', project_id);
-
-        if (allProjectMembers) {
-          for (const member of allProjectMembers) {
-            if (!member.user_id || member.user_id === userId) continue;
-            if (projectData && member.user_id === projectData.created_by) continue;
-
-            await NotificationService.createNotification({
-              userId: member.user_id,
-              title: 'Project Update Added',
-              message: `${userFullName} added an update to project "${projectData?.title || 'Project'}"`,
-              type: 'project_update',
-              relatedId: project_id,
-              relatedType: 'project'
-            });
-          }
-        }
-      } catch (memberNotifyError) {
-        console.error('Failed to notify project members:', memberNotifyError);
-      }
-
-      // 3. Handle @Mentions
+      // Handle @Mentions
       const mentionRegex = /@(\w+)/g;
       const mentions = description.match(mentionRegex);
 

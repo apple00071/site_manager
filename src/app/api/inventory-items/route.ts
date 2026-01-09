@@ -147,25 +147,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Notify admin of new inventory item
+    // Notify stakeholders (Admins, Supervisors, Members)
     try {
       const { data: projectData } = await supabaseAdmin
         .from('projects')
-        .select('created_by, title')
+        .select('title')
         .eq('id', project_id)
         .single();
 
-      if (projectData && projectData.created_by !== userId) {
-        const quantityText = quantity ? ` (${quantity})` : '';
-        await NotificationService.createNotification({
-          userId: projectData.created_by,
-          title: 'New Inventory Item Added',
-          message: `${userFullName} added "${item_name}"${quantityText} to project "${projectData.title}"`,
-          type: 'inventory_added',
-          relatedId: project_id,
-          relatedType: 'project'
-        });
-      }
+      const quantityText = quantity ? ` (${quantity})` : '';
+      await NotificationService.notifyStakeholders(project_id, userId, {
+        title: 'New Inventory Item Added',
+        message: `${userFullName} added "${item_name}"${quantityText} to project "${projectData?.title || 'Project'}"`,
+        type: 'inventory_added',
+        relatedId: project_id,
+        relatedType: 'project'
+      });
     } catch (notificationError) {
       console.error('Failed to send inventory notification:', notificationError);
     }

@@ -304,7 +304,7 @@ export async function PATCH(request: NextRequest) {
         try {
             const { data: project } = await supabaseAdmin
                 .from('projects')
-                .select('title, created_by')
+                .select('title')
                 .eq('id', proposal.project_id)
                 .single();
 
@@ -312,19 +312,32 @@ export async function PATCH(request: NextRequest) {
             const proposalTitle = updated.title || proposal.title;
 
             if (action === 'send') {
-                // Notify Project Manager/Admin that proposal was sent to client
-                if (project?.created_by) {
-                    await NotificationService.notifyProposalSent(project.created_by, proposalTitle, projectName);
-                }
-            } else if (action === 'approve' || action === 'reject') {
-                // Notify the person who created the proposal
-                if (proposal.created_by) {
-                    if (action === 'approve') {
-                        await NotificationService.notifyProposalApproved(proposal.created_by, proposalTitle, projectName);
-                    } else {
-                        await NotificationService.notifyProposalRejected(proposal.created_by, proposalTitle, projectName);
-                    }
-                }
+                // Notify stakeholders that proposal was sent to client
+                await NotificationService.notifyStakeholders(proposal.project_id, user.id, {
+                    title: 'Proposal Sent to Client',
+                    message: `The proposal "${proposalTitle}" for project "${projectName}" has been successfully shared with the client for review.`,
+                    type: 'project_update',
+                    relatedId: id,
+                    relatedType: 'proposal'
+                });
+            } else if (action === 'approve') {
+                // Notify stakeholders that proposal was approved
+                await NotificationService.notifyStakeholders(proposal.project_id, user.id, {
+                    title: 'Proposal Approved',
+                    message: `Great news! The client has approved the proposal "${proposalTitle}" for project "${projectName}".`,
+                    type: 'project_update',
+                    relatedId: id,
+                    relatedType: 'proposal'
+                });
+            } else if (action === 'reject') {
+                // Notify stakeholders that proposal was rejected
+                await NotificationService.notifyStakeholders(proposal.project_id, user.id, {
+                    title: 'Proposal Update',
+                    message: `The client has requested some changes to the proposal "${proposalTitle}" for project "${projectName}".`,
+                    type: 'project_update',
+                    relatedId: id,
+                    relatedType: 'proposal'
+                });
             }
         } catch (notifError) {
             console.error('Error sending proposal notifications:', notifError);

@@ -145,33 +145,17 @@ export async function POST(
       p_reason: `Design approved${site_supervisor_id ? ' and site supervisor assigned' : ''}`,
     });
 
-    // Create notification for designer
-    if (project.designer) {
-      await NotificationService.createNotification({
-        userId: project.designer.id,
+    // Notify stakeholders (Designer, Admins, Site Supervisors)
+    try {
+      await NotificationService.notifyStakeholders(projectId, user.id, {
         type: 'design_approved',
         title: 'Design Approved',
-        message: `Your design for project "${project.title}" has been approved!`,
+        message: `Design for project "${project.title}" has been approved! Ready for execution.`,
         relatedId: projectId,
         relatedType: 'project',
       });
-
-      try {
-        const { data: des } = await supabaseAdmin
-          .from('users')
-          .select('phone_number')
-          .eq('id', project.designer.id)
-          .single();
-        if (des?.phone_number) {
-          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-          const link = `${origin}/dashboard/projects/${projectId}`;
-          await sendCustomWhatsAppNotification(
-            des.phone_number,
-            `✅ Design Approved\n\nYour design for project "${project.title}" has been approved.\n\nOpen: ${link}`
-          );
-        }
-      } catch (waErr) {
-      }
+    } catch (notifErr) {
+      console.error('Stakeholder notification failed:', notifErr);
     }
 
     return NextResponse.json({

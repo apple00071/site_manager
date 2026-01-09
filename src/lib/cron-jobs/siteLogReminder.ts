@@ -27,8 +27,9 @@ export async function runSiteLogReminder() {
 
     const projectsWithLogs = new Set(todayLogs?.map((log: any) => log.project_id) || []);
 
-    // 4. Identify projects missing logs and notify relevant members
-    const updates = [];
+    // 4. Identify projects missing logs and group by user
+    const userToMissingProjects = new Map<string, string[]>();
+
     for (const project of projects) {
         if (projectsWithLogs.has(project.id)) continue;
 
@@ -68,21 +69,29 @@ export async function runSiteLogReminder() {
             }
         });
 
-        console.log(`[Missing Site Log] Project: "${project.title}". Notifying ${targetUserIds.size} members.`);
-
+        // Add project to each target user's list
         for (const userId of targetUserIds) {
-            updates.push(
-                NotificationService.createNotification({
-                    userId,
-                    title: 'Missing Site Log & DPR',
-                    message: `Reminder: No site log has been submitted for project "${project.title}" today. Please submit your Site Log and DPR (Daily Progress Report) to Admin.`,
-                    type: 'site_log_submitted',
-                    relatedId: project.id,
-                    relatedType: 'project',
-                    skipInApp: true
-                })
-            );
+            if (!userToMissingProjects.has(userId)) {
+                userToMissingProjects.set(userId, []);
+            }
+            userToMissingProjects.get(userId)!.push(project.title);
         }
+    }
+
+    // 5. Send consolidated notifications
+    const updates = [];
+    for (const [userId, projectTitles] of userToMissingProjects.entries()) {
+        const projectList = projectTitles.map(t => `- ${t}`).join('\n');
+
+        updates.push(
+            NotificationService.createNotification({
+                userId,
+                title: 'Daily Progress Report Reminder',
+                message: `It looks like the Site Log / DPR for the following projects hasn't been submitted yet for today:\n\n${projectList}\n\nKindly upload them when you have a moment.`,
+                type: 'site_log_submitted',
+                skipInApp: true
+            })
+        );
     }
 
     const results = await Promise.allSettled(updates);

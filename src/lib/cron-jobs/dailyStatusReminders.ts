@@ -23,8 +23,8 @@ export async function runAdminAssignReminder() {
         updates.push(
             NotificationService.createNotification({
                 userId: admin.id,
-                title: 'Assign Tasks Reminder',
-                message: `Good Morning! Please ensure all tasks are assigned to the team members for today.`,
+                title: 'Team Task Allocation',
+                message: `*Team Task Allocation*\n\nHello ${admin.full_name}, this is a reminder to review and finalize task assignments for the team to ensure everyone is set for the day.`,
                 type: 'general',
                 skipInApp: true
             })
@@ -72,8 +72,8 @@ export async function runMemberCheckupReminder() {
         updates.push(
             NotificationService.createNotification({
                 userId: userId as string,
-                title: 'Task Check-up',
-                message: `Time for a quick check! Please review your assigned projects and tasks for the second half of the day.`,
+                title: 'How is your day going?',
+                message: `*How is your day going?*\n\nPlease take a quick moment to update the status of your active projects and tasks if you have any progress to share.`,
                 type: 'general',
                 skipInApp: true
             })
@@ -106,8 +106,8 @@ export async function runAdminTaskCheckReminder() {
         updates.push(
             NotificationService.createNotification({
                 userId: admin.id,
-                title: 'Review Team Progress',
-                message: `Good Evening! Please check the status of tasks assigned to team members today.`,
+                title: 'End of Day Review',
+                message: `*End of Day Review*\n\nHi ${admin.full_name}, please take a moment to review the team's task updates and completions as we wrap up today's work.`,
                 type: 'general',
                 skipInApp: true
             })

@@ -84,16 +84,14 @@ export async function POST(
     // Create notification for admin/project creator
     if (item.project && item.project.created_by) {
       try {
-        await NotificationService.createNotification({
-          userId: item.project.created_by,
-          type: 'inventory_added',
-          title: 'Bill Resubmitted',
-          message: `${userFullName} resubmitted the bill for "${item.item_name}" in project "${item.project.title}"`,
-          relatedId: itemId,
-          relatedType: 'inventory_item',
-        });
+        await NotificationService.notifyBillResubmitted(
+          item.project.created_by,
+          item.item_name,
+          item.project.title,
+          userFullName,
+          itemId
+        );
       } catch (notificationError) {
-        // Log but don't fail the request if notification fails
         console.error('Failed to create notification:', notificationError);
       }
     }

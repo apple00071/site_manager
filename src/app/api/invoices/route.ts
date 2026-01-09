@@ -152,17 +152,21 @@ export async function POST(request: NextRequest) {
         try {
             const { data: project } = await supabaseAdmin
                 .from('projects')
-                .select('title, created_by')
+                .select('title')
                 .eq('id', project_id)
                 .single();
 
-            if (project?.created_by) {
-                const projectName = project.title || 'Unknown Project';
-                const invNum = data.invoice_number || 'N/A';
-                const amount = data.total_amount || 0;
+            const projectName = project?.title || 'Unknown Project';
+            const invNum = data.invoice_number || 'N/A';
+            const amount = data.total_amount || 0;
 
-                await NotificationService.notifyInvoiceCreated(project.created_by, invNum, projectName, amount);
-            }
+            await NotificationService.notifyStakeholders(project_id, user.id, {
+                title: 'New Invoice Generated',
+                message: `Project: ${projectName}\nInvoice: ${invNum}\nAmount: ₹${amount.toLocaleString()}\n\nThe invoice is now available for your review.`,
+                type: 'project_update',
+                relatedId: data.id,
+                relatedType: 'invoice'
+            });
         } catch (notifError) {
             console.error('Error sending invoice creation notification:', notifError);
         }
@@ -224,7 +228,6 @@ export async function PATCH(request: NextRequest) {
 
             // --- NOTIFICATIONS ---
             try {
-                // Notify the person who created the invoice
                 const { data: project } = await supabaseAdmin
                     .from('projects')
                     .select('title')
@@ -234,12 +237,16 @@ export async function PATCH(request: NextRequest) {
                 const projectName = project?.title || 'Unknown Project';
                 const invNum = data.invoice_number || 'N/A';
 
-                if (existing.created_by) {
-                    if (action === 'approve') {
-                        await NotificationService.notifyInvoiceApproved(existing.created_by, invNum, projectName);
-                    } else if (action === 'reject') {
-                        await NotificationService.notifyInvoiceRejected(existing.created_by, invNum, projectName);
-                    }
+                if (action === 'approve') {
+                    await NotificationService.notifyStakeholders(existing.project_id, user.id, {
+                        title: 'Invoice Approved',
+                        message: `Project: ${projectName}\nInvoice: ${invNum}\n\nThe invoice has been approved and is being processed for payment.`,
+                        type: 'project_update',
+                        relatedId: id,
+                        relatedType: 'invoice'
+                    });
+                } else if (action === 'reject' && existing.created_by) {
+                    await NotificationService.notifyInvoiceRejected(existing.created_by, invNum, projectName);
                 }
             } catch (notifError) {
                 console.error('Error sending invoice update notifications:', notifError);

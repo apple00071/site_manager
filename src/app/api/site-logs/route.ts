@@ -114,21 +114,23 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: sanitizeErrorMessage(error.message) }, { status: 500 });
         }
 
-        // Notify project admin
+        // Notify stakeholders
         try {
             const { data: project } = await supabaseAdmin
                 .from('projects')
-                .select('title, created_by')
+                .select('title')
                 .eq('id', data.project_id)
                 .single();
 
-            if (project && project.created_by !== user.id) {
+            if (project) {
                 const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'A member';
-                await NotificationService.notifySiteLogSubmitted(
-                    project.created_by,
-                    project.title,
-                    userName
-                );
+                await NotificationService.notifyStakeholders(data.project_id, user.id, {
+                    title: 'New Site Log Submitted',
+                    message: `${userName} submitted a new site log for project "${project.title}".`,
+                    type: 'site_log_submitted',
+                    relatedId: data.project_id,
+                    relatedType: 'project'
+                });
             }
         } catch (notifErr) {
             console.error('Failed to send site log notification:', notifErr);

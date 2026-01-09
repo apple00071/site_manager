@@ -54,19 +54,10 @@ export async function runDailyBriefing() {
     const updates = [];
     for (const user of (allUsers || [])) {
         const stats = userStats[user.id] || { today: 0, overdue: 0 };
-        let message = '';
 
-        if (stats.today > 0 && stats.overdue > 0) {
-            message = `Good Morning ${user.full_name}! You have ${stats.today} tasks due today and ${stats.overdue} overdue tasks.`;
-        } else if (stats.today > 0) {
-            message = `Good Morning ${user.full_name}! You have ${stats.today} tasks due today.`;
-        } else if (stats.overdue > 0) {
-            message = `Good Morning ${user.full_name}! You have ${stats.overdue} overdue tasks to catch up on.`;
-        } else {
-            message = `Good Morning ${user.full_name}! Have a productive day at the office!`;
-        }
+        const message = `*Your Daily Overview*\n\nHello ${user.full_name},\n\nHere is a look at your tasks for today:\n- Due Today: ${stats.today}\n- Overdue: ${stats.overdue}\n\nWishing you a productive and successful day ahead.`;
 
-        console.log(`Sending briefing to ${user.full_name}: ${message}`);
+        console.log(`Sending briefing to ${user.full_name}`);
         updates.push(
             NotificationService.createNotification({
                 userId: user.id,

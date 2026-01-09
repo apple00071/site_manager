@@ -299,19 +299,22 @@ export async function PATCH(request: NextRequest) {
             if (action === 'assign' && updates.assigned_to_user_id) {
                 await NotificationService.notifySnagAssigned(updates.assigned_to_user_id, description, contextName);
             } else if (action === 'resolve') {
-                // If it's a project snag, notify project creator. 
-                // If it's a global site snag, who to notify? Maybe all admins or creator?
-                // For now, only notify if project exists.
-                const { data: project } = await supabaseAdmin
+                // Notify all stakeholders that snag is resolved
+                const { data: projectData } = await supabaseAdmin
                     .from('projects')
-                    .select('created_by')
+                    .select('title')
                     .eq('id', existing.project_id)
                     .single();
 
-                if (project?.created_by) {
-                    await NotificationService.notifySnagResolved(project.created_by, description, contextName);
-                }
-            } else if ((action === 'verify' || action === 'close') && existing.assigned_to_user_id) {
+                await NotificationService.notifyStakeholders(existing.project_id, user.id, {
+                    title: 'Snag Resolved',
+                    message: `Snag reported at "${contextName}" in project "${projectData?.title || 'Project'}" has been resolved and is ready for verification.`,
+                    type: 'snag_resolved',
+                    relatedId: id,
+                    relatedType: 'snag'
+                });
+            }
+            else if ((action === 'verify' || action === 'close') && existing.assigned_to_user_id) {
                 await NotificationService.notifySnagVerified(existing.assigned_to_user_id, description, contextName);
             }
         } catch (notifError) {

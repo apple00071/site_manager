@@ -147,48 +147,24 @@ export async function POST(request: NextRequest) {
     // P0: Notify mentioned users
     if (mentioned_user_ids && mentioned_user_ids.length > 0) {
       try {
-        // Create in-app notifications
+        const { data: designFile } = await supabaseAdmin
+          .from('design_files')
+          .select('file_name, project:projects(title)')
+          .eq('id', design_file_id)
+          .single();
+
+        const projectName = (Array.isArray(designFile?.project) ? designFile.project[0]?.title : (designFile?.project as any)?.title) || 'Unknown Project';
+
         await Promise.all(mentioned_user_ids.map(mentionedUserId =>
-          NotificationService.createNotification({
-            userId: mentionedUserId,
-            title: 'You were mentioned in a design comment',
-            message: `${userFullName} mentioned you: "${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}"`,
-            type: 'mention',
-            relatedId: design_file_id,
-            relatedType: 'design_file'
-          })
+          NotificationService.notifyMention(
+            mentionedUserId,
+            userFullName,
+            designFile?.file_name || projectName,
+            comment,
+            design_file_id,
+            'design_file'
+          )
         ));
-
-        // Create WhatsApp notifications
-        const { data: recipients } = await supabaseAdmin
-          .from('users')
-          .select('id, phone_number')
-          .in('id', mentioned_user_ids);
-
-        if (recipients && recipients.length > 0) {
-          const { data: designFile } = await supabaseAdmin
-            .from('design_files')
-            .select(`
-              file_name,
-              project_id,
-              project:projects(title)
-            `)
-            .eq('id', design_file_id)
-            .single();
-
-          const project = Array.isArray(designFile?.project) ? designFile.project[0] : designFile?.project;
-          const projectName = project?.title || 'Unknown Project';
-          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-          const link = designFile?.project_id ? `${origin}/dashboard/projects/${designFile.project_id}` : '#';
-
-          const waMessage = `💬 *New Mention*\n\n${userFullName} mentioned you in a design comment for project "${projectName}" (File: ${designFile?.file_name || 'Design'})\n\nComment: "${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}"\n\nOpen: ${link}`;
-
-          await Promise.all(
-            recipients
-              .filter(r => !!r.phone_number && r.id !== userId) // Don't WhatsApp self if mentioned
-              .map(r => sendCustomWhatsAppNotification(r.phone_number, waMessage))
-          );
-        }
       } catch (mentionError) {
         console.error('Failed to send mention notifications:', mentionError);
       }
@@ -196,47 +172,40 @@ export async function POST(request: NextRequest) {
 
     // Notify relevant users about the new comment
     try {
-      // Get design file info and project details
       const { data: designFile } = await supabaseAdmin
         .from('design_files')
-        .select(`
-          file_name,
-          uploaded_by,
-          project_id,
-          project:projects(created_by, title)
-        `)
+        .select('file_name, uploaded_by, project_id, project:projects(created_by, title)')
         .eq('id', design_file_id)
         .single();
 
       if (designFile) {
+        const project = Array.isArray(designFile.project) ? designFile.project[0] : (designFile.project as any);
+        const projectName = project?.title || 'Unknown Project';
         const notifications = [];
 
-        // Notify the design uploader if commenter is not the uploader
         if (designFile.uploaded_by !== userId) {
           notifications.push(
-            NotificationService.createNotification({
-              userId: designFile.uploaded_by,
-              title: 'New Comment on Your Design',
-              message: `${userFullName} commented on your design "${designFile.file_name}"`,
-              type: 'comment_added',
-              relatedId: design_file_id,
-              relatedType: 'design_file'
-            })
+            NotificationService.notifyDesignCommentAdded(
+              designFile.uploaded_by,
+              userFullName,
+              designFile.file_name,
+              comment,
+              design_file_id,
+              projectName
+            )
           );
         }
 
-        // Notify project admin if commenter is not the admin
-        const project = Array.isArray(designFile.project) ? designFile.project[0] : designFile.project;
         if (project?.created_by && project.created_by !== userId && project.created_by !== designFile.uploaded_by) {
           notifications.push(
-            NotificationService.createNotification({
-              userId: project.created_by,
-              title: 'New Comment on Project Design',
-              message: `${userFullName} commented on design "${designFile.file_name}" in project "${project.title}"`,
-              type: 'comment_added',
-              relatedId: design_file_id,
-              relatedType: 'design_file'
-            })
+            NotificationService.notifyDesignCommentAdded(
+              project.created_by,
+              userFullName,
+              designFile.file_name,
+              comment,
+              design_file_id,
+              projectName
+            )
           );
         }
 
@@ -259,8 +228,9 @@ export async function POST(request: NextRequest) {
               .in('id', recipientIds);
 
             const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-            const link = `${origin}/dashboard/projects/${designFile.project_id}`;
-            const message = `💬 New comment on design "${designFile.file_name}" in project "${project?.title || ''}" by ${userFullName}\n\nOpen: ${link}`;
+            const link = designFile.project_id ? `${origin}/dashboard/projects/${designFile.project_id}` : '#';
+            const message = `💬 *New Design Comment*\n\nProject: ${projectName}\nFile: ${designFile.file_name}\nAuthor: ${userFullName}\n\nComment: "${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}"\n\nOpen: ${link}`;
+
             await Promise.all(
               (recipients || [])
                 .filter(r => !!r.phone_number)
