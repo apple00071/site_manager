@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 const snagSchema = z.object({
     project_id: z.string().uuid().optional().nullable(),
     site_name: z.string().optional().nullable(),
+    client_name: z.string().optional().nullable(),
     customer_phone: z.string().optional().nullable(),
     description: z.string().min(1, 'Description is required'),
     location: z.string().optional().nullable(),

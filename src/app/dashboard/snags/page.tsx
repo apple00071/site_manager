@@ -19,6 +19,7 @@ interface Snag {
     photos: string[];
     project_id?: string | null;
     site_name?: string | null;
+    client_name?: string | null;
     customer_phone?: string | null;
     project?: { id: string; title: string };
     assigned_to_user?: { id: string; full_name: string };
@@ -41,9 +42,10 @@ export default function SnagsPage() {
     const { setTitle, setSubtitle } = useHeaderTitle();
     const router = useRouter();
     const { user } = useAuth();
-    const { hasPermission } = useUserPermissions();
+    const { hasPermission, isAdmin } = useUserPermissions();
 
     // Permission checks
+    const canCreate = hasPermission('snags.create');
     const canResolve = hasPermission('snags.resolve');
     const canVerify = hasPermission('snags.verify');
 
@@ -70,6 +72,7 @@ export default function SnagsPage() {
     const [formData, setFormData] = useState({
         project_id: '',
         site_name: '',
+        client_name: '',
         customer_phone: '',
         description: '',
         location: '',
@@ -144,7 +147,7 @@ export default function SnagsPage() {
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
-        setUploadingPhotos(true); // Reuse same loading state
+        setUploadingPhotos(true);
         const uploadedUrls: string[] = [];
 
         try {
@@ -229,8 +232,6 @@ export default function SnagsPage() {
         }
     };
 
-    // ... existing handlers ...
-
     const fetchGlobalSnags = async () => {
         try {
             setLoading(true);
@@ -243,23 +244,6 @@ export default function SnagsPage() {
             console.error('Failed to fetch snags', err);
         } finally {
             setLoading(false);
-        }
-    };
-
-    const fetchProjects = async () => {
-        try {
-            setLoadingProjects(true);
-            const res = await fetch('/api/admin/projects');
-            const data = await res.json();
-            if (Array.isArray(data)) {
-                setProjects(data.map((p: any) => ({ id: p.id, title: p.title })));
-            } else if (data.projects) {
-                setProjects(data.projects.map((p: any) => ({ id: p.id, title: p.title })));
-            }
-        } catch (err) {
-            console.error('Failed to fetch projects', err);
-        } finally {
-            setLoadingProjects(false);
         }
     };
 
@@ -280,11 +264,7 @@ export default function SnagsPage() {
         }
     };
 
-    // fetchProjectUsers is now obsolete in this global view since we use fetchAllUsers
-    // but we can keep it for now if other parts of the system need it.
-
     const handleOpenModal = () => {
-        // fetchProjects(); // No longer needed for global snag unless we want a hidden fallback
         fetchAllUsers();
         setShowModal(true);
     };
@@ -293,7 +273,7 @@ export default function SnagsPage() {
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
-        const basePath = formData.project_id || 'general';
+        const basePath = 'general';
 
         setUploadingPhotos(true);
         const uploadedUrls: string[] = [];
@@ -331,7 +311,7 @@ export default function SnagsPage() {
         try {
             const payload = {
                 ...formData,
-                project_id: formData.project_id || null,
+                project_id: null,
                 assigned_to_user_id: formData.assigned_to_user_id || null
             };
 
@@ -347,6 +327,7 @@ export default function SnagsPage() {
                 setFormData({
                     project_id: '',
                     site_name: '',
+                    client_name: '',
                     customer_phone: '',
                     description: '',
                     location: '',
@@ -389,7 +370,7 @@ export default function SnagsPage() {
 
     return (
         <div className="space-y-6 pb-10">
-            {/* ... controls ... */}
+            {/* Controls */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex items-center gap-2">
                     <FiFilter className="text-gray-400" />
@@ -405,13 +386,15 @@ export default function SnagsPage() {
                         <option value="closed">Closed</option>
                     </select>
                 </div>
-                <button
-                    onClick={handleOpenModal}
-                    className="btn-primary flex items-center gap-2"
-                >
-                    <FiPlus className="w-4 h-4" />
-                    Raise Snag
-                </button>
+                {canCreate && (
+                    <button
+                        onClick={handleOpenModal}
+                        className="btn-primary flex items-center gap-2"
+                    >
+                        <FiPlus className="w-4 h-4" />
+                        Raise Snag
+                    </button>
+                )}
             </div>
 
             {/* Snag List */}
@@ -436,52 +419,54 @@ export default function SnagsPage() {
                                 <span className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(snag.status)}`}>
                                     {snag.status}
                                 </span>
-                                <div className="flex gap-2">
-                                    {snag.site_name && (
-                                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded truncate max-w-[120px]" title={snag.site_name}>
-                                            {snag.site_name}
-                                        </span>
-                                    )}
-                                    {snag.project && !snag.site_name && (
-                                        <span className="text-xs font-semibold text-gray-500 bg-gray-50 px-2 py-1 rounded truncate max-w-[100px]" title={snag.project.title}>
-                                            {snag.project.title}
-                                        </span>
-                                    )}
-                                    <span className={`px-2 py-1 rounded text-xs font-medium uppercase flex items-center gap-1 ${getPriorityColor(snag.priority)}`}>
-                                        <FiAlertTriangle className="w-3 h-3" />
-                                        {snag.priority}
-                                    </span>
-                                </div>
+                                <span className={`px-2 py-1 rounded text-xs font-medium uppercase flex items-center gap-1 ${getPriorityColor(snag.priority)}`}>
+                                    <FiAlertTriangle className="w-3 h-3" />
+                                    {snag.priority}
+                                </span>
                             </div>
 
                             {/* Card Content */}
                             <div className="p-4 flex-1">
-                                <h3 className="font-semibold text-gray-900 line-clamp-2 mb-2">{snag.description}</h3>
+                                <div className="mb-3">
+                                    {snag.site_name ? (
+                                        <h3 className="text-sm font-bold text-blue-600 uppercase tracking-tight line-clamp-1 mb-1">
+                                            {snag.site_name}
+                                        </h3>
+                                    ) : snag.project ? (
+                                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-tight line-clamp-1 mb-1">
+                                            {snag.project.title}
+                                        </h3>
+                                    ) : null}
+                                    <p className="text-base font-semibold text-gray-900 line-clamp-2 leading-snug">
+                                        {snag.description}
+                                    </p>
+                                </div>
 
-                                <div className="space-y-2 text-sm text-gray-600 mb-4">
+                                <div className="space-y-1.5 text-sm text-gray-600 mb-4 bg-gray-50/50 p-2.5 rounded-lg border border-gray-100">
+                                    {snag.client_name && (
+                                        <div className="flex items-center gap-2">
+                                            <FiUser className="w-3.5 h-3.5 text-gray-400" />
+                                            <span className="font-medium text-gray-700">Client: {snag.client_name}</span>
+                                        </div>
+                                    )}
                                     {snag.customer_phone && (
                                         <div className="flex items-center gap-2">
-                                            <FiInfo className="w-4 h-4 text-blue-400" />
-                                            <span>Client: <span className="font-medium text-gray-900">{snag.customer_phone}</span></span>
+                                            <FiInfo className="w-3.5 h-3.5 text-blue-400" />
+                                            <span className="text-gray-700">Phone: <span className="font-medium">{snag.customer_phone}</span></span>
                                         </div>
                                     )}
-                                    {snag.location && (
-                                        <div className="flex items-center gap-2">
-                                            <FiMapPin className="w-4 h-4 text-gray-400" />
-                                            <span>{snag.location}</span>
-                                        </div>
-                                    )}
-                                    {snag.assigned_to_user ? (
-                                        <div className="flex items-center gap-2">
-                                            <FiUser className="w-4 h-4 text-gray-400" />
-                                            <span>Assigned to: <span className="font-medium text-gray-900">{snag.assigned_to_user.full_name}</span></span>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-2 text-red-500">
-                                            <FiUser className="w-4 h-4" />
-                                            <span className="italic">Unassigned</span>
-                                        </div>
-                                    )}
+                                    <div className="flex items-center gap-2">
+                                        <FiMapPin className="w-3.5 h-3.5 text-gray-400" />
+                                        <span>{snag.location || 'No location'}</span>
+                                    </div>
+                                    <div className="pt-1.5 border-t border-gray-100 flex items-center gap-2">
+                                        <FiUser className="w-3.5 h-3.5 text-yellow-500" />
+                                        {snag.assigned_to_user ? (
+                                            <span>Assigned: <span className="font-semibold text-gray-900">{snag.assigned_to_user.full_name}</span></span>
+                                        ) : (
+                                            <span className="text-red-500 italic">Unassigned</span>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {((snag.photos?.length ?? 0) > 0 || (snag.resolved_photos?.length ?? 0) > 0) && (
@@ -537,7 +522,7 @@ export default function SnagsPage() {
 
                             {/* Card Actions */}
                             <div className="p-3 bg-gray-50 border-t border-gray-100 flex justify-end gap-2">
-                                {snag.status === 'assigned' && canResolve && user?.id === snag.assigned_to_user?.id && (
+                                {snag.status === 'assigned' && canResolve && (user?.id === snag.assigned_to_user?.id || isAdmin) && (
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -578,7 +563,7 @@ export default function SnagsPage() {
                 </div>
             )}
 
-            {/* Raise Snag Modal - Existing ... */}
+            {/* Raise Snag Modal */}
             {showModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -590,7 +575,7 @@ export default function SnagsPage() {
                         </div>
 
                         <div className="p-4 space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Site Name <span className="text-red-500">*</span></label>
                                     <input
@@ -600,6 +585,16 @@ export default function SnagsPage() {
                                         className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 text-sm"
                                         placeholder="e.g. Skyline Apartments"
                                         required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Client Name</label>
+                                    <input
+                                        type="text"
+                                        value={formData.client_name}
+                                        onChange={e => setFormData({ ...formData, client_name: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 text-sm"
+                                        placeholder="e.g. John Doe"
                                     />
                                 </div>
                                 <div>
@@ -614,7 +609,7 @@ export default function SnagsPage() {
                                 </div>
                             </div>
 
-                            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <div className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Description <span className="text-red-500">*</span></label>
                                     <textarea
@@ -674,8 +669,8 @@ export default function SnagsPage() {
                                                 <button
                                                     type="button"
                                                     onClick={() => setFormData(p => ({ ...p, photos: p.photos.filter((_, idx) => idx !== i) }))}
-                                                    className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full !w-5 !h-5 flex items-center justify-center shadow-md z-10 !min-w-0 !min-h-0"
-                                                    style={{ width: '20px', height: '20px', minWidth: '0', minHeight: '0' }}
+                                                    className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md z-10"
+                                                    style={{ width: '20px', height: '20px' }}
                                                 >
                                                     <FiX className="w-3 h-3" />
                                                 </button>
@@ -750,8 +745,8 @@ export default function SnagsPage() {
                                             <button
                                                 type="button"
                                                 onClick={() => setResolveData(prev => ({ ...prev, photos: prev.photos.filter((_, idx) => idx !== i) }))}
-                                                className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full !w-5 !h-5 flex items-center justify-center shadow-md z-10 !min-w-0 !min-h-0"
-                                                style={{ width: '20px', height: '20px', minWidth: '0', minHeight: '0' }}
+                                                className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md z-10"
+                                                style={{ width: '20px', height: '20px' }}
                                             >
                                                 <FiX className="w-3 h-3" />
                                             </button>
@@ -792,7 +787,8 @@ export default function SnagsPage() {
                         </div>
                     </div>
                 </div>
-            )}
+            )
+            }
 
             {/* View/Resolve Snag Modal */}
             {selectedSnag && (
@@ -819,10 +815,16 @@ export default function SnagsPage() {
                                         <p className="text-gray-900 font-semibold">{selectedSnag.site_name}</p>
                                     </div>
                                 )}
+                                {selectedSnag.client_name && (
+                                    <div>
+                                        <h4 className="text-sm font-medium text-gray-500 mb-1">Client Name</h4>
+                                        <p className="text-gray-900 font-semibold">{selectedSnag.client_name}</p>
+                                    </div>
+                                )}
                                 {selectedSnag.customer_phone && (
                                     <div>
                                         <h4 className="text-sm font-medium text-gray-500 mb-1">Customer Phone</h4>
-                                        <p className="text-gray-900">{selectedSnag.customer_phone}</p>
+                                        <p className="text-gray-900 font-medium">{selectedSnag.customer_phone}</p>
                                     </div>
                                 )}
                                 <div className="md:col-span-2">
@@ -835,7 +837,7 @@ export default function SnagsPage() {
                                 </div>
                                 <div>
                                     <h4 className="text-sm font-medium text-gray-500 mb-1">Assigned To</h4>
-                                    <p className="text-gray-900">{selectedSnag.assigned_to_user?.full_name || 'Unassigned'}</p>
+                                    <p className="text-gray-900 font-medium">{selectedSnag.assigned_to_user?.full_name || 'Unassigned'}</p>
                                 </div>
                                 <div>
                                     <h4 className="text-sm font-medium text-gray-500 mb-1">Priority</h4>
@@ -891,8 +893,8 @@ export default function SnagsPage() {
                                 </div>
                             )}
 
-                            {/* Resolution Form (if open/assigned) */}
-                            {['open', 'assigned'].includes(selectedSnag.status) && (
+                            {/* Resolution Form (if open/assigned and user has permission) */}
+                            {['open', 'assigned'].includes(selectedSnag.status) && canResolve && (user?.id === selectedSnag.assigned_to_user?.id || isAdmin) && (
                                 <div className="border-t border-gray-100 pt-6 mt-6">
                                     <h4 className="font-bold text-gray-900 mb-4">Resolve Snag</h4>
                                     <div className="space-y-4">
@@ -915,8 +917,8 @@ export default function SnagsPage() {
                                                         <button
                                                             type="button"
                                                             onClick={() => setResolveData(p => ({ ...p, photos: p.photos.filter((_, idx) => idx !== i) }))}
-                                                            className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full !w-5 !h-5 flex items-center justify-center shadow-md z-10 !min-w-0 !min-h-0"
-                                                            style={{ width: '20px', height: '20px', minWidth: '0', minHeight: '0' }}
+                                                            className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md z-10"
+                                                            style={{ width: '20px', height: '20px' }}
                                                         >
                                                             <FiX className="w-3 h-3" />
                                                         </button>
@@ -948,8 +950,8 @@ export default function SnagsPage() {
                                 </div>
                             )}
 
-                            {/* Verify/Close Actions (if resolved) */}
-                            {selectedSnag.status === 'resolved' && (
+                            {/* Verify/Close Actions (if resolved and user has permission) */}
+                            {selectedSnag.status === 'resolved' && canVerify && (
                                 <div className="border-t border-gray-100 pt-6 mt-6 flex justify-end gap-3">
                                     <button
                                         onClick={() => handleUpdateStatus('reopen')}
@@ -971,6 +973,8 @@ export default function SnagsPage() {
                     </div>
                 </div>
             )}
+
+            {/* Image Viewer */}
             {viewingImage && (
                 <div
                     className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4"
