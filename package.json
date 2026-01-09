@@ -6,8 +6,7 @@
     "dev": "next dev",
     "build": "cross-env NODE_ENV=production next build",
     "start": "next start",
-    "lint": "eslint",
-    "test": "node --test"
+    "lint": "eslint"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
