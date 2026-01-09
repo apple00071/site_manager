@@ -91,10 +91,14 @@ export async function middleware(request: NextRequest) {
       console.warn('Session error in middleware:', sessionError.message);
       // If there's a session error, clear the auth cookies and redirect to login
       const clearResponse = NextResponse.redirect(new URL('/login', request.url));
-      // Clear auth cookies on error - use correct Supabase cookie names
-      clearResponse.cookies.set('sb-uswdtcmemgfqlkzmfkxs-auth-token', '', { maxAge: 0 });
-      clearResponse.cookies.set('sb-uswdtcmemgfqlkzmfkxs-auth-token.0', '', { maxAge: 0 });
-      clearResponse.cookies.set('sb-uswdtcmemgfqlkzmfkxs-auth-token.1', '', { maxAge: 0 });
+
+      // Dynamically find and clear auth cookies instead of hardcoding project ID
+      request.cookies.getAll().forEach(cookie => {
+        if (cookie.name.includes('auth-token')) {
+          clearResponse.cookies.set(cookie.name, '', { maxAge: 0 });
+        }
+      });
+
       return clearResponse;
     }
 
@@ -112,9 +116,14 @@ export async function middleware(request: NextRequest) {
       if (redirectedFrom === request.nextUrl.pathname) {
         console.warn('Redirect loop detected, clearing auth and redirecting to home');
         const clearResponse = NextResponse.redirect(new URL('/', request.url));
-        clearResponse.cookies.set('sb-uswdtcmemgfqlkzmfkxs-auth-token', '', { maxAge: 0 });
-        clearResponse.cookies.set('sb-uswdtcmemgfqlkzmfkxs-auth-token.0', '', { maxAge: 0 });
-        clearResponse.cookies.set('sb-uswdtcmemgfqlkzmfkxs-auth-token.1', '', { maxAge: 0 });
+
+        // Dynamically find and clear auth cookies
+        request.cookies.getAll().forEach(cookie => {
+          if (cookie.name.includes('auth-token')) {
+            clearResponse.cookies.set(cookie.name, '', { maxAge: 0 });
+          }
+        });
+
         return clearResponse;
       }
 

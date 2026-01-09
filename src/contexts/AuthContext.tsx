@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Use optimized session fetching
         let { session: currentSession, user: currentUser, error: sessionError } = await getOptimizedSession();
-        
+
         // Only check server-side if client-side session is missing but we might be authenticated
         if (!currentSession && !sessionError) {
           try {
@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (response.ok) {
               const data = await response.json();
               debugLog('📋 Server session fallback check:', data);
-              
+
               if (data.authenticated && data.user) {
                 // Refresh client session if server has valid session
                 await supabase.auth.refreshSession();
@@ -107,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // If no session but middleware let us through, try to get user metadata from server
         if (!currentSession?.user) {
           debugLog('ℹ️ No client-side session found, but middleware authenticated us');
-          
+
           // Try to get user from server-side session API
           try {
             const response = await fetch('/api/auth/session');
@@ -129,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } catch (error) {
             debugLog('⚠️ Could not get server session data:', error);
           }
-          
+
           debugLog('ℹ️ No user session found');
           setUser(null);
           setIsAdmin(false);
@@ -277,6 +277,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    let failedAttempts = 0;
     const checkSession = async () => {
       try {
         const response = await fetch('/api/auth/session', {
@@ -287,19 +288,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
         if (!response.ok) {
+          failedAttempts++;
+          if (failedAttempts >= 3) {
+            debugLog('🚫 Background session check failed repeatedly, logging out...');
+            await signOut();
+            if (typeof window !== 'undefined') {
+              window.location.replace('/login');
+            }
+          }
           return;
         }
 
         const data = await response.json();
 
-        if (!data.authenticated || !data.user || data.user.id !== user.id) {
-          await signOut();
-          if (typeof window !== 'undefined') {
-            window.location.replace('/login');
+        if (data.authenticated && data.user && data.user.id === user.id) {
+          failedAttempts = 0; // Reset on success
+        } else {
+          failedAttempts++;
+          if (failedAttempts >= 3) {
+            debugLog('🚫 Session mismatch or unauthenticated in background check, logging out...');
+            await signOut();
+            if (typeof window !== 'undefined') {
+              window.location.replace('/login');
+            }
           }
         }
       } catch (error) {
-        // Ignore background check errors
+        debugLog('⚠️ Background session check error:', error);
+        // Don't count network errors as failures for logout
       }
     };
 
@@ -372,7 +388,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       debugLog('✅ Supabase login successful');
-      
+
       // Session is already in the data response, no need to fetch again
       const session = data.session;
 
@@ -475,7 +491,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const names = await caches.keys();
             await Promise.all(names.map(name => caches.delete(name)));
           }
-        } catch (_) {}
+        } catch (_) { }
       }
 
     } catch (error) {

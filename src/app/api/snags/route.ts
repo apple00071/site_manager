@@ -9,6 +9,8 @@ export const dynamic = 'force-dynamic';
 
 const snagSchema = z.object({
     project_id: z.string().uuid().optional().nullable(),
+    site_name: z.string().optional().nullable(),
+    customer_phone: z.string().optional().nullable(),
     description: z.string().min(1, 'Description is required'),
     location: z.string().optional().nullable(),
     category: z.string().optional().nullable(),
@@ -136,11 +138,9 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const { project_id, assigned_to_user_id, ...snagData } = validationResult.data;
+        const { project_id, assigned_to_user_id, site_name, customer_phone, ...snagData } = validationResult.data;
 
         // RBAC: Check snags.create permission
-        // If project_id is present, checks project-level permissions (role + project member)
-        // If project_id is null, checks only role-based permissions (global capability)
         const permResult = await verifyPermission(
             user.id,
             PERMISSION_NODES.SNAGS_CREATE,
@@ -157,6 +157,8 @@ export async function POST(request: NextRequest) {
             .insert({
                 ...snagData,
                 project_id: project_id || null,
+                site_name: site_name || null,
+                customer_phone: customer_phone || null,
                 created_by: user.id,
                 assigned_to_user_id: assigned_to_user_id || null,
                 status: assigned_to_user_id ? 'assigned' : 'open',
@@ -171,14 +173,14 @@ export async function POST(request: NextRequest) {
 
         // --- NOTIFICATIONS ---
         try {
-            let projectName = 'General Snag';
+            let contextName = site_name || 'General Snag';
             if (project_id) {
                 const { data: project } = await supabaseAdmin
                     .from('projects')
                     .select('title')
                     .eq('id', project_id)
                     .single();
-                if (project) projectName = project.title;
+                if (project) contextName = project.title;
             }
 
             const description = snagData.description || 'New snag reported';
@@ -187,7 +189,7 @@ export async function POST(request: NextRequest) {
                 await NotificationService.notifySnagAssigned(
                     assigned_to_user_id,
                     description,
-                    projectName
+                    contextName
                 );
             }
         } catch (notifError) {
@@ -282,19 +284,34 @@ export async function PATCH(request: NextRequest) {
         // --- NOTIFICATIONS ---
         try {
             const description = updates.description || existing.description || 'Snag update';
-            const { data: project } = await supabaseAdmin
-                .from('projects')
-                .select('title, created_by')
-                .eq('id', existing.project_id)
-                .single();
-            const projectName = project?.title || 'Unknown Project';
+            let contextName = existing.site_name || 'General Snag';
+
+            if (existing.project_id) {
+                const { data: project } = await supabaseAdmin
+                    .from('projects')
+                    .select('title, created_by')
+                    .eq('id', existing.project_id)
+                    .single();
+                if (project) contextName = project.title;
+            }
 
             if (action === 'assign' && updates.assigned_to_user_id) {
-                await NotificationService.notifySnagAssigned(updates.assigned_to_user_id, description, projectName);
-            } else if (action === 'resolve' && project?.created_by) {
-                await NotificationService.notifySnagResolved(project.created_by, description, projectName);
+                await NotificationService.notifySnagAssigned(updates.assigned_to_user_id, description, contextName);
+            } else if (action === 'resolve') {
+                // If it's a project snag, notify project creator. 
+                // If it's a global site snag, who to notify? Maybe all admins or creator?
+                // For now, only notify if project exists.
+                const { data: project } = await supabaseAdmin
+                    .from('projects')
+                    .select('created_by')
+                    .eq('id', existing.project_id)
+                    .single();
+
+                if (project?.created_by) {
+                    await NotificationService.notifySnagResolved(project.created_by, description, contextName);
+                }
             } else if ((action === 'verify' || action === 'close') && existing.assigned_to_user_id) {
-                await NotificationService.notifySnagVerified(existing.assigned_to_user_id, description, projectName);
+                await NotificationService.notifySnagVerified(existing.assigned_to_user_id, description, contextName);
             }
         } catch (notifError) {
             console.error('Error sending snag update notifications:', notifError);

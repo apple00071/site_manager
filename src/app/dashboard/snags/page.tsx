@@ -17,7 +17,9 @@ interface Snag {
     priority: 'low' | 'medium' | 'high';
     status: 'open' | 'assigned' | 'resolved' | 'verified' | 'closed';
     photos: string[];
-    project_id: string;
+    project_id?: string | null;
+    site_name?: string | null;
+    customer_phone?: string | null;
     project?: { id: string; title: string };
     assigned_to_user?: { id: string; full_name: string };
     created_at: string;
@@ -67,6 +69,8 @@ export default function SnagsPage() {
     // Raise Snag Form State
     const [formData, setFormData] = useState({
         project_id: '',
+        site_name: '',
+        customer_phone: '',
         description: '',
         location: '',
         category: '',
@@ -259,26 +263,12 @@ export default function SnagsPage() {
         }
     };
 
-    const fetchProjectUsers = async (projectId: string) => {
+    const fetchAllUsers = async () => {
         try {
-            let res;
-            if (projectId && projectId !== 'null') {
-                res = await fetch(`/api/admin/project-members?project_id=${projectId}`);
-            } else {
-                res = await fetch(`/api/admin/users`);
-            }
-
+            const res = await fetch(`/api/admin/users`);
             const data = await res.json();
 
-            if (projectId && data.members) {
-                const users = data.members
-                    .filter((m: any) => m.users)
-                    .map((m: any) => ({
-                        id: m.users.id,
-                        name: m.users.full_name || m.users.email
-                    }));
-                setProjectUsers(users);
-            } else if (!projectId && Array.isArray(data)) {
+            if (Array.isArray(data)) {
                 const users = data.map((u: any) => ({
                     id: u.id,
                     name: u.full_name || u.email
@@ -290,8 +280,12 @@ export default function SnagsPage() {
         }
     };
 
+    // fetchProjectUsers is now obsolete in this global view since we use fetchAllUsers
+    // but we can keep it for now if other parts of the system need it.
+
     const handleOpenModal = () => {
-        fetchProjects();
+        // fetchProjects(); // No longer needed for global snag unless we want a hidden fallback
+        fetchAllUsers();
         setShowModal(true);
     };
 
@@ -352,6 +346,8 @@ export default function SnagsPage() {
                 setShowModal(false);
                 setFormData({
                     project_id: '',
+                    site_name: '',
+                    customer_phone: '',
                     description: '',
                     location: '',
                     category: '',
@@ -441,7 +437,12 @@ export default function SnagsPage() {
                                     {snag.status}
                                 </span>
                                 <div className="flex gap-2">
-                                    {snag.project && (
+                                    {snag.site_name && (
+                                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded truncate max-w-[120px]" title={snag.site_name}>
+                                            {snag.site_name}
+                                        </span>
+                                    )}
+                                    {snag.project && !snag.site_name && (
                                         <span className="text-xs font-semibold text-gray-500 bg-gray-50 px-2 py-1 rounded truncate max-w-[100px]" title={snag.project.title}>
                                             {snag.project.title}
                                         </span>
@@ -458,6 +459,12 @@ export default function SnagsPage() {
                                 <h3 className="font-semibold text-gray-900 line-clamp-2 mb-2">{snag.description}</h3>
 
                                 <div className="space-y-2 text-sm text-gray-600 mb-4">
+                                    {snag.customer_phone && (
+                                        <div className="flex items-center gap-2">
+                                            <FiInfo className="w-4 h-4 text-blue-400" />
+                                            <span>Client: <span className="font-medium text-gray-900">{snag.customer_phone}</span></span>
+                                        </div>
+                                    )}
                                     {snag.location && (
                                         <div className="flex items-center gap-2">
                                             <FiMapPin className="w-4 h-4 text-gray-400" />
@@ -583,19 +590,28 @@ export default function SnagsPage() {
                         </div>
 
                         <div className="p-4 space-y-4">
-                            {/* Project Selector - Critical First Step */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
-                                <select
-                                    value={formData.project_id}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, project_id: e.target.value, assigned_to_user_id: '' }))}
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 text-sm bg-gray-50"
-                                >
-                                    <option value="">Select a Project (Optional)</option>
-                                    {projects.map(p => (
-                                        <option key={p.id} value={p.id}>{p.title}</option>
-                                    ))}
-                                </select>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Site Name <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="text"
+                                        value={formData.site_name}
+                                        onChange={e => setFormData({ ...formData, site_name: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 text-sm"
+                                        placeholder="e.g. Skyline Apartments"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Customer Phone</label>
+                                    <input
+                                        type="text"
+                                        value={formData.customer_phone}
+                                        onChange={e => setFormData({ ...formData, customer_phone: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 text-sm"
+                                        placeholder="e.g. 9876543210"
+                                    />
+                                </div>
                             </div>
 
                             <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
