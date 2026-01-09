@@ -1,3 +1,4 @@
+import { NextRequest, NextResponse } from 'next/server';
 import { runDailyBriefing } from '@/lib/cron-jobs/dailyBriefing';
 import { runTaskReminders } from '@/lib/cron-jobs/taskReminders';
 import { runSiteLogReminder } from '@/lib/cron-jobs/siteLogReminder';
