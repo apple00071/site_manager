@@ -812,8 +812,20 @@ export default function SnagsPage() {
 
                         <div className="p-6 space-y-6">
                             {/* Details */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                                {selectedSnag.site_name && (
+                                    <div>
+                                        <h4 className="text-sm font-medium text-gray-500 mb-1">Site Name</h4>
+                                        <p className="text-gray-900 font-semibold">{selectedSnag.site_name}</p>
+                                    </div>
+                                )}
+                                {selectedSnag.customer_phone && (
+                                    <div>
+                                        <h4 className="text-sm font-medium text-gray-500 mb-1">Customer Phone</h4>
+                                        <p className="text-gray-900">{selectedSnag.customer_phone}</p>
+                                    </div>
+                                )}
+                                <div className="md:col-span-2">
                                     <h4 className="text-sm font-medium text-gray-500 mb-1">Description</h4>
                                     <p className="text-gray-900">{selectedSnag.description}</p>
                                 </div>
