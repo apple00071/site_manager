@@ -464,16 +464,28 @@ export default function OfficeExpensesPage() {
                             return (
                                 <>
                                     {canApprove && isPending && (
-                                        <button
-                                            onClick={() => {
-                                                setApprovingExpense(expense);
-                                                setActiveMenuId(null);
-                                            }}
-                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                                        >
-                                            <FiCheck className="w-4 h-4 text-green-600" />
-                                            Approve/Reject
-                                        </button>
+                                        <>
+                                            <button
+                                                onClick={() => {
+                                                    setApprovingExpense(expense);
+                                                    setActiveMenuId(null);
+                                                }}
+                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                            >
+                                                <FiCheck className="w-4 h-4 text-green-600" />
+                                                Approve
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setApprovingExpense(expense);
+                                                    setActiveMenuId(null);
+                                                }}
+                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                            >
+                                                <FiX className="w-4 h-4 text-red-600" />
+                                                Reject
+                                            </button>
+                                        </>
                                     )}
 
                                     {billUrl && (
@@ -543,16 +555,28 @@ export default function OfficeExpensesPage() {
                             return (
                                 <div className="divide-y divide-gray-50 -mx-4 -mb-4">
                                     {canApprove && isPending && (
-                                        <button
-                                            onClick={() => {
-                                                setApprovingExpense(expense);
-                                                setShowMobileActions(null);
-                                            }}
-                                            className="w-full flex items-center gap-4 p-4 text-sm font-semibold text-green-600 hover:bg-green-50 active:bg-green-50 transition-colors"
-                                        >
-                                            <FiCheck className="w-5 h-5" />
-                                            Approve Expense
-                                        </button>
+                                        <>
+                                            <button
+                                                onClick={() => {
+                                                    setApprovingExpense(expense);
+                                                    setShowMobileActions(null);
+                                                }}
+                                                className="w-full flex items-center gap-4 p-4 text-sm font-semibold text-green-600 hover:bg-green-50 active:bg-green-50 transition-colors"
+                                            >
+                                                <FiCheck className="w-5 h-5" />
+                                                Approve Expense
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setApprovingExpense(expense);
+                                                    setShowMobileActions(null);
+                                                }}
+                                                className="w-full flex items-center gap-4 p-4 text-sm font-semibold text-red-600 hover:bg-red-50 active:bg-red-50 transition-colors"
+                                            >
+                                                <FiX className="w-5 h-5" />
+                                                Reject Expense
+                                            </button>
+                                        </>
                                     )}
 
                                     {billUrl && (
