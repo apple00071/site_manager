@@ -7,6 +7,7 @@ import UsersTab from './UsersTab';
 import RolesTab from './RolesTab';
 import BasicDetailsTab from './BasicDetailsTab';
 import ApprovalHierarchyTab from './ApprovalHierarchyTab';
+import HolidaysTab from './HolidaysTab';
 
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { useEffect } from 'react';
@@ -33,7 +34,7 @@ export default function OrganizationPage() {
     { id: 'roles', label: 'Roles' },
     { id: 'basic', label: 'Basic Details' },
     { id: 'approvals', label: 'Approval Hierarchy' },
-
+    { id: 'holidays', label: 'Holidays' },
   ];
 
   return (
@@ -78,7 +79,7 @@ export default function OrganizationPage() {
         {activeTab === 'roles' && <RolesTab />}
         {activeTab === 'basic' && <BasicDetailsTab />}
         {activeTab === 'approvals' && <ApprovalHierarchyTab />}
-
+        {activeTab === 'holidays' && <HolidaysTab />}
       </div>
     </div>
   );

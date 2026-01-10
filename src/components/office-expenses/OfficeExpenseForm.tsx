@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { FiUpload, FiX, FiCheck } from 'react-icons/fi';
+import { uploadFiles } from '@/lib/uploadUtils';
 
 interface OfficeExpenseFormProps {
     expense?: any;
@@ -45,38 +46,22 @@ export default function OfficeExpenseForm({ expense, onSuccess, onCancel }: Offi
 
         setUploading(true);
         try {
-            const uploadPromises = Array.from(files).map(async (file) => {
-                // Validate file size (5MB)
-                if (file.size > 5 * 1024 * 1024) {
-                    throw new Error(`File ${file.name} is too large (max 5MB)`);
-                }
+            const urls = await uploadFiles(
+                files,
+                'inventory-bills',
+                'office-expenses'
+            );
 
-                const fileExt = file.name.split('.').pop();
-                const fileName = `${Math.random()}.${fileExt}`;
-                const filePath = `office-expenses/${fileName}`;
-
-                const { error: uploadError } = await supabase.storage
-                    .from('inventory-bills')
-                    .upload(filePath, file);
-
-                if (uploadError) throw uploadError;
-
-                const { data: { publicUrl } } = supabase.storage
-                    .from('inventory-bills')
-                    .getPublicUrl(filePath);
-
-                return publicUrl;
-            });
-
-            const urls = await Promise.all(uploadPromises);
             setFormData(prev => ({ ...prev, bill_urls: [...prev.bill_urls, ...urls] }));
-            showToast('success', `${urls.length} files uploaded successfully`);
+            if (urls.length > 0) {
+                showToast('success', `${urls.length} files uploaded successfully`);
+            }
         } catch (error: any) {
             console.error('Error uploading file:', error);
             showToast('error', error.message || 'Failed to upload files');
         } finally {
             setUploading(false);
-            e.target.value = ''; // Reset input
+            e.target.value = '';
         }
     };
 

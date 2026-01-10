@@ -59,21 +59,54 @@ export async function GET(req: NextRequest) {
             });
     };
 
+    // --- HOLIDAY / SILENT MODE CHECK ---
+    const isHoliday = async () => {
+        const istDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+        const day = istDate.getDay();
+        const dateString = istDate.toISOString().split('T')[0];
+
+        // 1. Check if it's Tuesday (Weekly Holiday)
+        if (day === 2) return { status: true, reason: 'Tuesday (Weekly Holiday)' };
+
+        // 2. Check Database for Festival Holidays
+        const { data: holiday } = await supabaseAdmin
+            .from('holidays')
+            .select('name')
+            .eq('date', dateString)
+            .maybeSingle();
+
+        if (holiday) return { status: true, reason: holiday.name };
+
+        return { status: false };
+    };
+
     try {
+        const silentMode = await isHoliday();
+
         const results: any = {
             timestamp: now.toISOString(),
-            executed: []
+            executed: [],
+            silentMode: silentMode.status ? silentMode.reason : false
         };
 
         // 1. ALWAYS Run Immediate Task Reminders (For tasks starting in next 30 mins)
         // This ensures high-precision notifications regardless of the daily reporting schedule.
+        // Task reminders are NOT silenced by holiday mode as they are project-critical.
         if (!manualJob || manualJob === 'task-reminders' || manualJob === 'all') {
             console.log('Running Task Reminders (High Precision)...');
             results.taskReminders = await runTaskReminders();
             results.executed.push('taskReminders');
         }
 
-        // 2. Scheduled Status Reports (IST mapped to UTC)
+        // 2. Scheduled Status Reports - SILENCED ON HOLIDAYS
+        if (silentMode.status && !manualJob) {
+            console.log(`🔕 Silent Mode active: ${silentMode.reason}. Skipping status reports.`);
+            return NextResponse.json({
+                success: true,
+                message: `Silent Mode active: ${silentMode.reason}.`,
+                taskReminders: results.taskReminders
+            });
+        }
 
         // A. Daily Briefing: 9:00 AM IST (3:30 AM UTC)
         if (manualJob === 'daily-briefing' || (!manualJob && utcHour === 3 && utcMin >= 30)) {

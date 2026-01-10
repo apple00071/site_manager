@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { uploadFiles } from '@/lib/uploadUtils';
 
 interface Snag {
     id: string;
@@ -138,36 +139,20 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
         if (!files || files.length === 0) return;
 
         setUploadingPhotos(true);
-        const uploadedUrls: string[] = [];
 
         try {
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const fileExt = file.name.split('.').pop();
-                const fileName = `${projectId}/${Date.now()}_${i}.${fileExt}`;
-
-                const { error } = await supabase.storage
-                    .from('project-update-photos') // Reusing existing bucket
-                    .upload(fileName, file);
-
-                if (error) {
-                    console.error('Upload error:', error);
-                    continue;
-                }
-
-                const { data: { publicUrl } } = supabase.storage
-                    .from('project-update-photos')
-                    .getPublicUrl(fileName);
-
-                uploadedUrls.push(publicUrl);
-            }
-
-            setFormData(prev => ({ ...prev, photos: [...prev.photos, ...uploadedUrls] }));
+            const urls = await uploadFiles(
+                files,
+                'project-update-photos',
+                projectId
+            );
+            setFormData(prev => ({ ...prev, photos: [...prev.photos, ...urls] }));
         } catch (error) {
             console.error('Error uploading photos:', error);
             alert('Failed to upload photos');
         } finally {
             setUploadingPhotos(false);
+            e.target.value = '';
         }
     };
 
@@ -183,35 +168,20 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
         if (!files || files.length === 0) return;
 
         setUploadingPhotos(true);
-        const uploadedUrls: string[] = [];
 
         try {
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const fileExt = file.name.split('.').pop();
-                const fileName = `resolved/${projectId}/${Date.now()}_${i}.${fileExt}`;
-
-                const { error } = await supabase.storage
-                    .from('project-update-photos')
-                    .upload(fileName, file);
-
-                if (error) {
-                    console.error('Upload error:', error);
-                    continue;
-                }
-
-                const { data: { publicUrl } } = supabase.storage
-                    .from('project-update-photos')
-                    .getPublicUrl(fileName);
-
-                uploadedUrls.push(publicUrl);
-            }
-            setResolutionPhotos(prev => [...prev, ...uploadedUrls]);
+            const urls = await uploadFiles(
+                files,
+                'project-update-photos',
+                `resolved/${projectId}`
+            );
+            setResolutionPhotos(prev => [...prev, ...urls]);
         } catch (error) {
             console.error('Error uploading photos:', error);
             alert('Failed to upload photos');
         } finally {
             setUploadingPhotos(false);
+            e.target.value = '';
         }
     };
 

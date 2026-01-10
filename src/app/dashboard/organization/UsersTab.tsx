@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { FiPlus, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiSearch } from 'react-icons/fi';
 import Link from 'next/link';
 
 interface Role {
@@ -23,6 +23,8 @@ export default function UsersTab() {
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -48,6 +50,12 @@ export default function UsersTab() {
         fetchData();
     }, []);
 
+    const filteredUsers = users.filter(user =>
+        user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (user.designation?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+    );
+
     const handleDeleteUser = async (userId: string) => {
         if (window.confirm('Are you sure you want to delete this user?')) {
             try {
@@ -66,80 +74,155 @@ export default function UsersTab() {
     };
 
     const getRoleDisplay = (user: User) => {
-        // First check if we have role_id and can look it up from fetched roles
         if (user.role_id && roles.length > 0) {
             const role = roles.find(r => r.id === user.role_id);
             if (role) return role.name;
         }
-        // Fallback to joined roles data
-        if (user.roles) {
-            return user.roles.name;
-        }
-        // Final fallback to legacy role field
+        if (user.roles) return user.roles.name;
         return user.role || 'No Role';
     };
 
     const getRoleColor = (user: User) => {
-        const roleName = getRoleDisplay(user);
-        if (roleName.toLowerCase() === 'admin') {
-            return 'bg-purple-100 text-purple-800';
-        } else if (roleName.toLowerCase() === 'employee') {
-            return 'bg-green-100 text-green-800';
-        }
-        return 'bg-blue-100 text-blue-800';
+        const roleName = getRoleDisplay(user).toLowerCase();
+        if (roleName === 'admin') return 'bg-purple-100 text-purple-700';
+        if (roleName === 'employee') return 'bg-green-100 text-green-700';
+        if (roleName.includes('supervisor')) return 'bg-blue-100 text-blue-700';
+        return 'bg-gray-100 text-gray-700';
     };
 
     if (loading) {
-        return <div className="p-8 text-center">Loading users...</div>;
+        return (
+            <div className="flex flex-col items-center justify-center p-12 space-y-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
+                <p className="text-gray-500 text-sm">Loading team members...</p>
+            </div>
+        );
     }
 
     return (
-        <div className="space-y-4">
-            <div className="flex justify-end">
+        <div className="space-y-6">
+            {/* Action Bar */}
+            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                <div className="relative w-full sm:w-64">
+                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input
+                        type="text"
+                        placeholder="Search team..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 outline-none transition-all"
+                    />
+                </div>
                 <Link
                     href="/dashboard/organization/new"
-                    className="btn-primary flex items-center shadow-sm"
+                    className="w-full sm:w-auto btn-primary flex items-center justify-center gap-2 px-6 shadow-sm"
                 >
-                    <FiPlus className="mr-2 h-4 w-4" /> Add User
+                    <FiPlus className="h-4 w-4" /> <span>Add User</span>
                 </Link>
             </div>
 
-            <div className="bg-white shadow overflow-hidden rounded-lg">
+            {/* Desktop View: Table */}
+            <div className="hidden lg:block bg-white shadow-sm border border-gray-100 rounded-xl overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Designation</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Member</th>
+                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Designation</th>
+                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Role</th>
+                            <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {users.map((user) => (
-                            <tr key={user.id}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.full_name}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.designation || '-'}</td>
+                    <tbody className="bg-white divide-y divide-gray-100">
+                        {filteredUsers.map((user) => (
+                            <tr key={user.id} className="hover:bg-gray-50 transition-colors group">
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleColor(user)}`}>
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-9 w-9 rounded-full bg-yellow-50 flex items-center justify-center text-yellow-700 font-bold border border-yellow-100 text-xs">
+                                            {user.full_name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <div className="text-sm font-semibold text-gray-900">{user.full_name}</div>
+                                            <div className="text-xs text-gray-500">{user.email}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.designation || '-'}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleColor(user)}`}>
                                         {getRoleDisplay(user)}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <Link href={`/dashboard/organization/${user.id}/edit`} className="text-indigo-600 hover:text-indigo-900 mr-3">
-                                        <FiEdit2 className="inline h-4 w-4" />
-                                    </Link>
-                                    <button onClick={() => handleDeleteUser(user.id)} className="text-red-600 hover:text-red-900">
-                                        <FiTrash2 className="inline h-4 w-4" />
-                                    </button>
+                                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Link
+                                            href={`/dashboard/organization/${user.id}/edit`}
+                                            className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                            title="Edit user"
+                                        >
+                                            <FiEdit2 className="h-4 w-4" />
+                                        </Link>
+                                        <button
+                                            onClick={() => handleDeleteUser(user.id)}
+                                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                            title="Delete user"
+                                        >
+                                            <FiTrash2 className="h-4 w-4" />
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
-                {users.length === 0 && <div className="p-8 text-center text-gray-500">No users found</div>}
             </div>
+
+            {/* Mobile View: Cards */}
+            <div className="lg:hidden space-y-4">
+                {filteredUsers.map((user) => (
+                    <div key={user.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-4">
+                        <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-full bg-yellow-50 flex items-center justify-center text-yellow-700 font-bold border border-yellow-100">
+                                    {user.full_name.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="text-sm font-semibold text-gray-900 truncate">{user.full_name}</div>
+                                    <div className="text-xs text-gray-500 truncate">{user.email}</div>
+                                </div>
+                            </div>
+                            <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full ${getRoleColor(user)}`}>
+                                {getRoleDisplay(user)}
+                            </span>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-50">
+                            <div className="text-xs text-gray-500">
+                                <span className="font-medium text-gray-400">Designation:</span> {user.designation || '-'}
+                            </div>
+                            <div className="flex gap-2">
+                                <Link
+                                    href={`/dashboard/organization/${user.id}/edit`}
+                                    className="p-2 text-indigo-600 bg-indigo-50 rounded-lg"
+                                >
+                                    <FiEdit2 className="h-4 w-4" />
+                                </Link>
+                                <button
+                                    onClick={() => handleDeleteUser(user.id)}
+                                    className="p-2 text-red-600 bg-red-50 rounded-lg"
+                                >
+                                    <FiTrash2 className="h-4 w-4" />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {filteredUsers.length === 0 && (
+                <div className="flex flex-col items-center justify-center p-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+                    <p className="text-gray-500 text-sm">No team members found.</p>
+                </div>
+            )}
         </div>
     );
 }

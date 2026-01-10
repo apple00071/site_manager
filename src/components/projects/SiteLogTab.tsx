@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { formatDateReadable, getTodayDateString, formatDateTimeIST } from '@/lib/dateUtils';
 import { FiPlus, FiCalendar, FiUsers, FiUser, FiPhone, FiImage, FiMoreVertical, FiEdit2, FiTrash2, FiCheckCircle, FiX, FiCheckSquare, FiLoader } from 'react-icons/fi';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { uploadFiles } from '@/lib/uploadUtils';
 
 interface SiteLog {
     id: string;
@@ -128,33 +129,13 @@ export const SiteLogTab = forwardRef<SiteLogTabHandle, SiteLogTabProps>(({ proje
 
         try {
             setIsUploading(true);
-            const uploadPromises = Array.from(files).map(async (file, i) => {
-                const fileExt = file.name.split('.').pop();
-                const fileName = `${user?.id}/${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+            const urls = await uploadFiles(
+                files,
+                'project-update-photos',
+                projectId
+            );
 
-                const { error: uploadError } = await supabase.storage
-                    .from('project-update-photos')
-                    .upload(fileName, file);
-
-                if (uploadError) {
-                    console.error('Upload error:', uploadError);
-                    return null;
-                }
-
-                const { data: { publicUrl } } = supabase.storage
-                    .from('project-update-photos')
-                    .getPublicUrl(fileName);
-                return publicUrl;
-            });
-
-            const results = await Promise.all(uploadPromises);
-            const successfulUploads = results.filter((url): url is string => url !== null);
-
-            if (successfulUploads.length < files.length) {
-                alert(`Successfully uploaded ${successfulUploads.length} of ${files.length} files.`);
-            }
-
-            setFormData(prev => ({ ...prev, photos: [...prev.photos, ...successfulUploads] }));
+            setFormData(prev => ({ ...prev, photos: [...prev.photos, ...urls] }));
         } catch (error) {
             console.error('Error handling uploads:', error);
             alert('An error occurred while uploading files.');
