@@ -3,6 +3,11 @@ import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 
 export async function GET() {
     try {
+        const { user, error: authError } = await getAuthUser();
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const { data, error } = await supabaseAdmin
             .from('holidays')
             .select('*')

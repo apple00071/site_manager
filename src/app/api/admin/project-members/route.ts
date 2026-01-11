@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 import { handleApiError, sanitizeErrorMessage } from '@/lib/errorHandler';
 import { NotificationService } from '@/lib/notificationService';
 import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
@@ -35,6 +35,15 @@ export async function POST(req: Request) {
   }
 
   try {
+    const { user, role, error: authError } = await getAuthUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const body = await req.json();
     const parsed = permissionSchema.safeParse(body);
 
@@ -173,6 +182,15 @@ export async function GET(req: Request) {
   }
 
   try {
+    const { user, role, error: authError } = await getAuthUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
     const projectId = searchParams.get('project_id');
 
@@ -233,6 +251,15 @@ export async function DELETE(req: Request) {
   }
 
   try {
+    const { user, role, error: authError } = await getAuthUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
     const projectId = searchParams.get('project_id');
     const userId = searchParams.get('user_id');

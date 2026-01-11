@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 import { handleApiError, sanitizeErrorMessage } from '@/lib/errorHandler';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
+import { verifyPermission, PERMISSION_NODES } from '@/lib/rbac';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -130,33 +131,17 @@ export async function PATCH(
             );
         }
 
-        // Get Auth User (we need to check permissions)
-        // Since we are in an API route, we can use supabaseAdmin to check permissions securely
-        // But first we need to know WHO makes the request. 
-        // Usually we'd use createRouteHandlerClient for this, but to keep it simple and consistent with other admin routes, 
-        // we'll assume the client sends the session cookie and we use supabaseAdmin to verify or just use standard RLS if valid...
-        // WAIT: To enforce "Admin OR Edit Permission", we need to identify the user.
-        // Let's use standard supabase client for auth check first.
+        // Auth check
+        const { user, error: authError } = await getAuthUser();
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
 
-        // Actually, simpler: Pass user_id in headers? No, insecure.
-        // Correct way: use createRouteHandlerClient. 
-        // But let's look at how /api/admin/project-members/route.ts handles it.
-        // It doesn't seem to check *who* is calling it deeply, it assumes it's called by an authenticated user?
-        // Wait, /api/admin/project-members/route.ts uses supabaseAdmin directly without checking caller permissions!
-        // That route is dangerous if unprotected.
-        // However, given the USER's instructions and context, I will implement a permission check here.
-
-        // We'll trust the request comes from the frontend app which handles auth.
-        // But for security we should really check.
-        // Since I don't have cookies accessible easily in this pattern without importing `cookies`,
-        // I will use a simple check: Expect `x-user-id` header or similar if I can't get session permissions easily.
-        // BETTER: Use `createRouteHandlerClient` pattern if available, or just rely on the frontend sending the user ID in the body for verification?
-        // No, that's spoofable.
-
-        // For this specific task, I will use `supabaseAdmin` to update, but I really SHOULD check permissions.
-        // I'll add a check using the `user_id` passed in the body? No.
-        // I'll assume for now that if the user can reach this page they are authorized, 
-        // BUT I will add a TODO to implement proper server-side auth check.
+        // Permission check: only admin or users with projects.edit permission for this project
+        const permResult = await verifyPermission(user.id, PERMISSION_NODES.PROJECTS_EDIT, projectId);
+        if (!permResult.allowed) {
+            return NextResponse.json({ error: permResult.message }, { status: 403 });
+        }
 
         const { data: updatedProject, error } = await supabaseAdmin
             .from('projects')

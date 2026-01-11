@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import crypto from 'crypto';
 import { NotificationService } from '@/lib/notificationService';
-import { createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
+import { getAuthUser, createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
 import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 
 // Force dynamic rendering - never cache user data
@@ -43,16 +43,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const roleFilter = searchParams.get('role');
 
-    const supabase = await createAuthenticatedClient();
-
-    const { data: { user }, error: userAuthError } = await supabase.auth.getUser();
+    const { user, role: userRole, error: userAuthError } = await getAuthUser();
 
     if (userAuthError || !user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
     // Check if user is admin
-    const isAdmin = (user.app_metadata?.role || user.user_metadata?.role) === 'admin';
+    const isAdmin = userRole === 'admin';
 
     // Build query
     let query = supabaseAdmin
@@ -81,6 +79,15 @@ export async function GET(request: NextRequest) {
 
 export async function POST(req: Request) {
   try {
+    const { user, role: userRole, error: authError } = await getAuthUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (userRole !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const body = await req.json();
     const parsed = createUserSchema.safeParse(body);
 
@@ -235,6 +242,15 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
+    const { user, role: userRole, error: authError } = await getAuthUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (userRole !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const body = await req.json();
     const parsed = updateUserSchema.safeParse(body);
 
