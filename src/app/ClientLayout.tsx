@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { AuthProvider } from '@/contexts/AuthContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { ToastProvider } from '@/components/ui/Toast';
+import FestiveWish from '@/components/FestiveWish';
 
 export default function ClientLayout({
   children,
@@ -73,6 +74,7 @@ export default function ClientLayout({
     <ErrorBoundary>
       <ToastProvider>
         <AuthProvider>
+          <FestiveWish />
           {children}
         </AuthProvider>
       </ToastProvider>

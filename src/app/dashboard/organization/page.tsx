@@ -8,6 +8,8 @@ import RolesTab from './RolesTab';
 import BasicDetailsTab from './BasicDetailsTab';
 import ApprovalHierarchyTab from './ApprovalHierarchyTab';
 import HolidaysTab from './HolidaysTab';
+import BroadcastTab from './BroadcastTab';
+import { useSearchParams } from 'next/navigation';
 
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { useEffect } from 'react';
@@ -15,13 +17,20 @@ import { useEffect } from 'react';
 export default function OrganizationPage() {
   const { isAdmin, isLoading } = useAuth();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('users');
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'users';
+  const [activeTab, setActiveTab] = useState(initialTab);
   const { setTitle, setSubtitle } = useHeaderTitle();
 
   useEffect(() => {
     setTitle('Org Settings');
     setSubtitle(null);
   }, [setTitle, setSubtitle]);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab) setActiveTab(tab);
+  }, [searchParams]);
 
   if (isLoading) return <div>Loading...</div>;
   if (!isAdmin) {
@@ -35,6 +44,7 @@ export default function OrganizationPage() {
     { id: 'basic', label: 'Basic Details' },
     { id: 'approvals', label: 'Approval Hierarchy' },
     { id: 'holidays', label: 'Holidays' },
+    { id: 'broadcast', label: 'Broadcast' },
   ];
 
   return (
@@ -80,6 +90,7 @@ export default function OrganizationPage() {
         {activeTab === 'basic' && <BasicDetailsTab />}
         {activeTab === 'approvals' && <ApprovalHierarchyTab />}
         {activeTab === 'holidays' && <HolidaysTab />}
+        {activeTab === 'broadcast' && <BroadcastTab />}
       </div>
     </div>
   );

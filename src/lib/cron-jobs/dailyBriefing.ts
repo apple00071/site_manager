@@ -55,7 +55,7 @@ export async function runDailyBriefing() {
     for (const user of (allUsers || [])) {
         const stats = userStats[user.id] || { today: 0, overdue: 0 };
 
-        const message = `*Your Daily Overview*\n\nHello ${user.full_name},\n\nHere is a look at your tasks for today:\n- Due Today: ${stats.today}\n- Overdue: ${stats.overdue}\n\nWishing you a productive and successful day ahead.`;
+        const message = `Hello ${user.full_name},\n\nHere is a look at your tasks for today:\n- Due Today: ${stats.today}\n- Overdue: ${stats.overdue}\n\nWishing you a productive and successful day ahead.`;
 
         console.log(`Sending briefing to ${user.full_name}`);
         updates.push(

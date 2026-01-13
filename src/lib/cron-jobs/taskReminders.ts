@@ -49,7 +49,7 @@ export async function runTaskReminders() {
                     NotificationService.createNotification({
                         userId: task.assigned_to,
                         title: 'Task Starting Soon',
-                        message: `*Task Starting Soon*\n\nJust a reminder that the following task is starting at ${startTime}:\n- Title: ${task.title}\n${projectTitle ? `- Project: ${projectTitle}` : "- Details: Standalone Task"}\n\nHope it goes smoothly!`,
+                        message: `Just a reminder that the following task is starting at ${startTime}:\n- Title: ${task.title}\n${projectTitle ? `- Project: ${projectTitle}` : "- Details: Standalone Task"}\n\nHope it goes smoothly!`,
                         type: 'task_assigned',
                         relatedId: task.id,
                         relatedType: 'task',
