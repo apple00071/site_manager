@@ -36,7 +36,7 @@ const COLUMN_ALIASES: Record<string, string[]> = {
     source: ['source', 'procurement source'],
 };
 
-export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportProps) {
+export function BoqImport({ projectId, onImportComplete, onClose, existingCategories }: BoqImportProps) {
     const [file, setFile] = useState<File | null>(null);
     const [preview, setPreview] = useState<ImportRow[]>([]);
     const [errors, setErrors] = useState<string[]>([]);
