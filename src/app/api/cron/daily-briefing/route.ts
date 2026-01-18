@@ -39,11 +39,19 @@ export async function GET(req: NextRequest) {
 
         if (stepTasksError) throw stepTasksError;
 
+        // Snags
+        const { data: assignedSnags, error: snagsError } = await supabaseAdmin
+            .from('snags')
+            .select('id, assigned_to_user_id')
+            .eq('status', 'assigned');
+
+        if (snagsError) throw snagsError;
+
         // 3. Group by User
-        const userStats: Record<string, { today: number; overdue: number }> = {};
+        const userStats: Record<string, { today: number; overdue: number; snags: number }> = {};
 
         const processTask = (userId: string, dueDate: string | Date) => {
-            if (!userStats[userId]) userStats[userId] = { today: 0, overdue: 0 };
+            if (!userStats[userId]) userStats[userId] = { today: 0, overdue: 0, snags: 0 };
 
             const taskDate = new Date(dueDate).toISOString().split('T')[0];
             if (taskDate === todayStr) {
@@ -55,19 +63,31 @@ export async function GET(req: NextRequest) {
 
         calendarTasks?.forEach((t: any) => t.assigned_to && processTask(t.assigned_to, t.end_at));
         projectTasks?.forEach((t: any) => t.assigned_to && processTask(t.assigned_to, t.estimated_completion_date));
+        assignedSnags?.forEach((s: any) => {
+            if (s.assigned_to_user_id) {
+                if (!userStats[s.assigned_to_user_id]) userStats[s.assigned_to_user_id] = { today: 0, overdue: 0, snags: 0 };
+                userStats[s.assigned_to_user_id].snags++;
+            }
+        });
 
         // 4. Send Briefings
         const updates = [];
         for (const [userId, stats] of Object.entries(userStats)) {
-            if (stats.today === 0 && stats.overdue === 0) continue;
+            if (stats.today === 0 && stats.overdue === 0 && stats.snags === 0) continue;
 
             let message = '';
-            if (stats.today > 0 && stats.overdue > 0) {
-                message = `Good Morning! You have ${stats.today} tasks due today and ${stats.overdue} overdue tasks.`;
-            } else if (stats.today > 0) {
-                message = `Good Morning! You have ${stats.today} tasks due today.`;
-            } else {
-                message = `Reminder: You have ${stats.overdue} overdue tasks to catch up on.`;
+            const taskParts = [];
+            if (stats.today > 0) taskParts.push(`${stats.today} tasks due today`);
+            if (stats.overdue > 0) taskParts.push(`${stats.overdue} overdue tasks`);
+
+            if (taskParts.length > 0) {
+                message = `Good Morning! You have ${taskParts.join(' and ')}.`;
+            } else if (stats.snags > 0) {
+                message = `Good Morning! You have some work pending.`;
+            }
+
+            if (stats.snags > 0) {
+                message += ` Also, you have ${stats.snags} pending snags assigned to you.`;
             }
 
             console.log(`Sending briefing to User ${userId}: ${message}`);

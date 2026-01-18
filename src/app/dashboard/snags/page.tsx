@@ -2,7 +2,7 @@
 
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { useEffect, useState } from 'react';
-import { FiPlus, FiFilter, FiCheckCircle, FiAlertTriangle, FiUser, FiMapPin, FiCamera, FiX, FiInfo } from 'react-icons/fi';
+import { FiPlus, FiFilter, FiCheckCircle, FiClock, FiAlertTriangle, FiUser, FiMapPin, FiCamera, FiX, FiInfo } from 'react-icons/fi';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -24,6 +24,7 @@ interface Snag {
     project?: { id: string; title: string };
     assigned_to_user?: { id: string; full_name: string };
     created_at: string;
+    closed_at?: string;
     resolved_photos?: string[];
     resolved_description?: string;
 }
@@ -460,11 +461,23 @@ export default function SnagsPage() {
                                         <span>{snag.location || 'No location'}</span>
                                     </div>
                                     <div className="pt-1.5 border-t border-gray-100 flex items-center gap-2">
-                                        <FiUser className="w-3.5 h-3.5 text-yellow-500" />
                                         {snag.assigned_to_user ? (
                                             <span>Assigned: <span className="font-semibold text-gray-900">{snag.assigned_to_user.full_name}</span></span>
                                         ) : (
                                             <span className="text-red-500 italic">Unassigned</span>
+                                        )}
+                                    </div>
+
+                                    <div className="pt-1.5 border-t border-gray-100 flex items-center justify-between gap-2 text-[11px] text-gray-500">
+                                        <div className="flex items-center gap-1">
+                                            <FiClock className="w-3 h-3 text-gray-400" />
+                                            <span>Reported: {new Date(snag.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                        </div>
+                                        {snag.closed_at && snag.status === 'closed' && (
+                                            <div className="flex items-center gap-1 text-green-600">
+                                                <FiCheckCircle className="w-3 h-3" />
+                                                <span>Closed: {new Date(snag.closed_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -522,7 +535,7 @@ export default function SnagsPage() {
 
                             {/* Card Actions */}
                             <div className="p-3 bg-gray-50 border-t border-gray-100 flex justify-end gap-2">
-                                {snag.status === 'assigned' && canResolve && (user?.id === snag.assigned_to_user?.id || isAdmin) && (
+                                {['open', 'assigned'].includes(snag.status) && canResolve && (user?.id === snag.assigned_to_user?.id || isAdmin) && (
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -843,6 +856,16 @@ export default function SnagsPage() {
                                     <h4 className="text-sm font-medium text-gray-500 mb-1">Priority</h4>
                                     <p className="text-gray-900 capitalize">{selectedSnag.priority}</p>
                                 </div>
+                                <div>
+                                    <h4 className="text-sm font-medium text-gray-500 mb-1">Reported On</h4>
+                                    <p className="text-gray-900">{new Date(selectedSnag.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                                </div>
+                                {selectedSnag.closed_at && (
+                                    <div>
+                                        <h4 className="text-sm font-medium text-gray-500 mb-1">Closed On</h4>
+                                        <p className="text-gray-900 font-semibold text-green-600">{new Date(selectedSnag.closed_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Photos */}

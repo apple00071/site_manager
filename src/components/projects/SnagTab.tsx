@@ -19,6 +19,7 @@ interface Snag {
     resolved_photos?: string[];
     resolved_description?: string;
     created_at: string;
+    closed_at?: string;
     assigned_to_user?: { id: string; full_name: string };
     created_by_user?: { id: string; full_name: string };
 }
@@ -347,6 +348,19 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
                                             <span className="italic">Unassigned</span>
                                         </div>
                                     )}
+
+                                    <div className="flex items-center gap-2 text-gray-500 text-[11px] pt-1 border-t border-gray-50 mt-2">
+                                        <div className="flex items-center gap-1">
+                                            <FiClock className="w-3 h-3" />
+                                            <span>Reported: {new Date(snag.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                        </div>
+                                        {snag.closed_at && snag.status === 'closed' && (
+                                            <div className="flex items-center gap-1 text-green-600 ml-auto">
+                                                <FiCheckCircle className="w-3 h-3" />
+                                                <span>Closed: {new Date(snag.closed_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {((snag.photos?.length ?? 0) > 0 || (snag.resolved_photos?.length ?? 0) > 0) && (
@@ -418,7 +432,7 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
                                         Assign / Edit
                                     </button>
                                 )}
-                                {snag.status === 'assigned' && userId === snag.assigned_to_user?.id && (
+                                {['open', 'assigned'].includes(snag.status) && canResolve && (userId === snag.assigned_to_user?.id || userRole === 'admin') && (
                                     <button
                                         onClick={() => {
                                             setResolvingSnag(snag);
