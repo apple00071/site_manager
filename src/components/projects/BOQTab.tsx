@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
     FiPlus, FiUpload, FiSend, FiGrid, FiList,
-    FiAlertCircle, FiX, FiPackage, FiRefreshCw, FiDownload, FiCheckCircle, FiChevronDown
+    FiAlertCircle, FiX, FiPackage, FiRefreshCw, FiDownload, FiCheckCircle, FiChevronDown, FiFolder
 } from 'react-icons/fi';
 import { BoqGrid } from '@/components/boq/BoqGrid';
 import { BoqCardMobile } from '@/components/boq/BoqCardMobile';
@@ -70,14 +70,17 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
     const [viewMode, setViewMode] = useState<'grid' | 'cards'>('grid');
     const [showImport, setShowImport] = useState(false);
     const [showProposal, setShowProposal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editingItem, setEditingItem] = useState<BOQItem | null>(null);
+    const [showBulkCategory, setShowBulkCategory] = useState(false);
+    const [newBulkCategory, setNewBulkCategory] = useState('');
+    const [showBulkStatus, setShowBulkStatus] = useState(false);
     const [showComparison, setShowComparison] = useState(false);
     const [showAddCategory, setShowAddCategory] = useState(false);
     const [newCategoryName, setNewCategoryName] = useState('');
     const [sectionTotals, setSectionTotals] = useState<Record<string, { count: number; amount: number }>>({});
     const [isMobile, setIsMobile] = useState(false);
     const [customCategories, setCustomCategories] = useState<string[]>([]);
-    const [editingItem, setEditingItem] = useState<BOQItem | null>(null);
-    const [showEditModal, setShowEditModal] = useState(false);
 
     // Expose actions to parent via ref
     useImperativeHandle(ref, () => ({
@@ -147,6 +150,65 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
             setLoading(false);
         }
     }, [projectId]);
+
+    const handleBulkCategoryUpdate = async () => {
+        if (!newBulkCategory.trim() || selectedItems.length === 0) return;
+
+        try {
+            setLoading(true);
+            const res = await fetch('/api/boq', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'update_category',
+                    project_id: projectId,
+                    item_ids: selectedItems,
+                    category: newBulkCategory.trim()
+                }),
+            });
+
+            if (!res.ok) throw new Error('Failed to update categories');
+
+            // Assuming showToast is available or needs to be implemented
+            // showToast('success', `Updated category for ${selectedItems.length} items`);
+            setShowBulkCategory(false);
+            setNewBulkCategory('');
+            setSelectedItems([]);
+            fetchItems();
+        } catch (err) {
+            setError('Failed to update categories');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleBulkStatusUpdate = async (status: string) => {
+        if (selectedItems.length === 0) return;
+
+        try {
+            setLoading(true);
+            const res = await fetch('/api/boq', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'update_status',
+                    project_id: projectId,
+                    item_ids: selectedItems,
+                    status
+                }),
+            });
+
+            if (!res.ok) throw new Error('Failed to update status');
+
+            setShowBulkStatus(false);
+            setSelectedItems([]);
+            fetchItems();
+        } catch (err) {
+            setError('Failed to update status');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
         fetchItems();
@@ -257,27 +319,6 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
         }
     };
 
-    const handleBulkStatusUpdate = async (status: string) => {
-        if (selectedItems.length === 0) return;
-        try {
-            const res = await fetch('/api/boq', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'update_status',
-                    project_id: projectId,
-                    item_ids: selectedItems,
-                    status,
-                }),
-            });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            fetchItems();
-            setSelectedItems([]);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Update failed');
-        }
-    };
 
     const addCategory = () => {
         const trimmedName = newCategoryName.trim();
@@ -479,9 +520,88 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
                                 onClick={() => setShowProposal(true)}
                                 className="flex items-center gap-2 px-4 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-md transition-colors shadow-sm"
                             >
-                                <span className="text-sm font-medium">Move to Proposal</span>
-                                <FiChevronDown className="w-4 h-4" />
+                                <FiSend className="w-4 h-4" />
+                                <span className="text-sm font-medium">Proposal</span>
                             </button>
+                        </div>
+
+                        {/* Change Category */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowBulkCategory(!showBulkCategory)}
+                                className="flex items-center gap-2 px-4 py-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-md transition-colors border border-gray-700"
+                            >
+                                <FiFolder className="w-4 h-4 text-yellow-400" />
+                                <span className="text-sm font-medium whitespace-nowrap">Category</span>
+                                <FiChevronDown className={`w-3 h-3 transition-transform ${showBulkCategory ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {showBulkCategory && (
+                                <div className="absolute bottom-full mb-2 left-0 w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl p-3 animate-in fade-in slide-in-from-bottom-2">
+                                    <div className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">Change Category To:</div>
+                                    <input
+                                        type="text"
+                                        value={newBulkCategory}
+                                        onChange={(e) => setNewBulkCategory(e.target.value)}
+                                        placeholder="New Category Name..."
+                                        className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-sm text-white mb-3 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 outline-none"
+                                        autoFocus
+                                    />
+                                    <div className="flex flex-wrap gap-1.5 mb-3 max-h-32 overflow-y-auto no-scrollbar">
+                                        {categories.map(cat => (
+                                            <button
+                                                key={cat}
+                                                onClick={() => setNewBulkCategory(cat)}
+                                                className={`px-2 py-1 text-[10px] rounded border transition-colors ${newBulkCategory === cat
+                                                    ? 'bg-yellow-500 text-white border-yellow-600'
+                                                    : 'bg-gray-800 text-gray-300 border-gray-700 hover:border-gray-500'
+                                                    }`}
+                                            >
+                                                {cat}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <button
+                                        onClick={handleBulkCategoryUpdate}
+                                        disabled={!newBulkCategory.trim()}
+                                        className="w-full py-2 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-white text-sm font-bold rounded-md transition-colors"
+                                    >
+                                        Apply to {selectedItems.length} Items
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Change Status */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowBulkStatus(!showBulkStatus)}
+                                className="flex items-center gap-2 px-4 py-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-md transition-colors border border-gray-700"
+                            >
+                                <FiRefreshCw className={`w-4 h-4 text-emerald-400 ${loading ? 'animate-spin' : ''}`} />
+                                <span className="text-sm font-medium whitespace-nowrap">Status</span>
+                                <FiChevronDown className={`w-3 h-3 transition-transform ${showBulkStatus ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {showBulkStatus && (
+                                <div className="absolute bottom-full mb-2 left-0 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+                                    <div className="text-xs font-semibold text-gray-400 p-3 bg-gray-800/50 border-b border-gray-700 uppercase tracking-wider">Change Status To:</div>
+                                    <div className="py-1">
+                                        {STATUSES.map(s => (
+                                            <button
+                                                key={s}
+                                                onClick={() => handleBulkStatusUpdate(s)}
+                                                className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-yellow-500 hover:text-white transition-colors flex items-center gap-2 capitalize"
+                                            >
+                                                <div className={`w-2 h-2 rounded-full ${s === 'draft' ? 'bg-yellow-400' :
+                                                    s === 'confirmed' ? 'bg-emerald-400' : 'bg-blue-400'
+                                                    }`} />
+                                                {s}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Select All */}
@@ -540,7 +660,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
                                         className="btn-secondary flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium"
                                     >
                                         <FiUpload className="w-4 h-4" />
-                                        Import from Excel
+                                        Import BOQ
                                     </button>
                                 )}
                                 {canCreate && (
@@ -604,6 +724,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
                         projectId={projectId}
                         onImportComplete={fetchItems}
                         onClose={() => setShowImport(false)}
+                        existingCategories={categories}
                     />
                 )
             }

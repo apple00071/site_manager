@@ -357,7 +357,7 @@ export async function PUT(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { action, project_id, item_ids, status } = body;
+        const { action, project_id, item_ids, status, category } = body;
 
         if (!project_id || !item_ids || !Array.isArray(item_ids)) {
             return NextResponse.json({ error: 'project_id and item_ids are required' }, { status: 400 });
@@ -378,6 +378,20 @@ export async function PUT(request: NextRequest) {
             if (error) {
                 console.error('Error bulk updating BOQ:', error);
                 return NextResponse.json({ error: 'Failed to update items' }, { status: 500 });
+            }
+
+            return NextResponse.json({ success: true, updated: item_ids.length });
+        }
+
+        if (action === 'update_category' && category !== undefined) {
+            const { error } = await supabaseAdmin
+                .from('boq_items')
+                .update({ category })
+                .in('id', item_ids);
+
+            if (error) {
+                console.error('Error bulk updating category:', error);
+                return NextResponse.json({ error: 'Failed to update categories' }, { status: 500 });
             }
 
             return NextResponse.json({ success: true, updated: item_ids.length });

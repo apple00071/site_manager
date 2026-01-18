@@ -3,6 +3,8 @@
 import React, { useState, useRef } from 'react';
 import { FiUpload, FiFile, FiCheck, FiX, FiAlertCircle } from 'react-icons/fi';
 import * as XLSX from 'xlsx';
+import * as mammoth from 'mammoth';
+
 
 interface ImportRow {
     category?: string;
@@ -19,15 +21,16 @@ interface BoqImportProps {
     projectId: string;
     onImportComplete: () => void;
     onClose: () => void;
+    existingCategories?: string[];
 }
 
-const REQUIRED_COLUMNS = ['item_name', 'unit', 'quantity', 'rate'];
+const REQUIRED_COLUMNS = ['item_name', 'quantity'];
 const COLUMN_ALIASES: Record<string, string[]> = {
-    item_name: ['item_name', 'item name', 'name', 'element', 'element name', 'description'],
+    item_name: ['item_name', 'item name', 'name', 'element', 'element name', 'description', 'particular', 'particulars'],
     category: ['category', 'section', 'group'],
     description: ['description', 'desc', 'details', 'specification'],
     unit: ['unit', 'uom', 'unit of measure'],
-    quantity: ['quantity', 'qty', 'no', 'nos', 'count'],
+    quantity: ['quantity', 'qty', 'no', 'nos', 'count', 'quantity/unit'],
     rate: ['rate', 'price', 'unit rate', 'unit price', 'cost'],
     item_type: ['item_type', 'type', 'item type'],
     source: ['source', 'procurement source'],
@@ -39,6 +42,7 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
     const [errors, setErrors] = useState<string[]>([]);
     const [importing, setImporting] = useState(false);
     const [step, setStep] = useState<'upload' | 'preview' | 'done'>('upload');
+    const [bulkCategory, setBulkCategory] = useState<string>('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const normalizeColumnName = (col: string): string | null => {
@@ -53,15 +57,47 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
         try {
             console.log('Parsing file:', file.name);
             const data = await file.arrayBuffer();
-            const wb = XLSX.read(data, { type: 'array' });
+            let jsonData: any[][] = [];
 
-            if (wb.SheetNames.length === 0) {
-                setErrors(['Excel file appears to be empty (no sheets found)']);
-                return;
+            if (file.name.endsWith('.docx')) {
+                console.log('Converting DOCX to HTML...');
+                const result = await mammoth.convertToHtml({ arrayBuffer: data });
+                const html = result.value;
+                console.log('DOCX converted. Extracting tables...');
+
+                // Use DOMParser to extract tables from HTML
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const tables = doc.querySelectorAll('table');
+
+                if (tables.length === 0) {
+                    setErrors(['No tables found in the Word document. BOQ items must be in a table.']);
+                    return;
+                }
+
+                // Convert tables to 2D array (jsonData)
+                // We'll combine all tables if there are multiple
+                tables.forEach(table => {
+                    const rows = table.querySelectorAll('tr');
+                    rows.forEach(tr => {
+                        const cells = tr.querySelectorAll('td, th');
+                        const rowData = Array.from(cells).map(cell => cell.textContent?.trim() || '');
+                        if (rowData.some(c => !!c)) {
+                            jsonData.push(rowData);
+                        }
+                    });
+                });
+            } else {
+                const wb = XLSX.read(data, { type: 'array' });
+
+                if (wb.SheetNames.length === 0) {
+                    setErrors(['Excel file appears to be empty (no sheets found)']);
+                    return;
+                }
+
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                jsonData = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
             }
-
-            const ws = wb.Sheets[wb.SheetNames[0]];
-            const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
 
             console.log('Raw data found, rows:', jsonData.length);
 
@@ -69,6 +105,7 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
                 setErrors(['File must have at least a header row and one data row']);
                 return;
             }
+
 
             const headers = jsonData[0] as string[];
             const columnMap: Record<number, string> = {};
@@ -107,10 +144,31 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
                 const parsed: Partial<ImportRow> = {};
                 Object.entries(columnMap).forEach(([idx, key]) => {
                     const value = row[parseInt(idx)];
-                    if (key === 'quantity' || key === 'rate') {
-                        // Handle potential string numbers like "1,000" or "$50"
-                        const stringVal = String(value).replace(/[^0-9.-]/g, '');
-                        parsed[key as 'quantity' | 'rate'] = parseFloat(stringVal) || 0;
+                    if (key === 'quantity') {
+                        const strVal = String(value || '').trim();
+                        // Extract number (including fractions like 1/2)
+                        const numMatch = strVal.match(/^(\d+(?:\.\d+)?|\d+\/\d+)/);
+                        // Extract unit suffix (e.g., kg, nos)
+                        const unitMatch = strVal.match(/([a-zA-Z]+)$/);
+
+                        if (numMatch) {
+                            let q = numMatch[1];
+                            if (q.includes('/')) {
+                                const [a, b] = q.split('/').map(Number);
+                                (parsed as any).quantity = a / b;
+                            } else {
+                                (parsed as any).quantity = parseFloat(q);
+                            }
+                        } else {
+                            (parsed as any).quantity = 0;
+                        }
+
+                        if (unitMatch && !parsed.unit) {
+                            (parsed as any).unit = unitMatch[1];
+                        }
+                    } else if (key === 'rate') {
+                        const stringVal = String(value || '').replace(/[^0-9.-]/g, '');
+                        parsed.rate = parseFloat(stringVal) || 0;
                     } else {
                         (parsed as any)[key] = value?.toString() || '';
                     }
@@ -150,7 +208,7 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
             setStep('preview');
         } catch (err) {
             console.error('Parse error:', err);
-            setErrors(['Failed to parse file. Please ensure it is a valid CSV or Excel file.']);
+            setErrors(['Failed to parse file. Please ensure it is a valid CSV, Excel, or Word file.']);
         }
     };
 
@@ -174,10 +232,15 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
     const handleImport = async () => {
         setImporting(true);
         try {
+            const itemsWithBulkCategory = preview.map(item => ({
+                ...item,
+                category: bulkCategory.trim() || item.category
+            }));
+
             const res = await fetch('/api/boq/import', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ project_id: projectId, items: preview }),
+                body: JSON.stringify({ project_id: projectId, items: itemsWithBulkCategory }),
             });
             const data = await res.json();
 
@@ -229,12 +292,12 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
                                 Drop your file here
                             </h3>
                             <p className="text-sm text-gray-500 mb-4">
-                                Supports CSV and Excel files (.csv, .xlsx, .xls)
+                                Supports CSV, Excel, and Word files (.csv, .xlsx, .xls, .docx)
                             </p>
                             <input
                                 ref={fileInputRef}
                                 type="file"
-                                accept=".csv,.xlsx,.xls"
+                                accept=".csv,.xlsx,.xls,.docx"
                                 onChange={handleFileChange}
                                 className="hidden"
                             />
@@ -248,13 +311,11 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
                             <div className="mt-8 p-4 bg-gray-50 rounded-lg text-left text-sm">
                                 <p className="font-medium text-gray-700 mb-2">Required columns:</p>
                                 <ul className="text-gray-600 space-y-1">
-                                    <li>• <strong>Item Name</strong> (or Element Name)</li>
-                                    <li>• <strong>Unit</strong> (or UOM)</li>
-                                    <li>• <strong>Quantity</strong> (or Qty)</li>
-                                    <li>• <strong>Rate</strong> (or Price)</li>
+                                    <li>• <strong>Item Name</strong> (or Particular)</li>
+                                    <li>• <strong>Quantity</strong> (or Qty - units like 'kg' can be included)</li>
                                 </ul>
                                 <p className="text-gray-500 mt-2">
-                                    Optional: Category, Description, Item Type, Source
+                                    Optional: Unit, Rate, Category, Description
                                 </p>
                             </div>
                         </div>
@@ -278,7 +339,7 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
                             </div>
 
                             {errors.length > 0 && (
-                                <div className="mb-4 p-3 bg-yellow-50 rounded-lg">
+                                <div className="mb-4 p-3 bg-yellow-50 rounded-lg border border-yellow-100">
                                     <div className="flex items-start gap-2">
                                         <FiAlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                                         <div>
@@ -290,6 +351,43 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
                                     </div>
                                 </div>
                             )}
+
+                            {/* Bulk Category Assignment */}
+                            <div className="mb-6 p-4 bg-yellow-50 rounded-xl border border-yellow-100">
+                                <label className="block text-sm font-semibold text-yellow-900 mb-2">
+                                    Set Category for all items
+                                </label>
+                                <div className="flex gap-2">
+                                    <div className="relative flex-1">
+                                        <input
+                                            type="text"
+                                            value={bulkCategory}
+                                            onChange={(e) => setBulkCategory(e.target.value)}
+                                            placeholder="Type or select a category..."
+                                            className="w-full px-3 py-2 bg-white border border-yellow-200 rounded-lg text-sm focus:ring-2 focus:ring-yellow-500 outline-none"
+                                        />
+                                        {existingCategories && existingCategories.length > 0 && (
+                                            <div className="mt-2 flex flex-wrap gap-1">
+                                                {existingCategories.map(cat => (
+                                                    <button
+                                                        key={cat}
+                                                        onClick={() => setBulkCategory(cat)}
+                                                        className={`px-2 py-1 text-xs rounded-md border transition-colors ${bulkCategory === cat
+                                                            ? 'bg-yellow-500 text-white border-yellow-600'
+                                                            : 'bg-white text-gray-600 border-gray-200 hover:border-yellow-400'
+                                                            }`}
+                                                    >
+                                                        {cat}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <p className="text-xs text-yellow-700 mt-2">
+                                    This will apply "{bulkCategory || 'Uncategorized'}" to all {preview.length} items above.
+                                </p>
+                            </div>
 
                             <div className="bg-gray-50 rounded-lg overflow-hidden max-h-96 overflow-y-auto">
                                 <table className="min-w-full text-sm">
@@ -308,7 +406,11 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
                                         {preview.slice(0, 50).map((row, i) => (
                                             <tr key={i} className="hover:bg-gray-50">
                                                 <td className="px-3 py-2 text-gray-500">{i + 1}</td>
-                                                <td className="px-3 py-2">{row.category}</td>
+                                                <td className="px-3 py-2">
+                                                    <span className={bulkCategory ? 'text-yellow-600 font-medium' : ''}>
+                                                        {bulkCategory || row.category}
+                                                    </span>
+                                                </td>
                                                 <td className="px-3 py-2 font-medium">{row.item_name}</td>
                                                 <td className="px-3 py-2">{row.unit}</td>
                                                 <td className="px-3 py-2 text-right">{row.quantity}</td>
@@ -371,7 +473,7 @@ export function BoqImport({ projectId, onImportComplete, onClose }: BoqImportPro
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 }
 
