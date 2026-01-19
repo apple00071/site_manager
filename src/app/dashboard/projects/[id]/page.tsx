@@ -899,11 +899,9 @@ export default function ProjectDetailsPage() {
             </>
           )}
 
-          {/* STAGE: SNAG (Placeholder) */}
+          {/* STAGE: SNAG */}
           {activeStage === 'snag' && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 min-h-[600px]">
-              <SnagTab projectId={project.id} userId={user?.id || ''} userRole={isAdmin ? 'admin' : 'user'} ref={snagRef} />
-            </div>
+            <SnagTab projectId={project.id} userId={user?.id || ''} userRole={isAdmin ? 'admin' : 'user'} ref={snagRef} />
           )}
 
           {/* STAGE: FINANCE */}

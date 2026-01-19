@@ -137,7 +137,10 @@ export function ProposalBuilder({
                         <h2 className="text-xl font-bold text-gray-900">Create Proposal</h2>
                         <p className="text-sm text-gray-500">Select BOQ items to include in the proposal</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+                    <button
+                        onClick={onClose}
+                        className="flex items-center justify-center w-10 h-10 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
                         <FiX className="w-5 h-5" />
                     </button>
                 </div>

@@ -857,7 +857,13 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                                             </select>
                                             <input type="number" placeholder="Qty" value={item.quantity} onChange={e => updateLineItem(idx, 'quantity', parseFloat(e.target.value))} className="w-20 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all text-sm" />
                                             <input type="number" placeholder="Rate" value={item.rate} onChange={e => updateLineItem(idx, 'rate', parseFloat(e.target.value))} className="w-24 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all text-sm" />
-                                            <button type="button" onClick={() => removeLineItem(idx)} className="text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors"><FiTrash2 /></button>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeLineItem(idx)}
+                                                className="flex items-center justify-center w-10 h-10 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                            >
+                                                <FiTrash2 className="w-4 h-4" />
+                                            </button>
                                         </div>
                                     ))}
                                 </div>

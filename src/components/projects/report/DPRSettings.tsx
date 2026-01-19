@@ -81,7 +81,10 @@ export function DPRSettings({ projectId, onClose }: DPRSettingsProps) {
                     <h2 className="text-lg sm:text-xl font-bold text-gray-900">DPR Settings</h2>
                     <p className="text-xs sm:text-sm text-gray-500">Configure report automation</p>
                 </div>
-                <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
+                <button
+                    onClick={onClose}
+                    className="flex items-center justify-center w-10 h-10 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"
+                >
                     <FiX className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
             </div>
@@ -133,8 +136,12 @@ export function DPRSettings({ projectId, onClose }: DPRSettingsProps) {
                                         </div>
                                     </div>
                                 </div>
-                                <button onClick={() => deleteItem('subscribers', sub.id)} className="p-2 text-gray-400 hover:text-red-500">
-                                    <FiTrash2 />
+                                <button
+                                    onClick={() => deleteItem('subscribers', sub.id)}
+                                    className="flex items-center justify-center w-9 h-9 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                                    title="Delete"
+                                >
+                                    <FiTrash2 className="w-4 h-4" />
                                 </button>
                             </div>
                         ))}

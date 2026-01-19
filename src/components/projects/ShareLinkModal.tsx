@@ -92,7 +92,7 @@ export const ShareLinkModal = ({ projectId, onClose }: ShareLinkModalProps) => {
     return (
         <div className="p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-                <FiExternalLink className="text-amber-500" /> Share Project Live Link
+                <FiExternalLink className="text-amber-500 shrink-0" size={24} /> <span>Share Project Live Link</span>
             </h2>
             <p className="text-sm text-gray-500 mb-6">
                 Generate a secure, read-only link to share with your customer. They'll be able to see photos and progress reports without login.
@@ -114,9 +114,11 @@ export const ShareLinkModal = ({ projectId, onClose }: ShareLinkModalProps) => {
                         </div>
                         <button
                             onClick={handleToggleActive}
-                            className={`p-1.5 rounded-full transition-colors ${access.is_active ? 'text-green-500 bg-green-50 hover:bg-green-100' : 'text-gray-400 bg-gray-100'}`}
+                            className={`flex items-center justify-center w-12 h-12 rounded-full transition-colors ${access.is_active ? 'text-green-500 bg-green-50 hover:bg-green-100' : 'text-gray-400 bg-gray-100'}`}
                         >
-                            {access.is_active ? <FiToggleRight className="w-8 h-8" /> : <FiToggleLeft className="w-8 h-8" />}
+                            <div className="flex items-center justify-center w-full h-full">
+                                {access.is_active ? <FiToggleRight className="w-8 h-8" /> : <FiToggleLeft className="w-8 h-8" />}
+                            </div>
                         </button>
                     </div>
 
@@ -130,14 +132,14 @@ export const ShareLinkModal = ({ projectId, onClose }: ShareLinkModalProps) => {
                                 </div>
                                 <button
                                     onClick={handleCopy}
-                                    className="p-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors flex items-center justify-center min-w-[44px]"
+                                    className="w-11 h-11 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors flex items-center justify-center flex-shrink-0"
                                 >
                                     {copied ? <FiCheck className="w-5 h-5" /> : <FiCopy className="w-5 h-5" />}
                                 </button>
                                 <a
                                     href={publicUrl}
                                     target="_blank"
-                                    className="p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors flex items-center justify-center min-w-[44px]"
+                                    className="w-11 h-11 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors flex items-center justify-center flex-shrink-0"
                                 >
                                     <FiExternalLink className="w-5 h-5" />
                                 </a>
@@ -164,7 +166,7 @@ export const ShareLinkModal = ({ projectId, onClose }: ShareLinkModalProps) => {
                     <button
                         onClick={handleGenerate}
                         disabled={generating}
-                        className="btn-primary"
+                        className="btn-primary mx-auto flex items-center justify-center px-8 h-12"
                     >
                         {generating ? 'Generating...' : 'Generate Live Link'}
                     </button>

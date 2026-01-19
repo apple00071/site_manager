@@ -274,7 +274,10 @@ export function BoqImport({ projectId, onImportComplete, onClose, existingCatego
                 {/* Header */}
                 <div className="px-6 py-4 flex items-center justify-between">
                     <h2 className="text-xl font-bold text-gray-900">Import BOQ Items</h2>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+                    <button
+                        onClick={onClose}
+                        className="flex items-center justify-center w-10 h-10 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
                         <FiX className="w-5 h-5" />
                     </button>
                 </div>

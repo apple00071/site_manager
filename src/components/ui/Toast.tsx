@@ -106,7 +106,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
             <p className="flex-1 text-sm font-medium">{toast.message}</p>
             <button
                 onClick={() => onDismiss(toast.id)}
-                className="flex-shrink-0 p-2.5 -m-1 rounded-lg hover:bg-black/5 transition-colors touch-manipulation"
+                className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-black/5 transition-colors touch-manipulation"
                 aria-label="Dismiss"
             >
                 <FiX className="w-4 h-4" />

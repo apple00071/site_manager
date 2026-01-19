@@ -206,7 +206,11 @@ export function ReportGenerator({ projectId, onClose, onSuccess }: ReportGenerat
                         />
                     </div>
                 </div>
-                <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 ml-2 shrink-0">
+                <button
+                    onClick={onClose}
+                    className="flex items-center justify-center w-10 h-10 hover:bg-gray-100 rounded-full text-gray-500 ml-2 shrink-0 transition-colors"
+                    aria-label="Close"
+                >
                     <FiArrowRight className="w-5 h-5 sm:w-6 sm:h-6 rotate-45" />
                 </button>
             </div>

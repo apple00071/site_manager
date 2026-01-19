@@ -452,8 +452,20 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
                                         if (e.key === 'Escape') { setShowAddCategory(false); setNewCategoryName(''); }
                                     }}
                                 />
-                                <button onClick={addCategory} className="p-1 text-yellow-600 hover:bg-yellow-50 rounded"><FiPlus className="w-4 h-4" /></button>
-                                <button onClick={() => { setShowAddCategory(false); setNewCategoryName(''); }} className="p-1 text-gray-400 hover:text-gray-600"><FiX className="w-4 h-4" /></button>
+                                <button
+                                    onClick={addCategory}
+                                    className="flex items-center justify-center w-8 h-8 text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
+                                    title="Confirm"
+                                >
+                                    <FiPlus className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => { setShowAddCategory(false); setNewCategoryName(''); }}
+                                    className="flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                                    title="Cancel"
+                                >
+                                    <FiX className="w-4 h-4" />
+                                </button>
                             </div>
                         ) : (
                             <button
@@ -514,7 +526,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
                                     </div>
                                     <button
                                         onClick={() => setSelectedItems([])}
-                                        className="p-1.5 text-gray-400 hover:text-white"
+                                        className="flex items-center justify-center w-8 h-8 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors"
                                     >
                                         <FiX className="w-4 h-4" />
                                     </button>

@@ -102,7 +102,10 @@ export const CompareBoqOrderModal: React.FC<CompareBoqOrderModalProps> = ({ isOp
                         <h2 className="text-xl font-bold text-gray-900">BOQ vs Order & Inventory Comparison</h2>
                         <p className="text-sm text-gray-500 mt-1">Compare planned quantities against ordered and received stock.</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-500">
+                    <button
+                        onClick={onClose}
+                        className="flex items-center justify-center w-10 h-10 hover:bg-gray-200 rounded-full transition-colors text-gray-500"
+                    >
                         <FiX className="w-6 h-6" />
                     </button>
                 </div>
@@ -139,8 +142,8 @@ export const CompareBoqOrderModal: React.FC<CompareBoqOrderModalProps> = ({ isOp
                             key={f}
                             onClick={() => setFilter(f)}
                             className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${filter === f
-                                    ? 'bg-gray-900 text-white border-gray-900'
-                                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                                ? 'bg-gray-900 text-white border-gray-900'
+                                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                                 }`}
                         >
                             {f.charAt(0).toUpperCase() + f.slice(1)} Items

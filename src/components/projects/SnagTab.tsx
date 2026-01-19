@@ -309,7 +309,7 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
     const filteredSnags = snags.filter(s => filterStatus === 'all' || s.status === filterStatus);
 
     return (
-        <div className="space-y-6">
+        <div className="bg-white shadow sm:rounded-lg p-4 space-y-6">
             {/* Header & Controls */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
 
@@ -500,7 +500,10 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
                         <div className="p-4 border-b border-gray-100 flex justify-between items-center">
                             <h3 className="text-lg font-bold text-gray-900">{editingSnag ? 'Edit Snag' : 'Report New Snag'}</h3>
-                            <button onClick={() => setShowModal(false)} className="btn-ghost rounded-full">
+                            <button
+                                onClick={() => setShowModal(false)}
+                                className="flex items-center justify-center w-10 h-10 rounded-full text-gray-400 hover:bg-gray-100 transition-colors shadow-none"
+                            >
                                 <FiX className="w-5 h-5" />
                             </button>
                         </div>
@@ -614,7 +617,10 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
                         <div className="p-4 border-b border-gray-100 flex justify-between items-center">
                             <h3 className="text-lg font-bold text-gray-900">Resolve Snag</h3>
-                            <button onClick={() => setShowResolveModal(false)} className="btn-ghost rounded-full">
+                            <button
+                                onClick={() => setShowResolveModal(false)}
+                                className="flex items-center justify-center w-10 h-10 rounded-full text-gray-400 hover:bg-gray-100 transition-colors shadow-none"
+                            >
                                 <FiX className="w-5 h-5" />
                             </button>
                         </div>

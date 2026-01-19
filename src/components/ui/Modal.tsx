@@ -51,7 +51,7 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'max-w-lg' 
                     </h3>
                     <button
                         onClick={onClose}
-                        className="p-2 -mr-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-gray-200"
+                        className="flex items-center justify-center w-8 h-8 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-200"
                     >
                         <FiX className="w-5 h-5" />
                     </button>
