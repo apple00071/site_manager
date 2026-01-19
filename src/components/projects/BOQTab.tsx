@@ -481,20 +481,20 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
 
                 {/* Right Side Controls (View & Filter) */}
                 <div className="flex items-center gap-3 py-2 md:py-0">
-                    <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                    <div className="flex items-center bg-gray-100 rounded-lg p-1 gap-1">
                         <button
                             onClick={() => setViewMode('grid')}
-                            className={`p-1.5 roundedmd transition-all ${viewMode === 'grid' ? 'bg-white shadow text-yellow-600' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`flex items-center justify-center w-8 h-8 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white shadow text-yellow-600' : 'text-gray-500 hover:text-gray-700'}`}
                             title="Grid View"
                         >
-                            <FiGrid className="w-4 h-4" />
+                            <FiGrid size={18} />
                         </button>
                         <button
                             onClick={() => setViewMode('cards')}
-                            className={`p-1.5 rounded-md transition-all ${viewMode === 'cards' ? 'bg-white shadow text-yellow-600' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`flex items-center justify-center w-8 h-8 rounded-md transition-all ${viewMode === 'cards' ? 'bg-white shadow text-yellow-600' : 'text-gray-500 hover:text-gray-700'}`}
                             title="Card View"
                         >
-                            <FiList className="w-4 h-4" />
+                            <FiList size={18} />
                         </button>
                     </div>
 

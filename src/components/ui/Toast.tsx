@@ -82,34 +82,36 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
     };
 
     const styles = {
-        success: 'bg-green-50 border-green-200 text-green-800',
-        error: 'bg-red-50 border-red-200 text-red-800',
-        warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
-        info: 'bg-blue-50 border-blue-200 text-blue-800',
+        success: 'bg-green-50/95 border-green-200 text-green-950',
+        error: 'bg-red-50/95 border-red-200 text-red-950',
+        warning: 'bg-yellow-50/95 border-yellow-200 text-yellow-950',
+        info: 'bg-blue-50/95 border-blue-200 text-blue-950',
     };
 
     const iconStyles = {
-        success: 'text-green-500',
-        error: 'text-red-500',
-        warning: 'text-yellow-500',
-        info: 'text-blue-500',
+        success: 'text-green-600',
+        error: 'text-red-600',
+        warning: 'text-yellow-600',
+        info: 'text-blue-600',
     };
 
     const Icon = icons[toast.type];
 
     return (
         <div
-            className={`pointer-events-auto flex items-start gap-3 p-4 rounded-lg border shadow-lg animate-slide-up ${styles[toast.type]}`}
+            className={`pointer-events-auto flex items-center gap-3 py-3 px-4 rounded-xl border backdrop-blur-md shadow-xl animate-slide-up ring-1 ring-black/5 ${styles[toast.type]}`}
             role="alert"
         >
-            <Icon className={`w-5 h-5 flex-shrink-0 mt-0.5 ${iconStyles[toast.type]}`} />
-            <p className="flex-1 text-sm font-medium">{toast.message}</p>
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full bg-white/50 ${iconStyles[toast.type]}`}>
+                <Icon className="w-4.5 h-4.5" />
+            </div>
+            <p className="flex-1 text-sm font-semibold tracking-tight leading-tight">{toast.message}</p>
             <button
                 onClick={() => onDismiss(toast.id)}
-                className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-black/5 transition-colors touch-manipulation"
+                className="flex items-center justify-center w-7 h-7 rounded-full hover:bg-black/5 transition-colors touch-manipulation flex-shrink-0"
                 aria-label="Dismiss"
             >
-                <FiX className="w-4 h-4" />
+                <FiX className="w-3.5 h-3.5 opacity-60 hover:opacity-100" />
             </button>
         </div>
     );
