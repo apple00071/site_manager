@@ -268,14 +268,15 @@ export default function ProjectsPage() {
           {filteredProjects.map((project, index) => (
             <div
               key={project.id}
-              className="border-b border-gray-100 last:border-b-0 animate-fade-in"
+              className="relative border-b border-gray-100 last:border-b-0 animate-fade-in group hover:bg-gray-50 active:bg-gray-50/80 transition-all duration-200"
               style={{ animationDelay: `${index * 100}ms` }}
             >
+              {/* Main card link (covers entire card) */}
               <Link
                 href={`/dashboard/projects/${project.id}`}
-                className="block p-4 sm:p-5 hover:bg-gray-50 active:bg-gray-100 transition-all duration-200 touch-target"
+                className="block p-4 sm:p-5 pr-16" // Right padding for absolute buttons
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex flex-col gap-3">
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm sm:text-base font-semibold text-gray-900 truncate leading-tight">
                       {project.title}
@@ -294,9 +295,7 @@ export default function ProjectsPage() {
                       {project.phone_number && (
                         <div>
                           <span className="text-gray-500">Phone:</span>
-                          <a href={`tel:${project.phone_number}`} className="ml-1 text-blue-600 hover:text-blue-800 font-medium">
-                            {project.phone_number}
-                          </a>
+                          <span className="ml-1 text-blue-600 font-medium">{project.phone_number}</span>
                         </div>
                       )}
                       {project.property_type && (
@@ -321,11 +320,11 @@ export default function ProjectsPage() {
                       )}
                     </div>
                   </div>
-                  <div className="flex flex-row sm:flex-col items-start sm:items-end gap-2 ml-2">
+                  <div className="flex items-center gap-2">
                     {(() => {
                       const statusConfig = getStatusConfig(project);
                       return (
-                        <span className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap ${statusConfig.bg} ${statusConfig.text}`}>
+                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full whitespace-nowrap ${statusConfig.bg} ${statusConfig.text}`}>
                           {statusConfig.label}
                         </span>
                       );
@@ -334,14 +333,15 @@ export default function ProjectsPage() {
                 </div>
               </Link>
 
-              {/* Action buttons for mobile */}
+              {/* Action buttons (Absolute positioned on top of the card link) */}
               {(canEditProject || canDeleteProject || isAdmin) && (
-                <div className="px-4 sm:px-5 pb-4 flex justify-end gap-2">
+                <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
                   {isAdmin && (
                     <Link
                       href={`/dashboard/projects/${project.id}?share=1`}
-                      className="p-2 text-amber-600 hover:text-amber-700 hover:bg-amber-50 active:bg-amber-100 rounded-xl transition-all duration-200 touch-target"
+                      className="flex items-center justify-center w-10 h-10 text-amber-600 hover:bg-amber-100/50 rounded-xl transition-colors"
                       title="Share Live Link"
+                      onClick={(e) => e.stopPropagation()}
                     >
                       <FiSend className="h-4 w-4" />
                     </Link>
@@ -349,16 +349,21 @@ export default function ProjectsPage() {
                   {canEditProject && (
                     <Link
                       href={`/dashboard/projects/${project.id}/edit`}
-                      className="p-2 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 active:bg-yellow-100 rounded-xl transition-all duration-200 touch-target"
+                      className="flex items-center justify-center w-10 h-10 text-yellow-600 hover:bg-yellow-100/50 rounded-xl transition-colors"
                       title="Edit project"
+                      onClick={(e) => e.stopPropagation()}
                     >
                       <FiEdit2 className="h-4 w-4" />
                     </Link>
                   )}
                   {canDeleteProject && (
                     <button
-                      onClick={() => handleDeleteProject(project.id)}
-                      className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 active:bg-red-100 rounded-xl transition-all duration-200 touch-target"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleDeleteProject(project.id);
+                      }}
+                      className="flex items-center justify-center w-10 h-10 text-red-600 hover:bg-red-100/50 rounded-xl transition-colors"
                       title="Delete project"
                     >
                       <FiTrash2 className="h-4 w-4" />
@@ -368,158 +373,158 @@ export default function ProjectsPage() {
               )}
             </div>
           ))}
-          {projects.length === 0 && (
-            <div className="p-8 sm:p-12 text-center text-gray-500">
-              <FiPlus className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p className="text-sm sm:text-base font-medium">No projects found</p>
-              <p className="text-xs sm:text-sm mt-1">Create your first project to get started</p>
-            </div>
-          )}
         </div>
+        {projects.length === 0 && (
+          <div className="p-8 sm:p-12 text-center text-gray-500">
+            <FiPlus className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+            <p className="text-sm sm:text-base font-medium">No projects found</p>
+            <p className="text-xs sm:text-sm mt-1">Create your first project to get started</p>
+          </div>
+        )}
+      </div>
 
-        {/* Desktop view - table */}
-        <div className="hidden lg:block overflow-visible">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
-                  #
-                </th>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Project Name
-                </th>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Customer
-                </th>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Flat No
-                </th>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Phone
-                </th>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Start Date
-                </th>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Est. Completion
-                </th>
-                <th scope="col" className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-100">
-              {filteredProjects.map((project, index) => (
-                <tr key={project.id} className="hover:bg-gray-50 transition-colors cursor-pointer group">
-                  {/* Row number */}
-                  <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {index + 1}
-                  </td>
+      {/* Desktop view - table */}
+      <div className="hidden lg:block overflow-visible">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                #
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Project Name
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Customer
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Flat No
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Phone
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Start Date
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Est. Completion
+              </th>
+              <th scope="col" className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-100">
+            {filteredProjects.map((project, index) => (
+              <tr key={project.id} className="hover:bg-gray-50 transition-colors cursor-pointer group">
+                {/* Row number */}
+                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {index + 1}
+                </td>
 
-                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-4 py-4">
-                    <div className="text-sm font-semibold text-gray-900">{project.title}</div>
-                  </td>
-                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{project.customer_name || 'N/A'}</div>
-                  </td>
-                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{project.flat_number || '-'}</div>
-                  </td>
-                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{project.phone_number || '-'}</div>
-                  </td>
-                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap">
-                    {(() => {
-                      const statusConfig = getStatusConfig(project);
-                      return (
-                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${statusConfig.bg} ${statusConfig.text}`}>
-                          {statusConfig.label}
-                        </span>
-                      );
-                    })()}
-                  </td>
-                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
-                    {project.start_date ? formatDateIST(project.start_date) : '-'}
-                  </td>
-                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
-                    {project.estimated_completion_date ? formatDateIST(project.estimated_completion_date) : '-'}
-                  </td>
-                  <td className="px-3 py-3 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="relative">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveDropdown(activeDropdown === project.id ? null : project.id);
-                        }}
-                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                      >
-                        <FiMoreVertical className="w-5 h-5" />
-                      </button>
+                <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-4 py-4">
+                  <div className="text-sm font-semibold text-gray-900">{project.title}</div>
+                </td>
+                <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap">
+                  <div className="text-sm text-gray-900">{project.customer_name || 'N/A'}</div>
+                </td>
+                <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap">
+                  <div className="text-sm text-gray-900">{project.flat_number || '-'}</div>
+                </td>
+                <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap">
+                  <div className="text-sm text-gray-900">{project.phone_number || '-'}</div>
+                </td>
+                <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap">
+                  {(() => {
+                    const statusConfig = getStatusConfig(project);
+                    return (
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${statusConfig.bg} ${statusConfig.text}`}>
+                        {statusConfig.label}
+                      </span>
+                    );
+                  })()}
+                </td>
+                <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
+                  {project.start_date ? formatDateIST(project.start_date) : '-'}
+                </td>
+                <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
+                  {project.estimated_completion_date ? formatDateIST(project.estimated_completion_date) : '-'}
+                </td>
+                <td className="px-3 py-3 whitespace-nowrap text-right text-sm font-medium">
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveDropdown(activeDropdown === project.id ? null : project.id);
+                      }}
+                      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                    >
+                      <FiMoreVertical className="w-5 h-5" />
+                    </button>
 
-                      {/* Dropdown Menu */}
-                      {activeDropdown === project.id && (
-                        <div className="absolute right-0 bottom-full mb-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                    {/* Dropdown Menu */}
+                    {activeDropdown === project.id && (
+                      <div className="absolute right-0 bottom-full mb-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                        <Link
+                          href={`/dashboard/projects/${project.id}`}
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <FiEye className="w-4 h-4" />
+                          View Details
+                        </Link>
+                        {isAdmin && (
                           <Link
-                            href={`/dashboard/projects/${project.id}`}
-                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                            href={`/dashboard/projects/${project.id}?share=1`}
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50"
                           >
-                            <FiEye className="w-4 h-4" />
-                            View Details
+                            <FiSend className="w-4 h-4" />
+                            Share Live Link
                           </Link>
-                          {isAdmin && (
-                            <Link
-                              href={`/dashboard/projects/${project.id}?share=1`}
-                              className="flex items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50"
-                            >
-                              <FiSend className="w-4 h-4" />
-                              Share Live Link
-                            </Link>
-                          )}
-                          {(canEditProject || canDeleteProject) && (
-                            <>
-                              {canEditProject && (
-                                <Link
-                                  href={`/dashboard/projects/${project.id}/edit`}
-                                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                >
-                                  <FiEdit2 className="w-4 h-4" />
-                                  Edit Project
-                                </Link>
-                              )}
-                              {canDeleteProject && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteProject(project.id);
-                                    setActiveDropdown(null);
-                                  }}
-                                  className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                                >
-                                  <FiTrash2 className="w-4 h-4" />
-                                  Delete Project
-                                </button>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {projects.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
-                    <p className="text-base">No projects found</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                        )}
+                        {(canEditProject || canDeleteProject) && (
+                          <>
+                            {canEditProject && (
+                              <Link
+                                href={`/dashboard/projects/${project.id}/edit`}
+                                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                <FiEdit2 className="w-4 h-4" />
+                                Edit Project
+                              </Link>
+                            )}
+                            {canDeleteProject && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteProject(project.id);
+                                  setActiveDropdown(null);
+                                }}
+                                className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                              >
+                                <FiTrash2 className="w-4 h-4" />
+                                Delete Project
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {projects.length === 0 && (
+              <tr>
+                <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                  <p className="text-base">No projects found</p>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

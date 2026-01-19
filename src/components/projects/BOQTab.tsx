@@ -499,23 +499,127 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
                 </div>
             </div>
 
-            {/* Bulk Actions */}
+            {/* Bulk Actions - Mobile: Compact fixed bar, Desktop: Centered floating bar */}
             {
                 selectedItems.length > 0 && canCreateProposal && (
-                    <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-50 flex items-center gap-2 bg-gray-900 text-white px-2 py-1.5 rounded-lg shadow-xl animate-in slide-in-from-bottom-4 duration-200 border border-gray-800">
-                        {/* Selected Count */}
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 rounded-md">
-                            <FiCheckCircle className="w-4 h-4 text-emerald-400" />
-                            <span className="text-sm font-medium whitespace-nowrap">
-                                {selectedItems.length} Selected
-                            </span>
+                    <>
+                        {/* Mobile Bulk Actions - Simplified compact bar */}
+                        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-gray-900 text-white px-3 py-2 border-t border-gray-700 safe-area-bottom">
+                            <div className="flex items-center justify-between gap-1">
+                                {/* Left: Selected count + Clear */}
+                                <div className="flex items-center gap-1">
+                                    <div className="flex items-center gap-1 px-2 py-1 bg-gray-800 rounded-md">
+                                        <FiCheckCircle className="w-3 h-3 text-emerald-400" />
+                                        <span className="text-xs font-medium">{selectedItems.length}</span>
+                                    </div>
+                                    <button
+                                        onClick={() => setSelectedItems([])}
+                                        className="p-1.5 text-gray-400 hover:text-white"
+                                    >
+                                        <FiX className="w-4 h-4" />
+                                    </button>
+                                </div>
+
+                                {/* Right: Primary actions */}
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        onClick={() => { setShowBulkCategory(!showBulkCategory); setShowBulkStatus(false); }}
+                                        className="flex items-center gap-1 px-2 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-md text-xs font-medium"
+                                    >
+                                        <FiFolder className="w-3 h-3 text-yellow-400" />
+                                        Cat
+                                    </button>
+                                    <button
+                                        onClick={() => { setShowBulkStatus(!showBulkStatus); setShowBulkCategory(false); }}
+                                        className="flex items-center gap-1 px-2 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-md text-xs font-medium"
+                                    >
+                                        <FiRefreshCw className="w-3 h-3 text-emerald-400" />
+                                        Status
+                                    </button>
+                                    <button
+                                        onClick={() => setShowProposal(true)}
+                                        className="flex items-center gap-1 px-2.5 py-1.5 bg-yellow-500 hover:bg-yellow-600 rounded-md text-xs font-medium"
+                                    >
+                                        <FiSend className="w-3 h-3" />
+                                        Proposal
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Mobile Category Dropdown - appears above the bar */}
+                            {showBulkCategory && (
+                                <>
+                                    <div className="fixed inset-0 z-40" onClick={() => setShowBulkCategory(false)} />
+                                    <div className="absolute bottom-full left-0 right-0 mb-0 bg-gray-900 border-t border-gray-700 rounded-t-xl p-3 z-50 max-h-60 overflow-y-auto">
+                                        <div className="text-xs font-semibold text-gray-400 mb-2 uppercase">Change Category:</div>
+                                        <input
+                                            type="text"
+                                            value={newBulkCategory}
+                                            onChange={(e) => setNewBulkCategory(e.target.value)}
+                                            placeholder="New category name..."
+                                            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-sm text-white mb-2 focus:border-yellow-500 outline-none"
+                                        />
+                                        <div className="flex flex-wrap gap-1.5 mb-3">
+                                            {categories.map(cat => (
+                                                <button
+                                                    key={cat}
+                                                    onClick={() => setNewBulkCategory(cat)}
+                                                    className={`px-2.5 py-1.5 text-xs rounded-md transition-colors ${newBulkCategory === cat
+                                                        ? 'bg-yellow-500 text-white'
+                                                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                                                        }`}
+                                                >
+                                                    {cat}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <button
+                                            onClick={() => { handleBulkCategoryUpdate(); setShowBulkCategory(false); }}
+                                            disabled={!newBulkCategory.trim()}
+                                            className="w-full py-2.5 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-white text-sm font-bold rounded-lg"
+                                        >
+                                            Apply to {selectedItems.length} Items
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Mobile Status Dropdown - appears above the bar */}
+                            {showBulkStatus && (
+                                <>
+                                    <div className="fixed inset-0 z-40" onClick={() => setShowBulkStatus(false)} />
+                                    <div className="absolute bottom-full left-0 right-0 mb-0 bg-gray-900 border-t border-gray-700 rounded-t-xl p-3 z-50">
+                                        <div className="text-xs font-semibold text-gray-400 mb-2 uppercase">Change Status:</div>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {STATUSES.map(s => (
+                                                <button
+                                                    key={s}
+                                                    onClick={() => handleBulkStatusUpdate(s)}
+                                                    className="py-2.5 text-sm bg-gray-800 hover:bg-yellow-500 rounded-lg transition-colors capitalize"
+                                                >
+                                                    {s}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
 
-                        {/* Divider */}
-                        <div className="h-6 w-px bg-gray-700 mx-1"></div>
+                        {/* Desktop Bulk Actions - Original centered floating bar */}
+                        <div className="hidden md:flex fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 items-center gap-2 bg-gray-900 text-white px-2 py-1.5 rounded-lg shadow-xl animate-in slide-in-from-bottom-4 duration-200 border border-gray-800">
+                            {/* Selected Count */}
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 rounded-md">
+                                <FiCheckCircle className="w-4 h-4 text-emerald-400" />
+                                <span className="text-sm font-medium whitespace-nowrap">
+                                    {selectedItems.length} Selected
+                                </span>
+                            </div>
 
-                        {/* Move to Proposal */}
-                        <div className="relative group">
+                            {/* Divider */}
+                            <div className="h-6 w-px bg-gray-700 mx-1"></div>
+
+                            {/* Move to Proposal */}
                             <button
                                 onClick={() => setShowProposal(true)}
                                 className="flex items-center gap-2 px-4 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-md transition-colors shadow-sm"
@@ -523,109 +627,108 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
                                 <FiSend className="w-4 h-4" />
                                 <span className="text-sm font-medium">Proposal</span>
                             </button>
-                        </div>
 
-                        {/* Change Category */}
-                        <div className="relative">
+                            {/* Change Category */}
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowBulkCategory(!showBulkCategory)}
+                                    className="flex items-center gap-2 px-4 py-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-md transition-colors border border-gray-700"
+                                >
+                                    <FiFolder className="w-4 h-4 text-yellow-400" />
+                                    <span className="text-sm font-medium whitespace-nowrap">Category</span>
+                                    <FiChevronDown className={`w-3 h-3 transition-transform ${showBulkCategory ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                {showBulkCategory && (
+                                    <div className="absolute bottom-full mb-2 left-0 w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl p-3 animate-in fade-in slide-in-from-bottom-2">
+                                        <div className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">Change Category To:</div>
+                                        <input
+                                            type="text"
+                                            value={newBulkCategory}
+                                            onChange={(e) => setNewBulkCategory(e.target.value)}
+                                            placeholder="New Category Name..."
+                                            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-sm text-white mb-3 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 outline-none"
+                                            autoFocus
+                                        />
+                                        <div className="flex flex-wrap gap-1.5 mb-3 max-h-32 overflow-y-auto no-scrollbar">
+                                            {categories.map(cat => (
+                                                <button
+                                                    key={cat}
+                                                    onClick={() => setNewBulkCategory(cat)}
+                                                    className={`px-2 py-1 text-[10px] rounded border transition-colors ${newBulkCategory === cat
+                                                        ? 'bg-yellow-500 text-white border-yellow-600'
+                                                        : 'bg-gray-800 text-gray-300 border-gray-700 hover:border-gray-500'
+                                                        }`}
+                                                >
+                                                    {cat}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <button
+                                            onClick={handleBulkCategoryUpdate}
+                                            disabled={!newBulkCategory.trim()}
+                                            className="w-full py-2 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-white text-sm font-bold rounded-md transition-colors"
+                                        >
+                                            Apply to {selectedItems.length} Items
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Change Status */}
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowBulkStatus(!showBulkStatus)}
+                                    className="flex items-center gap-2 px-4 py-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-md transition-colors border border-gray-700"
+                                >
+                                    <FiRefreshCw className={`w-4 h-4 text-emerald-400 ${loading ? 'animate-spin' : ''}`} />
+                                    <span className="text-sm font-medium whitespace-nowrap">Status</span>
+                                    <FiChevronDown className={`w-3 h-3 transition-transform ${showBulkStatus ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                {showBulkStatus && (
+                                    <div className="absolute bottom-full mb-2 left-0 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+                                        <div className="text-xs font-semibold text-gray-400 p-3 bg-gray-800/50 border-b border-gray-700 uppercase tracking-wider">Change Status To:</div>
+                                        <div className="py-1">
+                                            {STATUSES.map(s => (
+                                                <button
+                                                    key={s}
+                                                    onClick={() => handleBulkStatusUpdate(s)}
+                                                    className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-yellow-500 hover:text-white transition-colors flex items-center gap-2 capitalize"
+                                                >
+                                                    <div className={`w-2 h-2 rounded-full ${s === 'draft' ? 'bg-yellow-400' :
+                                                        s === 'confirmed' ? 'bg-emerald-400' : 'bg-blue-400'
+                                                        }`} />
+                                                    {s}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Select All */}
                             <button
-                                onClick={() => setShowBulkCategory(!showBulkCategory)}
-                                className="flex items-center gap-2 px-4 py-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-md transition-colors border border-gray-700"
+                                onClick={() => {
+                                    const allIds = filteredItems.map(i => i.id);
+                                    setSelectedItems(allIds);
+                                }}
+                                className="flex items-center gap-2 px-3 py-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition-colors ml-1"
                             >
-                                <FiFolder className="w-4 h-4 text-yellow-400" />
-                                <span className="text-sm font-medium whitespace-nowrap">Category</span>
-                                <FiChevronDown className={`w-3 h-3 transition-transform ${showBulkCategory ? 'rotate-180' : ''}`} />
+                                <FiGrid className="w-4 h-4" />
+                                <span className="text-sm font-medium whitespace-nowrap">Select All</span>
                             </button>
 
-                            {showBulkCategory && (
-                                <div className="absolute bottom-full mb-2 left-0 w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl p-3 animate-in fade-in slide-in-from-bottom-2">
-                                    <div className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">Change Category To:</div>
-                                    <input
-                                        type="text"
-                                        value={newBulkCategory}
-                                        onChange={(e) => setNewBulkCategory(e.target.value)}
-                                        placeholder="New Category Name..."
-                                        className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-sm text-white mb-3 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 outline-none"
-                                        autoFocus
-                                    />
-                                    <div className="flex flex-wrap gap-1.5 mb-3 max-h-32 overflow-y-auto no-scrollbar">
-                                        {categories.map(cat => (
-                                            <button
-                                                key={cat}
-                                                onClick={() => setNewBulkCategory(cat)}
-                                                className={`px-2 py-1 text-[10px] rounded border transition-colors ${newBulkCategory === cat
-                                                    ? 'bg-yellow-500 text-white border-yellow-600'
-                                                    : 'bg-gray-800 text-gray-300 border-gray-700 hover:border-gray-500'
-                                                    }`}
-                                            >
-                                                {cat}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <button
-                                        onClick={handleBulkCategoryUpdate}
-                                        disabled={!newBulkCategory.trim()}
-                                        className="w-full py-2 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-white text-sm font-bold rounded-md transition-colors"
-                                    >
-                                        Apply to {selectedItems.length} Items
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Change Status */}
-                        <div className="relative">
+                            {/* Clear All */}
                             <button
-                                onClick={() => setShowBulkStatus(!showBulkStatus)}
-                                className="flex items-center gap-2 px-4 py-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-md transition-colors border border-gray-700"
+                                onClick={() => setSelectedItems([])}
+                                className="flex items-center gap-2 px-3 py-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition-colors"
                             >
-                                <FiRefreshCw className={`w-4 h-4 text-emerald-400 ${loading ? 'animate-spin' : ''}`} />
-                                <span className="text-sm font-medium whitespace-nowrap">Status</span>
-                                <FiChevronDown className={`w-3 h-3 transition-transform ${showBulkStatus ? 'rotate-180' : ''}`} />
+                                <FiX className="w-4 h-4" />
+                                <span className="text-sm font-medium whitespace-nowrap">Clear</span>
                             </button>
-
-                            {showBulkStatus && (
-                                <div className="absolute bottom-full mb-2 left-0 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2">
-                                    <div className="text-xs font-semibold text-gray-400 p-3 bg-gray-800/50 border-b border-gray-700 uppercase tracking-wider">Change Status To:</div>
-                                    <div className="py-1">
-                                        {STATUSES.map(s => (
-                                            <button
-                                                key={s}
-                                                onClick={() => handleBulkStatusUpdate(s)}
-                                                className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-yellow-500 hover:text-white transition-colors flex items-center gap-2 capitalize"
-                                            >
-                                                <div className={`w-2 h-2 rounded-full ${s === 'draft' ? 'bg-yellow-400' :
-                                                    s === 'confirmed' ? 'bg-emerald-400' : 'bg-blue-400'
-                                                    }`} />
-                                                {s}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
                         </div>
-
-                        {/* Select All */}
-                        <button
-                            onClick={() => {
-                                // Select all visible items
-                                const allIds = filteredItems.map(i => i.id);
-                                setSelectedItems(allIds);
-                            }}
-                            className="flex items-center gap-2 px-3 py-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition-colors ml-1"
-                        >
-                            <FiGrid className="w-4 h-4" />
-                            <span className="text-sm font-medium whitespace-nowrap">Select All</span>
-                        </button>
-
-                        {/* Clear All */}
-                        <button
-                            onClick={() => setSelectedItems([])}
-                            className="flex items-center gap-2 px-3 py-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition-colors"
-                        >
-                            <FiX className="w-4 h-4" />
-                            <span className="text-sm font-medium whitespace-nowrap">Clear All</span>
-                        </button>
-                    </div>
+                    </>
                 )
             }
 

@@ -64,7 +64,7 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
     if (toasts.length === 0) return null;
 
     return (
-        <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 z-[100] flex flex-col gap-2 sm:max-w-sm sm:w-full pointer-events-none">
             {toasts.map(toast => (
                 <ToastItem key={toast.id} toast={toast} onDismiss={onDismiss} />
             ))}
@@ -106,7 +106,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
             <p className="flex-1 text-sm font-medium">{toast.message}</p>
             <button
                 onClick={() => onDismiss(toast.id)}
-                className="flex-shrink-0 p-1 rounded hover:bg-black/5 transition-colors"
+                className="flex-shrink-0 p-2.5 -m-1 rounded-lg hover:bg-black/5 transition-colors touch-manipulation"
                 aria-label="Dismiss"
             >
                 <FiX className="w-4 h-4" />

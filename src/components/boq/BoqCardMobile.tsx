@@ -143,7 +143,7 @@ export function BoqCardMobile({
             {items.map(item => (
                 <div
                     key={item.id}
-                    className={`bg-white rounded-xl shadow-sm overflow-visible transition-all relative ${selectedItems.includes(item.id) ? 'ring-2 ring-yellow-400 border-transparent' : 'border border-gray-100'
+                    className={`bg-white rounded-xl shadow-sm overflow-visible transition-all relative border ${selectedItems.includes(item.id) ? 'border-yellow-400 bg-yellow-50/50' : 'border-gray-100'
                         }`}
                 >
                     <div className="p-3">
@@ -176,13 +176,13 @@ export function BoqCardMobile({
                                     </p>
                                 </div>
                                 {isAdmin && (
-                                    <div className="relative">
+                                    <div className="relative self-center">
                                         <button
                                             onClick={() => setOpenMenuId(openMenuId === item.id ? null : item.id)}
-                                            className="p-1 hover:bg-gray-100 rounded focus:outline-none"
+                                            className="w-6 h-6 flex items-center justify-center hover:bg-gray-100 rounded"
                                             aria-label="More options"
                                         >
-                                            <FiMoreVertical className="w-4 h-4 text-gray-600" />
+                                            <FiMoreVertical className="w-4 h-4 text-gray-400" />
                                         </button>
 
                                         {/* Dropdown Menu */}

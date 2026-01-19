@@ -96,17 +96,24 @@ export function ProjectHeader({ title, jobId, status, customerName, onBack, user
                             <h1 className="text-lg font-bold text-gray-900 truncate leading-snug">
                                 {title}
                             </h1>
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xs text-gray-500 truncate max-w-[120px] sm:max-w-[200px]">
-                                {customerName}
+                            {/* Mobile: Show compact status badge next to title */}
+                            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight flex-shrink-0 ${getStatusColor(status)}`}>
+                                {(() => {
+                                    // Abbreviated status for mobile
+                                    const s = status?.toLowerCase() || '';
+                                    if (s === 'execution_phase' || s === 'in_progress') return 'EXEC';
+                                    if (s === 'design_phase') return 'DESIGN';
+                                    if (s === 'completed') return 'DONE';
+                                    if (s === 'on_hold') return 'HOLD';
+                                    if (s === 'cancelled') return 'X';
+                                    // Default: first 4 chars
+                                    return (status?.replace(/_/g, ' ').slice(0, 5) || '?').toUpperCase();
+                                })()}
                             </span>
-                            <span className="text-gray-300">•</span>
-                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${getStatusColor(status)}`}>
-                                {getStatusIcon(status)}
-                                {displayStatus}
-                            </span>
                         </div>
+                        <span className="text-xs text-gray-500 truncate block mt-0.5">
+                            {customerName}
+                        </span>
                     </div>
                 </div>
             </div>

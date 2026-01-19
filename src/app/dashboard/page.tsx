@@ -314,7 +314,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats - Compact Single Row */}
-      <div className="grid grid-cols-2 xs:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3">
         {/* Project Stats */}
         <Link href="/dashboard/projects?status=all" className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
           <div className="flex items-center gap-2">

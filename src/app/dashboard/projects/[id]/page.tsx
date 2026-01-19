@@ -187,11 +187,23 @@ export default function ProjectDetailsPage() {
       const status = project.status;
       const displayStatus = getStatusLabel(status);
       const StatusBadge = (
-        <div className="flex items-center gap-2 text-sm">
-          <span className="hidden sm:inline text-gray-500">Project Status:</span>
-          <span className={`px-2 py-0.5 rounded-full font-medium text-xs flex items-center gap-1 ${getStatusColor(status)}`}>
+        <div className="flex items-center gap-1 sm:gap-2 text-sm">
+          <span className="hidden lg:inline text-gray-500">Project Status:</span>
+          {/* Desktop/Tablet Status */}
+          <span className={`hidden sm:flex px-2 py-0.5 rounded-full font-medium text-xs items-center gap-1 ${getStatusColor(status)}`}>
             {displayStatus}
             {status === 'completed' ? <FiCheckCircle className="w-3 h-3" /> : <FiClock className="w-3 h-3" />}
+          </span>
+          {/* Mobile Status - Abbreviated */}
+          <span className={`sm:hidden px-1.5 py-0.5 rounded text-[10px] font-bold ${getStatusColor(status)}`}>
+            {(() => {
+              const s = status?.toLowerCase() || '';
+              if (s === 'in_progress') return 'EXEC';
+              if (s === 'pending') return 'DESIGN';
+              if (s === 'completed') return 'DONE';
+              if (s === 'on_hold') return 'HOLD';
+              return s.slice(0, 4).toUpperCase();
+            })()}
           </span>
         </div>
       );

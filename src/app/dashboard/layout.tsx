@@ -243,20 +243,38 @@ function DashboardLayoutContent({
             </div>
 
             {/* Right side: Status + Actions + Notification */}
-            <div className="flex items-center gap-2 sm:gap-3 ml-2 sm:ml-4 shrink-0">
+            <div className="flex items-center gap-2 lg:gap-3 ml-auto shrink-0">
               {/* Project Status or Subtitle */}
               {subtitle && (
-                <div className="flex items-center gap-2 text-sm">
+                <div className="flex items-center text-sm">
                   {typeof subtitle === 'string' ? (
                     <>
-                      {pathname?.startsWith('/dashboard/projects/') && (
-                        <span className="hidden sm:inline text-gray-500">Project Status:</span>
-                      )}
-                      <span className={`px-2 py-0.5 rounded-full font-medium text-xs ${pathname?.startsWith('/dashboard/projects/')
+                      {/* Large screens: full status with label */}
+                      <div className="hidden lg:flex items-center gap-2">
+                        {pathname?.startsWith('/dashboard/projects/') && (
+                          <span className="text-gray-500">Status:</span>
+                        )}
+                        <span className={`px-2 py-0.5 rounded-full font-medium text-xs ${pathname?.startsWith('/dashboard/projects/')
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-yellow-50 text-yellow-700 border border-yellow-100'
+                          }`}>
+                          {subtitle}
+                        </span>
+                      </div>
+                      {/* Mobile/Tablet: compact abbreviated status */}
+                      <span className={`lg:hidden px-1 py-0.5 rounded text-[8px] font-bold tracking-tight ${pathname?.startsWith('/dashboard/projects/')
                         ? 'bg-blue-100 text-blue-700'
-                        : 'bg-yellow-50 text-yellow-700 border border-yellow-100'
+                        : 'bg-yellow-50 text-yellow-700'
                         }`}>
-                        {subtitle}
+                        {(() => {
+                          const s = subtitle.toLowerCase().replace(/\s+/g, '_');
+                          if (s.includes('execution') || s === 'in_progress') return 'EXEC';
+                          if (s.includes('design')) return 'DSN';
+                          if (s.includes('complet') || s === 'done') return 'DONE';
+                          if (s.includes('hold')) return 'HOLD';
+                          if (s.includes('cancel')) return 'X';
+                          return subtitle.slice(0, 3).toUpperCase();
+                        })()}
                       </span>
                     </>
                   ) : (
@@ -285,65 +303,67 @@ function DashboardLayoutContent({
                 ))}
               </div>
 
-              <OptimizedNotificationBell />
+              {/* Bell + Avatar group - tightly packed */}
+              <div className="flex items-center">
+                <OptimizedNotificationBell />
 
-              {/* User Avatar with Dropdown */}
-              {user && (
-                <div className="relative ml-2">
-                  <button
-                    onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className="flex items-center gap-2 pl-3 border-l border-gray-200 hover:opacity-80 transition-opacity"
-                  >
-                    <div className="h-8 w-8 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-2 ring-white">
-                      {(user.full_name || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
-                    </div>
-                    <span className="text-sm font-medium text-gray-700 hidden xl:block">{user.full_name || user.email?.split('@')[0] || 'User'}</span>
-                  </button>
-
-                  {/* User Dropdown */}
-                  {userMenuOpen && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-10"
-                        onClick={() => setUserMenuOpen(false)}
-                      />
-                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-20 animate-in fade-in zoom-in-95 duration-200">
-                        <div className="px-4 py-3 border-b border-gray-100">
-                          <p className="text-sm font-medium text-gray-900 truncate">{user.full_name || 'User'}</p>
-                          <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                        </div>
-
-                        <Link
-                          href="/dashboard/settings"
-                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                          onClick={() => setUserMenuOpen(false)}
-                        >
-                          <FiSettings className="w-4 h-4 text-gray-400" />
-                          Settings
-                        </Link>
-
-                        <div className="border-t border-gray-100 my-1"></div>
-
-                        <button
-                          onClick={() => {
-                            setUserMenuOpen(false);
-                            handleSignOut();
-                          }}
-                          className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                        >
-                          <FiLogOut className="w-4 h-4" />
-                          Sign out
-                        </button>
+                {/* User Avatar with Dropdown */}
+                {user && (
+                  <div className="relative ml-0.5 lg:ml-1.5">
+                    <button
+                      onClick={() => setUserMenuOpen(!userMenuOpen)}
+                      className="flex items-center justify-center w-10 h-10 lg:w-auto lg:h-auto lg:gap-2 pl-0 lg:pl-3 border-none lg:border-l lg:border-gray-200 hover:opacity-80 transition-opacity"
+                    >
+                      <div className="h-8 w-8 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-2 ring-white">
+                        {(user.full_name || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
                       </div>
-                    </>
-                  )}
-                </div>
-              )}
+                      <span className="text-sm font-medium text-gray-700 hidden xl:block">{user.full_name || user.email?.split('@')[0] || 'User'}</span>
+                    </button>
+
+                    {/* User Dropdown */}
+                    {userMenuOpen && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-10"
+                          onClick={() => setUserMenuOpen(false)}
+                        />
+                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-20 animate-in fade-in zoom-in-95 duration-200">
+                          <div className="px-4 py-3 border-b border-gray-100">
+                            <p className="text-sm font-medium text-gray-900 truncate">{user.full_name || 'User'}</p>
+                            <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                          </div>
+
+                          <Link
+                            href="/dashboard/settings"
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                            onClick={() => setUserMenuOpen(false)}
+                          >
+                            <FiSettings className="w-4 h-4 text-gray-400" />
+                            Settings
+                          </Link>
+
+                          <div className="border-t border-gray-100 my-1"></div>
+
+                          <button
+                            onClick={() => {
+                              setUserMenuOpen(false);
+                              handleSignOut();
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            <FiLogOut className="w-4 h-4" />
+                            Sign out
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-
-
         </header>
+
 
         {/* Portal Target for Project Navigation */}
         <div id="project-navigation-portal" className="sticky top-[50px] z-20 bg-white w-full shadow-sm" />

@@ -162,17 +162,17 @@ export function PdfViewer({
                 </div>
 
                 {/* Zoom Controls */}
-                <div className="flex items-center gap-1 bg-gray-600 rounded-lg px-2 py-1">
-                    <button onClick={zoomOut} className="p-1 text-gray-300 hover:text-white">
+                <div className="flex items-center gap-1.5 bg-gray-600 rounded-lg px-2 py-1">
+                    <button onClick={zoomOut} className="p-1.5 text-gray-300 hover:text-white rounded">
                         <FiZoomOut className="w-4 h-4" />
                     </button>
                     <span className="text-white text-sm font-medium min-w-[50px] text-center">
                         {Math.round(scale * 100)}%
                     </span>
-                    <button onClick={zoomIn} className="p-1 text-gray-300 hover:text-white">
+                    <button onClick={zoomIn} className="p-1.5 text-gray-300 hover:text-white rounded">
                         <FiZoomIn className="w-4 h-4" />
                     </button>
-                    <button onClick={resetZoom} className="p-1 text-gray-300 hover:text-white ml-1">
+                    <button onClick={resetZoom} className="p-1.5 text-gray-300 hover:text-white rounded">
                         <FiMaximize2 className="w-4 h-4" />
                     </button>
                 </div>
