@@ -2,7 +2,7 @@
 
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { useEffect, useState } from 'react';
-import { FiPlus, FiFilter, FiCheckCircle, FiClock, FiAlertTriangle, FiUser, FiMapPin, FiCamera, FiX, FiInfo } from 'react-icons/fi';
+import { FiPlus, FiFilter, FiCheckCircle, FiClock, FiAlertTriangle, FiUser, FiMapPin, FiCamera, FiX, FiInfo, FiSend } from 'react-icons/fi';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -535,6 +535,18 @@ export default function SnagsPage() {
 
                             {/* Card Actions */}
                             <div className="p-3 bg-gray-50 border-t border-gray-100 flex justify-end gap-2">
+                                {snag.status === 'closed' && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            window.open(`/api/snags/${snag.id}/report`, '_blank');
+                                        }}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
+                                    >
+                                        <FiSend className="w-3.5 h-3.5" />
+                                        Share Report
+                                    </button>
+                                )}
                                 {['open', 'assigned'].includes(snag.status) && canResolve && (user?.id === snag.assigned_to_user?.id || isAdmin) && (
                                     <button
                                         onClick={(e) => {

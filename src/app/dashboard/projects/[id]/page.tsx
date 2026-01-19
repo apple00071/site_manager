@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { formatDateIST } from '@/lib/dateUtils';
-import { FiClock, FiLayers, FiImage, FiEdit2, FiTrash2, FiX, FiPlus, FiUpload, FiSend, FiColumns, FiCheckCircle, FiArrowLeft } from 'react-icons/fi';
+import { FiClock, FiLayers, FiImage, FiEdit2, FiTrash2, FiX, FiPlus, FiUpload, FiSend, FiColumns, FiCheckCircle, FiArrowLeft, FiFileText } from 'react-icons/fi';
 import { EditProjectModal } from '@/components/projects/EditProjectModal';
 import type { BOQTabHandle } from '@/components/projects/BOQTab';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -88,6 +88,7 @@ const ProposalBuilder = dynamic(() => import('@/components/boq/ProposalBuilder')
 import { StageNavigator, StageId, ActionItem, StageStatus } from '@/components/projects/navigation/StageNavigator';
 import { SubTabNav, STAGE_SUB_TABS, getDefaultSubTab } from '@/components/projects/navigation/SubTabNav';
 import { ProjectUsersPanel } from '@/components/projects/ProjectUsersPanel';
+import { ShareLinkModal } from '@/components/projects/ShareLinkModal';
 
 export default function ProjectDetailsPage() {
   const { id } = useParams();
@@ -114,6 +115,7 @@ export default function ProjectDetailsPage() {
   const siteLogRef = useRef<any>(null);
   const snagRef = useRef<SnagTabHandle>(null);
   const reportRef = useRef<any>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
 
 
 
@@ -155,6 +157,13 @@ export default function ProjectDetailsPage() {
 
 
 
+  // Auto-open share modal if URL has ?share=1
+  useEffect(() => {
+    if (searchParams.get('share') === '1' && project) {
+      setShowShareModal(true);
+    }
+  }, [searchParams, project]);
+
   // Header Context Logic
   useEffect(() => {
     if (project) {
@@ -192,6 +201,15 @@ export default function ProjectDetailsPage() {
           <div className="flex items-center text-gray-900 text-sm font-semibold">
             {project.title}
           </div>
+          {permIsAdmin && (
+            <button
+              onClick={() => setShowShareModal(true)}
+              className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-full transition-colors"
+              title="Share Live Link"
+            >
+              <FiSend className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       );
 
@@ -267,6 +285,11 @@ export default function ProjectDetailsPage() {
           label: 'Raise Snag',
           onClick: () => snagRef.current?.openAddSnag(),
           icon: <FiPlus className="w-4 h-4" />
+        },
+        {
+          label: 'Export Snag Report',
+          onClick: () => snagRef.current?.exportSnagReport(),
+          icon: <FiFileText className="w-4 h-4" />
         }
       ];
     }
@@ -896,6 +919,17 @@ export default function ProjectDetailsPage() {
         isSaving={isSaving}
         initialWorker={editingWorker}
       />
+
+      {showShareModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl">
+            <ShareLinkModal
+              projectId={id as string}
+              onClose={() => setShowShareModal(false)}
+            />
+          </div>
+        </div>
+      )}
     </div >
   );
 }

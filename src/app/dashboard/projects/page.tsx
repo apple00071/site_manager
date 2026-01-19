@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { FiPlus, FiEdit2, FiTrash2, FiEye, FiMoreVertical, FiSearch, FiX } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiEye, FiMoreVertical, FiSearch, FiX, FiSend } from 'react-icons/fi';
 import { formatDateIST } from '@/lib/dateUtils';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -335,8 +335,17 @@ export default function ProjectsPage() {
               </Link>
 
               {/* Action buttons for mobile */}
-              {(canEditProject || canDeleteProject) && (
+              {(canEditProject || canDeleteProject || isAdmin) && (
                 <div className="px-4 sm:px-5 pb-4 flex justify-end gap-2">
+                  {isAdmin && (
+                    <Link
+                      href={`/dashboard/projects/${project.id}?share=1`}
+                      className="p-2 text-amber-600 hover:text-amber-700 hover:bg-amber-50 active:bg-amber-100 rounded-xl transition-all duration-200 touch-target"
+                      title="Share Live Link"
+                    >
+                      <FiSend className="h-4 w-4" />
+                    </Link>
+                  )}
                   {canEditProject && (
                     <Link
                       href={`/dashboard/projects/${project.id}/edit`}
@@ -460,6 +469,15 @@ export default function ProjectsPage() {
                             <FiEye className="w-4 h-4" />
                             View Details
                           </Link>
+                          {isAdmin && (
+                            <Link
+                              href={`/dashboard/projects/${project.id}?share=1`}
+                              className="flex items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50"
+                            >
+                              <FiSend className="w-4 h-4" />
+                              Share Live Link
+                            </Link>
+                          )}
                           {(canEditProject || canDeleteProject) && (
                             <>
                               {canEditProject && (

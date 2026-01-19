@@ -32,6 +32,7 @@ interface ProjectUser {
 
 export interface SnagTabHandle {
     openAddSnag: () => void;
+    exportSnagReport: () => Promise<void>;
 }
 
 interface SnagTabProps {
@@ -128,12 +129,38 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
         fetchProjectAndUsers();
     }, [projectId]);
 
+    const [isExporting, setIsExporting] = useState(false);
+
     useImperativeHandle(ref, () => ({
         openAddSnag: () => {
             resetForm();
             setShowModal(true);
+        },
+        exportSnagReport: async () => {
+            await handleExportReport();
         }
     }));
+
+    const handleExportReport = async () => {
+        try {
+            setIsExporting(true);
+            const res = await fetch(`/api/projects/${projectId}/snags/report`, {
+                method: 'POST'
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Failed to generate report');
+            }
+
+            const { pdf_url } = await res.json();
+            window.open(pdf_url, '_blank');
+        } catch (err: any) {
+            alert(err.message || 'Failed to export snag report');
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
