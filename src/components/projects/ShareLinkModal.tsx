@@ -92,7 +92,7 @@ export const ShareLinkModal = ({ projectId, onClose }: ShareLinkModalProps) => {
     return (
         <div className="p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-                <FiExternalLink className="text-amber-500 shrink-0" size={24} /> <span>Share Project Live Link</span>
+                <FiExternalLink className="text-yellow-500 shrink-0" size={24} /> <span>Share Project Live Link</span>
             </h2>
             <p className="text-sm text-gray-500 mb-6">
                 Generate a secure, read-only link to share with your customer. They'll be able to see photos and progress reports without login.
@@ -100,7 +100,7 @@ export const ShareLinkModal = ({ projectId, onClose }: ShareLinkModalProps) => {
 
             {loading ? (
                 <div className="py-12 flex justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
                 </div>
             ) : access ? (
                 <div className="space-y-6">
@@ -132,7 +132,7 @@ export const ShareLinkModal = ({ projectId, onClose }: ShareLinkModalProps) => {
                                 </div>
                                 <button
                                     onClick={handleCopy}
-                                    className="w-11 h-11 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors flex items-center justify-center flex-shrink-0"
+                                    className="w-11 h-11 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors flex items-center justify-center flex-shrink-0"
                                 >
                                     {copied ? <FiCheck className="w-5 h-5" /> : <FiCopy className="w-5 h-5" />}
                                 </button>
@@ -151,7 +151,7 @@ export const ShareLinkModal = ({ projectId, onClose }: ShareLinkModalProps) => {
                         <button
                             onClick={handleGenerate}
                             disabled={generating}
-                            className="text-xs font-medium text-amber-600 hover:text-amber-700 flex items-center gap-1.5 disabled:opacity-50"
+                            className="text-xs font-medium text-yellow-600 hover:text-yellow-700 flex items-center gap-1.5 disabled:opacity-50"
                         >
                             <FiRefreshCw className={`w-3.5 h-3.5 ${generating ? 'animate-spin' : ''}`} />
                             Reset Link & Token
@@ -160,8 +160,8 @@ export const ShareLinkModal = ({ projectId, onClose }: ShareLinkModalProps) => {
                     </div>
                 </div>
             ) : (
-                <div className="py-8 text-center bg-amber-50 rounded-2xl border border-dashed border-amber-200">
-                    <FiLock className="w-10 h-10 text-amber-300 mx-auto mb-3" />
+                <div className="py-8 text-center bg-yellow-50 rounded-2xl border border-dashed border-yellow-200">
+                    <FiLock className="w-10 h-10 text-yellow-300 mx-auto mb-3" />
                     <p className="text-gray-600 font-medium mb-4">No live link generated for this project yet.</p>
                     <button
                         onClick={handleGenerate}

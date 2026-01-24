@@ -671,7 +671,7 @@ export default function RolesTab() {
                                                                     ) : (
                                                                         <FiChevronRight className="h-4 w-4 text-gray-400" />
                                                                     )}
-                                                                    <span className={`w-5 h-5 rounded flex items-center justify-center text-sm ${hasSelectedPerm ? 'bg-amber-100 text-amber-600' : 'bg-gray-100'}`}>
+                                                                    <span className={`w-5 h-5 rounded flex items-center justify-center text-sm ${hasSelectedPerm ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100'}`}>
                                                                         {def.icon}
                                                                     </span>
                                                                     <span className="text-sm font-medium text-gray-900">{def.module}</span>
@@ -686,7 +686,7 @@ export default function RolesTab() {
                                                                                         type="checkbox"
                                                                                         checked={selectedPermissionIds.has(perm.id)}
                                                                                         onChange={() => handlePermissionChange(perm.id)}
-                                                                                        className="mt-0.5 h-4 w-4 text-amber-600 rounded border-gray-300 focus:ring-amber-500"
+                                                                                        className="mt-0.5 h-4 w-4 text-yellow-600 rounded border-gray-300 focus:ring-yellow-500"
                                                                                     />
                                                                                     <span className="text-sm text-gray-700">{perm.description || perm.code}</span>
                                                                                 </label>
@@ -717,7 +717,7 @@ export default function RolesTab() {
                                                                                 type="checkbox"
                                                                                 checked={selectedPermissionIds.has(perm.id)}
                                                                                 onChange={() => handlePermissionChange(perm.id)}
-                                                                                className="mt-0.5 h-4 w-4 text-amber-600 rounded"
+                                                                                className="mt-0.5 h-4 w-4 text-yellow-600 rounded"
                                                                             />
                                                                             <span className="text-sm text-gray-700">{perm.description || perm.code}</span>
                                                                         </label>

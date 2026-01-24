@@ -1393,7 +1393,7 @@ export default function TasksPage() {
               <button
                 onClick={() => setActiveCategory('proposals')}
                 className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeCategory === 'proposals'
-                  ? 'bg-amber-500 text-white'
+                  ? 'bg-yellow-500 text-white'
                   : 'text-gray-700 hover:bg-gray-100'
                   }`}
               >
@@ -1402,7 +1402,7 @@ export default function TasksPage() {
                   <span>Proposals</span>
                 </div>
                 {proposals.length > 0 && (
-                  <span className={`inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded ${activeCategory === 'proposals' ? 'bg-white text-amber-700' : 'bg-amber-100 text-amber-700'
+                  <span className={`inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded ${activeCategory === 'proposals' ? 'bg-white text-yellow-700' : 'bg-yellow-100 text-yellow-700'
                     }`}>
                     {proposals.length}
                   </span>
@@ -1424,7 +1424,7 @@ export default function TasksPage() {
 
               {loadingProposals ? (
                 <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500" />
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500" />
                 </div>
               ) : proposals.length === 0 ? (
                 <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
@@ -1442,7 +1442,7 @@ export default function TasksPage() {
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               {proposal.project?.title && (
-                                <span className="text-xs font-medium px-2 py-0.5 bg-amber-100 text-amber-800 rounded">
+                                <span className="text-xs font-medium px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded">
                                   {proposal.project.title}
                                 </span>
                               )}
@@ -1507,7 +1507,7 @@ export default function TasksPage() {
                         {/* Total */}
                         <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-200">
                           <span className="font-semibold text-gray-700">Total Amount</span>
-                          <span className="text-xl font-bold text-amber-700">
+                          <span className="text-xl font-bold text-yellow-700">
                             ₹{(proposal.total_amount || 0).toLocaleString('en-IN')}
                           </span>
                         </div>

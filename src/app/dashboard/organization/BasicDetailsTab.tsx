@@ -47,7 +47,7 @@ export default function BasicDetailsTab() {
                             type="text"
                             value={companyDetails.name}
                             onChange={(e) => handleChange('name', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                         />
                     </div>
                     <div>
@@ -66,7 +66,7 @@ export default function BasicDetailsTab() {
                             onChange={(e) => handleChange('address', e.target.value)}
                             rows={2}
                             placeholder="Enter full company address..."
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                         />
                     </div>
                     <div>
@@ -76,7 +76,7 @@ export default function BasicDetailsTab() {
                             value={companyDetails.city}
                             onChange={(e) => handleChange('city', e.target.value)}
                             placeholder="e.g. Hyderabad"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                         />
                     </div>
                     <div>
@@ -86,7 +86,7 @@ export default function BasicDetailsTab() {
                             value={companyDetails.state}
                             onChange={(e) => handleChange('state', e.target.value)}
                             placeholder="e.g. Telangana"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                         />
                     </div>
                     <div>
@@ -96,7 +96,7 @@ export default function BasicDetailsTab() {
                             value={companyDetails.pincode}
                             onChange={(e) => handleChange('pincode', e.target.value)}
                             placeholder="e.g. 500001"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                         />
                     </div>
                     <div>
@@ -106,7 +106,7 @@ export default function BasicDetailsTab() {
                             value={companyDetails.phone}
                             onChange={(e) => handleChange('phone', e.target.value)}
                             placeholder="e.g. +91 9963120180"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                         />
                     </div>
                     <div>
@@ -116,7 +116,7 @@ export default function BasicDetailsTab() {
                             value={companyDetails.email}
                             onChange={(e) => handleChange('email', e.target.value)}
                             placeholder="e.g. info@appleinterior.com"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                         />
                     </div>
                     <div>
@@ -126,7 +126,7 @@ export default function BasicDetailsTab() {
                             value={companyDetails.website}
                             onChange={(e) => handleChange('website', e.target.value)}
                             placeholder="e.g. https://appleinterior.com"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                         />
                     </div>
                 </div>
@@ -143,7 +143,7 @@ export default function BasicDetailsTab() {
                             value={companyDetails.gst_number}
                             onChange={(e) => handleChange('gst_number', e.target.value)}
                             placeholder="e.g. 36AABCT1234F1ZK"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                         />
                     </div>
                     <div>
@@ -153,7 +153,7 @@ export default function BasicDetailsTab() {
                             value={companyDetails.pan_number}
                             onChange={(e) => handleChange('pan_number', e.target.value)}
                             placeholder="e.g. AABCT1234F"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                         />
                     </div>
                 </div>
@@ -170,7 +170,7 @@ export default function BasicDetailsTab() {
                             value={companyDetails.bank_name}
                             onChange={(e) => handleChange('bank_name', e.target.value)}
                             placeholder="e.g. HDFC Bank"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                         />
                     </div>
                     <div>
@@ -180,7 +180,7 @@ export default function BasicDetailsTab() {
                             value={companyDetails.bank_account_number}
                             onChange={(e) => handleChange('bank_account_number', e.target.value)}
                             placeholder="e.g. 50100XXXXXXXXX"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                         />
                     </div>
                     <div>
@@ -190,7 +190,7 @@ export default function BasicDetailsTab() {
                             value={companyDetails.bank_ifsc}
                             onChange={(e) => handleChange('bank_ifsc', e.target.value)}
                             placeholder="e.g. HDFC0001234"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                         />
                     </div>
                     <div>
@@ -200,7 +200,7 @@ export default function BasicDetailsTab() {
                             value={companyDetails.bank_branch}
                             onChange={(e) => handleChange('bank_branch', e.target.value)}
                             placeholder="e.g. Jubilee Hills Branch"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                         />
                     </div>
                 </div>

@@ -354,7 +354,7 @@ export default function DashboardPage() {
 
         <Link href="/dashboard/projects" className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-amber-100 text-amber-600">
+            <div className="p-2 rounded-lg bg-yellow-100 text-yellow-600">
               <FiClock className="h-4 w-4" />
             </div>
             <div className="min-w-0">
@@ -598,8 +598,8 @@ export default function DashboardPage() {
 
           {/* Quick Stats */}
           <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-100">
-            <div className="text-center p-3 bg-amber-50 rounded-lg">
-              <p className="text-2xl font-bold text-amber-600">{stats.upcomingDeadlines}</p>
+            <div className="text-center p-3 bg-yellow-50 rounded-lg">
+              <p className="text-2xl font-bold text-yellow-600">{stats.upcomingDeadlines}</p>
               <p className="text-xs text-gray-600">Due This Week</p>
             </div>
             <div className="text-center p-3 bg-blue-50 rounded-lg">

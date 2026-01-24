@@ -140,7 +140,7 @@ export default function ModuleSettingsTab() {
                 `}
                                 onClick={() => setSelectedStageId(stage.id)}
                             >
-                                <Icon className={`h-4 w-4 flex-shrink-0 ${isActive ? 'text-amber-600' : 'text-gray-400'}`} />
+                                <Icon className={`h-4 w-4 flex-shrink-0 ${isActive ? 'text-yellow-600' : 'text-gray-400'}`} />
                                 <span className="truncate flex-1">{stage.name}</span>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); toggleStage(stage.id); }}
@@ -203,7 +203,7 @@ export default function ModuleSettingsTab() {
             <div className="w-72 p-6 overflow-y-auto">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-base font-semibold text-gray-900">Sub-Tabs</h3>
-                    <button className="text-sm text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1">
+                    <button className="text-sm text-yellow-600 hover:text-yellow-700 font-medium flex items-center gap-1">
                         <FiPlus className="h-4 w-4" />
                         Add Sub-Tab
                     </button>
@@ -225,7 +225,7 @@ export default function ModuleSettingsTab() {
                                 <label
                                     key={subTab.id}
                                     className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${checked
-                                        ? 'border-amber-300 bg-amber-50'
+                                        ? 'border-yellow-300 bg-yellow-50'
                                         : 'border-gray-200 hover:bg-gray-50'
                                         }`}
                                 >
@@ -233,7 +233,7 @@ export default function ModuleSettingsTab() {
                                         type="checkbox"
                                         checked={checked}
                                         onChange={() => toggleSubTab(subTab.id)}
-                                        className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                                        className="h-4 w-4 rounded border-gray-300 text-yellow-600 focus:ring-yellow-500"
                                     />
                                     <span className={`text-sm ${checked ? 'text-gray-900 font-medium' : 'text-gray-700'}`}>
                                         {subTab.label}

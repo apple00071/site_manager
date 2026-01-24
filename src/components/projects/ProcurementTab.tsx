@@ -829,14 +829,14 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Supplier</label>
-                                    <select value={poForm.supplier_id} onChange={e => setPoForm({ ...poForm, supplier_id: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" required>
+                                    <select value={poForm.supplier_id} onChange={e => setPoForm({ ...poForm, supplier_id: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all" required>
                                         <option value="">Select</option>
                                         {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                     </select>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Delivery Date</label>
-                                    <input type="date" value={poForm.delivery_date} onChange={e => setPoForm({ ...poForm, delivery_date: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" />
+                                    <input type="date" value={poForm.delivery_date} onChange={e => setPoForm({ ...poForm, delivery_date: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all" />
                                 </div>
                             </div>
 
@@ -848,15 +848,15 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                                             <select
                                                 value={item.boq_item_id}
                                                 onChange={e => updateLineItem(idx, 'boq_item_id', e.target.value)}
-                                                className="flex-1 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all text-sm"
+                                                className="flex-1 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all text-sm"
                                             >
                                                 <option value="">Select BOQ Item</option>
                                                 {boqItems.map(b => (
                                                     <option key={b.id} value={b.id}>{b.item_name} (Qty: {b.quantity})</option>
                                                 ))}
                                             </select>
-                                            <input type="number" placeholder="Qty" value={item.quantity} onChange={e => updateLineItem(idx, 'quantity', parseFloat(e.target.value))} className="w-20 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all text-sm" />
-                                            <input type="number" placeholder="Rate" value={item.rate} onChange={e => updateLineItem(idx, 'rate', parseFloat(e.target.value))} className="w-24 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all text-sm" />
+                                            <input type="number" placeholder="Qty" value={item.quantity} onChange={e => updateLineItem(idx, 'quantity', parseFloat(e.target.value))} className="w-20 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all text-sm" />
+                                            <input type="number" placeholder="Rate" value={item.rate} onChange={e => updateLineItem(idx, 'rate', parseFloat(e.target.value))} className="w-24 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all text-sm" />
                                             <button
                                                 type="button"
                                                 onClick={() => removeLineItem(idx)}
@@ -872,7 +872,7 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
 
                             <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
                                 <button type="button" onClick={() => setShowPoForm(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
-                                <button type="submit" className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors shadow-sm">Create PO</button>
+                                <button type="submit" className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors shadow-sm">Create PO</button>
                             </div>
                         </form>
                     </div>
@@ -887,7 +887,7 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                             {!viewMode && (
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Supplier</label>
-                                    <select value={invoiceForm.supplier_id} onChange={e => setInvoiceForm({ ...invoiceForm, supplier_id: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" required>
+                                    <select value={invoiceForm.supplier_id} onChange={e => setInvoiceForm({ ...invoiceForm, supplier_id: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all" required>
                                         <option value="">Select Supplier</option>
                                         {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                     </select>
@@ -895,15 +895,15 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                             )}
                             <div>
                                 <label className="block text-sm font-medium mb-1">Invoice Number</label>
-                                <input type="text" value={invoiceForm.invoice_number} onChange={e => setInvoiceForm({ ...invoiceForm, invoice_number: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" required />
+                                <input type="text" value={invoiceForm.invoice_number} onChange={e => setInvoiceForm({ ...invoiceForm, invoice_number: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all" required />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-1">Amount</label>
-                                <input type="number" value={invoiceForm.amount} onChange={e => setInvoiceForm({ ...invoiceForm, amount: parseFloat(e.target.value), total_amount: parseFloat(e.target.value) })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" required />
+                                <input type="number" value={invoiceForm.amount} onChange={e => setInvoiceForm({ ...invoiceForm, amount: parseFloat(e.target.value), total_amount: parseFloat(e.target.value) })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all" required />
                             </div>
                             <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
                                 <button type="button" onClick={() => setShowInvoiceForm(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
-                                <button type="submit" className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors shadow-sm">Submit</button>
+                                <button type="submit" className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors shadow-sm">Submit</button>
                             </div>
                         </form>
                     </div>
@@ -917,15 +917,15 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                         <form onSubmit={viewMode === 'client' ? handleCreateClientPayment : handleCreatePayment} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium mb-1">Amount</label>
-                                <input type="number" value={paymentForm.amount} onChange={e => setPaymentForm({ ...paymentForm, amount: parseFloat(e.target.value) })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" required />
+                                <input type="number" value={paymentForm.amount} onChange={e => setPaymentForm({ ...paymentForm, amount: parseFloat(e.target.value) })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all" required />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-1">Date</label>
-                                <input type="date" value={paymentForm.payment_date} onChange={e => setPaymentForm({ ...paymentForm, payment_date: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" required />
+                                <input type="date" value={paymentForm.payment_date} onChange={e => setPaymentForm({ ...paymentForm, payment_date: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all" required />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-1">Method</label>
-                                <select value={paymentForm.payment_method} onChange={e => setPaymentForm({ ...paymentForm, payment_method: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all">
+                                <select value={paymentForm.payment_method} onChange={e => setPaymentForm({ ...paymentForm, payment_method: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all">
                                     <option value="bank_transfer">Bank Transfer</option>
                                     <option value="cheque">Cheque</option>
                                     <option value="cash">Cash</option>
@@ -934,7 +934,7 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                             </div>
                             <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
                                 <button type="button" onClick={() => setShowPaymentForm(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
-                                <button type="submit" className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors shadow-sm">Record</button>
+                                <button type="submit" className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors shadow-sm">Record</button>
                             </div>
                         </form>
                     </div>
@@ -946,15 +946,15 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                     <div className="bg-white rounded-xl w-full max-w-md p-6">
                         <h3 className="text-lg font-bold mb-4">Add Supplier</h3>
                         <form onSubmit={handleCreateSupplier} className="space-y-4">
-                            <input type="text" placeholder="Name" value={supplierForm.name} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" required />
-                            <input type="text" placeholder="Contact Person" value={supplierForm.contact_name} onChange={e => setSupplierForm({ ...supplierForm, contact_name: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" />
-                            <input type="text" placeholder="Phone" value={supplierForm.contact_phone} onChange={e => setSupplierForm({ ...supplierForm, contact_phone: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" />
-                            <input type="email" placeholder="Email" value={supplierForm.contact_email} onChange={e => setSupplierForm({ ...supplierForm, contact_email: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" />
-                            <input type="text" placeholder="GST Number" value={supplierForm.gst_number} onChange={e => setSupplierForm({ ...supplierForm, gst_number: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" />
+                            <input type="text" placeholder="Name" value={supplierForm.name} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all" required />
+                            <input type="text" placeholder="Contact Person" value={supplierForm.contact_name} onChange={e => setSupplierForm({ ...supplierForm, contact_name: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all" />
+                            <input type="text" placeholder="Phone" value={supplierForm.contact_phone} onChange={e => setSupplierForm({ ...supplierForm, contact_phone: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all" />
+                            <input type="email" placeholder="Email" value={supplierForm.contact_email} onChange={e => setSupplierForm({ ...supplierForm, contact_email: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all" />
+                            <input type="text" placeholder="GST Number" value={supplierForm.gst_number} onChange={e => setSupplierForm({ ...supplierForm, gst_number: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all" />
 
                             <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
                                 <button type="button" onClick={() => setShowSupplierForm(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
-                                <button type="submit" className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors shadow-sm">Save</button>
+                                <button type="submit" className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors shadow-sm">Save</button>
                             </div>
                         </form>
                     </div>

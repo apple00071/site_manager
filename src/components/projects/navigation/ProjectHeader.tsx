@@ -77,7 +77,7 @@ export function ProjectHeader({ title, jobId, status, customerName, onBack, user
 
                     {user && (
                         <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
-                            <div className="h-8 w-8 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-2 ring-white">
+                            <div className="h-8 w-8 rounded-full bg-yellow-500 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-2 ring-white">
                                 {getInitials(user.name)}
                             </div>
                             <div className="flex flex-col">

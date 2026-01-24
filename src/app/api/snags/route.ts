@@ -268,6 +268,12 @@ export async function PATCH(request: NextRequest) {
             finalUpdates.status = 'open';
             finalUpdates.resolved_at = null;
             finalUpdates.closed_at = null;
+        } else if (action === 'comment') {
+            // No status change, just notification
+            const { comment } = body;
+            if (!comment) return NextResponse.json({ error: 'Comment is required' }, { status: 400 });
+
+            // Note: finalUpdates won't change, we just trigger notifications below
         }
 
         const { data, error } = await supabaseAdmin
@@ -316,6 +322,15 @@ export async function PATCH(request: NextRequest) {
             }
             else if ((action === 'verify' || action === 'close') && existing.assigned_to_user_id) {
                 await NotificationService.notifySnagVerified(existing.assigned_to_user_id, description, contextName);
+            } else if (action === 'comment') {
+                const { comment } = body;
+                await NotificationService.notifyStakeholders(existing.project_id, user.id, {
+                    title: 'New Progress Update',
+                    message: `Update on "${contextName}" by ${user.user_metadata?.full_name || 'Team member'}:\n\n"${comment}"`,
+                    type: 'snag_comment',
+                    relatedId: id,
+                    relatedType: 'snag'
+                });
             }
         } catch (notifError) {
             console.error('Error sending snag update notifications:', notifError);

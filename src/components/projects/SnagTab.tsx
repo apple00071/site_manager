@@ -90,35 +90,20 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
     };
     const fetchProjectAndUsers = async () => {
         try {
-            // 1. Fetch Project Members
-            const outputUsers: ProjectUser[] = [];
-            const membersRes = await fetch(`/api/admin/project-members?project_id=${projectId}`);
-            const membersData = await membersRes.json();
+            // Fetch all users from the system (matching Global Snag Dashboard behavior)
+            const res = await fetch('/api/admin/users');
+            const data = await res.json();
 
-            if (membersData.members) {
-                membersData.members.forEach((m: any) => {
-                    if (m.users) {
-                        outputUsers.push({
-                            id: m.users.id,
-                            name: m.users.full_name || m.users.email,
-                            role: m.users.role
-                        });
-                    }
-                });
+            if (Array.isArray(data)) {
+                const outputUsers: ProjectUser[] = data
+                    .filter((u: any) => u.role !== 'admin')
+                    .map((u: any) => ({
+                        id: u.id,
+                        name: u.full_name || u.email,
+                        role: u.role
+                    }));
+                setUsers(outputUsers);
             }
-
-            // 2. Fetch Project for Assigned Employee
-            const projectRes = await fetch(`/api/projects/${projectId}`); // Fixed URL structure
-            // Actually, let's use the same pattern as ProjectUsersPanel - it relies on passed props or fetches project
-            // Since we don't have project fetcher here easily without checking api, 
-            // lets try checking if we can reuse the members API or just rely on members.
-            // Wait, typically assigned_employee SHOULD be in members or handled. 
-            // To be safe, let's just use what we have, but if the user wants "Arvind" and he is showing, 
-            // maybe he is the assigned employee. 
-            // If the user says "ONLY login user is appearing", it implies *others* are missing.
-            // Let's stick to members for now but verify if we can fetch others. 
-            // Actually, let's keep it simple: Add Upload first.
-            setUsers(outputUsers);
         } catch (err) {
             console.error('Failed to fetch users', err);
         }

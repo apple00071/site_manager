@@ -17,6 +17,7 @@ export type NotificationType =
   | 'snag_assigned'
   | 'snag_resolved'
   | 'snag_verified'
+  | 'snag_comment'
   | 'proposal_sent'
   | 'proposal_approved'
   | 'proposal_rejected'
@@ -255,6 +256,17 @@ export class NotificationService {
       title: 'Snag Verified & Closed',
       message: `${contextPrefix}: ${contextName}\nIssue: ${description}\n\nThis item has been verified and successfully closed. Great job!`,
       type: 'snag_verified',
+      relatedId: snagId,
+      relatedType: 'snag'
+    });
+  }
+
+  static async notifySnagComment(userId: string, comment: string, contextName: string, snagId?: string, authorName: string = 'Someone') {
+    return this.createNotification({
+      userId,
+      title: 'New Progress Update',
+      message: `Update on "${contextName}" by ${authorName}:\n\n"${comment}"`,
+      type: 'snag_comment',
       relatedId: snagId,
       relatedType: 'snag'
     });

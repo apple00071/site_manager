@@ -339,7 +339,7 @@ export default function ProjectsPage() {
                   {isAdmin && (
                     <Link
                       href={`/dashboard/projects/${project.id}?share=1`}
-                      className="flex items-center justify-center w-10 h-10 text-amber-600 hover:bg-amber-100/50 rounded-xl transition-colors"
+                      className="flex items-center justify-center w-10 h-10 text-yellow-600 hover:bg-yellow-100/50 rounded-xl transition-colors"
                       title="Share Live Link"
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -478,7 +478,7 @@ export default function ProjectsPage() {
                         {isAdmin && (
                           <Link
                             href={`/dashboard/projects/${project.id}?share=1`}
-                            className="flex items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50"
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-yellow-600 hover:bg-yellow-50"
                           >
                             <FiSend className="w-4 h-4" />
                             Share Live Link

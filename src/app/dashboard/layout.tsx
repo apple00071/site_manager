@@ -314,7 +314,7 @@ function DashboardLayoutContent({
                       onClick={() => setUserMenuOpen(!userMenuOpen)}
                       className="flex items-center justify-center w-10 h-10 lg:w-auto lg:h-auto lg:gap-2 pl-0 lg:pl-3 border-none lg:border-l lg:border-gray-200 hover:opacity-80 transition-opacity"
                     >
-                      <div className="h-8 w-8 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-2 ring-white">
+                      <div className="h-8 w-8 rounded-full bg-yellow-500 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-2 ring-white">
                         {(user.full_name || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
                       </div>
                       <span className="text-sm font-medium text-gray-700 hidden xl:block">{user.full_name || user.email?.split('@')[0] || 'User'}</span>

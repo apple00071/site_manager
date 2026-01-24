@@ -399,7 +399,7 @@ export default function OfficeExpensesPage() {
 
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 border border-amber-100 flex-shrink-0">
+                                                    <div className="w-8 h-8 rounded-full bg-yellow-50 flex items-center justify-center text-yellow-600 border border-yellow-100 flex-shrink-0">
                                                         <FiUser className="w-4 h-4" />
                                                     </div>
                                                     <div className="flex flex-col">

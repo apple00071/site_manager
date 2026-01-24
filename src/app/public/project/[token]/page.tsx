@@ -40,7 +40,7 @@ export default function PublicProjectPage() {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-center">
                 <div className="space-y-4">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto"></div>
                     <p className="text-gray-500 font-medium">Loading your project summary...</p>
                 </div>
             </div>
@@ -69,8 +69,8 @@ export default function PublicProjectPage() {
             {/* Header Area - Full Width with Status */}
             <div className="bg-white border-b border-gray-100 pt-6 pb-5 px-4 sm:px-6 sticky top-0 z-10 shadow-sm">
                 <div className="max-w-6xl mx-auto">
-                    <div className="flex items-center gap-2 text-amber-500 font-bold text-[10px] uppercase tracking-widest mb-1">
-                        <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+                    <div className="flex items-center gap-2 text-yellow-500 font-bold text-[10px] uppercase tracking-widest mb-1">
+                        <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>
                         Live Project Update
                     </div>
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -113,7 +113,7 @@ export default function PublicProjectPage() {
                             {/* Designer */}
                             {project.assigned_employee && (
                                 <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                                    <div className="w-8 h-8 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center font-bold text-sm flex-shrink-0">
                                         {project.assigned_employee.full_name?.charAt(0) || 'D'}
                                     </div>
                                     <div className="min-w-0 flex-1">
@@ -157,7 +157,7 @@ export default function PublicProjectPage() {
                 {/* Latest Photos */}
                 <section>
                     <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <FiImage className="text-amber-500" /> Recent Site Photos
+                        <FiImage className="text-yellow-500" /> Recent Site Photos
                     </h2>
                     {photos.length > 0 ? (
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -184,14 +184,14 @@ export default function PublicProjectPage() {
                 {/* Progress Reports */}
                 <section>
                     <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <FiFileText className="text-amber-500" /> Progress Reports
+                        <FiFileText className="text-yellow-500" /> Progress Reports
                     </h2>
                     <div className="space-y-3">
                         {reports.length > 0 ? (
                             reports.map((report: any) => (
                                 <div key={report.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-50 flex items-center justify-between">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center">
+                                        <div className="w-10 h-10 bg-yellow-50 text-yellow-500 rounded-xl flex items-center justify-center">
                                             <FiCalendar className="w-5 h-5" />
                                         </div>
                                         <div>
@@ -206,7 +206,7 @@ export default function PublicProjectPage() {
                                     <a
                                         href={report.pdf_url}
                                         target="_blank"
-                                        className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold"
+                                        className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold"
                                     >
                                         <FiDownload className="w-4 h-4" />
                                         <span className="hidden sm:inline">PDF</span>

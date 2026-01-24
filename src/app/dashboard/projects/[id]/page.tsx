@@ -216,7 +216,7 @@ export default function ProjectDetailsPage() {
           {permIsAdmin && (
             <button
               onClick={() => setShowShareModal(true)}
-              className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-full transition-colors"
+              className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
               title="Share Live Link"
             >
               <FiSend className="w-3.5 h-3.5" />
@@ -619,7 +619,7 @@ export default function ProjectDetailsPage() {
                           {canEditProject && (
                             <button
                               onClick={() => setEditSection('info')}
-                              className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-full transition-colors"
+                              className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
                             >
                               <FiEdit2 className="w-4 h-4" />
                             </button>
@@ -672,7 +672,7 @@ export default function ProjectDetailsPage() {
                                   href={project.requirements_pdf_url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1.5 text-amber-600 hover:text-amber-700 hover:underline font-medium"
+                                  className="inline-flex items-center gap-1.5 text-yellow-600 hover:text-yellow-700 hover:underline font-medium"
                                 >
                                   📄 View Requirements PDF
                                 </a>
@@ -695,7 +695,7 @@ export default function ProjectDetailsPage() {
                           {canEditProject && (
                             <button
                               onClick={() => setEditSection('customer')}
-                              className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-full transition-colors"
+                              className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
                             >
                               <FiEdit2 className="w-4 h-4" />
                             </button>
@@ -709,7 +709,7 @@ export default function ProjectDetailsPage() {
                           <div>
                             <dt className="text-sm font-medium text-gray-500 mb-1">Phone Number</dt>
                             <dd className="text-sm text-gray-900">
-                              <a href={`tel:${project.phone_number}`} className="text-amber-600 hover:text-amber-700">
+                              <a href={`tel:${project.phone_number}`} className="text-yellow-600 hover:text-yellow-700">
                                 {project.phone_number}
                               </a>
                             </dd>
@@ -718,7 +718,7 @@ export default function ProjectDetailsPage() {
                             <div>
                               <dt className="text-sm font-medium text-gray-500 mb-1">Alternate Phone</dt>
                               <dd className="text-sm text-gray-900">
-                                <a href={`tel:${project.alt_phone_number}`} className="text-amber-600 hover:text-amber-700">
+                                <a href={`tel:${project.alt_phone_number}`} className="text-yellow-600 hover:text-yellow-700">
                                   {project.alt_phone_number}
                                 </a>
                               </dd>
@@ -738,7 +738,7 @@ export default function ProjectDetailsPage() {
                           {canEditProject && (
                             <button
                               onClick={() => setEditSection('property')}
-                              className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-full transition-colors"
+                              className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
                             >
                               <FiEdit2 className="w-4 h-4" />
                             </button>
@@ -796,7 +796,7 @@ export default function ProjectDetailsPage() {
                         {canEditProject && (
                           <button
                             onClick={() => setEditSection('workers')}
-                            className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-full transition-colors"
+                            className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
                           >
                             <FiEdit2 className="w-4 h-4" />
                           </button>
@@ -823,7 +823,7 @@ export default function ProjectDetailsPage() {
                               <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
                                   onClick={() => handleEditWorker(worker)}
-                                  className="p-1 text-gray-400 hover:text-amber-600 bg-white rounded shadow-sm hover:shadow"
+                                  className="p-1 text-gray-400 hover:text-yellow-600 bg-white rounded shadow-sm hover:shadow"
                                   title="Edit"
                                 >
                                   <FiEdit2 className="w-3 h-3" />
@@ -842,7 +842,7 @@ export default function ProjectDetailsPage() {
                               <dd className="text-sm text-gray-900 font-medium">{workerName}</dd>
                               {workerPhone && (
                                 <dd className="text-sm">
-                                  <a href={`tel:${workerPhone}`} className="text-amber-600 hover:text-amber-700">
+                                  <a href={`tel:${workerPhone}`} className="text-yellow-600 hover:text-yellow-700">
                                     {workerPhone}
                                   </a>
                                 </dd>
