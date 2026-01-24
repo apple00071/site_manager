@@ -79,6 +79,23 @@ export async function GET(request: NextRequest) {
         }
 
         if (poId) {
+            // IDOR FIX: If filtering by po_id, we MUST still verify the user has access to the project
+            // the PO belongs to.
+            const { data: po } = await supabaseAdmin
+                .from('purchase_orders')
+                .select('project_id')
+                .eq('id', poId)
+                .single();
+
+            if (!po) {
+                return NextResponse.json({ error: 'Purchase Order not found' }, { status: 404 });
+            }
+
+            const hasAccess = await checkProjectAccess(user.id, po.project_id, role || '');
+            if (!hasAccess) {
+                return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+            }
+
             query = query.eq('po_id', poId);
         }
 

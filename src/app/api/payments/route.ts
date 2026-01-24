@@ -76,6 +76,23 @@ export async function GET(request: NextRequest) {
         }
 
         if (invoiceId) {
+            // IDOR FIX: If filtering by invoice_id, we MUST still verify the user has access to the project
+            // the invoice belongs to.
+            const { data: invoice } = await supabaseAdmin
+                .from('invoices')
+                .select('project_id')
+                .eq('id', invoiceId)
+                .single();
+
+            if (!invoice) {
+                return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+            }
+
+            const hasAccess = await checkProjectAccess(user.id, invoice.project_id, role || '');
+            if (!hasAccess) {
+                return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+            }
+
             query = query.eq('invoice_id', invoiceId);
         }
 

@@ -372,9 +372,9 @@ export default function SnagsPage() {
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-80px)] overflow-hidden -mt-2">
+        <div className={`flex flex-col ${selectedSnag ? 'h-[calc(100vh-64px)]' : 'h-[calc(100vh-80px)]'} lg:h-[calc(100vh-100px)] overflow-hidden -mt-2`}>
             {/* 1. Stats Bar */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 shrink-0 px-1">
+            <div className={`grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6 shrink-0 px-1 ${selectedSnag ? 'hidden lg:grid' : 'grid'}`}>
                 {[
                     { label: 'Total Open', value: stats.total, icon: FiAlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' },
                     { label: 'High Priority', value: stats.high, icon: FiClock, color: 'text-yellow-600', bg: 'bg-yellow-50' },
@@ -396,7 +396,7 @@ export default function SnagsPage() {
             {/* 2. Main Dashboard Area */}
             <div className="flex-1 flex gap-6 overflow-hidden min-h-0">
                 {/* Left Pane: List */}
-                <div className="w-full lg:w-96 flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden shrink-0">
+                <div className={`w-full lg:w-96 flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden shrink-0 ${selectedSnag ? 'hidden lg:flex' : 'flex'}`}>
                     {/* List Header/Filters */}
                     <div className="p-4 border-b border-gray-100 space-y-3 bg-gray-50/50">
                         <div className="relative">
@@ -424,7 +424,7 @@ export default function SnagsPage() {
                             {canCreate && (
                                 <button
                                     onClick={() => { fetchAllUsers(); setShowModal(true); }}
-                                    className="p-1.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+                                    className="p-1.5 flex items-center justify-center bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
                                     title="Raise Snag"
                                 >
                                     <FiPlus className="w-4 h-4" />
@@ -475,12 +475,18 @@ export default function SnagsPage() {
                 </div>
 
                 {/* Right Pane: Details Content */}
-                <div className="flex-1 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+                <div className={`flex-1 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col ${selectedSnag ? 'flex' : 'hidden lg:flex'}`}>
                     {selectedSnag ? (
                         <>
                             {/* Detail Header */}
                             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/30">
                                 <div className="flex items-center gap-4">
+                                    <button
+                                        onClick={() => setSelectedSnag(null)}
+                                        className="lg:hidden p-2 -ml-2 text-gray-400 hover:text-gray-600"
+                                    >
+                                        <FiX className="w-6 h-6" />
+                                    </button>
                                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${getStatusColor(selectedSnag.status)} border shadow-sm`}>
                                         <FiAlertTriangle className="w-6 h-6" />
                                     </div>
