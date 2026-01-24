@@ -62,13 +62,9 @@ export async function GET(req: NextRequest) {
     // --- HOLIDAY / SILENT MODE CHECK ---
     const isHoliday = async () => {
         const istDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-        const day = istDate.getDay();
         const dateString = istDate.toISOString().split('T')[0];
 
-        // 1. Check if it's Tuesday (Weekly Holiday)
-        if (day === 2) return { status: true, reason: 'Tuesday (Weekly Holiday)' };
-
-        // 2. Check Database for Festival Holidays
+        // Check Database for Festival Holidays
         const { data: holiday } = await supabaseAdmin
             .from('holidays')
             .select('name')

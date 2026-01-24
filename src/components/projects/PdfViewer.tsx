@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { FiChevronLeft, FiChevronRight, FiZoomIn, FiZoomOut, FiMaximize2, FiFileText } from 'react-icons/fi';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -47,7 +47,24 @@ export function PdfViewer({
     const [scale, setScale] = useState(1);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [containerWidth, setContainerWidth] = useState<number>(0);
     const pageRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // Calculate container width for responsive scaling
+    useEffect(() => {
+        const updateContainerWidth = () => {
+            if (containerRef.current) {
+                // Subtract padding (32px = 16px * 2)
+                const width = containerRef.current.clientWidth - 32;
+                setContainerWidth(width);
+            }
+        };
+
+        updateContainerWidth();
+        window.addEventListener('resize', updateContainerWidth);
+        return () => window.removeEventListener('resize', updateContainerWidth);
+    }, []);
 
     const onDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
         setNumPages(numPages);
@@ -139,59 +156,62 @@ export function PdfViewer({
     return (
         <div className="flex flex-col h-full bg-gray-800">
             {/* PDF Controls */}
-            <div className="flex items-center justify-between px-4 py-2 bg-gray-700 border-b border-gray-600">
+            <div className="flex items-center justify-between px-3 py-2 bg-gray-700 border-b border-gray-600 gap-2">
                 {/* Page Navigation */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2">
                     <button
                         onClick={() => goToPage(currentPage - 1)}
                         disabled={currentPage <= 1}
-                        className="p-1.5 text-gray-300 hover:text-white hover:bg-gray-600 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center justify-center w-9 h-9 sm:w-8 sm:h-8 text-gray-300 hover:text-white hover:bg-gray-600 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <FiChevronLeft className="w-5 h-5" />
                     </button>
-                    <span className="text-white text-sm font-medium min-w-[80px] text-center">
+                    <span className="text-white text-xs sm:text-sm font-medium min-w-[60px] sm:min-w-[80px] text-center">
                         {currentPage} / {numPages || '?'}
                     </span>
                     <button
                         onClick={() => goToPage(currentPage + 1)}
                         disabled={currentPage >= numPages}
-                        className="p-1.5 text-gray-300 hover:text-white hover:bg-gray-600 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center justify-center w-9 h-9 sm:w-8 sm:h-8 text-gray-300 hover:text-white hover:bg-gray-600 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <FiChevronRight className="w-5 h-5" />
                     </button>
                 </div>
 
                 {/* Zoom Controls */}
-                <div className="flex items-center gap-1.5 bg-gray-600 rounded-lg px-2 py-1">
+                <div className="flex items-center gap-1 bg-gray-600 rounded-lg px-1.5 sm:px-2 py-1">
                     <button
                         onClick={zoomOut}
-                        className="flex items-center justify-center w-8 h-8 text-gray-300 hover:text-white hover:bg-white/10 rounded transition-colors"
+                        className="flex items-center justify-center w-9 h-9 sm:w-8 sm:h-8 text-gray-300 hover:text-white hover:bg-white/10 rounded transition-colors"
                         title="Zoom Out"
                     >
                         <FiZoomOut className="w-4 h-4" />
                     </button>
-                    <span className="text-white text-sm font-medium min-w-[50px] text-center">
+                    <span className="text-white text-xs sm:text-sm font-medium min-w-[40px] sm:min-w-[50px] text-center">
                         {Math.round(scale * 100)}%
                     </span>
                     <button
                         onClick={zoomIn}
-                        className="flex items-center justify-center w-8 h-8 text-gray-300 hover:text-white hover:bg-white/10 rounded transition-colors"
+                        className="flex items-center justify-center w-9 h-9 sm:w-8 sm:h-8 text-gray-300 hover:text-white hover:bg-white/10 rounded transition-colors"
                         title="Zoom In"
                     >
                         <FiZoomIn className="w-4 h-4" />
                     </button>
                     <button
                         onClick={resetZoom}
-                        className="flex items-center justify-center w-8 h-8 text-gray-300 hover:text-white hover:bg-white/10 rounded transition-colors"
-                        title="Reset Zoom"
+                        className="flex items-center justify-center w-9 h-9 sm:w-8 sm:h-8 text-gray-300 hover:text-white hover:bg-white/10 rounded transition-colors"
+                        title="Fit to Width"
                     >
                         <FiMaximize2 className="w-4 h-4" />
                     </button>
                 </div>
             </div>
 
-            {/* PDF Content */}
-            <div className="flex-1 overflow-auto bg-gray-100 flex items-start justify-center p-4">
+            {/* PDF Content - Scrollable Container */}
+            <div
+                ref={containerRef}
+                className="flex-1 overflow-auto bg-gray-100 flex items-start justify-center p-4"
+            >
                 {loading && (
                     <div className="flex items-center justify-center h-full">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
@@ -212,7 +232,7 @@ export function PdfViewer({
                         onLoadSuccess={onDocumentLoadSuccess}
                         onLoadError={onDocumentLoadError}
                         loading={null}
-                        className="shadow-lg"
+                        className="shadow-lg max-w-full"
                     >
                         <div
                             ref={pageRef}
@@ -223,8 +243,10 @@ export function PdfViewer({
                             <Page
                                 pageNumber={currentPage}
                                 scale={scale}
+                                width={containerWidth > 0 ? Math.min(containerWidth, 800) : undefined}
                                 renderTextLayer={false}
                                 renderAnnotationLayer={true}
+                                className="max-w-full"
                             />
                             {/* Pin overlay - positioned relative to page */}
                             <div className="absolute inset-0 pointer-events-none">
