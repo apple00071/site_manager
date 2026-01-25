@@ -181,124 +181,38 @@ body {
 
 /* Golden Master Button Styles */
 .btn-base {
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-lg);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  box-shadow: var(--shadow-sm);
+  @apply px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-sm;
 }
 
 .btn-primary {
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-lg);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  box-shadow: var(--shadow-sm);
-  color: white;
+  @apply px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-sm text-white hover:shadow-md active:transform active:scale-95;
   background-color: #f0b100;
 }
 
 .btn-primary:hover {
   background-color: #d49b00;
-  box-shadow: var(--shadow-md);
-}
-
-.btn-primary:active {
-  transform: scale(0.95);
 }
 
 .btn-secondary {
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-lg);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  box-shadow: var(--shadow-sm);
-  background-color: white;
-  color: var(--gray-700);
-  border: 1px solid var(--gray-200);
-}
-
-.btn-secondary:hover {
-  background-color: var(--gray-50);
-  border-color: var(--gray-300);
-  color: var(--gray-900);
+  @apply px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-sm bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900;
 }
 
 .btn-danger {
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-lg);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  box-shadow: var(--shadow-sm);
-  background-color: white;
-  color: #dc2626;
-  border: 1px solid var(--gray-200);
-}
-
-.btn-danger:hover {
-  background-color: #fef2f2;
-  border-color: #fecaca;
-  color: #b91c1c;
+  @apply px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-sm bg-white text-red-600 border border-gray-200 hover:bg-red-50 hover:border-red-200 hover:text-red-700;
 }
 
 .btn-ghost {
-  padding: 0.5rem;
-  border-radius: var(--radius-lg);
-  color: var(--gray-500);
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-ghost:hover {
-  background-color: var(--gray-100);
-  color: var(--gray-700);
+  @apply p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors;
 }
 
 /* Legacy support - to be deprecated */
 .btn-brand {
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-lg);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  box-shadow: var(--shadow-sm);
-  color: white;
+  @apply px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-sm text-white hover:shadow-md active:transform active:scale-95;
   background-color: #f0b100;
 }
 
 .btn-brand:hover {
   background-color: #d49b00;
-  box-shadow: var(--shadow-md);
-}
-
-.btn-brand:active {
-  transform: scale(0.95);
 }
 
 /* Remove black outlines globally */
@@ -749,39 +663,10 @@ html {
   }
 }
 
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
 .animate-slide-left {
   animation: slide-left 0.3s ease-out;
-}
-
-/* TOUCH & REFRESH SENSITIVITY FIX */
-html,
-body {
-  /* Prevent pull-to-refresh on mobile browsers */
-  overscroll-behavior-y: none;
-  /* Ensure smooth scrolling while preventing root bounce */
-  height: 100%;
-  position: fixed;
-  width: 100%;
-  overflow: hidden;
-}
-
-/* Scrollable containers need their own scroll management */
-#__next,
-main,
-.scrollable-content {
-  height: 100%;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
-}
-
-/* Prevent gesture conflicts on horizontal galleries/carousels */
-.scroll-x-mobile {
-  touch-action: pan-x;
-  overscroll-behavior-x: contain;
-}
-
-/* Prevent accidental refreshes on lists */
-.no-scrollbar {
-  overscroll-behavior-y: contain;
 }
