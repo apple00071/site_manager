@@ -229,6 +229,18 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
             { id: 'office_expenses.delete', label: 'Delete office expenses' }
         ],
         notifications: ['Office expense added', 'Office expense approved']
+    },
+    {
+        module: 'Attendance & Leaves',
+        icon: '⏱️',
+        permissions: [
+            { id: 'attendance.view', label: 'View attendance logs' },
+            { id: 'attendance.log', label: 'Punch in/out' },
+            { id: 'leaves.view', label: 'View leave requests' },
+            { id: 'leaves.apply', label: 'Apply for leaves' },
+            { id: 'leaves.approve', label: 'Approve/Reject leaves' }
+        ],
+        notifications: ['Leave applied', 'Leave approved', 'Leave rejected']
     }
 ];
 
@@ -257,7 +269,8 @@ const MODULE_PREFIX_MAP: Record<string, string[]> = {
     'Expenses': ['inventory.'],
     'User & Role Management': ['user.', 'users.', 'role.'],
     'Settings': ['settings.'],
-    'Office Expenses': ['office_expenses.']
+    'Office Expenses': ['office_expenses.'],
+    'Attendance & Leaves': ['attendance.', 'leaves.']
 };
 
 export default function RolesTab() {
@@ -268,6 +281,7 @@ export default function RolesTab() {
     const [editingRole, setEditingRole] = useState<Role | null>(null);
     const [openDropdown, setOpenDropdown] = useState<string | null>(null);
     const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number } | null>(null);
+    const [saving, setSaving] = useState(false);
 
     // Form state
     const [roleName, setRoleName] = useState('');
@@ -351,6 +365,7 @@ export default function RolesTab() {
         }
 
         try {
+            setSaving(true);
             // Get permission IDs directly from the selected set
             const permissionIds = Array.from(selectedPermissionIds);
 
@@ -395,7 +410,9 @@ export default function RolesTab() {
                     body: JSON.stringify({ permission_ids: permissionIds })
                 });
                 if (!permRes.ok) {
-                    console.error('Failed to save permissions');
+                    const permError = await permRes.json();
+                    console.error('Failed to save permissions:', permError);
+                    alert(`Failed to save permissions: ${permError.error || 'Unknown error'}`);
                 }
             } else if (roleId && editingRole) {
                 // Clear permissions if none selected during update
@@ -408,9 +425,8 @@ export default function RolesTab() {
 
             setShowPanel(false);
             fetchRoles();
-        } catch (error) {
-            console.error('Error saving role:', error);
-            alert('Failed to save role');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -741,10 +757,17 @@ export default function RolesTab() {
                             </button>
                             <button
                                 onClick={handleSaveRole}
-                                disabled={!roleName.trim()}
-                                className="btn-primary disabled:opacity-50"
+                                disabled={!roleName.trim() || saving}
+                                className="btn-primary disabled:opacity-50 flex items-center justify-center gap-2 min-w-[120px]"
                             >
-                                {editingRole ? 'Update' : 'Create'} Role
+                                {saving ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        <span>Saving...</span>
+                                    </>
+                                ) : (
+                                    <span>{editingRole ? 'Update' : 'Create'} Role</span>
+                                )}
                             </button>
                         </div>
                     </div>

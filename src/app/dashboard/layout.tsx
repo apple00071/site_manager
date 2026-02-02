@@ -4,13 +4,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX, FiCheckSquare, FiAlertTriangle, FiCreditCard, FiRadio } from 'react-icons/fi';
+import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX, FiCheckSquare, FiAlertTriangle, FiCreditCard, FiRadio, FiClock } from 'react-icons/fi';
 import { supabase } from '@/lib/supabase';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 import { OptimizedNotificationBell } from '@/components/OptimizedNotificationBell';
 import HydrationSafe from '@/components/HydrationSafe';
 import { HeaderTitleProvider, useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
+import AttendanceWidget from '@/components/attendance/AttendanceWidget';
 
 function DashboardLayoutContent({
   children,
@@ -24,6 +26,7 @@ function DashboardLayoutContent({
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  const { hasPermission } = useUserPermissions();
 
   // Get dynamic page title based on current route
   const { title: customTitle, subtitle, tabs, activeTab, onTabChange, actions } = useHeaderTitle();
@@ -45,6 +48,7 @@ function DashboardLayoutContent({
     if (pathname === '/dashboard/my-tasks') return 'My Tasks';
     if (pathname === '/dashboard/tasks') return 'All Tasks';
     if (pathname === '/dashboard/office-expenses') return 'Expenses';
+    if (pathname === '/dashboard/attendance') return 'Leaves';
     if (pathname === '/dashboard/snags') return 'Snags';
     if (pathname.startsWith('/dashboard/projects/')) {
       if (pathname.endsWith('/edit')) return 'Edit Project';
@@ -171,6 +175,17 @@ function DashboardLayoutContent({
               <FiCreditCard className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
               <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Expenses</span>
             </Link>
+            {hasPermission('attendance.view') && (
+              <Link
+                href="/dashboard/attendance"
+                className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
+                onClick={() => setSidebarOpen(false)}
+                title="Attendance"
+              >
+                <FiClock className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
+                <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Leaves</span>
+              </Link>
+            )}
             {isAdmin && (
               <>
                 <Link
@@ -282,6 +297,8 @@ function DashboardLayoutContent({
                   )}
                 </div>
               )}
+
+
 
               {/* Actions */}
               <div className="hidden sm:flex items-center gap-2">

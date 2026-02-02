@@ -8,6 +8,8 @@ import { FiPlus, FiClock, FiCheckCircle, FiAlertCircle, FiBriefcase, FiCheck, Fi
 import { formatDateIST } from '@/lib/dateUtils';
 import { useToast } from '@/components/ui/Toast';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
+import AttendanceWidget from '@/components/attendance/AttendanceWidget';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 interface TeamMember {
   id: string;
@@ -22,6 +24,7 @@ interface TeamMember {
 
 export default function DashboardPage() {
   const { user, isAdmin } = useAuth();
+  const { hasPermission } = useUserPermissions();
   const { showToast } = useToast();
   const { setTitle, setSubtitle } = useHeaderTitle();
   const [stats, setStats] = useState({

@@ -38,14 +38,15 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
 
         // For Median apps: DO NOT include url/launch_url - they force browser open
         // Instead, use data payload and handle navigation in the app
+        const targetUrl = params.targetUrl || params.url;
         const payload: any = {
             app_id: ONESIGNAL_APP_ID,
             headings: { en: params.title },
             contents: { en: params.message },
             data: {
                 ...(params.data || {}),
-                route: params.targetUrl, // Use 'route' for Median internal navigation
-                url: params.targetUrl    // Fallback for Median
+                route: targetUrl, // Use 'route' for Median internal navigation
+                url: targetUrl    // Fallback for Median
             },
             // DO NOT include url or launch_url for Median apps
             target_channel: "push"

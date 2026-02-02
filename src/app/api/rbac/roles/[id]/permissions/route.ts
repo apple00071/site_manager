@@ -60,19 +60,26 @@ export async function PUT(
             .eq('id', roleId)
             .single();
 
-        if (existingRole?.is_system) {
+        // Allow editing permissions for system roles. 
+        // Admin users should be able to manage permissions even for built-in roles.
+        /* if (existingRole?.is_system) {
             return NextResponse.json({ error: 'Cannot edit permissions for system roles' }, { status: 403 });
-        }
+        } */
 
         // Delete existing permissions
-        await supabaseAdmin
+        const { error: deleteError } = await supabaseAdmin
             .from('role_permissions')
             .delete()
             .eq('role_id', roleId);
 
+        if (deleteError) throw deleteError;
+
         // Insert new permissions
         if (permission_ids && permission_ids.length > 0) {
-            const rolePermissions = permission_ids.map((permission_id: string) => ({
+            // Ensure unique IDs to prevent duplicate key errors from within the same request
+            const uniquePermissionIds = [...new Set(permission_ids)] as string[];
+
+            const rolePermissions = uniquePermissionIds.map((permission_id: string) => ({
                 role_id: roleId,
                 permission_id
             }));
@@ -81,7 +88,13 @@ export async function PUT(
                 .from('role_permissions')
                 .insert(rolePermissions);
 
-            if (insertError) throw insertError;
+            if (insertError) {
+                // If it's a conflict error, maybe another request just finished.
+                // In that case, we can potentially ignore it if the end state is the same,
+                // but let's log it more clearly.
+                console.error('Insert error in role permissions:', insertError);
+                throw insertError;
+            }
         }
 
         return NextResponse.json({ success: true });

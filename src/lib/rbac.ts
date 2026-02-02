@@ -115,6 +115,13 @@ export const PERMISSION_NODES = {
     OFFICE_EXPENSES_CREATE: 'office_expenses.create',
     OFFICE_EXPENSES_APPROVE: 'office_expenses.approve',
     OFFICE_EXPENSES_DELETE: 'office_expenses.delete',
+
+    // Attendance & Leave Permissions
+    ATTENDANCE_VIEW: 'attendance.view',
+    ATTENDANCE_LOG: 'attendance.log',
+    LEAVES_VIEW: 'leaves.view',
+    LEAVES_APPLY: 'leaves.apply',
+    LEAVES_APPROVE: 'leaves.approve',
 } as const;
 
 export type PermissionNode = typeof PERMISSION_NODES[keyof typeof PERMISSION_NODES];

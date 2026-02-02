@@ -31,7 +31,10 @@ export type NotificationType =
   | 'site_log_submitted'
   | 'report_generated'
   | 'payment_recorded'
-  | 'expense_rejected';
+  | 'expense_rejected'
+  | 'leave_created'
+  | 'leave_approved'
+  | 'leave_rejected';
 
 export interface CreateNotificationParams {
   userId: string;
@@ -83,6 +86,10 @@ export class NotificationService {
       case 'expense_approved':
       case 'expense_rejected':
         return `${baseUrl}/office-expenses`;
+      case 'leave_created':
+      case 'leave_approved':
+      case 'leave_rejected':
+        return `${baseUrl}/attendance`;
       case 'site_log_submitted':
         return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=dlogs` : undefined;
       case 'report_generated':
@@ -395,6 +402,58 @@ export class NotificationService {
       title: 'Office Expense Review',
       message: `Your request for ₹${amount} (${description}) could not be approved at this time. Please check the feedback.`,
       type: 'expense_rejected',
+    });
+  }
+
+  static formatTime(time?: string) {
+    if (!time) return '';
+    try {
+      const [hours, minutes] = time.split(':');
+      const h = parseInt(hours);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const h12 = h % 12 || 12;
+      return ` (${h12}:${minutes} ${ampm})`;
+    } catch (e) {
+      return ` (${time})`;
+    }
+  }
+
+  static async notifyLeaveCreated(userId: string, leaveType: string, startDate: string, endDate: string, requesterName: string, startTime?: string, endTime?: string) {
+    const timeInfo = leaveType === 'Permission' && startTime && endTime
+      ? `\nTime: ${this.formatTime(startTime).trim()} to ${this.formatTime(endTime).trim()}`
+      : '';
+
+    return this.createNotification({
+      userId,
+      title: 'New Leave Application',
+      message: `Requester: ${requesterName}\nType: ${leaveType}\nDates: ${startDate}${startDate !== endDate ? ` to ${endDate}` : ''}${timeInfo}\n\nPlease review and take action on this leave request.`,
+      type: 'leave_created',
+    });
+  }
+
+  static async notifyLeaveApproved(userId: string, leaveType: string, startDate: string, endDate: string, startTime?: string, endTime?: string) {
+    const timeInfo = leaveType === 'Permission' && startTime && endTime
+      ? ` (${this.formatTime(startTime).trim()} - ${this.formatTime(endTime).trim()})`
+      : '';
+
+    return this.createNotification({
+      userId,
+      title: 'Leave Request Approved',
+      message: `Your application for ${leaveType} on ${startDate}${startDate !== endDate ? ` to ${endDate}` : ''}${timeInfo} has been approved.`,
+      type: 'leave_approved',
+    });
+  }
+
+  static async notifyLeaveRejected(userId: string, leaveType: string, startDate: string, endDate: string, startTime?: string, endTime?: string) {
+    const timeInfo = leaveType === 'Permission' && startTime && endTime
+      ? ` (${this.formatTime(startTime).trim()} - ${this.formatTime(endTime).trim()})`
+      : '';
+
+    return this.createNotification({
+      userId,
+      title: 'Leave Request Update',
+      message: `Your application for ${leaveType} on ${startDate}${startDate !== endDate ? ` to ${endDate}` : ''}${timeInfo} has not been approved. Please check the dashboard for details.`,
+      type: 'leave_rejected',
     });
   }
 

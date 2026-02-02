@@ -7,10 +7,13 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { supabase } from '@/lib/supabase';
+import LeaveSection from '@/components/leaves/LeaveSection';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 const profileSchema = z.object({
   full_name: z.string().min(1, 'Full name is required'),
   email: z.string().email('Invalid email address').min(1, 'Email is required'),
+  phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
   current_password: z.string().optional(),
   new_password: z.string().min(6, 'Password must be at least 6 characters').optional(),
   confirm_password: z.string().optional(),
@@ -35,7 +38,8 @@ const profileSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
 export default function SettingsPage() {
-  const { user, updateUserEmail } = useAuth();
+  const { user, updateUserEmail, isAdmin } = useAuth();
+  const { hasPermission } = useUserPermissions();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -43,6 +47,7 @@ export default function SettingsPage() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [activeTab, setActiveTab] = useState<'profile' | 'leaves'>('profile');
 
   const {
     register,
@@ -54,6 +59,7 @@ export default function SettingsPage() {
     defaultValues: {
       full_name: '',
       email: '',
+      phone_number: '',
       current_password: '',
       new_password: '',
       confirm_password: '',
@@ -103,6 +109,7 @@ export default function SettingsPage() {
                   reset({
                     full_name: newUser.full_name || '',
                     email: user.email || '',
+                    phone_number: newUser.phone_number || '',
                   });
                   return;
                 }
@@ -121,6 +128,7 @@ export default function SettingsPage() {
           reset({
             full_name: user.user_metadata?.full_name || '',
             email: user.email || '',
+            phone_number: user.user_metadata?.phone_number || '',
           });
           return;
         }
@@ -129,6 +137,7 @@ export default function SettingsPage() {
         reset({
           full_name: data.full_name || '',
           email: user.email || '',
+          phone_number: data.phone_number || '',
         });
       } catch (error) {
         console.error('Error fetching user profile:', error);
@@ -148,6 +157,7 @@ export default function SettingsPage() {
         .from('users')
         .update({
           full_name: data.full_name,
+          phone_number: data.phone_number || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user?.id);
@@ -207,146 +217,198 @@ export default function SettingsPage() {
       </header>
       <main>
         <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
-          <div className="px-4 py-8 sm:px-0">
-            <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-              <div className="px-4 py-5 sm:px-6">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">Profile Information</h3>
-                <p className="mt-1 max-w-2xl text-sm text-gray-500">Update your account settings</p>
-              </div>
+          <div className="px-4 py-8 sm:px-0 space-y-6">
 
-              {message && (
-                <div className={`px-4 py-3 ${message.type === 'success' ? 'bg-green-50' : 'bg-red-50'}`}>
-                  <p className={`text-sm ${message.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
-                    {message.text}
-                  </p>
+            {/* Nav Tabs */}
+            {!isAdmin && (
+              <div className="flex gap-4 border-b border-gray-200 mb-6">
+                <button
+                  onClick={() => setActiveTab('profile')}
+                  className={`pb-4 text-sm font-bold transition-all border-b-2 ${activeTab === 'profile'
+                    ? 'border-yellow-500 text-yellow-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                  Profile Information
+                </button>
+                <button
+                  onClick={() => setActiveTab('leaves')}
+                  className={`pb-4 text-sm font-bold transition-all border-b-2 ${activeTab === 'leaves'
+                    ? 'border-yellow-500 text-yellow-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                  Leave Requests
+                </button>
+              </div>
+            )}
+
+            {activeTab === 'profile' && (
+              <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+                <div className="px-4 py-5 sm:px-6">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">Profile Information</h3>
+                  <p className="mt-1 max-w-2xl text-sm text-gray-500">Update your account settings</p>
                 </div>
-              )}
 
-              <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                  <div>
-                    <label htmlFor="full_name" className="block text-sm font-medium text-gray-700">
-                      Full Name
-                    </label>
-                    <div className="mt-1">
-                      <input
-                        id="full_name"
-                        type="text"
-                        {...register('full_name')}
-                        className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                      />
-                      {errors.full_name && (
-                        <p className="mt-1 text-sm text-red-600">{errors.full_name.message}</p>
-                      )}
+                {message && (
+                  <div className={`px-4 py-3 ${message.type === 'success' ? 'bg-green-50' : 'bg-red-50'}`}>
+                    <p className={`text-sm ${message.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
+                      {message.text}
+                    </p>
+                  </div>
+                )}
+
+                <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
+                  <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                    <div>
+                      <label htmlFor="full_name" className="block text-sm font-medium text-gray-700">
+                        Full Name
+                      </label>
+                      <div className="mt-1">
+                        <input
+                          id="full_name"
+                          type="text"
+                          {...register('full_name')}
+                          className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        />
+                        {errors.full_name && (
+                          <p className="mt-1 text-sm text-red-600">{errors.full_name.message}</p>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                      Email
-                    </label>
-                    <div className="mt-1">
-                      <input
-                        id="email"
-                        type="email"
-                        {...register('email')}
-                        className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                      />
-                      {errors.email && (
-                        <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-                      )}
+                    <div>
+                      <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                        Email
+                      </label>
+                      <div className="mt-1">
+                        <input
+                          id="email"
+                          type="email"
+                          {...register('email')}
+                          className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        />
+                        {errors.email && (
+                          <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="border-t border-gray-200 pt-5">
-                    <h3 className="text-lg font-medium text-gray-900">Change Password</h3>
-                    <p className="mt-1 text-sm text-gray-500">Leave blank if you don't want to change your password</p>
-                  </div>
+                    <div>
+                      <label htmlFor="phone_number" className="block text-sm font-medium text-gray-700">
+                        Phone Number
+                      </label>
+                      <div className="mt-1">
+                        <input
+                          id="phone_number"
+                          type="tel"
+                          {...register('phone_number')}
+                          placeholder="10-digit mobile number"
+                          className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        />
+                        {errors.phone_number && (
+                          <p className="mt-1 text-sm text-red-600">{errors.phone_number.message}</p>
+                        )}
+                      </div>
+                    </div>
 
-                  <div>
-                    <label htmlFor="current_password" className="block text-sm font-medium text-gray-700">
-                      Current Password
-                    </label>
-                    <div className="mt-1 relative">
-                      <input
-                        id="current_password"
-                        type={showCurrentPassword ? 'text' : 'password'}
-                        {...register('current_password')}
-                        className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md pr-12"
-                      />
+                    <div className="border-t border-gray-200 pt-5">
+                      <h3 className="text-lg font-medium text-gray-900">Change Password</h3>
+                      <p className="mt-1 text-sm text-gray-500">Leave blank if you don't want to change your password</p>
+                    </div>
+
+                    <div>
+                      <label htmlFor="current_password" className="block text-sm font-medium text-gray-700">
+                        Current Password
+                      </label>
+                      <div className="mt-1 relative">
+                        <input
+                          id="current_password"
+                          type={showCurrentPassword ? 'text' : 'password'}
+                          {...register('current_password')}
+                          className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md pr-12"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowCurrentPassword(prev => !prev)}
+                          className="absolute inset-y-0 right-3 flex items-center text-xs text-gray-500"
+                        >
+                          {showCurrentPassword ? 'Hide' : 'Show'}
+                        </button>
+                        {errors.current_password && (
+                          <p className="mt-1 text-sm text-red-600">{errors.current_password.message}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="new_password" className="block text-sm font-medium text-gray-700">
+                        New Password
+                      </label>
+                      <div className="mt-1 relative">
+                        <input
+                          id="new_password"
+                          type={showNewPassword ? 'text' : 'password'}
+                          {...register('new_password')}
+                          className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md pr-12"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPassword(prev => !prev)}
+                          className="absolute inset-y-0 right-3 flex items-center text-xs text-gray-500"
+                        >
+                          {showNewPassword ? 'Hide' : 'Show'}
+                        </button>
+                        {errors.new_password && (
+                          <p className="mt-1 text-sm text-red-600">{errors.new_password.message}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700">
+                        Confirm New Password
+                      </label>
+                      <div className="mt-1 relative">
+                        <input
+                          id="confirm_password"
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          {...register('confirm_password')}
+                          className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md pr-12"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(prev => !prev)}
+                          className="absolute inset-y-0 right-3 flex items-center text-xs text-gray-500"
+                        >
+                          {showConfirmPassword ? 'Hide' : 'Show'}
+                        </button>
+                        {errors.confirm_password && (
+                          <p className="mt-1 text-sm text-red-600">{errors.confirm_password.message}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
                       <button
-                        type="button"
-                        onClick={() => setShowCurrentPassword(prev => !prev)}
-                        className="absolute inset-y-0 right-3 flex items-center text-xs text-gray-500"
+                        type="submit"
+                        disabled={loading}
+                        className="btn-primary flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {showCurrentPassword ? 'Hide' : 'Show'}
+                        {loading ? 'Saving...' : 'Save Changes'}
                       </button>
-                      {errors.current_password && (
-                        <p className="mt-1 text-sm text-red-600">{errors.current_password.message}</p>
-                      )}
                     </div>
-                  </div>
-
-                  <div>
-                    <label htmlFor="new_password" className="block text-sm font-medium text-gray-700">
-                      New Password
-                    </label>
-                    <div className="mt-1 relative">
-                      <input
-                        id="new_password"
-                        type={showNewPassword ? 'text' : 'password'}
-                        {...register('new_password')}
-                        className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md pr-12"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowNewPassword(prev => !prev)}
-                        className="absolute inset-y-0 right-3 flex items-center text-xs text-gray-500"
-                      >
-                        {showNewPassword ? 'Hide' : 'Show'}
-                      </button>
-                      {errors.new_password && (
-                        <p className="mt-1 text-sm text-red-600">{errors.new_password.message}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700">
-                      Confirm New Password
-                    </label>
-                    <div className="mt-1 relative">
-                      <input
-                        id="confirm_password"
-                        type={showConfirmPassword ? 'text' : 'password'}
-                        {...register('confirm_password')}
-                        className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md pr-12"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword(prev => !prev)}
-                        className="absolute inset-y-0 right-3 flex items-center text-xs text-gray-500"
-                      >
-                        {showConfirmPassword ? 'Hide' : 'Show'}
-                      </button>
-                      {errors.confirm_password && (
-                        <p className="mt-1 text-sm text-red-600">{errors.confirm_password.message}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="btn-primary flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {loading ? 'Saving...' : 'Save Changes'}
-                    </button>
-                  </div>
-                </form>
+                  </form>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Leave Management Tab for Employees */}
+            {activeTab === 'leaves' && !isAdmin && (
+              <div className="bg-white shadow sm:rounded-lg p-6">
+                <LeaveSection />
+              </div>
+            )}
           </div>
         </div>
       </main>

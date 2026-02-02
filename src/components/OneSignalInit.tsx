@@ -20,11 +20,16 @@ export default function OneSignalInit() {
     const mounted = useRef(false);
     const router = useRouter();
 
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+        console.warn('OneSignalInit: Missing Supabase environment variables. Push registration will be skipped.');
+        return null;
+    }
+
     // Use createBrowserClient from @supabase/ssr to match Middleware's createServerClient
-    const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
 
     // Helper: Wait for Median Bridge
     function waitForMedianOneSignal(timeout = 15000): Promise<void> {
