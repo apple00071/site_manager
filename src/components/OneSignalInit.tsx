@@ -182,6 +182,26 @@ export default function OneSignalInit() {
                     registerPushAfterLogin(session.user, authEvent);
                 }, 1000);
             }
+            else if (authEvent === "SIGNED_OUT") {
+                if (DEBUG) alert("🚪 User SIGNED_OUT: Clearing OneSignal Identity");
+
+                // 1. Tell Median Bridge to logout
+                if (window.median?.onesignal?.logout) {
+                    try {
+                        await window.median.onesignal.logout();
+                        if (DEBUG) alert("✅ OneSignal Bridge Logout Success");
+                    } catch (e) {
+                        console.error("OneSignal bridge logout error:", e);
+                    }
+                }
+
+                // 2. Clear association on server
+                try {
+                    await fetch('/api/onesignal/subscribe', { method: 'DELETE' });
+                } catch (e) {
+                    console.error("Failed to clear OneSignal association on server:", e);
+                }
+            }
             else if (!session?.user && authEvent === "INITIAL_SESSION") {
                 if (DEBUG) alert("❌ INITIAL_SESSION: No User (Logged Out)");
             }

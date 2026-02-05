@@ -464,7 +464,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Sign out on server (clears httpOnly cookies) first
       try {
-        await fetch('/api/auth/logout', { method: 'POST' });
+        await Promise.all([
+          fetch('/api/auth/logout', { method: 'POST' }),
+          fetch('/api/onesignal/subscribe', { method: 'DELETE' }).catch(() => { })
+        ]);
       } catch (_) {
         // ignore
       }

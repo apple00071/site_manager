@@ -51,3 +51,44 @@ export async function POST(request: NextRequest) {
         );
     }
 }
+
+/**
+ * Clear OneSignal Player ID from user's profile (on logout)
+ */
+export async function DELETE(request: NextRequest) {
+    try {
+        // Get current user
+        const { user, error: authError } = await getAuthUser();
+
+        if (authError || !user) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            );
+        }
+
+        // Clear user's record with OneSignal Player ID
+        const { error } = await supabaseAdmin
+            .from('users')
+            .update({ onesignal_player_id: null })
+            .eq('id', user.id);
+
+        if (error) {
+            console.error('Error clearing OneSignal Player ID:', error);
+            return NextResponse.json(
+                { error: 'Failed to clear Player ID' },
+                { status: 500 }
+            );
+        }
+
+        console.log(`✅ OneSignal Player ID cleared for user ${user.id}`);
+
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        console.error('Error in OneSignal unsubscribe endpoint:', error);
+        return NextResponse.json(
+            { error: 'Internal server error' },
+            { status: 500 }
+        );
+    }
+}
