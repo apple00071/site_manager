@@ -386,7 +386,7 @@ export default function SnagsPage() {
                             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{stat.label}</p>
                             <p className={`text-2xl font-bold mt-1 ${stat.color}`}>{stat.value}</p>
                         </div>
-                        <div className={`p-3 rounded-xl ${stat.bg} ${stat.color}`}>
+                        <div className={`flex items-center justify-center p-3 rounded-xl ${stat.bg} ${stat.color}`}>
                             <stat.icon className="w-5 h-5" />
                         </div>
                     </div>
@@ -483,7 +483,7 @@ export default function SnagsPage() {
                                 <div className="flex items-center gap-4">
                                     <button
                                         onClick={() => setSelectedSnag(null)}
-                                        className="lg:hidden p-2 -ml-2 text-gray-400 hover:text-gray-600"
+                                        className="flex items-center justify-center lg:hidden p-2 -ml-2 text-gray-400 hover:text-gray-600"
                                     >
                                         <FiX className="w-6 h-6" />
                                     </button>
@@ -511,7 +511,7 @@ export default function SnagsPage() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {selectedSnag.customer_phone && (
-                                        <a href={`tel:${selectedSnag.customer_phone}`} className="p-2 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors">
+                                        <a href={`tel:${selectedSnag.customer_phone}`} className="flex items-center justify-center p-2 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors">
                                             <FiPhone className="w-5 h-5" />
                                         </a>
                                     )}
@@ -627,7 +627,7 @@ export default function SnagsPage() {
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col">
                         <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                             <h3 className="text-xl font-bold text-gray-900">Report New Site Issue</h3>
-                            <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-200 rounded-full transition-colors"><FiX className="w-6 h-6 text-gray-400" /></button>
+                            <button onClick={() => setShowModal(false)} className="flex items-center justify-center p-2 hover:bg-gray-200 rounded-full transition-colors"><FiX className="w-6 h-6 text-gray-400" /></button>
                         </div>
                         <div className="p-8 space-y-6 overflow-y-auto">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -677,7 +677,7 @@ export default function SnagsPage() {
                                     {formData.photos.map((url, i) => (
                                         <div key={i} className="relative w-20 h-20 shrink-0">
                                             <Image src={url} alt="preview" fill className="object-cover rounded-2xl" />
-                                            <button onClick={() => setFormData(p => ({ ...p, photos: p.photos.filter((_, idx) => idx !== i) }))} className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-1 shadow-lg"><FiX className="w-3 h-3" /></button>
+                                            <button onClick={() => setFormData(p => ({ ...p, photos: p.photos.filter((_, idx) => idx !== i) }))} className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-1 shadow-lg flex items-center justify-center"><FiX className="w-3 h-3" /></button>
                                         </div>
                                     ))}
                                     <label className="w-20 h-20 flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-3xl cursor-pointer hover:border-yellow-500 hover:bg-yellow-50 transition-all group">
@@ -701,7 +701,7 @@ export default function SnagsPage() {
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
                         <div className="p-6 bg-emerald-50 border-b border-emerald-100 flex justify-between items-center text-emerald-900">
                             <h3 className="text-xl font-bold flex items-center gap-2"><FiCheckCircle /> Resolve Snag</h3>
-                            <button onClick={() => setShowResolveModal(false)} className="p-1 hover:bg-emerald-100 rounded-full transition-colors"><FiX /></button>
+                            <button onClick={() => setShowResolveModal(false)} className="flex items-center justify-center p-1 hover:bg-emerald-100 rounded-full transition-colors"><FiX /></button>
                         </div>
                         <div className="p-6 space-y-6">
                             <div>
@@ -714,7 +714,7 @@ export default function SnagsPage() {
                                     {resolveData.photos.map((url, i) => (
                                         <div key={i} className="relative w-20 h-20 shrink-0">
                                             <Image src={url} alt="proof" fill className="object-cover rounded-2xl" />
-                                            <button onClick={() => setResolveData(p => ({ ...p, photos: p.photos.filter((_, idx) => idx !== i) }))} className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-1"><FiX className="w-3 h-3" /></button>
+                                            <button onClick={() => setResolveData(p => ({ ...p, photos: p.photos.filter((_, idx) => idx !== i) }))} className="flex items-center justify-center absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-1"><FiX className="w-3 h-3" /></button>
                                         </div>
                                     ))}
                                     <label className="w-20 h-20 flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-emerald-50 hover:border-emerald-500 transition-all group">
@@ -740,7 +740,7 @@ export default function SnagsPage() {
                             <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                                 <FiMessageSquare className="text-yellow-500" /> Progress Update
                             </h3>
-                            <button onClick={() => setShowFollowUpModal(false)} className="p-1 hover:bg-gray-200 rounded-full transition-colors">
+                            <button onClick={() => setShowFollowUpModal(false)} className="flex items-center justify-center p-1 hover:bg-gray-200 rounded-full transition-colors">
                                 <FiX className="w-6 h-6 text-gray-400" />
                             </button>
                         </div>
@@ -771,7 +771,7 @@ export default function SnagsPage() {
             {/* Photo Viewer */}
             {viewingImage && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 animate-fade-in" onClick={() => setViewingImage(null)}>
-                    <button className="absolute top-8 right-8 text-white/50 hover:text-white transition-colors"><FiX className="w-10 h-10" /></button>
+                    <button className="flex items-center justify-center absolute top-8 right-8 text-white/50 hover:text-white transition-colors"><FiX className="w-10 h-10" /></button>
                     <div className="relative w-full max-w-5xl h-full max-h-[85vh]">
                         <Image src={viewingImage} alt="Full Size" fill className="object-contain" quality={100} />
                     </div>

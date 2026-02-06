@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
-import { FiPlus, FiUser, FiClock, FiCalendar, FiClipboard, FiTrash2 } from 'react-icons/fi';
+import { FiPlus, FiUser, FiClock, FiCalendar, FiClipboard, FiTrash2, FiMapPin, FiSearch } from 'react-icons/fi';
 import { useToast } from '@/components/ui/Toast';
 import LeaveRequestForm from '@/components/leaves/LeaveRequestForm';
 import LeaveApprovalModal from '@/components/leaves/LeaveApprovalModal';
@@ -52,14 +52,14 @@ export default function AttendancePage() {
     const { showToast } = useToast();
     const { setTitle, setSubtitle } = useHeaderTitle();
 
+    // Tabs
+    const [activeTab, setActiveTab] = useState<'attendance' | 'leaves'>('attendance');
+
     // Set header title
     useEffect(() => {
-        setTitle('Leaves');
+        setTitle(activeTab === 'attendance' ? 'Attendance' : 'Leaves');
         setSubtitle(null);
-    }, [setTitle, setSubtitle]);
-
-    // Tabs
-    const [activeTab, setActiveTab] = useState<'attendance' | 'leaves'>('leaves');
+    }, [setTitle, setSubtitle, activeTab]);
 
     // Attendance State
     const [attendanceLogs, setAttendanceLogs] = useState<AttendanceRecord[]>([]);
@@ -73,6 +73,9 @@ export default function AttendancePage() {
     const [showLeaveForm, setShowLeaveForm] = useState(false);
     const [leaveFormType, setLeaveFormType] = useState<string>('Casual Leave');
     const [approvingLeave, setApprovingLeave] = useState<Leave | null>(null);
+
+    // Search State
+    const [searchQuery, setSearchQuery] = useState('');
 
     // Responsiveness
     const [isMobile, setIsMobile] = useState(false);
@@ -126,6 +129,23 @@ export default function AttendancePage() {
         }
     };
 
+    const filteredAttendance = attendanceLogs.filter(log => {
+        const searchLower = searchQuery.toLowerCase();
+        const matchesName = log.users?.full_name?.toLowerCase().includes(searchLower);
+        const matchesEmail = log.users?.email?.toLowerCase().includes(searchLower);
+        const matchesDate = log.date.includes(searchLower);
+        return matchesName || matchesEmail || matchesDate;
+    });
+
+    const filteredLeaves = leaves.filter(leave => {
+        const searchLower = searchQuery.toLowerCase();
+        const matchesName = leave.user?.full_name?.toLowerCase().includes(searchLower);
+        const matchesEmail = leave.user?.email?.toLowerCase().includes(searchLower);
+        const matchesReason = leave.reason?.toLowerCase().includes(searchLower);
+        const matchesType = leave.leave_type?.toLowerCase().includes(searchLower);
+        return matchesName || matchesEmail || matchesReason || matchesType;
+    });
+
     const handleDeleteLeave = async (id: string) => {
         if (!confirm('Are you sure you want to delete this leave request?')) return;
         try {
@@ -174,21 +194,47 @@ export default function AttendancePage() {
         {
             key: 'check_in',
             label: 'Punch In',
-            render: (_, row) => (
-                <span className="text-sm text-blue-600 font-medium">
-                    {new Date(row.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
+            render: (_, row: AttendanceRecord) => (
+                <div className="flex items-center gap-2">
+                    <span className="text-sm text-blue-600 font-medium">
+                        {new Date(row.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    {isAdmin && row.check_in_latitude && row.check_in_longitude && (
+                        <a
+                            href={`https://www.google.com/maps?q=${row.check_in_latitude},${row.check_in_longitude}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1 text-gray-400 hover:text-blue-500 rounded-full hover:bg-blue-50 transition-colors"
+                            title="View Check-in Location"
+                        >
+                            <FiMapPin className="w-3.5 h-3.5" />
+                        </a>
+                    )}
+                </div>
             )
         },
         {
             key: 'check_out',
             label: 'Punch Out',
-            render: (_, row) => (
-                <span className="text-sm text-orange-600 font-medium">
-                    {row.check_out
-                        ? new Date(row.check_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                        : '—'}
-                </span>
+            render: (_, row: AttendanceRecord) => (
+                <div className="flex items-center gap-2">
+                    <span className="text-sm text-orange-600 font-medium">
+                        {row.check_out
+                            ? new Date(row.check_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            : '—'}
+                    </span>
+                    {isAdmin && row.check_out && row.check_out_latitude && row.check_out_longitude && (
+                        <a
+                            href={`https://www.google.com/maps?q=${row.check_out_latitude},${row.check_out_longitude}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1 text-gray-400 hover:text-orange-500 rounded-full hover:bg-orange-50 transition-colors"
+                            title="View Check-out Location"
+                        >
+                            <FiMapPin className="w-3.5 h-3.5" />
+                        </a>
+                    )}
+                </div>
             )
         },
         {
@@ -274,7 +320,7 @@ export default function AttendancePage() {
                     {isAdmin && row.status === 'pending' && (
                         <button
                             onClick={() => setApprovingLeave(row)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            className="flex items-center justify-center p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             title="Review"
                         >
                             <FiClipboard className="h-4 w-4" />
@@ -283,7 +329,7 @@ export default function AttendancePage() {
                     {user?.id === row.user_id && row.status === 'pending' && (
                         <button
                             onClick={() => handleDeleteLeave(row.id)}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="flex items-center justify-center p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             title="Cancel"
                         >
                             <FiTrash2 className="h-4 w-4" />
@@ -302,26 +348,61 @@ export default function AttendancePage() {
     if (!mounted) return null;
 
     return (
-        <div className="space-y-6 pt-8">
-            {/* Header Actions */}
-            {!isAdmin && (
-                <div className="flex justify-end gap-3">
-                    <button
-                        onClick={() => openLeaveForm('Permission')}
-                        className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-sm active:scale-95"
-                    >
-                        <FiClock className="h-4 w-4" />
-                        Request Permission
-                    </button>
-                    <button
-                        onClick={() => openLeaveForm('Casual Leave')}
-                        className="bg-yellow-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-yellow-600 transition-all shadow-sm active:scale-95"
-                    >
-                        <FiPlus className="h-4 w-4" />
-                        Apply for Leave
-                    </button>
+        <div className="space-y-6 pt-4">
+            {/* Tab Switcher */}
+            <div className="flex p-1 bg-gray-100 rounded-xl w-fit">
+                <button
+                    onClick={() => setActiveTab('attendance')}
+                    className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'attendance'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                >
+                    Attendance
+                </button>
+                <button
+                    onClick={() => setActiveTab('leaves')}
+                    className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'leaves'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                >
+                    Leaves
+                </button>
+            </div>
+
+            {/* Search and Header Actions */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="relative w-full sm:w-80">
+                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input
+                        type="text"
+                        placeholder={activeTab === 'attendance' ? "Search by employee or date..." : "Search by employee or reason..."}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500 transition-all shadow-sm"
+                    />
                 </div>
-            )}
+
+                {!isAdmin && (
+                    <div className="flex justify-end gap-3 w-full sm:w-auto">
+                        <button
+                            onClick={() => openLeaveForm('Permission')}
+                            className="flex-1 sm:flex-none justify-center bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-sm active:scale-95"
+                        >
+                            <FiClock className="h-4 w-4" />
+                            Request Permission
+                        </button>
+                        <button
+                            onClick={() => openLeaveForm('Casual Leave')}
+                            className="flex-1 sm:flex-none justify-center bg-yellow-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-yellow-600 transition-all shadow-sm active:scale-95"
+                        >
+                            <FiPlus className="h-4 w-4" />
+                            Apply for Leave
+                        </button>
+                    </div>
+                )}
+            </div>
 
             {/* Content View */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -332,10 +413,10 @@ export default function AttendancePage() {
                                 Array.from({ length: 3 }).map((_, i) => (
                                     <div key={i} className="animate-pulse bg-gray-50 h-24 rounded-xl" />
                                 ))
-                            ) : attendanceLogs.length === 0 ? (
+                            ) : filteredAttendance.length === 0 ? (
                                 <div className="text-center py-12 text-gray-400 text-sm">No attendance logs found.</div>
                             ) : (
-                                attendanceLogs.map((log) => (
+                                filteredAttendance.map((log) => (
                                     <div key={log.id} className="p-4 rounded-xl border border-gray-100 space-y-3">
                                         <div className="flex justify-between items-center">
                                             <div className="flex items-center gap-2">
@@ -388,7 +469,7 @@ export default function AttendancePage() {
                     ) : (
                         <DataTable
                             columns={attendanceColumns}
-                            data={attendanceLogs}
+                            data={filteredAttendance}
                             keyField="id"
                             loading={attendanceLoading}
                             emptyMessage="No attendance logs found."
@@ -401,10 +482,10 @@ export default function AttendancePage() {
                                 Array.from({ length: 3 }).map((_, i) => (
                                     <div key={i} className="animate-pulse bg-gray-50 h-32 rounded-xl" />
                                 ))
-                            ) : leaves.length === 0 ? (
+                            ) : filteredLeaves.length === 0 ? (
                                 <div className="text-center py-12 text-gray-400 text-sm">No leave requests found.</div>
                             ) : (
-                                leaves.map((leave) => (
+                                filteredLeaves.map((leave) => (
                                     <LeaveCard
                                         key={leave.id}
                                         leave={leave}
@@ -419,7 +500,7 @@ export default function AttendancePage() {
                     ) : (
                         <DataTable
                             columns={leaveColumns}
-                            data={leaves}
+                            data={filteredLeaves}
                             keyField="id"
                             loading={leavesLoading}
                             emptyMessage="No leave requests found."

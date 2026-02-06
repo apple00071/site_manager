@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { FiPlus, FiFilter, FiSearch, FiMoreVertical, FiEdit2, FiTrash2, FiFileText, FiCheck, FiX, FiEye, FiUser } from 'react-icons/fi';
+import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { createPortal } from 'react-dom';
 import { useToast } from '@/components/ui/Toast';
 import OfficeExpenseForm from '@/components/office-expenses/OfficeExpenseForm';
@@ -37,7 +38,14 @@ interface OfficeExpense {
 export default function OfficeExpensesPage() {
     const { user, isAdmin } = useAuth();
     const { hasPermission } = useUserPermissions();
+    const { setTitle, setSubtitle } = useHeaderTitle();
     const { showToast } = useToast();
+
+    // Set header title
+    useEffect(() => {
+        setTitle('Office Expenses');
+        setSubtitle(null);
+    }, [setTitle, setSubtitle]);
 
     // Permissions
     const canCreate = hasPermission('office_expenses.create');
@@ -163,10 +171,18 @@ export default function OfficeExpensesPage() {
             setShowMobileActions(expenseId);
             return;
         }
+
         const rect = e.currentTarget.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const menuHeight = 200; // Approximate height for 4-5 items
+
+        // Decide whether to show above or below
+        const spaceBelow = viewportHeight - rect.bottom;
+        const showAbove = spaceBelow < menuHeight && rect.top > menuHeight;
+
         setMenuPosition({
-            top: rect.bottom + window.scrollY + 5,
-            left: rect.right + window.scrollX - 160,
+            top: showAbove ? rect.top - menuHeight - 5 : rect.bottom + 5,
+            left: rect.right - 160, // Shifted slightly more to the right compared to 192
         });
         setActiveMenuId(activeMenuId === expenseId ? null : expenseId);
     };
@@ -254,7 +270,10 @@ export default function OfficeExpensesPage() {
                 <div className="flex justify-end">
                     <button
                         onClick={(e) => handleMenuClick(e, row.id)}
-                        className="p-1.5 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-600"
+                        className={`flex items-center justify-center p-1.5 rounded-full transition-colors border ${activeMenuId === row.id
+                            ? 'bg-yellow-50 text-yellow-600 border-yellow-200'
+                            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100 border-transparent'
+                            }`}
                     >
                         <FiMoreVertical className="w-4 h-4" />
                     </button>
@@ -301,15 +320,20 @@ export default function OfficeExpensesPage() {
                                 key={status}
                                 onClick={() => setStatusFilter(status)}
                                 className={`
-                                    px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all
+                                    px-3 py-2 md:px-4 rounded-lg text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 flex items-center gap-1.5
                                     ${statusFilter === status
                                         ? 'bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200' // Active Tab style
                                         : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                                     }
                                 `}
                             >
-                                {status.charAt(0).toUpperCase() + status.slice(1)}
-                                <span className={`ml-2 text-xs py-0.5 px-1.5 rounded-full ${statusFilter === status ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'}`}>
+                                <span className="md:inline hidden">
+                                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                                </span>
+                                <span className="md:hidden inline">
+                                    {status === 'all' ? 'All' : status.charAt(0).toUpperCase()}
+                                </span>
+                                <span className={`text-[10px] py-0.5 px-1.5 rounded-full ${statusFilter === status ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'}`}>
                                     {status === 'all' ? stats.totalCount :
                                         status === 'pending' ? stats.pendingCount :
                                             status === 'approved' ? stats.approvedCount :
@@ -380,7 +404,7 @@ export default function OfficeExpensesPage() {
                                             </div>
                                             <button
                                                 onClick={(e) => handleMenuClick(e, expense.id)}
-                                                className="p-2 text-gray-400 hover:bg-gray-50 rounded-lg transition-colors border border-transparent active:border-gray-100"
+                                                className="flex items-center justify-center p-2 text-gray-400 hover:bg-gray-50 rounded-lg transition-colors border border-transparent active:border-gray-100"
                                             >
                                                 <FiMoreVertical className="w-5 h-5" />
                                             </button>
@@ -444,9 +468,11 @@ export default function OfficeExpensesPage() {
                     <div
                         ref={menuRef}
                         style={{
-                            position: 'absolute',
+                            position: 'fixed',
                             top: `${menuPosition.top}px`,
                             left: `${menuPosition.left}px`,
+                            maxHeight: 'calc(100vh - 40px)', // Safe guard for very small screens
+                            overflowY: 'auto'
                         }}
                         className="fixed z-[70] w-48 bg-white rounded-lg shadow-xl border border-gray-100 py-1"
                     >
@@ -470,20 +496,20 @@ export default function OfficeExpensesPage() {
                                                     setApprovingExpense(expense);
                                                     setActiveMenuId(null);
                                                 }}
-                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 flex items-center gap-2 group"
                                             >
                                                 <FiCheck className="w-4 h-4 text-green-600" />
-                                                Approve
+                                                <span className="group-hover:text-green-700">Approve</span>
                                             </button>
                                             <button
                                                 onClick={() => {
                                                     setApprovingExpense(expense);
                                                     setActiveMenuId(null);
                                                 }}
-                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 flex items-center gap-2 group"
                                             >
                                                 <FiX className="w-4 h-4 text-red-600" />
-                                                Reject
+                                                <span className="group-hover:text-red-700">Reject</span>
                                             </button>
                                         </>
                                     )}
@@ -494,24 +520,24 @@ export default function OfficeExpensesPage() {
                                                 setViewingBillUrl(billUrl);
                                                 setActiveMenuId(null);
                                             }}
-                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 flex items-center gap-2 group"
                                         >
                                             <FiFileText className="w-4 h-4 text-blue-600" />
-                                            View Bill
+                                            <span className="group-hover:text-blue-700">View Bill</span>
                                         </button>
                                     )}
 
-                                    {isOwner && isPending && (
+                                    {(isOwner || isAdmin) && isPending && (
                                         <button
                                             onClick={() => {
                                                 setEditingExpense(expense);
                                                 setShowForm(true);
                                                 setActiveMenuId(null);
                                             }}
-                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 group"
                                         >
                                             <FiEdit2 className="w-4 h-4 text-gray-600" />
-                                            Edit
+                                            <span>Edit</span>
                                         </button>
                                     )}
 

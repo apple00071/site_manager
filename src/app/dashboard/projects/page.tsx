@@ -460,7 +460,7 @@ export default function ProjectsPage() {
                         e.stopPropagation();
                         setActiveDropdown(activeDropdown === project.id ? null : project.id);
                       }}
-                      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                      className="flex items-center justify-center p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
                     >
                       <FiMoreVertical className="w-5 h-5" />
                     </button>

@@ -225,6 +225,7 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         permissions: [
             { id: 'office_expenses.view', label: 'View office expenses' },
             { id: 'office_expenses.create', label: 'Add office expenses' },
+            { id: 'office_expenses.edit', label: 'Edit office expenses' },
             { id: 'office_expenses.approve', label: 'Approve office expenses' },
             { id: 'office_expenses.delete', label: 'Delete office expenses' }
         ],
@@ -525,7 +526,7 @@ export default function RolesTab() {
                             });
                             setOpenDropdown(openDropdown === role.id ? null : role.id);
                         }}
-                        className="p-1 hover:bg-gray-100 rounded"
+                        className="flex items-center justify-center p-1 hover:bg-gray-100 rounded"
                         title="More options"
                     >
                         <FiMoreVertical className="h-4 w-4 text-gray-400" />

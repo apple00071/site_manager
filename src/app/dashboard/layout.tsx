@@ -48,7 +48,7 @@ function DashboardLayoutContent({
     if (pathname === '/dashboard/my-tasks') return 'My Tasks';
     if (pathname === '/dashboard/tasks') return 'All Tasks';
     if (pathname === '/dashboard/office-expenses') return 'Expenses';
-    if (pathname === '/dashboard/attendance') return 'Leaves';
+    if (pathname === '/dashboard/attendance') return 'Attendance';
     if (pathname === '/dashboard/snags') return 'Snags';
     if (pathname.startsWith('/dashboard/projects/')) {
       if (pathname.endsWith('/edit')) return 'Edit Project';
@@ -183,7 +183,7 @@ function DashboardLayoutContent({
                 title="Attendance"
               >
                 <FiClock className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
-                <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Leaves</span>
+                <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Attendance</span>
               </Link>
             )}
             {isAdmin && (

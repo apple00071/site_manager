@@ -314,6 +314,11 @@ export default function DashboardPage() {
             Welcome, {user?.full_name || 'User'}
           </h1>
         </div>
+        {!isAdmin && (
+          <div className="flex items-center gap-4">
+            <AttendanceWidget />
+          </div>
+        )}
       </div>
 
       {/* Stats - Compact Single Row */}
@@ -321,7 +326,7 @@ export default function DashboardPage() {
         {/* Project Stats */}
         <Link href="/dashboard/projects?status=all" className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-yellow-100 text-yellow-700">
+            <div className="flex items-center justify-center p-2 rounded-lg bg-yellow-100 text-yellow-700">
               <FiBriefcase className="h-4 w-4" />
             </div>
             <div className="min-w-0">
@@ -333,7 +338,7 @@ export default function DashboardPage() {
 
         <Link href="/dashboard/projects?status=in_progress" className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
+            <div className="flex items-center justify-center p-2 rounded-lg bg-blue-100 text-blue-600">
               <FiAlertCircle className="h-4 w-4" />
             </div>
             <div className="min-w-0">
@@ -345,7 +350,7 @@ export default function DashboardPage() {
 
         <Link href="/dashboard/projects?status=completed" className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-green-100 text-green-600">
+            <div className="flex items-center justify-center p-2 rounded-lg bg-green-100 text-green-600">
               <FiCheckCircle className="h-4 w-4" />
             </div>
             <div className="min-w-0">
@@ -357,7 +362,7 @@ export default function DashboardPage() {
 
         <Link href="/dashboard/projects" className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-yellow-100 text-yellow-600">
+            <div className="flex items-center justify-center p-2 rounded-lg bg-yellow-100 text-yellow-600">
               <FiClock className="h-4 w-4" />
             </div>
             <div className="min-w-0">
@@ -370,7 +375,7 @@ export default function DashboardPage() {
         {/* Task Stats */}
         <Link href="/dashboard/tasks" className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-purple-100 text-purple-700">
+            <div className="flex items-center justify-center p-2 rounded-lg bg-purple-100 text-purple-700">
               <FiCheckCircle className="h-4 w-4" />
             </div>
             <div className="min-w-0">
@@ -382,7 +387,7 @@ export default function DashboardPage() {
 
         <Link href="/dashboard/tasks" className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-gray-100 text-gray-700">
+            <div className="flex items-center justify-center p-2 rounded-lg bg-gray-100 text-gray-700">
               <FiClock className="h-4 w-4" />
             </div>
             <div className="min-w-0">
@@ -394,7 +399,7 @@ export default function DashboardPage() {
 
         <Link href="/dashboard/tasks" className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
+            <div className="flex items-center justify-center p-2 rounded-lg bg-blue-100 text-blue-600">
               <FiPlay className="h-4 w-4" />
             </div>
             <div className="min-w-0">
@@ -406,7 +411,7 @@ export default function DashboardPage() {
 
         <Link href="/dashboard/tasks" className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-green-100 text-green-600">
+            <div className="flex items-center justify-center p-2 rounded-lg bg-green-100 text-green-600">
               <FiCheck className="h-4 w-4" />
             </div>
             <div className="min-w-0">

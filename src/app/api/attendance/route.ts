@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
 
         const body = await request.json();
         const action = body.action; // 'punch_in' or 'punch_out'
+        const { latitude, longitude } = body;
         const today = new Date().toISOString().split('T')[0];
 
         if (action === 'punch_in') {
@@ -92,6 +93,8 @@ export async function POST(request: NextRequest) {
                     user_id: userResult.user.id,
                     date: today,
                     check_in: new Date().toISOString(),
+                    check_in_latitude: latitude,
+                    check_in_longitude: longitude,
                 }, { onConflict: 'user_id,date' })
                 .select()
                 .single();
@@ -108,6 +111,8 @@ export async function POST(request: NextRequest) {
                 .from('attendance')
                 .update({
                     check_out: new Date().toISOString(),
+                    check_out_latitude: latitude,
+                    check_out_longitude: longitude,
                 })
                 .eq('user_id', userResult.user.id)
                 .eq('date', today)
