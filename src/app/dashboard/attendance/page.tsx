@@ -450,13 +450,37 @@ export default function AttendancePage() {
                                         </div>
                                         <div className="grid grid-cols-2 gap-2 pt-1 border-t border-gray-50">
                                             <div className="flex flex-col">
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase">Punch In</span>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Punch In</span>
+                                                    {isAdmin && log.check_in_latitude && log.check_in_longitude && (
+                                                        <a
+                                                            href={`https://www.google.com/maps?q=${log.check_in_latitude},${log.check_in_longitude}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-blue-500 hover:text-blue-600 transition-colors"
+                                                        >
+                                                            <FiMapPin className="w-2.5 h-2.5" />
+                                                        </a>
+                                                    )}
+                                                </div>
                                                 <span className="text-sm font-bold text-blue-600">
                                                     {new Date(log.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </span>
                                             </div>
                                             <div className="flex flex-col text-right">
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase">Punch Out</span>
+                                                <div className="flex items-center justify-end gap-1">
+                                                    {isAdmin && log.check_out && log.check_out_latitude && log.check_out_longitude && (
+                                                        <a
+                                                            href={`https://www.google.com/maps?q=${log.check_out_latitude},${log.check_out_longitude}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-orange-500 hover:text-orange-600 transition-colors"
+                                                        >
+                                                            <FiMapPin className="w-2.5 h-2.5" />
+                                                        </a>
+                                                    )}
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Punch Out</span>
+                                                </div>
                                                 <span className="text-sm font-bold text-orange-600">
                                                     {log.check_out ? new Date(log.check_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
                                                 </span>

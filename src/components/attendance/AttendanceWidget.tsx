@@ -59,11 +59,9 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
                     });
                     latitude = position.coords.latitude;
                     longitude = position.coords.longitude;
-                    console.log(`📍 Captured location: ${latitude}, ${longitude}`);
                 } catch (posError) {
                     console.warn('Geolocation failed or denied:', posError);
-                    // We continue even if geolocation fails, as per business logic usually
-                    // but we log it.
+                    showToast('warning', 'Could not capture location. Please ensure GPS is enabled.');
                 }
             }
 
