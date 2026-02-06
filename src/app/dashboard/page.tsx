@@ -8,7 +8,7 @@ import { FiPlus, FiClock, FiCheckCircle, FiAlertCircle, FiBriefcase, FiCheck, Fi
 import { formatDateIST } from '@/lib/dateUtils';
 import { useToast } from '@/components/ui/Toast';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
-import AttendanceWidget from '@/components/attendance/AttendanceWidget';
+// import AttendanceWidget from '@/components/attendance/AttendanceWidget';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 interface TeamMember {
@@ -314,11 +314,12 @@ export default function DashboardPage() {
             Welcome, {user?.full_name || 'User'}
           </h1>
         </div>
-        {!isAdmin && (
+        {/* Attendance Widget - Temporarily disabled until next month */}
+        {/* {!isAdmin && (
           <div className="flex items-center gap-4">
             <AttendanceWidget />
           </div>
-        )}
+        )} */}
       </div>
 
       {/* Stats - Compact Single Row */}
