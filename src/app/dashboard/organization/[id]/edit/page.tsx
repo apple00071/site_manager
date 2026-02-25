@@ -88,19 +88,9 @@ export default function EditUserPage() {
 
     const fetchUser = async () => {
       try {
-        const { data, error } = await supabase
-          .from('users')
-          .select(`
-            *,
-            roles (
-              id,
-              name
-            )
-          `)
-          .eq('id', userId)
-          .single();
-
-        if (error) throw error;
+        const res = await fetch(`/api/admin/users?id=${userId}`);
+        if (!res.ok) throw new Error('Failed to fetch user');
+        const data = await res.json();
 
         setUser(data);
 

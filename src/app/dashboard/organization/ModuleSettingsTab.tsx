@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { FiPlus, FiSettings, FiEye, FiEyeOff, FiMapPin, FiFile, FiList, FiPackage, FiTool, FiCheckSquare, FiDollarSign } from 'react-icons/fi';
+import { FiPlus, FiSettings, FiEye, FiEyeOff, FiMapPin, FiFile, FiList, FiPackage, FiTool, FiCheckSquare } from 'react-icons/fi';
+import { FaRupeeSign } from 'react-icons/fa';
 
 // Actual stages and sub-tabs from SubTabNav.tsx
 const PROJECT_STAGES = [
@@ -60,7 +61,7 @@ const PROJECT_STAGES = [
     {
         id: 'finance',
         name: 'Finance',
-        icon: FiDollarSign,
+        icon: FaRupeeSign,
         subTabs: [
             { id: 'finance_overview', label: 'Finance Overview' },
         ]

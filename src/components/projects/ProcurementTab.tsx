@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     FiPlus, FiEdit2, FiTrash2, FiCheck, FiX, FiDownload, FiMail,
-    FiFileText, FiAlertCircle, FiMoreVertical, FiDollarSign,
+    FiFileText, FiAlertCircle, FiMoreVertical,
     FiTruck, FiClock, FiCheckCircle, FiPackage, FiSearch, FiChevronDown, FiEye, FiPrinter
 } from 'react-icons/fi';
 import { FaRupeeSign } from 'react-icons/fa';
@@ -232,7 +232,7 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
             style: 'currency',
             currency: 'INR',
             maximumFractionDigits: 0,
-        }).format(amount).replace(/^(\D+)/, '₹');
+        }).format(amount);
     };
 
     const formatDate = (date: string) => {

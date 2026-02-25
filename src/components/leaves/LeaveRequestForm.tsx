@@ -26,7 +26,7 @@ export default function LeaveRequestForm({ leave, defaultType, onSuccess, onCanc
 
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
-        leave_type: defaultType || leave?.leave_type || 'Casual Leave',
+        leave_type: defaultType || leave?.leave_type || (defaultType === 'Permission' ? 'Permission' : 'Pending'),
         start_date: leave?.start_date || new Date().toISOString().split('T')[0],
         end_date: leave?.end_date || new Date().toISOString().split('T')[0],
         start_time: leave?.start_time || '09:00',
@@ -34,7 +34,7 @@ export default function LeaveRequestForm({ leave, defaultType, onSuccess, onCanc
         reason: leave?.reason || '',
     });
 
-    const isPermission = formData.leave_type === 'Permission';
+    const isPermission = formData.leave_type === 'Permission' || defaultType === 'Permission';
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -95,20 +95,10 @@ export default function LeaveRequestForm({ leave, defaultType, onSuccess, onCanc
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
             {!isPermission && (
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Leave Type *
-                    </label>
-                    <select
-                        value={formData.leave_type}
-                        onChange={(e) => setFormData(prev => ({ ...prev, leave_type: e.target.value }))}
-                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
-                        required
-                    >
-                        {LEAVE_TYPES.filter(t => t !== 'Permission').map(type => (
-                            <option key={type} value={type}>{type}</option>
-                        ))}
-                    </select>
+                <div className="mb-4">
+                    <p className="text-sm text-gray-500">
+                        Leave applications will be reviewed by the admin. The leave type (Paid/LOP) will be determined upon approval.
+                    </p>
                 </div>
             )}
 

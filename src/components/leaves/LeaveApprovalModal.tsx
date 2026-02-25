@@ -17,8 +17,11 @@ export default function LeaveApprovalModal({ leave, onSuccess, onClose }: LeaveA
     const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
     const [remarks, setRemarks] = useState('');
+    const [approvedLeaveType, setApprovedLeaveType] = useState('Paid Leave');
 
     if (!leave) return null;
+
+    const isPermission = leave.leave_type === 'Permission';
 
     const formatTime = (time: string) => {
         try {
@@ -41,12 +44,16 @@ export default function LeaveApprovalModal({ leave, onSuccess, onClose }: LeaveA
 
         setLoading(true);
         try {
+            // For general leaves that are approved, the admin sets the finalized leave type
+            const finalLeaveType = (status === 'approved' && !isPermission) ? approvedLeaveType : leave.leave_type;
+
             const response = await fetch(`/api/leaves?id=${leave.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     status,
                     admin_comment: remarks,
+                    leave_type: finalLeaveType,
                 })
             });
 
@@ -64,8 +71,6 @@ export default function LeaveApprovalModal({ leave, onSuccess, onClose }: LeaveA
             setLoading(false);
         }
     };
-
-    const isPermission = leave.leave_type === 'Permission';
 
     return (
         <div className="space-y-6">
@@ -132,39 +137,57 @@ export default function LeaveApprovalModal({ leave, onSuccess, onClose }: LeaveA
                         </div>
                     </div>
                 </div>
-            </div>
+                <div className="space-y-4 pt-4 border-t border-gray-100">
+                    {/* Leave Type Classification (for Admins to decide if Paid or unpaid) */}
+                    {!isPermission && (
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">
+                                Leave Type <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                value={approvedLeaveType}
+                                onChange={(e) => setApprovedLeaveType(e.target.value)}
+                                className="w-full px-4 py-3 bg-gray-50 border-0 ring-1 ring-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm"
+                            >
+                                <option value="Paid Leave">Paid Leave</option>
+                                <option value="Casual Leave">Casual Leave</option>
+                                <option value="Sick Leave">Sick Leave</option>
+                                <option value="Loss of Pay (LOP)">Loss of Pay (LOP)</option>
+                            </select>
+                        </div>
+                    )}
 
-            <div className="space-y-4 pt-2 border-t border-gray-100">
-                <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">
-                        Admin Remarks <span className="font-normal text-gray-400 normal-case ml-1">{remarks ? '' : '(Optional)'}</span>
-                    </label>
-                    <textarea
-                        value={remarks}
-                        onChange={(e) => setRemarks(e.target.value)}
-                        rows={3}
-                        className="w-full px-4 py-3 bg-gray-50 border-0 ring-1 ring-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-gray-400 text-sm resize-none"
-                        placeholder="Add notes about approval or rejection reason..."
-                    />
-                </div>
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">
+                            Admin Remarks <span className="font-normal text-gray-400 normal-case ml-1">{remarks ? '' : '(Optional)'}</span>
+                        </label>
+                        <textarea
+                            value={remarks}
+                            onChange={(e) => setRemarks(e.target.value)}
+                            rows={3}
+                            className="w-full px-4 py-3 bg-gray-50 border-0 ring-1 ring-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-gray-400 text-sm resize-none"
+                            placeholder="Add notes about approval or rejection reason..."
+                        />
+                    </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                    <button
-                        onClick={() => handleAction('rejected')}
-                        disabled={loading}
-                        className="flex-1 px-4 py-3 border border-red-200 text-red-600 rounded-xl font-semibold text-sm hover:bg-red-50 transition-all flex items-center justify-center gap-2"
-                    >
-                        <FiX className="w-4 h-4" />
-                        <span>Reject</span>
-                    </button>
-                    <button
-                        onClick={() => handleAction('approved')}
-                        disabled={loading}
-                        className="flex-1 px-4 py-3 bg-green-600 text-white rounded-xl font-semibold text-sm hover:bg-green-700 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
-                    >
-                        <FiCheck className="w-4 h-4" />
-                        <span>Approve {isPermission ? 'Permission' : 'Leave'}</span>
-                    </button>
+                    <div className="grid grid-cols-2 gap-3 pt-2">
+                        <button
+                            onClick={() => handleAction('rejected')}
+                            disabled={loading}
+                            className="flex-1 px-4 py-3 border border-red-200 text-red-600 rounded-xl font-semibold text-sm hover:bg-red-50 transition-all flex items-center justify-center gap-2"
+                        >
+                            <FiX className="w-4 h-4" />
+                            <span>Reject</span>
+                        </button>
+                        <button
+                            onClick={() => handleAction('approved')}
+                            disabled={loading}
+                            className="flex-1 px-4 py-3 bg-green-600 text-white rounded-xl font-semibold text-sm hover:bg-green-700 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                        >
+                            <FiCheck className="w-4 h-4" />
+                            <span>Approve {isPermission ? 'Permission' : 'Leave'}</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

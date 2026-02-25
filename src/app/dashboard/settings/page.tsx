@@ -423,7 +423,7 @@ export default function SettingsPage() {
             {/* Payroll Tab for Employees */}
             {activeTab === 'payroll' && !isAdmin && (
               <div className="bg-white shadow sm:rounded-lg p-6">
-                <PayrollSection isAdmin={false} />
+                <PayrollSection />
               </div>
             )}
           </div>
