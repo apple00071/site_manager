@@ -242,6 +242,16 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
             { id: 'leaves.approve', label: 'Approve/Reject leaves' }
         ],
         notifications: ['Leave applied', 'Leave approved', 'Leave rejected']
+    },
+    {
+        module: 'Payroll',
+        icon: '💳',
+        permissions: [
+            { id: 'payroll.view', label: 'View payroll history' },
+            { id: 'payroll.manage', label: 'Manage/Process payrolls' },
+            { id: 'payroll.config', label: 'Configure employee salaries' }
+        ],
+        notifications: ['Payroll processed', 'Salary paid']
     }
 ];
 
@@ -271,7 +281,8 @@ const MODULE_PREFIX_MAP: Record<string, string[]> = {
     'User & Role Management': ['user.', 'users.', 'role.'],
     'Settings': ['settings.'],
     'Office Expenses': ['office_expenses.'],
-    'Attendance & Leaves': ['attendance.', 'leaves.']
+    'Attendance & Leaves': ['attendance.', 'leaves.'],
+    'Payroll': ['payroll.']
 };
 
 export default function RolesTab() {

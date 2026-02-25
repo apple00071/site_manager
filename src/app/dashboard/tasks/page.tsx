@@ -31,6 +31,8 @@ type CalendarTask = {
   created_at?: string;
   created_by?: string;
   updated_at?: string;
+  completion_description?: string | null;
+  completion_photos?: string[] | null;
 };
 
 type CalendarEvent = {
@@ -377,7 +379,7 @@ interface ViewTaskContentProps {
   assignees: { id: string; name: string }[];
   onClose: () => void;
   onEdit: (task: CalendarTask) => void;
-  onMarkAsDone: (task: CalendarTask) => Promise<void>;
+  onMarkAsDone: (task: CalendarTask, completion?: { description: string; photos: string[] }) => Promise<void>;
   formatISTDate: (d: Date) => string;
   formatISTTime: (d: Date) => string;
 }
@@ -391,128 +393,268 @@ const ViewTaskContent = ({
   onMarkAsDone,
   formatISTDate,
   formatISTTime
-}: ViewTaskContentProps) => (
-  <div className="space-y-3 text-sm text-gray-700">
-    <div>
-      <p className="text-xs text-gray-500 mb-1">Title</p>
-      <p className="font-medium text-gray-900">{viewTask.title}</p>
-    </div>
-    {viewTask.description && (
-      <div>
-        <p className="text-xs text-gray-500 mb-1">Description</p>
-        <p className="whitespace-pre-line">{viewTask.description}</p>
+}: ViewTaskContentProps) => {
+  const [isMarkingDone, setIsMarkingDone] = useState(false);
+  const [completionDescription, setCompletionDescription] = useState('');
+  const [completionPhotos, setCompletionPhotos] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      const { uploadFiles } = await import('@/lib/uploadUtils');
+      const urls = await uploadFiles(files, 'project-update-photos', viewTask.id);
+      setCompletionPhotos(prev => [...prev, ...urls]);
+    } catch (error) {
+      console.error('Error uploading photos:', error);
+      alert('Failed to upload photos');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleSubmitCompletion = async () => {
+    setIsSaving(true);
+    try {
+      await onMarkAsDone(viewTask, {
+        description: completionDescription,
+        photos: completionPhotos
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isMarkingDone) {
+    return (
+      <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900 mb-1">Task Outcome (Optional)</h3>
+          <p className="text-xs text-gray-500 mb-3">Add any notes or photos from the task completion.</p>
+          <textarea
+            value={completionDescription}
+            onChange={(e) => setCompletionDescription(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 text-sm"
+            rows={3}
+            placeholder="What happened? Any updates..."
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-2 whitespace-nowrap overflow-hidden text-ellipsis">Photos / Proof (Optional)</label>
+          <div className="flex flex-wrap gap-2">
+            {completionPhotos.map((url, i) => (
+              <div key={i} className="relative w-16 h-16 group">
+                <img src={url} alt="preview" className="w-full h-full object-cover rounded-lg border border-gray-200" />
+                <button
+                  onClick={() => setCompletionPhotos(prev => prev.filter((_, idx) => idx !== i))}
+                  className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center shadow-sm"
+                >
+                  <FiX className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+            <label className="w-16 h-16 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-yellow-500 hover:bg-yellow-50 transition-colors">
+              {isUploading ? (
+                <div className="animate-spin w-4 h-4 border-2 border-yellow-500 border-t-transparent rounded-full" />
+              ) : (
+                <FiPlus className="w-5 h-5 text-gray-400" />
+              )}
+              <input type="file" multiple accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+            </label>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
+          <button
+            onClick={() => setIsMarkingDone(false)}
+            className="btn-secondary"
+            disabled={isSaving}
+          >
+            Back
+          </button>
+          <button
+            onClick={handleSubmitCompletion}
+            disabled={isSaving || isUploading}
+            className="btn-primary bg-green-600 hover:bg-green-700 flex items-center gap-2"
+          >
+            {isSaving ? 'Saving...' : 'Complete Task'}
+            <FiCheckCircle className="w-4 h-4" />
+          </button>
+        </div>
       </div>
-    )}
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    );
+  }
+
+  return (
+    <div className="space-y-3 text-sm text-gray-700">
+      {/* Existing content shifted down */}
       <div>
-        <p className="text-xs text-gray-500 mb-1">Start</p>
-        <p className="text-gray-900">
-          {formatISTDate(new Date(viewTask.start_at))}, {formatISTTime(new Date(viewTask.start_at))}
-        </p>
+        <p className="text-xs text-gray-500 mb-1">Title</p>
+        <p className="font-medium text-gray-900">{viewTask.title}</p>
       </div>
-      <div>
-        <p className="text-xs text-gray-500 mb-1">End</p>
-        <p className="text-gray-900">
-          {formatISTDate(new Date(viewTask.end_at))}, {formatISTTime(new Date(viewTask.end_at))}
-        </p>
+      {viewTask.description && (
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Description</p>
+          <p className="whitespace-pre-line">{viewTask.description}</p>
+        </div>
+      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Start</p>
+          <p className="text-gray-900">
+            {formatISTDate(new Date(viewTask.start_at))}, {formatISTTime(new Date(viewTask.start_at))}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500 mb-1">End</p>
+          <p className="text-gray-900">
+            {formatISTDate(new Date(viewTask.end_at))}, {formatISTTime(new Date(viewTask.end_at))}
+          </p>
+        </div>
       </div>
-    </div>
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div>
-        <p className="text-xs text-gray-500 mb-1">Status</p>
-        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${viewTask.status === 'done' ? 'bg-green-100 text-green-800' :
-          viewTask.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-            viewTask.status === 'blocked' ? 'bg-red-100 text-red-800' :
-              'bg-gray-100 text-gray-800'
-          }`}>
-          {viewTask.status.replace('_', ' ').charAt(0).toUpperCase() + viewTask.status.replace('_', ' ').slice(1)}
-        </span>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Status</p>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${viewTask.status === 'done' ? 'bg-green-100 text-green-800' :
+            viewTask.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+              viewTask.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                'bg-gray-100 text-gray-800'
+            }`}>
+            {viewTask.status.replace('_', ' ').charAt(0).toUpperCase() + viewTask.status.replace('_', ' ').slice(1)}
+          </span>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Project</p>
+          <p className="text-gray-900">
+            {viewTask.project_id ? (projects.find(p => p.id === viewTask.project_id)?.title || 'No project') : 'No project'}
+          </p>
+        </div>
       </div>
-      <div>
-        <p className="text-xs text-gray-500 mb-1">Project</p>
-        <p className="text-gray-900">
-          {viewTask.project_id ? (projects.find(p => p.id === viewTask.project_id)?.title || 'No project') : 'No project'}
-        </p>
-      </div>
-    </div>
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div>
-        <p className="text-xs text-gray-500 mb-1">Assigned To</p>
-        {viewTask.assigned_to || viewTask.assigned_to_id ? (
-          (() => {
-            const assigneeId = viewTask.assigned_to || viewTask.assigned_to_id;
-            const assignee = assignees.find(a => a.id === assigneeId);
-            if (!assignee) {
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Assigned To</p>
+          {viewTask.assigned_to || viewTask.assigned_to_id ? (
+            (() => {
+              const assigneeId = viewTask.assigned_to || viewTask.assigned_to_id;
+              const assignee = assignees.find(a => a.id === assigneeId);
+              if (!assignee) {
+                return (
+                  <div className="flex items-center gap-2 text-yellow-700">
+                    <FiUserX className="h-4 w-4 flex-shrink-0" />
+                    <span>User not found</span>
+                  </div>
+                );
+              }
               return (
-                <div className="flex items-center gap-2 text-yellow-700">
-                  <FiUserX className="h-4 w-4 flex-shrink-0" />
-                  <span>User not found</span>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-indigo-100 text-indigo-800 text-xs font-medium">
+                    {assignee.name?.charAt(0).toUpperCase() || '?'}
+                  </span>
+                  <span className="text-gray-900">{assignee.name}</span>
                 </div>
               );
-            }
-            return (
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-indigo-100 text-indigo-800 text-xs font-medium">
-                  {assignee.name?.charAt(0).toUpperCase() || '?'}
-                </span>
-                <span className="text-gray-900">{assignee.name}</span>
-              </div>
-            );
-          })()
-        ) : (
-          <span className="text-gray-500 italic">Unassigned</span>
-        )}
+            })()
+          ) : (
+            <span className="text-gray-500 italic">Unassigned</span>
+          )}
+        </div>
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Priority</p>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${viewTask.priority === 'high' ? 'bg-red-100 text-red-800' :
+            viewTask.priority === 'urgent' ? 'bg-red-100 text-red-800 font-bold' :
+              viewTask.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                'bg-blue-100 text-blue-800'
+            }`}>
+            {viewTask.priority.charAt(0).toUpperCase() + viewTask.priority.slice(1)}
+          </span>
+        </div>
       </div>
-      <div>
-        <p className="text-xs text-gray-500 mb-1">Priority</p>
-        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${viewTask.priority === 'high' ? 'bg-red-100 text-red-800' :
-          viewTask.priority === 'urgent' ? 'bg-red-100 text-red-800 font-bold' :
-            viewTask.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-              'bg-blue-100 text-blue-800'
-          }`}>
-          {viewTask.priority.charAt(0).toUpperCase() + viewTask.priority.slice(1)}
-        </span>
-      </div>
-    </div>
-    {viewTask.location && (
-      <div>
-        <p className="text-xs text-gray-500 mb-1">Location</p>
-        <p className="text-gray-900">{viewTask.location}</p>
-      </div>
-    )}
-    {viewTask.meeting_link && (
-      <div>
-        <p className="text-xs text-gray-500 mb-1">Meeting Link</p>
-        <a href={viewTask.meeting_link} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800 underline break-all">
-          {viewTask.meeting_link}
-        </a>
-      </div>
-    )}
-    <div className="flex justify-end gap-2 pt-4">
-      <button
-        onClick={onClose}
-        className="btn-secondary"
-      >
-        Close
-      </button>
-      {viewTask.status !== 'done' && (
-        <button
-          onClick={() => onMarkAsDone(viewTask)}
-          className="btn-primary bg-green-600 hover:bg-green-700"
-        >
-          <FiCheck className="w-4 h-4 mr-1" />
-          Mark as Done
-        </button>
+      {viewTask.location && (
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Location</p>
+          <p className="text-gray-900">{viewTask.location}</p>
+        </div>
       )}
-      <button
-        onClick={() => onEdit(viewTask)}
-        className="btn-primary"
-      >
-        Edit Task
-      </button>
+      {viewTask.meeting_link && (
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Meeting Link</p>
+          <a href={viewTask.meeting_link} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800 underline break-all">
+            {viewTask.meeting_link}
+          </a>
+        </div>
+      )}
+
+      {viewTask.status === 'done' && viewTask.completion_description && (
+        <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+          <p className="text-xs font-bold text-yellow-800 uppercase tracking-tighter mb-1">Outcome</p>
+          <p className="text-sm text-gray-700 whitespace-pre-line">{viewTask.completion_description}</p>
+          {viewTask.completion_photos && viewTask.completion_photos.length > 0 && (
+            <div className="flex gap-2 mt-3 overflow-x-auto pb-1 no-scrollbar">
+              {viewTask.completion_photos.map((url, i) => (
+                <div
+                  key={i}
+                  className="relative w-16 h-16 flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => setViewingImage(url)}
+                >
+                  <img src={url} alt="outcome" className="w-full h-full object-cover rounded-md border border-gray-200" />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="flex justify-end gap-2 pt-4">
+        <button
+          onClick={onClose}
+          className="btn-secondary"
+        >
+          Close
+        </button>
+        {viewTask.status !== 'done' && (
+          <button
+            onClick={() => setIsMarkingDone(true)}
+            className="btn-primary bg-green-600 hover:bg-green-700"
+          >
+            <FiCheck className="w-4 h-4 mr-1" />
+            Mark as Done
+          </button>
+        )}
+        <button
+          onClick={() => onEdit(viewTask)}
+          className="btn-primary"
+        >
+          Edit Task
+        </button>
+      </div>
+
+      {/* Image Viewer Overlay */}
+      {viewingImage && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setViewingImage(null)}
+        >
+          <button className="absolute top-4 right-4 text-white p-2">
+            <FiX className="w-8 h-8" />
+          </button>
+          <div className="relative w-full max-w-4xl h-full max-h-[80vh] flex items-center justify-center">
+            <img
+              src={viewingImage}
+              alt="Preview"
+              className="max-w-full max-h-full object-contain"
+            />
+          </div>
+        </div>
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 export default function TasksPage() {
   const { user } = useAuth();
@@ -1190,12 +1332,17 @@ export default function TasksPage() {
     setViewTask(null);
   };
 
-  const handleMarkAsDone = async (task: CalendarTask) => {
+  const handleMarkAsDone = async (task: CalendarTask, completion?: { description: string; photos: string[] }) => {
     try {
       const res = await fetch('/api/calendar-tasks', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: task.id, status: 'done' }),
+        body: JSON.stringify({
+          id: task.id,
+          status: 'done',
+          completion_description: completion?.description,
+          completion_photos: completion?.photos
+        }),
       });
       if (!res.ok) throw new Error('Failed to mark task as done');
       showToast('success', 'Task marked as done');

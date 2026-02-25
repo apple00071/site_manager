@@ -15,6 +15,8 @@ const createTaskSchema = z.object({
   start_date: z.string().nullable().optional(),
   estimated_completion_date: z.string().nullable().optional(),
   status: z.enum(['todo', 'in_progress', 'blocked', 'done']).default('todo'),
+  completion_description: z.string().nullable().optional(),
+  completion_photos: z.array(z.string()).nullable().optional(),
 });
 
 // Validation schema for task update
@@ -24,6 +26,8 @@ const updateTaskSchema = z.object({
   start_date: z.string().nullable().optional(),
   estimated_completion_date: z.string().nullable().optional(),
   status: z.enum(['todo', 'in_progress', 'blocked', 'done']).optional(),
+  completion_description: z.string().nullable().optional(),
+  completion_photos: z.array(z.string()).nullable().optional(),
 });
 
 /**
@@ -194,6 +198,8 @@ export async function POST(request: NextRequest) {
         start_date: parsed.data.start_date || null,
         estimated_completion_date: parsed.data.estimated_completion_date || null,
         status: parsed.data.status,
+        completion_description: parsed.data.completion_description || null,
+        completion_photos: parsed.data.completion_photos || [],
       })
       .select('*')
       .single();
@@ -332,6 +338,8 @@ export async function PATCH(request: NextRequest) {
       updateData.estimated_completion_date = parsed.data.estimated_completion_date;
     }
     if (parsed.data.status !== undefined) updateData.status = parsed.data.status;
+    if (parsed.data.completion_description !== undefined) updateData.completion_description = parsed.data.completion_description;
+    if (parsed.data.completion_photos !== undefined) updateData.completion_photos = parsed.data.completion_photos;
     updateData.updated_at = new Date().toISOString();
 
     const { data: task, error: updateError } = await supabaseAdmin

@@ -5,7 +5,7 @@ import { NotificationService } from '@/lib/notificationService';
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { id, project_id, task_title, task_description, start_date, estimated_completion_date, assigned_to, priority, status, step_title } = await request.json();
+    const { id, project_id, task_title, task_description, start_date, estimated_completion_date, assigned_to, priority, status, step_title, completion_description, completion_photos } = await request.json();
 
     if (!id) {
       return NextResponse.json({ error: 'Task ID is required' }, { status: 400 });
@@ -75,6 +75,8 @@ export async function PATCH(request: NextRequest) {
       estimated_completion_date: estimated_completion_date || null,
       priority: priority || 'medium',
       status: status || 'todo',
+      completion_description: completion_description || null,
+      completion_photos: completion_photos || [],
       updated_at: new Date().toISOString(),
       step_id: stepId,
       assigned_to: assigned_to || null, // Always include assigned_to, even if empty

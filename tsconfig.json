@@ -39,6 +39,10 @@
     ".next\\dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "check_perms.ts",
+    "list_perms.ts",
+    "sync_payroll_perms_final.ts",
+    "temp_sync_perms.ts"
   ]
 }

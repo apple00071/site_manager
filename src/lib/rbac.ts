@@ -122,6 +122,11 @@ export const PERMISSION_NODES = {
     LEAVES_VIEW: 'leaves.view',
     LEAVES_APPLY: 'leaves.apply',
     LEAVES_APPROVE: 'leaves.approve',
+
+    // Payroll Permissions
+    PAYROLL_VIEW: 'payroll.view',
+    PAYROLL_MANAGE: 'payroll.manage',
+    PAYROLL_CONFIG: 'payroll.config',
 } as const;
 
 export type PermissionNode = typeof PERMISSION_NODES[keyof typeof PERMISSION_NODES];

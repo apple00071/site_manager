@@ -118,9 +118,10 @@ export function DataTable<T extends Record<string, any>>({
 
     // Filter data based on current filters
     const filteredData = useMemo(() => {
-        if (!showFilters || Object.keys(filters).length === 0) return data;
+        const safeData = data || [];
+        if (!showFilters || Object.keys(filters).length === 0) return safeData;
 
-        return data.filter(row => {
+        return safeData.filter(row => {
             return Object.entries(filters).every(([key, filterValue]) => {
                 if (!filterValue) return true;
                 const value = getValue(row, key);
@@ -137,8 +138,9 @@ export function DataTable<T extends Record<string, any>>({
     // Handle select all
     const handleSelectAll = () => {
         if (!onSelect) return;
-        const allKeys = data.map(row => String(row[keyField]));
-        if (selectedKeys.length === data.length) {
+        const safeData = data || [];
+        const allKeys = safeData.map(row => String(row[keyField]));
+        if (selectedKeys.length === safeData.length) {
             onSelect([]);
         } else {
             onSelect(allKeys);

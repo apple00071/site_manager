@@ -3,7 +3,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FiCheck, FiClock, FiCircle, FiChevronDown, FiPlus, FiX } from 'react-icons/fi';
 
-export type StageId = 'visit' | 'design' | 'boq' | 'orders' | 'work_progress' | 'snag' | 'finance';
+export type StageId = 'visit' | 'design' | 'boq' | 'orders' | 'work_progress' | 'snag' | 'finance' | 'handover';
 
 interface Stage {
     id: StageId;
@@ -41,6 +41,7 @@ const STAGES: { id: StageId; label: string }[] = [
     { id: 'work_progress', label: 'Work Progress' },
     { id: 'snag', label: 'Snag' },
     { id: 'finance', label: 'Finance' },
+    { id: 'handover', label: 'Handover' },
 ];
 
 export function StageNavigator({ currentStage, onStageSelect, completedStages = [], actions = [], stageStatus, visibleStages }: StageNavigatorProps) {
@@ -98,7 +99,7 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
                             <div key={stage.id} className="flex items-center">
                                 {/* Connector Line */}
                                 {index > 0 && (
-                                    <div className={`w-8 h-0.5 mx-2 ${state === 'completed' || (isActive && completedStages.includes(filteredStages[index - 1].id)) ? 'bg-teal-500' : 'bg-gray-200 border-t border-dashed border-gray-300'
+                                    <div className={`w-8 h-0.5 mx-2 ${state === 'completed' || (isActive && completedStages.includes(filteredStages[index - 1].id)) ? 'bg-[#f0b100]' : 'bg-gray-200 border-t border-dashed border-gray-300'
                                         }`} />
                                 )}
 
@@ -110,9 +111,9 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
                                     <span className={`
                                         flex items-center justify-center w-5 h-5 rounded-full text-[10px] transition-colors
                                         ${state === 'current'
-                                            ? 'bg-teal-500 text-white shadow-sm ring-2 ring-teal-100'
+                                            ? 'bg-[#f0b100] text-white shadow-sm ring-2 ring-[#f0b100]/20'
                                             : state === 'completed'
-                                                ? 'bg-teal-500 text-white'
+                                                ? 'bg-[#f0b100] text-white'
                                                 : 'bg-gray-200 text-gray-500'
                                         }
                                     `}>
@@ -209,9 +210,9 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
                                     className={`
                                         flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200
                                         ${state === 'current'
-                                            ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-600 ring-offset-1'
+                                            ? 'bg-yellow-50 text-yellow-700 ring-1 ring-yellow-600 ring-offset-1'
                                             : state === 'completed'
-                                                ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                                                ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
                                                 : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
                                         }
                                     `}
@@ -219,9 +220,9 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
                                     <span className={`
                                         flex items-center justify-center w-4 h-4 rounded-full text-[10px]
                                         ${state === 'current'
-                                            ? 'bg-blue-600 text-white'
+                                            ? 'bg-yellow-500 text-white'
                                             : state === 'completed'
-                                                ? 'bg-green-600 text-white'
+                                                ? 'bg-yellow-600 text-white'
                                                 : 'bg-gray-200 text-gray-500'
                                         }
                                     `}>

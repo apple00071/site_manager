@@ -29,6 +29,9 @@ const userSchema = z.object({
   role_id: z.string().min(1, 'Please select a role'),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
+  base_salary: z.coerce.number().min(0).default(0),
+  hra: z.coerce.number().min(0).default(0),
+  special_allowance: z.coerce.number().min(0).default(0),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
@@ -53,7 +56,7 @@ export default function EditUserPage() {
     reset,
     setValue,
   } = useForm<UserFormValues>({
-    resolver: zodResolver(userSchema),
+    resolver: zodResolver(userSchema) as any,
   });
 
   // Fetch roles from API
@@ -110,6 +113,13 @@ export default function EditUserPage() {
           }
         }
 
+        // Fetch salary data
+        const { data: salaryData } = await supabase
+          .from('employee_salary_profiles')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+
         reset({
           email: data.email,
           username: data.username || '',
@@ -117,6 +127,9 @@ export default function EditUserPage() {
           designation: data.designation || '',
           role_id: roleId,
           phone_number: data.phone_number || '',
+          base_salary: salaryData?.base_salary || 0,
+          hra: salaryData?.hra || 0,
+          special_allowance: salaryData?.special_allowance || 0,
         });
       } catch (error) {
         console.error('Error fetching user:', error);
@@ -174,6 +187,20 @@ export default function EditUserPage() {
       if (!response.ok) {
         throw new Error(result.error || 'Failed to update user');
       }
+
+      // Step 2: Update Salary Profile
+      await fetch('/api/payroll/salary-config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          base_salary: data.base_salary,
+          hra: data.hra,
+          special_allowance: data.special_allowance,
+        }),
+      });
 
       router.push('/dashboard/organization');
     } catch (error: any) {
@@ -347,6 +374,54 @@ export default function EditUserPage() {
               </div>
             </div>
 
+            <div className="pt-4 border-t border-gray-100">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Salary Details (Monthly)</h3>
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+                <div>
+                  <label htmlFor="base_salary" className="block text-sm font-medium text-gray-700">
+                    Base Salary (₹)
+                  </label>
+                  <input
+                    id="base_salary"
+                    type="number"
+                    {...register('base_salary')}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
+                  />
+                  {errors.base_salary && (
+                    <p className="mt-1 text-sm text-red-600">{errors.base_salary.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="hra" className="block text-sm font-medium text-gray-700">
+                    HRA (₹)
+                  </label>
+                  <input
+                    id="hra"
+                    type="number"
+                    {...register('hra')}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
+                  />
+                  {errors.hra && (
+                    <p className="mt-1 text-sm text-red-600">{errors.hra.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="special_allowance" className="block text-sm font-medium text-gray-700">
+                    Special Allowance (₹)
+                  </label>
+                  <input
+                    id="special_allowance"
+                    type="number"
+                    {...register('special_allowance')}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
+                  />
+                  {errors.special_allowance && (
+                    <p className="mt-1 text-sm text-red-600">{errors.special_allowance.message}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-end space-x-3">
               <Link
                 href="/dashboard/organization"
@@ -366,6 +441,7 @@ export default function EditUserPage() {
           </form>
         </div>
       </div>
+
     </div>
   );
 }

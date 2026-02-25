@@ -93,16 +93,14 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
 
     const fetchAvailableUsers = async () => {
         try {
-            // Fetch all users from the system
-            const { data: allUsers, error } = await supabase
-                .from('users')
-                .select('id, full_name, email, designation')
-                .order('full_name', { ascending: true });
-
-            if (error) {
-                console.error('Error fetching users:', error);
+            // Fetch all users from the system using the API route to bypass RLS
+            const response = await fetch('/api/admin/users');
+            if (!response.ok) {
+                console.error('Error fetching available users:', await response.text());
                 return;
             }
+            
+            const allUsers = await response.json();
 
             // Filter out users already in the project
             const existingIds = new Set(users.map(u => u.id));

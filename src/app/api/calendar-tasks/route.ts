@@ -7,20 +7,26 @@ import { NotificationService } from '@/lib/notificationService';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const createTaskSchema = z.object({
-  title: z.string().min(1).max(255),
-  description: z.string().optional(),
-  start_at: z.string(),
-  end_at: z.string(),
-  assigned_to: z.string().uuid().nullable().optional(),
-  project_id: z.string().uuid().nullable().optional(),
+const createCalendarTaskSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(255, 'Title too long'),
+  description: z.string().nullable().optional(),
+  completion_description: z.string().nullable().optional(),
+  completion_photos: z.array(z.string()).nullable().optional(),
+  start_at: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: 'Invalid start date format',
+  }),
+  end_at: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: 'Invalid end date format',
+  }),
   status: z.enum(['todo', 'in_progress', 'blocked', 'done']).optional(),
-  priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
+  priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
+  assigned_to: z.string().uuid('Invalid user ID').nullable().optional(),
+  project_id: z.string().uuid('Invalid project ID').nullable().optional(),
   location: z.string().optional().nullable(),
   meeting_link: z.string().optional().nullable(),
 });
 
-const updateTaskSchema = createTaskSchema.partial().extend({
+const updateTaskSchema = createCalendarTaskSchema.partial().extend({
   id: z.string().uuid(),
 });
 
@@ -120,7 +126,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const parsed = createTaskSchema.safeParse(body);
+    const parsed = createCalendarTaskSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid input', details: parsed.error.format() }, { status: 400 });
@@ -171,10 +177,12 @@ export async function POST(request: NextRequest) {
     const insertData = {
       title: data.title,
       description: data.description || null,
+      completion_description: data.completion_description || null,
+      completion_photos: data.completion_photos || [],
       start_at: startIso,
       end_at: endIso,
       status: data.status || 'todo',
-      priority: data.priority || 'medium',
+      priority: data.priority, // Use schema default
       assigned_to: assignedTo,
       project_id: projectData?.id ?? null,
       created_by: user.id,
@@ -325,6 +333,8 @@ export async function PATCH(request: NextRequest) {
 
     if (data.title !== undefined) updatePayload.title = data.title;
     if (data.description !== undefined) updatePayload.description = data.description || null;
+    if (data.completion_description !== undefined) updatePayload.completion_description = data.completion_description || null;
+    if (data.completion_photos !== undefined) updatePayload.completion_photos = data.completion_photos || [];
     updatePayload.start_at = startIso;
     updatePayload.end_at = endIso;
     if (data.status !== undefined) updatePayload.status = data.status;

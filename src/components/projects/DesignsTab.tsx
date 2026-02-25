@@ -1005,22 +1005,28 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                                 <FiLock className="w-3.5 h-3.5 text-yellow-600" title="Frozen" />
                               )}
                             </div>
-                            {/* Thumbnail */}
-                            {design.file_type === 'image' ? (
-                              <img
-                                src={design.file_url}
-                                alt=""
-                                className="w-8 h-8 rounded object-cover border border-gray-200"
-                              />
-                            ) : (
-                              <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center">
-                                {getFileIcon(design.file_type)}
-                              </div>
-                            )}
-                            {/* File name */}
-                            <span className="text-sm font-medium text-gray-900 truncate max-w-[200px]">
-                              {design.file_name}
-                            </span>
+                            <button
+                              onClick={() => setViewerDesign(design)}
+                              className="flex items-center gap-2 group text-left focus:outline-none"
+                              title="Click to view design"
+                            >
+                              {/* Thumbnail */}
+                              {design.file_type === 'image' ? (
+                                <img
+                                  src={design.file_url}
+                                  alt=""
+                                  className="w-8 h-8 rounded object-cover border border-gray-200 group-hover:opacity-80 transition-opacity"
+                                />
+                              ) : (
+                                <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center group-hover:bg-gray-200 transition-colors">
+                                  {getFileIcon(design.file_type)}
+                                </div>
+                              )}
+                              {/* File name */}
+                              <span className="text-sm font-medium text-gray-900 truncate max-w-[200px] group-hover:text-yellow-600 transition-colors">
+                                {design.file_name}
+                              </span>
+                            </button>
                           </div>
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap">
@@ -1103,25 +1109,35 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                           <FiLock className="w-3 h-3 text-yellow-600" title="Frozen" />
                         )}
                       </div>
-                      {design.file_type === 'image' ? (
-                        <img
-                          src={design.file_url}
-                          alt=""
-                          className="w-10 h-10 rounded object-cover border border-gray-200"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center">
-                          {getFileIcon(design.file_type)}
-                        </div>
-                      )}
+                      <button
+                        onClick={() => setViewerDesign(design)}
+                        className="flex-shrink-0 focus:outline-none"
+                      >
+                        {design.file_type === 'image' ? (
+                          <img
+                            src={design.file_url}
+                            alt=""
+                            className="w-10 h-10 rounded object-cover border border-gray-200 active:opacity-80 transition-opacity"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center active:bg-gray-200 transition-colors">
+                            {getFileIcon(design.file_type)}
+                          </div>
+                        )}
+                      </button>
                     </div>
 
                     {/* Right: Content */}
                     <div className="flex-1 min-w-0 overflow-hidden">
                       <div className="flex justify-between items-start">
-                        <p className="text-sm font-medium text-gray-900 truncate leading-tight pr-2 max-w-full">
-                          {design.file_name}
-                        </p>
+                        <button
+                          onClick={() => setViewerDesign(design)}
+                          className="text-left focus:outline-none"
+                        >
+                          <p className="text-sm font-medium text-gray-900 truncate leading-tight pr-2 max-w-full active:text-yellow-600 transition-colors">
+                            {design.file_name}
+                          </p>
+                        </button>
                         <button
                           onClick={() => setMobileActionDesign(design)}
                           className="p-1 -mr-2 -mt-1 text-gray-400 hover:bg-gray-100 rounded-full flex-shrink-0"

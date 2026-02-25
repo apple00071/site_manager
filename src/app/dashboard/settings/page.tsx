@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { supabase } from '@/lib/supabase';
 import LeaveSection from '@/components/leaves/LeaveSection';
+import PayrollSection from '@/components/payroll/PayrollSection';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 const profileSchema = z.object({
@@ -47,7 +48,7 @@ export default function SettingsPage() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'leaves'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'leaves' | 'payroll'>('profile');
 
   const {
     register,
@@ -240,6 +241,15 @@ export default function SettingsPage() {
                 >
                   Leave Requests
                 </button>
+                <button
+                  onClick={() => setActiveTab('payroll')}
+                  className={`pb-4 text-sm font-bold transition-all border-b-2 ${activeTab === 'payroll'
+                    ? 'border-yellow-500 text-yellow-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                  My Payroll
+                </button>
               </div>
             )}
 
@@ -407,6 +417,13 @@ export default function SettingsPage() {
             {activeTab === 'leaves' && !isAdmin && (
               <div className="bg-white shadow sm:rounded-lg p-6">
                 <LeaveSection />
+              </div>
+            )}
+
+            {/* Payroll Tab for Employees */}
+            {activeTab === 'payroll' && !isAdmin && (
+              <div className="bg-white shadow sm:rounded-lg p-6">
+                <PayrollSection isAdmin={false} />
               </div>
             )}
           </div>

@@ -89,6 +89,7 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                     >
                                         <option value="pending">Design Phase</option>
                                         <option value="in_progress">Execution Phase</option>
+                                        <option value="handover">Handover Phase</option>
                                         <option value="on_hold">On Hold</option>
                                         <option value="completed">Completed</option>
                                     </select>

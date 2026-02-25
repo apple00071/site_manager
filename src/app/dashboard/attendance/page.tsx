@@ -74,8 +74,10 @@ export default function AttendancePage() {
     const [leaveFormType, setLeaveFormType] = useState<string>('Casual Leave');
     const [approvingLeave, setApprovingLeave] = useState<Leave | null>(null);
 
-    // Search State
+    // Search & Filter State
     const [searchQuery, setSearchQuery] = useState('');
+    const [filterMonth, setFilterMonth] = useState<number>(new Date().getMonth());
+    const [filterYear, setFilterYear] = useState<number>(new Date().getFullYear());
 
     // Responsiveness
     const [isMobile, setIsMobile] = useState(false);
@@ -130,10 +132,20 @@ export default function AttendancePage() {
     };
 
     const filteredAttendance = attendanceLogs.filter(log => {
+        // Month/Year Filter
+        const logDate = new Date(log.date);
+        const matchesMonth = logDate.getMonth() === filterMonth;
+        const matchesYear = logDate.getFullYear() === filterYear;
+
+        if (!matchesMonth || !matchesYear) return false;
+
+        // Search Filter
+        if (!searchQuery) return true;
+
         const searchLower = searchQuery.toLowerCase();
-        const matchesName = log.users?.full_name?.toLowerCase().includes(searchLower);
-        const matchesEmail = log.users?.email?.toLowerCase().includes(searchLower);
-        const matchesDate = log.date.includes(searchLower);
+        const matchesName = log.users?.full_name?.toLowerCase().includes(searchLower) || false;
+        const matchesEmail = log.users?.email?.toLowerCase().includes(searchLower) || false;
+        const matchesDate = log.date.includes(searchLower) || false;
         return matchesName || matchesEmail || matchesDate;
     });
 
@@ -373,15 +385,31 @@ export default function AttendancePage() {
 
             {/* Search and Header Actions */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="relative w-full sm:w-80">
-                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <input
-                        type="text"
-                        placeholder={activeTab === 'attendance' ? "Search by employee or date..." : "Search by employee or reason..."}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500 transition-all shadow-sm"
-                    />
+                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto flex-1">
+                    <div className="relative w-full sm:w-80">
+                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <input
+                            type="text"
+                            placeholder={activeTab === 'attendance' ? "Search by employee or date..." : "Search by employee or reason..."}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500 transition-all shadow-sm"
+                        />
+                    </div>
+                    {activeTab === 'attendance' && (
+                        <input
+                            type="month"
+                            value={`${filterYear}-${String(filterMonth + 1).padStart(2, '0')}`}
+                            onChange={(e) => {
+                                if (e.target.value) {
+                                    const [year, month] = e.target.value.split('-');
+                                    setFilterYear(parseInt(year, 10));
+                                    setFilterMonth(parseInt(month, 10) - 1);
+                                }
+                            }}
+                            className="w-full sm:w-auto px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500 transition-all shadow-sm text-gray-600 cursor-pointer"
+                        />
+                    )}
                 </div>
 
                 {!isAdmin && (
@@ -413,10 +441,10 @@ export default function AttendancePage() {
                                 Array.from({ length: 3 }).map((_, i) => (
                                     <div key={i} className="animate-pulse bg-gray-50 h-24 rounded-xl" />
                                 ))
-                            ) : filteredAttendance.length === 0 ? (
+                            ) : (filteredAttendance || []).length === 0 ? (
                                 <div className="text-center py-12 text-gray-400 text-sm">No attendance logs found.</div>
                             ) : (
-                                filteredAttendance.map((log) => (
+                                (filteredAttendance || []).map((log) => (
                                     <div key={log.id} className="p-4 rounded-xl border border-gray-100 space-y-3">
                                         <div className="flex justify-between items-center">
                                             <div className="flex items-center gap-2">
@@ -493,7 +521,7 @@ export default function AttendancePage() {
                     ) : (
                         <DataTable
                             columns={attendanceColumns}
-                            data={filteredAttendance}
+                            data={filteredAttendance || []}
                             keyField="id"
                             loading={attendanceLoading}
                             emptyMessage="No attendance logs found."
@@ -506,10 +534,10 @@ export default function AttendancePage() {
                                 Array.from({ length: 3 }).map((_, i) => (
                                     <div key={i} className="animate-pulse bg-gray-50 h-32 rounded-xl" />
                                 ))
-                            ) : filteredLeaves.length === 0 ? (
+                            ) : (filteredLeaves || []).length === 0 ? (
                                 <div className="text-center py-12 text-gray-400 text-sm">No leave requests found.</div>
                             ) : (
-                                filteredLeaves.map((leave) => (
+                                (filteredLeaves || []).map((leave) => (
                                     <LeaveCard
                                         key={leave.id}
                                         leave={leave}
@@ -524,7 +552,7 @@ export default function AttendancePage() {
                     ) : (
                         <DataTable
                             columns={leaveColumns}
-                            data={filteredLeaves}
+                            data={filteredLeaves || []}
                             keyField="id"
                             loading={leavesLoading}
                             emptyMessage="No leave requests found."

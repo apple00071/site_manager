@@ -24,6 +24,9 @@ const userSchema = z.object({
   designation: z.string().min(2, 'Designation is required').optional().or(z.literal('')),
   role_id: z.string().min(1, 'Please select a role'),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
+  base_salary: z.coerce.number().min(0).default(0),
+  hra: z.coerce.number().min(0).default(0),
+  special_allowance: z.coerce.number().min(0).default(0),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
@@ -42,9 +45,12 @@ export default function NewUserPage() {
     formState: { errors },
     setValue,
   } = useForm<UserFormValues>({
-    resolver: zodResolver(userSchema),
+    resolver: zodResolver(userSchema) as any,
     defaultValues: {
       role_id: '',
+      base_salary: 0,
+      hra: 0,
+      special_allowance: 0,
     },
   });
 
@@ -109,9 +115,26 @@ export default function NewUserPage() {
       });
 
       const result = await response.json();
+      const userId = result.id;
 
       if (!response.ok) {
         throw new Error(result.error || 'Failed to create user');
+      }
+
+      // Step 2: Save Salary Profile
+      if (userId) {
+        await fetch('/api/payroll/salary-config', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            base_salary: data.base_salary,
+            hra: data.hra,
+            special_allowance: data.special_allowance,
+          }),
+        });
       }
 
       router.push('/dashboard/organization');
@@ -239,6 +262,54 @@ export default function NewUserPage() {
               {errors.role_id && (
                 <p className="mt-1 text-sm text-red-600">{errors.role_id.message}</p>
               )}
+            </div>
+
+            <div className="pt-4 border-t border-gray-100">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Salary Details (Monthly)</h3>
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+                <div>
+                  <label htmlFor="base_salary" className="block text-sm font-medium text-gray-700">
+                    Base Salary (₹)
+                  </label>
+                  <input
+                    id="base_salary"
+                    type="number"
+                    {...register('base_salary')}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
+                  />
+                  {errors.base_salary && (
+                    <p className="mt-1 text-sm text-red-600">{errors.base_salary.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="hra" className="block text-sm font-medium text-gray-700">
+                    HRA (₹)
+                  </label>
+                  <input
+                    id="hra"
+                    type="number"
+                    {...register('hra')}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
+                  />
+                  {errors.hra && (
+                    <p className="mt-1 text-sm text-red-600">{errors.hra.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="special_allowance" className="block text-sm font-medium text-gray-700">
+                    Special Allowance (₹)
+                  </label>
+                  <input
+                    id="special_allowance"
+                    type="number"
+                    {...register('special_allowance')}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
+                  />
+                  {errors.special_allowance && (
+                    <p className="mt-1 text-sm text-red-600">{errors.special_allowance.message}</p>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="flex justify-end">

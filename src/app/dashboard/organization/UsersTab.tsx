@@ -50,7 +50,7 @@ export default function UsersTab() {
         fetchData();
     }, []);
 
-    const filteredUsers = users.filter(user =>
+    const filteredUsers = users.filter((user: User) =>
         user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (user.designation?.toLowerCase() || '').includes(searchQuery.toLowerCase())
@@ -66,7 +66,7 @@ export default function UsersTab() {
                 });
 
                 if (!response.ok) throw new Error('Failed to delete');
-                setUsers(users.filter(u => u.id !== userId));
+                setUsers(users.filter((u: User) => u.id !== userId));
             } catch (error) {
                 console.error('Error deleting user:', error);
             }
@@ -75,7 +75,7 @@ export default function UsersTab() {
 
     const getRoleDisplay = (user: User) => {
         if (user.role_id && roles.length > 0) {
-            const role = roles.find(r => r.id === user.role_id);
+            const role = roles.find((r: Role) => r.id === user.role_id);
             if (role) return role.name;
         }
         if (user.roles) return user.roles.name;
@@ -90,7 +90,7 @@ export default function UsersTab() {
         return 'bg-gray-100 text-gray-700';
     };
 
-    const groupedUsers = filteredUsers.reduce((groups: { [key: string]: User[] }, user) => {
+    const groupedUsers = filteredUsers.reduce((groups: { [key: string]: User[] }, user: User) => {
         const designation = user.designation || 'Other';
         if (!groups[designation]) {
             groups[designation] = [];
@@ -155,7 +155,7 @@ export default function UsersTab() {
                                         {designation} — {groupedUsers[designation].length} {groupedUsers[designation].length === 1 ? 'Member' : 'Members'}
                                     </td>
                                 </tr>
-                                {groupedUsers[designation].map((user) => (
+                                {groupedUsers[designation].map((user: User) => (
                                     <tr key={user.id} className="hover:bg-gray-50 transition-colors group">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center gap-3">
@@ -213,7 +213,7 @@ export default function UsersTab() {
                             </span>
                         </div>
                         <div className="space-y-4">
-                            {groupedUsers[designation].map((user) => (
+                            {groupedUsers[designation].map((user: User) => (
                                 <div key={user.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-4">
                                     <div className="flex items-start justify-between">
                                         <div className="flex items-center gap-3">

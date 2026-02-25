@@ -83,6 +83,7 @@ const SnagTab = dynamic(() => import('@/components/projects/SnagTab'), { ssr: fa
 const SiteLogTab = dynamic(() => import('@/components/projects/SiteLogTab').then(m => m.SiteLogTab), { ssr: false }) as any;
 const ProgressReportTab = dynamic(() => import('@/components/projects/ProgressReportTab').then(m => m.ProgressReportTab), { ssr: false }) as any;
 const ProposalBuilder = dynamic(() => import('@/components/boq/ProposalBuilder').then(m => m.ProposalBuilder), { ssr: false });
+const HandoverTab = dynamic(() => import('@/components/projects/HandoverTab').then(m => m.HandoverTab), { ssr: false });
 
 // Removed ProjectHeader import
 import { StageNavigator, StageId, ActionItem, StageStatus } from '@/components/projects/navigation/StageNavigator';
@@ -123,7 +124,7 @@ export default function ProjectDetailsPage() {
   const visibleStages = useMemo(() => {
     // Admin users see all stages
     if (permIsAdmin) {
-      return ['visit', 'design', 'boq', 'orders', 'work_progress', 'snag', 'finance'] as StageId[];
+      return ['visit', 'design', 'boq', 'orders', 'work_progress', 'snag', 'finance', 'handover'] as StageId[];
     }
 
     // Build list of visible stages based on permissions
@@ -145,8 +146,14 @@ export default function ProjectDetailsPage() {
     if (hasPermission('snags.view')) stages.push('snag');
     if (hasPermission('finance.view') || hasPermission('inventory.view')) stages.push('finance');
 
+    // Handover stage is ONLY visible if the project is actually in the handover status
+    // Or if they're an admin, they should still only see it during the handover phase to avoid clutter
+    if (project?.status === 'handover' || project?.status === 'completed') {
+      stages.push('handover');
+    }
+
     return stages;
-  }, [permIsAdmin, hasPermission]);
+  }, [hasPermission, permIsAdmin, project?.status]);
 
   // Memoize filtered sub-tabs for the current stage
   const currentStageTabs = useMemo(() => {
@@ -171,6 +178,7 @@ export default function ProjectDetailsPage() {
         switch (s?.toLowerCase()) {
           case 'completed': return 'bg-green-100 text-green-700';
           case 'in_progress': return 'bg-blue-100 text-blue-700';
+          case 'handover': return 'bg-purple-100 text-purple-700';
           default: return 'bg-yellow-100 text-yellow-700';
         }
       };
@@ -178,6 +186,7 @@ export default function ProjectDetailsPage() {
         switch (s?.toLowerCase()) {
           case 'pending': return 'DESIGN PHASE';
           case 'in_progress': return 'EXECUTION PHASE';
+          case 'handover': return 'HANDOVER PHASE';
           case 'on_hold': return 'ON HOLD';
           case 'completed': return 'COMPLETED';
           default: return s?.toUpperCase() || 'UNKNOWN';
@@ -200,6 +209,7 @@ export default function ProjectDetailsPage() {
               const s = status?.toLowerCase() || '';
               if (s === 'in_progress') return 'EXEC';
               if (s === 'pending') return 'DESIGN';
+              if (s === 'handover') return 'HNDOVR';
               if (s === 'completed') return 'DONE';
               if (s === 'on_hold') return 'HOLD';
               return s.slice(0, 4).toUpperCase();
@@ -636,11 +646,13 @@ export default function ProjectDetailsPage() {
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${project.status === 'completed' ? 'bg-green-100 text-green-800' :
                                 project.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
                                   project.status === 'on_hold' ? 'bg-yellow-100 text-yellow-800' :
-                                    'bg-gray-100 text-gray-800'
+                                    project.status === 'handover' ? 'bg-purple-100 text-purple-800' :
+                                      'bg-gray-100 text-gray-800'
                                 }`}>
                                 {project.status === 'pending' ? 'DESIGN PHASE' :
                                   project.status === 'in_progress' ? 'EXECUTION PHASE' :
-                                    project.status?.replace('_', ' ').toUpperCase() || 'PENDING'}
+                                    project.status === 'handover' ? 'HANDOVER PHASE' :
+                                      project.status?.replace('_', ' ').toUpperCase() || 'PENDING'}
                               </span>
                             </dd>
                           </div>
@@ -912,6 +924,27 @@ export default function ProjectDetailsPage() {
                 <div className="flex flex-col items-center justify-center h-64 text-gray-500">
                   <FiLayers className="w-12 h-12 mb-2 text-gray-300" />
                   <p>Finance Overview Coming Soon</p>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* STAGE: HANDOVER */}
+          {activeStage === 'handover' && (
+            <>
+              {activeSubTab === 'checklist' && <HandoverTab projectId={project.id} />}
+              {activeSubTab === 'documents' && (
+                <div className="flex flex-col items-center justify-center p-12 text-gray-500">
+                  <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                    <FiFileText className="w-10 h-10 text-gray-300" />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900">Final Documents</h3>
+                  <p className="text-sm text-center max-w-xs mt-2">
+                    Handover certificates, warranty cards, and manuals will be stored here.
+                  </p>
+                  <div className="mt-6 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-xl text-yellow-700 text-xs font-medium">
+                    MODULE COMING SOON
+                  </div>
                 </div>
               )}
             </>
