@@ -146,12 +146,9 @@ export function DesignViewer({
     useEffect(() => {
         const fetchUsers = async () => {
             try {
-                const { supabase } = await import('@/lib/supabase');
-                const { data } = await supabase
-                    .from('users')
-                    .select('id, full_name')
-                    .order('full_name');
-                if (data) {
+                const response = await fetch('/api/admin/users');
+                if (response.ok) {
+                    const data = await response.json();
                     setUsers(data);
                 }
             } catch (error) {

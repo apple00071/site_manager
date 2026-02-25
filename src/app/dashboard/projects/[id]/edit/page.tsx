@@ -109,13 +109,10 @@ export default function EditProjectPage() {
         if (projectError) throw projectError;
         setProject(projectData);
 
-        // Fetch all users (for designer selection)
-        const { data: employeesData, error: employeesError } = await supabase
-          .from('users')
-          .select('id, full_name, email, designation, role')
-          .order('full_name', { ascending: true });
-
-        if (employeesError) throw employeesError;
+        // Fetch all users (for designer selection) using API route
+        const response = await fetch('/api/admin/users');
+        if (!response.ok) throw new Error('Failed to fetch employees');
+        const employeesData = await response.json();
         setEmployees((employeesData || []).map((u: any) => ({
           id: u.id,
           name: u.full_name,

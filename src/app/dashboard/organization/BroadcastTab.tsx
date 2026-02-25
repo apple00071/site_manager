@@ -21,8 +21,9 @@ const BroadcastTab = () => {
         const fetchUsers = async () => {
             setIsFetchingUsers(true);
             try {
-                const { data, error } = await supabase.from('users').select('id, full_name').order('full_name');
-                if (error) throw error;
+                const response = await fetch('/api/admin/users');
+                if (!response.ok) throw new Error('Failed to fetch users');
+                const data = await response.json();
                 setAllUsers(data || []);
             } catch (err) {
                 console.error('Failed to fetch users:', err);

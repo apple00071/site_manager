@@ -136,17 +136,15 @@ export default function NewProjectPage() {
       try {
         setIsLoading(true);
 
-        // Fetch team members from users table (all roles)
+        // Fetch team members using API route (bypasses RLS)
         console.log('Fetching employees...');
-        const { data: employeesData, error: employeesError } = await supabase
-          .from('users')
-          .select('id, full_name, email, designation, role')
-          .order('full_name', { ascending: true });
-
-        if (employeesError) {
-          console.error('Error fetching employees:', employeesError);
-          throw employeesError;
+        const response = await fetch('/api/admin/users');
+        if (!response.ok) {
+          const errorMsg = await response.text();
+          console.error('Error fetching employees:', errorMsg);
+          throw new Error('Failed to fetch employees');
         }
+        const employeesData = await response.json();
 
         console.log('Employees loaded:', employeesData?.length, employeesData);
 

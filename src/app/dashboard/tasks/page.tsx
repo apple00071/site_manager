@@ -713,36 +713,13 @@ export default function TasksPage() {
       // First, verify the table exists and we can query it
       console.log('Checking users table...');
 
-      // Fetch all users with pagination if needed
-      let allUsers: any[] = [];
-      let page = 0;
-      const pageSize = 100; // Adjust based on your needs
-      let hasMore = true;
-
-      while (hasMore) {
-        console.log(`Fetching users page ${page + 1}...`);
-        const { data: users, error: fetchError } = await supabase
-          .from('users')
-          .select('id, full_name, email')
-          .order('full_name', { ascending: true })
-          .range(page * pageSize, (page + 1) * pageSize - 1);
-
-        if (fetchError) {
-          console.error('Error fetching users:', fetchError);
-          throw fetchError;
-        }
-
-        if (!users || users.length === 0) {
-          hasMore = false;
-        } else {
-          allUsers = [...allUsers, ...users];
-          if (users.length < pageSize) {
-            hasMore = false;
-          } else {
-            page++;
-          }
-        }
+      // Fetch all users using admin API to bypass RLS
+      const response = await fetch('/api/admin/users');
+      if (!response.ok) {
+        throw new Error('Failed to fetch users from API');
       }
+
+      const allUsers = await response.json();
 
       console.log(`Fetched ${allUsers.length} users from the database`);
 
