@@ -719,7 +719,7 @@ export default function TasksPage() {
         throw new Error('Failed to fetch users from API');
       }
 
-      const allUsers = await response.json();
+      const allUsers: any[] = await response.json();
 
       console.log(`Fetched ${allUsers.length} users from the database`);
 
