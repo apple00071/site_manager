@@ -118,7 +118,7 @@ function DashboardLayoutContent({
         <div className="p-2 lg:p-3">
           <div className="flex items-center justify-start pl-3 lg:pl-1">
             <img
-              src="/icon.png"
+              src="/icon_1.png"
               alt="Apple Interiors"
               className="h-6 w-6 lg:h-7 lg:w-7"
               onError={(e) => {
