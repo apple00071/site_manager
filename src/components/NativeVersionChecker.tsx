@@ -20,20 +20,34 @@ export default function NativeVersionChecker() {
         // Median/GoNative injects information into the window object
         // Check if we are running inside the app
         const checkVersion = () => {
+            const ua = navigator.userAgent;
             // @ts-ignore - Median global
-            const isApp = !!(window.median || window.gonative || navigator.userAgent.includes('Median') || navigator.userAgent.includes('GoNative'));
-            const medianVersion = window.median?.version || window.gonative?.version || 0;
+            const isApp = !!(window.median || window.gonative || ua.includes('Median') || ua.includes('GoNative'));
+
+            // Try JS Bridge first
+            let medianVersion = window.median?.version || window.gonative?.version || 0;
+
+            // Fallback: Parse from user string (e.g., "Median_1.0.0" or "gonative_1")
+            // Median injects something like `median_version/X` depending on configuration
+            if (medianVersion === 0) {
+                const match = ua.match(/(?:median|gonative)[_\s/v]*version[\s/v]*(\d+)/i) ||
+                    ua.match(/(?:median|gonative)[_\s/v]*(\d+)/i);
+                if (match && match[1]) {
+                    medianVersion = parseInt(match[1], 10);
+                }
+            }
 
             if (isApp) {
                 setCurrentVersion(medianVersion);
-                if (medianVersion < REQUIRED_NATIVE_VERSION) {
+                // Only show banner if version is definitively less than required AND we managed to parse a number
+                if (medianVersion > 0 && medianVersion < REQUIRED_NATIVE_VERSION) {
                     setShowBanner(true);
                 }
             }
         };
 
         // Small delay to ensure Median bridges are ready
-        const timer = setTimeout(checkVersion, 2000);
+        const timer = setTimeout(checkVersion, 2500);
         return () => clearTimeout(timer);
     }, []);
 

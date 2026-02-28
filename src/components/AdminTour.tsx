@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,6 +11,8 @@ interface AdminTourProps {
 
 export default function AdminTour({ setSidebarOpen }: AdminTourProps) {
     const { user, isAdmin } = useAuth();
+
+    const driverInstance = useRef<any>(null);
 
     useEffect(() => {
         // Only run for admins
@@ -23,6 +25,10 @@ export default function AdminTour({ setSidebarOpen }: AdminTourProps) {
         // Small delay to ensure layout is fully rendered
         const timer = setTimeout(() => {
             const isMobile = window.innerWidth < 1024;
+
+            if (driverInstance.current) {
+                driverInstance.current.destroy();
+            }
 
             const driverObj = driver({
                 showProgress: true,
@@ -90,12 +96,16 @@ export default function AdminTour({ setSidebarOpen }: AdminTourProps) {
                 }
             });
 
-
+            driverInstance.current = driverObj;
             driverObj.drive();
         }, 2000);
 
-
-        return () => clearTimeout(timer);
+        return () => {
+            clearTimeout(timer);
+            if (driverInstance.current) {
+                driverInstance.current.destroy();
+            }
+        };
     }, [isAdmin, user, setSidebarOpen]);
 
     return null; // This component doesn't render anything itself
