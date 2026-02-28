@@ -19,9 +19,10 @@ export default function NativeVersionChecker() {
         // Check if we are running inside the app
         const checkVersion = () => {
             // @ts-ignore - Median global
+            const isApp = !!(window.median || window.gonative || navigator.userAgent.includes('Median') || navigator.userAgent.includes('GoNative'));
             const medianVersion = window.median?.version || window.gonative?.version || 0;
 
-            if (typeof medianVersion === 'number' && medianVersion > 0) {
+            if (isApp) {
                 setCurrentVersion(medianVersion);
                 if (medianVersion < REQUIRED_NATIVE_VERSION) {
                     setShowBanner(true);
