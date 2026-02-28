@@ -58,7 +58,10 @@ export default function NativeVersionChecker() {
             <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <FiDownloadCloud className="h-5 w-5" />
-                    <p className="font-bold text-sm">New App Version Available</p>
+                    <div className="flex flex-col">
+                        <p className="font-bold text-sm">New App Version Available</p>
+                        <p className="text-[10px] text-blue-200 opacity-70">App reports v{currentVersion} (Needs v{REQUIRED_NATIVE_VERSION})</p>
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-3">
