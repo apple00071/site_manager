@@ -15,6 +15,7 @@ import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import AttendanceWidget from '@/components/attendance/AttendanceWidget';
 import PasswordChangeModal from '@/components/PasswordChangeModal';
+import AdminTour from '@/components/AdminTour';
 
 function DashboardLayoutContent({
   children,
@@ -125,6 +126,8 @@ function DashboardLayoutContent({
       {showPasswordModal && (
         <PasswordChangeModal onSuccess={() => setShowPasswordModal(false)} />
       )}
+      {/* Admin Feature Tour */}
+      <AdminTour setSidebarOpen={setSidebarOpen} />
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -207,6 +210,7 @@ function DashboardLayoutContent({
                 className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
                 onClick={() => setSidebarOpen(false)}
                 title="Attendance"
+                id="sidebar-attendance"
               >
                 <FiClock className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
                 <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Attendance</span>
@@ -218,6 +222,7 @@ function DashboardLayoutContent({
                 className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
                 onClick={() => setSidebarOpen(false)}
                 title="Payroll"
+                id="sidebar-payroll"
               >
                 <TbCurrencyRupee className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
                 <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Payroll</span>
@@ -239,6 +244,7 @@ function DashboardLayoutContent({
                   className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
                   onClick={() => setSidebarOpen(false)}
                   title="Org"
+                  id="sidebar-org"
                 >
                   <FiUsers className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
                   <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Org</span>
@@ -260,6 +266,7 @@ function DashboardLayoutContent({
               {/* Mobile Menu Button */}
               <button
                 onClick={() => setSidebarOpen(true)}
+                id="mobile-menu-button"
                 className="lg:hidden p-1.5 -ml-1.5 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"
                 aria-label="Open navigation menu"
               >
