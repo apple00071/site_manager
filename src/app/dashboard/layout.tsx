@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX, FiCheckSquare, FiAlertTriangle, FiCreditCard, FiRadio, FiClock } from 'react-icons/fi';
-import { FaRupeeSign } from 'react-icons/fa';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { supabase } from '@/lib/supabase';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 import { OptimizedNotificationBell } from '@/components/OptimizedNotificationBell';
@@ -219,7 +219,7 @@ function DashboardLayoutContent({
                 onClick={() => setSidebarOpen(false)}
                 title="Payroll"
               >
-                <FaRupeeSign className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
+                <TbCurrencyRupee className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
                 <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Payroll</span>
               </Link>
             )}

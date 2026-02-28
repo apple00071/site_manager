@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { FiPlayCircle, FiCheckCircle, FiTrash2, FiDownload, FiEye, FiX } from 'react-icons/fi';
-import { FaRupeeSign } from 'react-icons/fa';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { DataTable, Column, StatusBadge } from '@/components/ui/DataTable';
 import { formatDateIST } from '@/lib/dateUtils';
 
@@ -389,34 +389,34 @@ export default function AdminPayrollDashboard() {
                             </button>
                         </div>
 
-                        <div className="p-6 overflow-y-auto space-y-6">
+                        <div className="p-5 overflow-y-auto space-y-4">
                             {/* Attendance Section */}
                             <section>
-                                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Attendance Summary</h4>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-                                        <span className="block text-xs text-gray-500">Total Days</span>
-                                        <span className="text-lg font-bold text-gray-900">{selectedPayroll.total_days}</span>
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Attendance Summary</h4>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                        <span className="block text-[10px] text-gray-500">Total Days</span>
+                                        <span className="text-base font-bold text-gray-900">{selectedPayroll.total_days}</span>
                                     </div>
-                                    <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
-                                        <span className="block text-xs text-blue-600">Paid Days</span>
-                                        <span className="text-lg font-bold text-blue-700">{selectedPayroll.worked_days + selectedPayroll.paid_leaves}</span>
+                                    <div className="bg-blue-50 p-2 rounded-lg border border-blue-100">
+                                        <span className="block text-[10px] text-blue-600">Paid Days</span>
+                                        <span className="text-base font-bold text-blue-700">{selectedPayroll.worked_days + selectedPayroll.paid_leaves}</span>
                                     </div>
-                                    <div className="bg-green-50 p-3 rounded-xl border border-green-100">
-                                        <span className="block text-xs text-green-600">Present</span>
-                                        <span className="text-lg font-bold text-green-700">{selectedPayroll.worked_days}</span>
+                                    <div className="bg-green-50 p-2 rounded-lg border border-green-100">
+                                        <span className="block text-[10px] text-green-600">Present</span>
+                                        <span className="text-base font-bold text-green-700">{selectedPayroll.worked_days}</span>
                                     </div>
-                                    <div className="bg-red-50 p-3 rounded-xl border border-red-100">
-                                        <span className="block text-xs text-red-600">Unpaid Leaves</span>
-                                        <span className="text-lg font-bold text-red-700">{selectedPayroll.unpaid_leaves}</span>
+                                    <div className="bg-red-50 p-2 rounded-lg border border-red-100">
+                                        <span className="block text-[10px] text-red-600">Unpaid Leaves</span>
+                                        <span className="text-base font-bold text-red-700">{selectedPayroll.unpaid_leaves}</span>
                                     </div>
                                 </div>
                             </section>
 
                             {/* Earnings Section */}
                             <section>
-                                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Earnings</h4>
-                                <div className="space-y-3">
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Earnings</h4>
+                                <div className="space-y-2">
                                     <div className="flex justify-between items-center text-sm">
                                         <span className="text-gray-600">Base Pay Earned</span>
                                         <span className="font-semibold text-gray-900">₹{selectedPayroll.base_pay_earned.toLocaleString('en-IN')}</span>
@@ -437,7 +437,7 @@ export default function AdminPayrollDashboard() {
                                             <span className="font-semibold text-green-600">+₹{selectedPayroll.reimbursements.toLocaleString('en-IN')}</span>
                                         </div>
                                     )}
-                                    <div className="pt-2 border-t border-dashed border-gray-200 flex justify-between items-center text-sm font-bold">
+                                    <div className="pt-1.5 border-t border-dashed border-gray-200 flex justify-between items-center text-sm font-bold">
                                         <span className="text-gray-900">Gross Earnings</span>
                                         <span className="text-gray-900">₹{(selectedPayroll.base_pay_earned + selectedPayroll.allowances_earned + (selectedPayroll.bonus || 0) + (selectedPayroll.reimbursements || 0)).toLocaleString('en-IN')}</span>
                                     </div>
@@ -446,8 +446,8 @@ export default function AdminPayrollDashboard() {
 
                             {/* Deductions Section */}
                             <section>
-                                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Deductions</h4>
-                                <div className="space-y-3">
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Deductions</h4>
+                                <div className="space-y-2">
                                     <div className="flex justify-between items-center text-sm">
                                         <span className="text-gray-600">Total Deductions (Inc. LOP)</span>
                                         <span className="font-semibold text-red-600">₹{selectedPayroll.deductions.toLocaleString('en-IN')}</span>
@@ -457,15 +457,13 @@ export default function AdminPayrollDashboard() {
                             </section>
 
                             {/* Net Pay */}
-                            <section className="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
+                            <section className="bg-yellow-50 p-3 rounded-xl border border-yellow-100">
                                 <div className="flex justify-between items-center">
                                     <div className="flex flex-col">
                                         <span className="text-xs font-bold text-yellow-800 uppercase tracking-tighter">Take Home Salary</span>
-                                        <span className="text-2xl font-black text-gray-900 leading-tight">₹{selectedPayroll.net_pay.toLocaleString('en-IN')}</span>
+                                        <span className="text-xl font-black text-gray-900 leading-tight">₹{selectedPayroll.net_pay.toLocaleString('en-IN')}</span>
                                     </div>
-                                    <div className="h-10 w-10 bg-yellow-400/20 rounded-full flex items-center justify-center">
-                                        <FaRupeeSign className="w-6 h-6 text-yellow-700" />
-                                    </div>
+
                                 </div>
                             </section>
                         </div>

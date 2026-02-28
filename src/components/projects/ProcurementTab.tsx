@@ -7,7 +7,7 @@ import {
     FiFileText, FiAlertCircle, FiMoreVertical,
     FiTruck, FiClock, FiCheckCircle, FiPackage, FiSearch, FiChevronDown, FiEye, FiPrinter
 } from 'react-icons/fi';
-import { FaRupeeSign } from 'react-icons/fa';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { POViewModal } from './POViewModal';
 import { ProposalViewModal } from './ProposalViewModal';
 
@@ -485,7 +485,7 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                 <div className="bg-white p-3 md:p-4 rounded-xl border border-gray-100 shadow-sm">
                     <div className="flex items-center gap-2 md:gap-3">
                         <div className="p-2 bg-yellow-50 rounded-lg">
-                            <FaRupeeSign className="w-4 h-4 md:w-5 md:h-5 text-yellow-600" />
+                            <TbCurrencyRupee className="w-4 h-4 md:w-5 md:h-5 text-yellow-600" />
                         </div>
                         <div>
                             <p className="text-xs md:text-sm text-gray-500">Total Value</p>

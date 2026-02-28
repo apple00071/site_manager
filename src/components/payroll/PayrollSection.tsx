@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { FiDownload, FiCalendar, FiFileText } from 'react-icons/fi';
-import { FaRupeeSign } from 'react-icons/fa';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { useToast } from '@/components/ui/Toast';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -236,7 +236,7 @@ export default function PayrollSection() {
             <div className="flex items-center justify-between pb-4 border-b border-gray-100">
                 <div>
                     <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        <FaRupeeSign className="text-green-600" />
+                        <TbCurrencyRupee className="text-green-600" />
                         My Payroll History
                     </h3>
                     <p className="text-sm text-gray-500">View and download your monthly salary slips.</p>
