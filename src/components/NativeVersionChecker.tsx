@@ -8,7 +8,8 @@ import { FiDownloadCloud, FiX } from 'react-icons/fi';
  * Increase this number whenever you make a change in Median (e.g., adding Location permissions, changing App Icon)
  * to force users to download the new APK.
  */
-const REQUIRED_NATIVE_VERSION = 2; // Increased to trigger banner for existing users
+const REQUIRED_NATIVE_VERSION = 2;
+const DOWNLOAD_URL = '#'; // User should replace this with the real APK link or Median link
 
 export default function NativeVersionChecker() {
     const [showBanner, setShowBanner] = useState(false);
@@ -38,23 +39,27 @@ export default function NativeVersionChecker() {
     if (!showBanner) return null;
 
     return (
-        <div className="fixed top-0 left-0 right-0 z-[9999] bg-blue-600 text-white p-4 shadow-lg animate-slide-down">
-            <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+        <div className="fixed top-0 left-0 right-0 z-[9999] bg-blue-600 text-white shadow-lg animate-slide-down">
+            <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-500 rounded-lg">
-                        <FiDownloadCloud className="h-5 w-5" />
-                    </div>
-                    <div>
-                        <p className="font-bold text-sm">New App Version Available</p>
-                        <p className="text-xs text-blue-100 italic">Required for new features like Location & Attendance</p>
-                    </div>
+                    <FiDownloadCloud className="h-5 w-5" />
+                    <p className="font-bold text-sm">New App Version Available</p>
                 </div>
-                <div className="flex items-center gap-2">
+
+                <div className="flex items-center gap-3">
+                    <a
+                        href={DOWNLOAD_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-1.5 bg-white text-blue-600 font-bold rounded-lg text-xs shadow-sm"
+                    >
+                        Update Now
+                    </a>
                     <button
                         onClick={() => setShowBanner(false)}
-                        className="p-2 hover:bg-blue-500 rounded-lg transition-colors"
+                        className="p-1 hover:bg-black/10 rounded"
                     >
-                        <FiX />
+                        <FiX className="h-4 w-4" />
                     </button>
                 </div>
             </div>
