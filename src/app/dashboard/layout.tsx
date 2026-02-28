@@ -14,6 +14,7 @@ import { HeaderTitleProvider, useHeaderTitle } from '@/contexts/HeaderTitleConte
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import AttendanceWidget from '@/components/attendance/AttendanceWidget';
+import PasswordChangeModal from '@/components/PasswordChangeModal';
 
 function DashboardLayoutContent({
   children,
@@ -25,6 +26,7 @@ function DashboardLayoutContent({
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const { hasPermission } = useUserPermissions();
@@ -87,6 +89,25 @@ function DashboardLayoutContent({
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Check if user needs to change password
+  useEffect(() => {
+    if (!user) return;
+    const checkPasswordStatus = async () => {
+      try {
+        const res = await fetch('/api/auth/check-password-status');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.password_changed === false) {
+            setShowPasswordModal(true);
+          }
+        }
+      } catch (err) {
+        // Ignore errors silently
+      }
+    };
+    checkPasswordStatus();
+  }, [user]);
+
   if (isLoading || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -100,6 +121,10 @@ function DashboardLayoutContent({
 
   return (
     <div className="flex min-h-screen bg-gray-50 w-full max-w-[100vw] overflow-x-hidden">
+      {/* Force Password Change Modal */}
+      {showPasswordModal && (
+        <PasswordChangeModal onSuccess={() => setShowPasswordModal(false)} />
+      )}
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div

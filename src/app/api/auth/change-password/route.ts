@@ -35,6 +35,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: updateError.message || 'Failed to update password' }, { status: 400 });
     }
 
+    // Mark password as changed in the users table
+    await supabaseAdmin
+      .from('users')
+      .update({ password_changed: true })
+      .eq('id', user.id);
+
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (err: any) {
     console.error('Error in change-password route:', err);

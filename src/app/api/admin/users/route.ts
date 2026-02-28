@@ -176,6 +176,7 @@ export async function POST(req: Request) {
         role: normalizedRole,
         role_id: role_id || null,
         phone_number: phone_number || null,
+        password_changed: false,
       };
       if (hasUsername) profile.username = username;
 
