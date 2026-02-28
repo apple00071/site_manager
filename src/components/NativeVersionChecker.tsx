@@ -9,7 +9,10 @@ import { FiDownloadCloud, FiX } from 'react-icons/fi';
  * to force users to download the new APK.
  */
 const REQUIRED_NATIVE_VERSION = 2;
-const DOWNLOAD_URL = 'https://median.co/share/xllydaj#apk';
+// We cannot rely on the S3 signed URL because it expires. We must use the Median share URL and let them handle the redirect.
+// However, to mimic auto-download, we can set it to the standard GoNative direct APK URL structure if available.
+// Since the S3 link expires (X-Amz-Expires=600), we must use the reliable Median build URL.
+const DOWNLOAD_URL = 'https://median.co/share/xllydaj/android/apk';
 
 export default function NativeVersionChecker() {
     const [showBanner, setShowBanner] = useState(false);
