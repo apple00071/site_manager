@@ -35,6 +35,11 @@ interface OfficeExpense {
     admin_remarks?: string;
 }
 
+const MONTHS = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+];
+
 export default function OfficeExpensesPage() {
     const { user, isAdmin } = useAuth();
     const { hasPermission } = useUserPermissions();
@@ -57,6 +62,8 @@ export default function OfficeExpensesPage() {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
+    const [selectedMonth, setSelectedMonth] = useState<number | 'all'>(new Date().getMonth() + 1);
+    const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
     // Modal States
     const [showForm, setShowForm] = useState(false);
@@ -82,7 +89,7 @@ export default function OfficeExpensesPage() {
 
     useEffect(() => {
         fetchExpenses();
-    }, []);
+    }, [selectedMonth, selectedYear]);
 
     // Close menu on scroll or click outside
     useEffect(() => {
@@ -112,7 +119,7 @@ export default function OfficeExpensesPage() {
     const fetchExpenses = async () => {
         try {
             setLoading(true);
-            const res = await fetch('/api/office-expenses');
+            const res = await fetch(`/api/office-expenses?month=${selectedMonth}&year=${selectedYear}`);
             if (res.ok) {
                 const data = await res.json();
                 setExpenses(data.expenses);
@@ -344,15 +351,37 @@ export default function OfficeExpensesPage() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-3">
-                        <div className="relative">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <select
+                            value={selectedMonth}
+                            onChange={(e) => setSelectedMonth(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+                            className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 bg-white"
+                        >
+                            <option value="all">All Months</option>
+                            {MONTHS.map((m, idx) => (
+                                <option key={idx} value={idx + 1}>{m}</option>
+                            ))}
+                        </select>
+
+                        <select
+                            value={selectedYear}
+                            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                            className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 bg-white"
+                        >
+                            {[...Array(5)].map((_, i) => {
+                                const year = new Date().getFullYear() - 2 + i;
+                                return <option key={year} value={year}>{year}</option>;
+                            })}
+                        </select>
+
+                        <div className="relative flex-1 md:flex-none">
                             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                             <input
                                 type="text"
-                                placeholder="Search expenses..."
+                                placeholder="Search..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 w-full md:w-64"
+                                className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 w-full md:w-48"
                             />
                         </div>
 

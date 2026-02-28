@@ -18,13 +18,32 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Database connection error' }, { status: 500 });
         }
 
+        const { searchParams } = new URL(request.url);
+        const month = searchParams.get('month');
+        const year = searchParams.get('year');
+
         let query = supabaseAdmin
             .from('office_expenses')
             .select(`
                 *,
                 user:users!user_id(full_name, email)
             `)
-            .order('created_at', { ascending: false });
+            .order('expense_date', { ascending: false });
+
+        if (month && year) {
+            if (month === 'all') {
+                // Filter by the entire year
+                const startDate = `${year}-01-01T00:00:00.000Z`;
+                const endDateStr = `${year}-12-31T23:59:59.999Z`;
+                query = query.gte('expense_date', startDate).lte('expense_date', endDateStr);
+            } else {
+                // Calculate start and end of the month in IST (UTC+5:30)
+                const startDate = `${year}-${month.padStart(2, '0')}-01T00:00:00.000Z`;
+                const endDate = new Date(Number(year), Number(month), 0); // Last day of month
+                const endDateStr = `${year}-${month.padStart(2, '0')}-${endDate.getDate()}T23:59:59.999Z`;
+                query = query.gte('expense_date', startDate).lte('expense_date', endDateStr);
+            }
+        }
 
         // Fetch user data for role check
         const { data: userData, error: userError } = await supabaseAdmin
