@@ -41,6 +41,24 @@ next-env.d.ts
 
 # Local development
 .temp/
+*.log
+*.txt
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!vercel.json
+!eslint_report.json
+!*.config.js
+!*.config.ts
+!*.config.mjs
+
+# Investigative scripts
+/*.js
+!next.config.js
+!tailwind.config.js
+!postcss.config.mjs
+!eslint.config.mjs
 
 # Supabase
 **/.temp/*
