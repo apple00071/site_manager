@@ -8,7 +8,7 @@ import { FiDownloadCloud, FiX } from 'react-icons/fi';
  * Increase this number whenever you make a change in Median (e.g., adding Location permissions, changing App Icon)
  * to force users to download the new APK.
  */
-const REQUIRED_NATIVE_VERSION = 1; // Start at 1
+const REQUIRED_NATIVE_VERSION = 2; // Increased to trigger banner for existing users
 
 export default function NativeVersionChecker() {
     const [showBanner, setShowBanner] = useState(false);
