@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import ClientLayout from './ClientLayout';
 import OneSignalInit from '@/components/OneSignalInit';
+import NativeVersionChecker from '@/components/NativeVersionChecker';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -76,6 +77,7 @@ export default function RootLayout({
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <OneSignalInit />
+        <NativeVersionChecker />
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>

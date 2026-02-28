@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const month = searchParams.get('month');
         const year = searchParams.get('year');
+        const userIdFilter = searchParams.get('user_id');
 
         let query = supabaseAdmin
             .from('office_expenses')
@@ -60,6 +61,8 @@ export async function GET(request: NextRequest) {
 
         if (!isAdmin) {
             query = query.eq('user_id', user.id);
+        } else if (userIdFilter) {
+            query = query.eq('user_id', userIdFilter);
         }
 
         const { data: expenses, error } = await query;

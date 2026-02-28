@@ -42,14 +42,23 @@ export default function ClientLayout({
             if (newWorker) {
               newWorker.addEventListener('statechange', () => {
                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  // New service worker available, prompt user to reload
-                  console.log('[App] New version available! Please refresh the page.');
-                  // TODO: Replace with toast notification
-                  if (confirm('A new version is available. Reload to update?')) {
-                    window.location.reload();
-                  }
+                  // New service worker available, update silently and reload
+                  console.log('[App] New version detected, updating automatically...');
+
+                  // Tell the new worker to skip waiting and activate immediately
+                  newWorker.postMessage('SKIP_WAITING');
                 }
               });
+            }
+          });
+
+          // Reload ONLY when the new worker has actually taken control
+          let refreshing = false;
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!refreshing) {
+              refreshing = true;
+              console.log('[App] Service worker controller changed, reloading page...');
+              window.location.reload();
             }
           });
         })

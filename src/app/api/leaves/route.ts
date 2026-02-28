@@ -31,10 +31,15 @@ export async function GET(request: NextRequest) {
             .eq('id', user.id)
             .single();
 
+        const { searchParams } = new URL(request.url);
+        const userIdFilter = searchParams.get('user_id');
+
         const isAdmin = userData?.role === 'admin';
 
         if (!isAdmin) {
             query = query.eq('user_id', user.id);
+        } else if (userIdFilter) {
+            query = query.eq('user_id', userIdFilter);
         }
 
         const { data: leaves, error } = await query;

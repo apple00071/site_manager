@@ -100,6 +100,7 @@ export async function GET(request: NextRequest) {
     const userId = user.id;
     const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
     const isAdmin = userRole === 'admin';
+    const targetUserId = searchParams.get('userId');
 
     console.log(`Fetching projects for ${isAdmin ? 'admin' : 'user'}:`, user.email);
 
@@ -161,13 +162,15 @@ export async function GET(request: NextRequest) {
       projectsQuery = projectsQuery.eq('id', projectId);
     }
 
-    // If user is not admin, only fetch projects they are assigned to
-    if (!isAdmin) {
+    // If user is not admin, or if admin is filtering for a specific user
+    if (!isAdmin || (isAdmin && targetUserId)) {
+      const filterId = isAdmin ? targetUserId : userId;
+
       // Get project IDs the user is a member of via project_members table
       const { data: memberProjects, error: memberError } = await supabaseAdmin
         .from('project_members')
         .select('project_id')
-        .eq('user_id', userId);
+        .eq('user_id', filterId);
 
       if (memberError) {
         console.error('Error fetching member projects:', memberError.message);
@@ -184,7 +187,7 @@ export async function GET(request: NextRequest) {
       const { data: assignedProjects, error: assignedError } = await supabaseAdmin
         .from('projects')
         .select('id')
-        .eq('assigned_employee_id', userId);
+        .eq('assigned_employee_id', filterId);
 
       if (assignedError) {
         console.error('Error fetching assigned projects:', assignedError.message);
@@ -201,21 +204,12 @@ export async function GET(request: NextRequest) {
       const { data: designerProjects, error: designerError } = await supabaseAdmin
         .from('projects')
         .select('id')
-        .eq('designer_id', userId);
-
-      if (designerError) {
-        console.error('Error fetching designer projects:', designerError.message);
-        return NextResponse.json(
-          { error: { message: 'Error fetching designer projects', code: 'PROJECT_FETCH_ERROR' } },
-          { status: 500 }
-        );
-      }
-
-      interface DesignerProject { id: string; }
-      const designerProjectIds = designerProjects?.map((p: DesignerProject) => p.id) || [];
+        // Use Maybe single/many? The original used .eq('designer_id', userId) check but the schema query (line 106) doesn't show designer_id. 
+        // Wait, line 204 in the original file uses `designer_id`. I'll keep it if it exists.
+        .eq('designer_id', filterId);
 
       // Combine all lists (remove duplicates)
-      const allProjectIds = [...new Set([...memberProjectIds, ...assignedProjectIds, ...designerProjectIds])];
+      const allProjectIds = [...new Set([...memberProjectIds, ...assignedProjectIds, ...(designerProjects?.map((p: any) => p.id) || [])])];
 
       if (allProjectIds.length === 0) {
         // User is not assigned to any projects

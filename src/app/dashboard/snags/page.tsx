@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo } from 'react';
 import {
     FiPlus, FiFilter, FiCheckCircle, FiClock, FiAlertTriangle, FiUser,
     FiMapPin, FiCamera, FiX, FiInfo, FiSend, FiSearch, FiChevronRight,
-    FiCalendar, FiMessageSquare, FiPhone, FiLayers
+    FiCalendar, FiMessageSquare, FiPhone, FiLayers, FiArrowLeft
 } from 'react-icons/fi';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -372,411 +372,447 @@ export default function SnagsPage() {
     };
 
     return (
-        <div className={`flex flex-col ${selectedSnag ? 'h-[calc(100vh-64px)]' : 'h-[calc(100vh-80px)]'} lg:h-[calc(100vh-100px)] overflow-hidden -mt-2`}>
-            {/* 1. Stats Bar */}
-            <div className={`grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6 shrink-0 px-1 ${selectedSnag ? 'hidden lg:grid' : 'grid'}`}>
+        <div className="flex flex-col h-full lg:h-[calc(100vh-64px)] bg-gray-50 p-4 lg:p-6 gap-4 lg:gap-6 overflow-x-hidden overflow-y-auto lg:overflow-hidden">
+            {/* Top Stats Bar: Clean & Minimal */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 flex-shrink-0">
                 {[
-                    { label: 'Total Open', value: stats.total, icon: FiAlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' },
-                    { label: 'High Priority', value: stats.high, icon: FiClock, color: 'text-yellow-600', bg: 'bg-yellow-50' },
-                    { label: 'Pending Verify', value: stats.pending, icon: FiCheckCircle, color: 'text-blue-600', bg: 'bg-blue-50' },
-                    { label: 'Closed Snags', value: stats.closed, icon: FiLayers, color: 'text-emerald-600', bg: 'bg-emerald-50' }
+                    { label: 'Active Issues', value: stats.total, icon: FiLayers, color: 'text-yellow-600', bg: 'bg-yellow-50' },
+                    { label: 'High Priority', value: stats.high, icon: FiAlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' },
+                    { label: 'Pending Verification', value: stats.pending, icon: FiClock, color: 'text-blue-600', bg: 'bg-blue-50' },
+                    { label: 'Resolved (Last 30d)', value: stats.closed, icon: FiCheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
                 ].map((stat, i) => (
-                    <div key={i} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group hover:shadow-md transition-all">
-                        <div>
-                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{stat.label}</p>
-                            <p className={`text-2xl font-bold mt-1 ${stat.color}`}>{stat.value}</p>
+                    <div key={i} className="bg-white p-3 lg:p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3 lg:gap-4">
+                        <div className={`p-2 lg:p-3 rounded-lg ${stat.bg} ${stat.color}`}>
+                            <stat.icon className="w-4 h-4 lg:w-5 lg:h-5" />
                         </div>
-                        <div className={`flex items-center justify-center p-3 rounded-xl ${stat.bg} ${stat.color}`}>
-                            <stat.icon className="w-5 h-5" />
+                        <div>
+                            <p className="text-[9px] lg:text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-tight">{stat.label}</p>
+                            <p className="text-lg lg:text-2xl font-bold text-gray-900">{stat.value}</p>
                         </div>
                     </div>
                 ))}
             </div>
 
-            {/* 2. Main Dashboard Area */}
-            <div className="flex-1 flex gap-6 overflow-hidden min-h-0">
-                {/* Left Pane: List */}
-                <div className={`w-full lg:w-96 flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden shrink-0 ${selectedSnag ? 'hidden lg:flex' : 'flex'}`}>
-                    {/* List Header/Filters */}
-                    <div className="p-4 border-b border-gray-100 space-y-3 bg-gray-50/50">
-                        <div className="relative">
-                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search snags..."
-                                className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-yellow-500 outline-none"
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                            />
+            <div className="flex-1 flex flex-col lg:flex-row gap-6 overflow-hidden min-h-[500px] lg:min-h-0">
+                {/* Left Sidebar: Filters & List */}
+                <div className={`w-full lg:w-80 flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden ${selectedSnag ? 'hidden lg:flex' : 'flex h-full'}`}>
+                    {/* Sidebar Header & Filters */}
+                    <div className="p-4 border-b border-gray-100 space-y-4 sticky top-0 bg-white z-10">
+                        <div className="flex justify-between items-center mb-2">
+                            <h2 className="font-bold text-gray-900 flex items-center gap-2 uppercase tracking-tight text-sm">
+                                <FiLayers className="text-yellow-600" /> Issues List
+                            </h2>
+                            <button onClick={() => setShowModal(true)} className="p-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 shadow-sm transition-all">
+                                <FiPlus className="w-4 h-4" />
+                            </button>
                         </div>
-                        <div className="flex gap-2">
-                            <select
-                                className="flex-1 text-xs bg-white border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none"
-                                value={filterStatus}
-                                onChange={e => setFilterStatus(e.target.value)}
-                            >
-                                <option value="all">All Status</option>
-                                <option value="open">Open</option>
-                                <option value="assigned">Assigned</option>
-                                <option value="resolved">Resolved</option>
-                                <option value="closed">Closed</option>
-                            </select>
-                            {canCreate && (
-                                <button
-                                    onClick={() => { fetchAllUsers(); setShowModal(true); }}
-                                    className="p-1.5 flex items-center justify-center bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
-                                    title="Raise Snag"
+
+                        {/* Search & Project Filter */}
+                        <div className="space-y-3">
+                            <div className="relative">
+                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                <input
+                                    type="text"
+                                    placeholder="Search issues..."
+                                    className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:bg-white focus:border-yellow-500 transition-all outline-none font-medium"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                                <select
+                                    className="w-full px-2 lg:px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-[10px] lg:text-xs font-bold text-gray-600 focus:bg-white focus:border-yellow-500 outline-none"
+                                    value={selectedProjectId}
+                                    onChange={(e) => setSelectedProjectId(e.target.value)}
                                 >
-                                    <FiPlus className="w-4 h-4" />
-                                </button>
-                            )}
+                                    <option value="all">ALL PROJECTS</option>
+                                    {projectOptions.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                                </select>
+                                <select
+                                    className="w-full px-2 lg:px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-[10px] lg:text-xs font-bold text-gray-600 focus:bg-white focus:border-yellow-500 outline-none"
+                                    value={filterStatus}
+                                    onChange={(e) => setFilterStatus(e.target.value)}
+                                >
+                                    <option value="all">STATUS</option>
+                                    <option value="open">OPEN</option>
+                                    <option value="assigned">ASSIGNED</option>
+                                    <option value="resolved">RESOLVED</option>
+                                    <option value="closed">CLOSED</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Scrollable List */}
-                    <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar divide-y divide-gray-100">
-                        {loading ? (
-                            <div className="p-10 text-center text-gray-400 text-sm">Loading snags...</div>
+                    {/* List Content */}
+                    <div className="flex-1 overflow-y-auto no-scrollbar">
+                        {loading && snags.length === 0 ? (
+                            <div className="p-8 text-center text-gray-400">Loading snags...</div>
                         ) : filteredSnags.length === 0 ? (
-                            <div className="p-10 text-center">
-                                <FiAlertTriangle className="w-8 h-8 text-gray-200 mx-auto mb-2" />
-                                <p className="text-sm text-gray-500">No matching snags found</p>
+                            <div className="p-8 text-center">
+                                <FiInfo className="w-8 h-8 text-gray-100 mx-auto mb-2" />
+                                <p className="text-xs font-bold text-gray-400 uppercase">No snags found</p>
                             </div>
                         ) : (
-                            filteredSnags.map(snag => (
-                                <div
-                                    key={snag.id}
-                                    onClick={() => setSelectedSnag(snag)}
-                                    className={`p-4 cursor-pointer transition-all border-l-4 ${selectedSnag?.id === snag.id ? 'bg-yellow-50 border-yellow-500' : 'border-transparent hover:bg-gray-50'}`}
-                                >
-                                    <div className="flex justify-between items-start mb-1.5 gap-2">
-                                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-tighter truncate shrink-0">
-                                            {snag.site_name || snag.project?.title || 'General'}
-                                        </h3>
-                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${getStatusColor(snag.status)}`}>
-                                            {snag.status}
-                                        </span>
-                                    </div>
-                                    <p className="text-sm font-semibold text-gray-900 line-clamp-1 mb-2">{snag.description}</p>
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                                            <FiUser className="w-3 h-3" />
-                                            <span className="truncate max-w-[120px]">{snag.assigned_to_user?.full_name || 'Unassigned'}</span>
+                            <div className="divide-y divide-gray-50">
+                                {filteredSnags.map(snag => (
+                                    <div
+                                        key={snag.id}
+                                        onClick={() => setSelectedSnag(snag)}
+                                        className={`p-4 cursor-pointer transition-all hover:bg-gray-50 border-l-4 ${selectedSnag?.id === snag.id ? 'bg-yellow-50/50 border-yellow-500' : 'border-transparent'}`}
+                                    >
+                                        <div className="flex justify-between items-start mb-1">
+                                            <span className={`text-[10px] font-bold uppercase tracking-wider ${getPriorityColor(snag.priority)}`}>
+                                                {snag.priority} Priority
+                                            </span>
+                                            <span className="text-[10px] font-bold text-gray-400">{new Date(snag.created_at).toLocaleDateString('en-GB')}</span>
                                         </div>
-                                        <span className={`text-[10px] font-bold uppercase flex items-center gap-1 ${getPriorityColor(snag.priority)}`}>
-                                            <div className={`w-1.5 h-1.5 rounded-full ${snag.priority === 'high' ? 'bg-rose-500' : snag.priority === 'medium' ? 'bg-yellow-500' : 'bg-blue-500'}`} />
-                                            {snag.priority}
-                                        </span>
+                                        <p className="text-sm font-bold text-gray-900 mb-1 line-clamp-1">{snag.site_name || snag.project?.title}</p>
+                                        <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed mb-3">{snag.description}</p>
+                                        <div className="flex justify-between items-center">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-[10px] font-bold text-gray-500 border border-white">
+                                                    {snag.assigned_to_user?.full_name?.charAt(0) || <FiUser className="w-3 h-3" />}
+                                                </div>
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">{snag.assigned_to_user?.full_name?.split(' ')[0] || 'Unassigned'}</span>
+                                            </div>
+                                            <div className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border ${getStatusColor(snag.status)}`}>
+                                                {snag.status}
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            ))
+                                ))}
+                            </div>
                         )}
                     </div>
                 </div>
 
-                {/* Right Pane: Details Content */}
-                <div className={`flex-1 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col ${selectedSnag ? 'flex' : 'hidden lg:flex'}`}>
+                {/* Right Pane: Clean Detail View */}
+                <div className={`flex-1 flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden transition-all duration-300 ${!selectedSnag ? 'hidden lg:flex' : 'flex h-full'}`}>
                     {selectedSnag ? (
                         <>
                             {/* Detail Header */}
-                            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/30">
-                                <div className="flex items-center gap-4">
-                                    <button
-                                        onClick={() => setSelectedSnag(null)}
-                                        className="flex items-center justify-center lg:hidden p-2 -ml-2 text-gray-400 hover:text-gray-600"
-                                    >
-                                        <FiX className="w-6 h-6" />
-                                    </button>
-                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${getStatusColor(selectedSnag.status)} border shadow-sm`}>
-                                        <FiAlertTriangle className="w-6 h-6" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-lg font-bold text-gray-900 leading-tight">{selectedSnag.site_name || selectedSnag.project?.title || 'Snag Details'}</h2>
-                                        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                                            <p className="text-xs text-gray-500 flex items-center gap-1.5">
-                                                <FiCalendar /> {new Date(selectedSnag.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                            </p>
-                                            {selectedSnag.location && (
-                                                <p className="text-xs text-gray-500 flex items-center gap-1.5">
-                                                    <FiMapPin /> {selectedSnag.location}
-                                                </p>
-                                            )}
-                                            {selectedSnag.client_name && (
-                                                <p className="text-xs font-semibold text-yellow-600 flex items-center gap-1.5">
-                                                    <FiUser /> {selectedSnag.client_name}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {selectedSnag.customer_phone && (
-                                        <a href={`tel:${selectedSnag.customer_phone}`} className="flex items-center justify-center p-2 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors">
-                                            <FiPhone className="w-5 h-5" />
-                                        </a>
-                                    )}
-                                    {selectedSnag.status === 'closed' && (
-                                        <button onClick={() => window.open(`/api/snags/${selectedSnag.id}/report`, '_blank')} className="btn-secondary flex items-center gap-2 text-yellow-600 border-yellow-200">
-                                            <FiSend className="w-4 h-4" /> Report
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar">
-                                {/* Description Section */}
+                            <div className="p-6 border-b border-gray-100 flex justify-between items-start bg-gray-50/30">
                                 <div>
-                                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Issue Description</h4>
-                                    <p className="text-gray-700 leading-relaxed text-base font-medium bg-gray-50/50 p-4 rounded-xl border border-gray-100 italic">
-                                        "{selectedSnag.description}"
-                                    </p>
-                                </div>
-
-                                {/* Photos Grid */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div>
-                                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                            Before Resolution <div className="h-px flex-1 bg-gray-100" />
-                                        </h4>
-                                        <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-                                            {selectedSnag.photos?.length > 0 ? selectedSnag.photos.map((url, i) => (
-                                                <div key={i} onClick={() => setViewingImage(url)} className="w-32 h-32 relative rounded-2xl overflow-hidden border-2 border-white shadow-md cursor-zoom-in hover:scale-105 transition-transform shrink-0">
-                                                    <Image src={url} alt="snag" fill className="object-cover" />
-                                                </div>
-                                            )) : (
-                                                <div className="w-full h-32 border-2 border-dashed border-gray-100 rounded-2xl flex flex-col items-center justify-center text-gray-300">
-                                                    <FiCamera className="w-8 h-8 mb-1" />
-                                                    <span className="text-[10px] font-bold uppercase tracking-tight">No Photos</span>
-                                                </div>
-                                            )}
-                                        </div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <button
+                                            onClick={() => setSelectedSnag(null)}
+                                            className="lg:hidden p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                                        >
+                                            <FiArrowLeft className="w-5 h-5 text-gray-500" />
+                                        </button>
+                                        <h2 className="text-xl font-bold text-gray-900">{selectedSnag.site_name || selectedSnag.project?.title || 'General Site Issue'}</h2>
+                                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${getStatusColor(selectedSnag.status)}`}>
+                                            {selectedSnag.status}
+                                        </span>
                                     </div>
-                                    <div>
-                                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                            Resolution Proof <div className="h-px flex-1 bg-gray-100" />
-                                        </h4>
-                                        <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-                                            {selectedSnag.resolved_photos?.length ? selectedSnag.resolved_photos.map((url, i) => (
-                                                <div key={i} onClick={() => setViewingImage(url)} className="w-32 h-32 relative rounded-2xl overflow-hidden border-2 border-white shadow-md cursor-zoom-in hover:scale-105 transition-transform shrink-0">
-                                                    <Image src={url} alt="resolved" fill className="object-cover" />
-                                                </div>
-                                            )) : (
-                                                <div className="w-full h-32 border-2 border-dashed border-gray-100 rounded-2xl flex flex-col items-center justify-center text-gray-300">
-                                                    <FiCheckCircle className="w-8 h-8 mb-1" />
-                                                    <span className="text-[10px] font-bold uppercase tracking-tight">Resolution Pending</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Detailed History / Timeline */}
-                                <div className="border-t border-gray-100 pt-8">
-                                    <div className="flex items-center justify-between mb-6">
-                                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Follow-up Timeline</h4>
-                                        <button onClick={() => setShowFollowUpModal(true)} className="text-[10px] font-bold uppercase text-yellow-600 hover:text-yellow-700">+ Add Update</button>
-                                    </div>
-                                    <div className="bg-gray-50/50 rounded-2xl p-6 border border-gray-100">
-                                        <SnagTimeline items={generateTimeline(selectedSnag)} />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Bottom Actions Bar */}
-                            <div className="p-4 border-t border-gray-100 bg-white flex justify-between items-center shadow-lg">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-yellow-500 text-white flex items-center justify-center font-bold text-sm">
-                                        {selectedSnag.assigned_to_user?.full_name?.charAt(0) || '?'}
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase">Assigned To</p>
-                                        <p className="text-sm font-semibold text-gray-900">{selectedSnag.assigned_to_user?.full_name || 'Not assigned yet'}</p>
+                                    <div className="flex flex-wrap gap-4 text-xs text-gray-500 font-medium">
+                                        <span className="flex items-center gap-1.5"><FiCalendar className="w-3.5 h-3.5 text-yellow-600" /> {new Date(selectedSnag.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                        <span className="flex items-center gap-1.5"><FiMapPin className="w-3.5 h-3.5" /> {selectedSnag.location || 'Site Location'}</span>
+                                        <span className="flex items-center gap-1.5"><FiUser className="w-3.5 h-3.5 text-yellow-600" /> CLIENT: {selectedSnag.client_name || 'N/A'}</span>
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
-                                    {['open', 'assigned'].includes(selectedSnag.status) && canResolve && (user?.id === selectedSnag.assigned_to_user?.id || isAdmin) && (
-                                        <button onClick={() => { setResolveData({ description: '', photos: [] }); setShowResolveModal(true); }} className="px-6 py-2.5 bg-yellow-500 text-white font-bold rounded-xl shadow-lg hover:bg-yellow-600 active:scale-95 transition-all">
-                                            Mark as Resolved
+                                    {selectedSnag.customer_phone && (
+                                        <a href={`tel:${selectedSnag.customer_phone}`} className="p-2.5 bg-yellow-50 text-yellow-600 rounded-xl hover:bg-yellow-100 transition-colors border border-yellow-100 shadow-sm">
+                                            <FiPhone className="w-5 h-5" />
+                                        </a>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Detail Body */}
+                            <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar">
+                                {/* Issue Description */}
+                                <section>
+                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Issue Description</h3>
+                                    <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100">
+                                        <p className="text-gray-700 leading-relaxed font-medium">
+                                            {selectedSnag.description}
+                                        </p>
+                                    </div>
+                                </section>
+
+                                {/* Photo Gallery */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <section>
+                                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Before Resolution</h3>
+                                        {selectedSnag.photos && selectedSnag.photos.length > 0 ? (
+                                            <div className="grid grid-cols-2 gap-3">
+                                                {selectedSnag.photos.map((url, idx) => (
+                                                    <div
+                                                        key={idx}
+                                                        onClick={() => { setViewingImage(url); }}
+                                                        className="aspect-square rounded-xl overflow-hidden border border-gray-200 cursor-zoom-in group relative"
+                                                    >
+                                                        <Image src={url} alt="Before" fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                                                            <FiSearch className="text-white opacity-0 group-hover:opacity-100 w-6 h-6" />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="aspect-[4/3] rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 bg-gray-50/50">
+                                                <FiCamera className="w-8 h-8 mb-2 opacity-20" />
+                                                <span className="text-xs font-bold uppercase tracking-wider">No photos attached</span>
+                                            </div>
+                                        )}
+                                    </section>
+                                    <section>
+                                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Resolution Proof</h3>
+                                        {selectedSnag.resolved_photos && selectedSnag.resolved_photos.length > 0 ? (
+                                            <div className="grid grid-cols-2 gap-3">
+                                                {selectedSnag.resolved_photos.map((url, idx) => (
+                                                    <div
+                                                        key={idx}
+                                                        onClick={() => { setViewingImage(url); }}
+                                                        className="aspect-square rounded-xl overflow-hidden border border-emerald-100 cursor-zoom-in group relative"
+                                                    >
+                                                        <Image src={url} alt="Proof" fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                        <div className="absolute inset-0 bg-emerald-600/0 group-hover:bg-emerald-600/10 transition-colors flex items-center justify-center">
+                                                            <FiCheckCircle className="text-white opacity-0 group-hover:opacity-100 w-6 h-6" />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="aspect-[4/3] rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 bg-gray-50/50">
+                                                <FiCheckCircle className="w-8 h-8 mb-2 opacity-20" />
+                                                <span className="text-xs font-bold uppercase tracking-wider">Awaiting resolution</span>
+                                            </div>
+                                        )}
+                                    </section>
+                                </div>
+
+                                {/* Timeline Section */}
+                                <section>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Site Progress Timeline</h3>
+                                        <button
+                                            onClick={() => setShowFollowUpModal(true)}
+                                            className="px-3 py-1.5 text-[10px] font-bold text-yellow-600 bg-yellow-50 rounded-lg border border-yellow-100 hover:bg-yellow-100 transition-colors uppercase tracking-wider"
+                                        >
+                                            Add Update
                                         </button>
-                                    )}
-                                    {selectedSnag.status === 'resolved' && canVerify && (
-                                        <>
-                                            <button onClick={() => handleUpdateStatus('reopen')} className="px-5 py-2.5 bg-rose-50 text-rose-600 font-bold rounded-xl border border-rose-100">Reopen</button>
-                                            <button onClick={() => handleUpdateStatus('close')} className="px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-lg">Verify & Close</button>
-                                        </>
-                                    )}
+                                    </div>
+                                    <SnagTimeline items={selectedSnag ? generateTimeline(selectedSnag) : []} />
+                                </section>
+                            </div>
+
+                            {/* Action Bar */}
+                            <div className="p-4 bg-white border-t border-gray-100">
+                                <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center font-bold text-yellow-700 border border-yellow-200">
+                                            {selectedSnag.assigned_to_user?.full_name?.charAt(0) || '?'}
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider leading-none mb-1">Current Assignee</p>
+                                            <p className="text-sm font-bold text-gray-900">{selectedSnag.assigned_to_user?.full_name || 'Unassigned'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        {['open', 'assigned'].includes(selectedSnag.status) && canResolve && (user?.id === selectedSnag.assigned_to_user?.id || isAdmin) && (
+                                            <button
+                                                onClick={() => { setResolveData({ description: '', photos: [] }); setShowResolveModal(true); }}
+                                                className="px-6 py-2.5 bg-yellow-500 text-white rounded-xl font-bold text-sm shadow-sm hover:bg-yellow-600 transition-all flex items-center gap-2"
+                                            >
+                                                <FiCheckCircle className="w-4 h-4" />
+                                                Mark as Resolved
+                                            </button>
+                                        )}
+                                        {selectedSnag.status === 'resolved' && canVerify && (
+                                            <>
+                                                <button onClick={() => handleUpdateStatus('reopen')} className="px-6 py-2.5 bg-white text-rose-600 text-sm font-bold rounded-xl border-2 border-rose-100 hover:bg-rose-50 hover:border-rose-200 transition-all border-none">REOPEN ISSUE</button>
+                                                <button onClick={() => handleUpdateStatus('close')} className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-bold text-sm shadow-sm hover:bg-emerald-700 transition-all flex items-center gap-2">
+                                                    <FiCheckCircle className="w-4 h-4" />
+                                                    Verify & Close
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </>
                     ) : (
                         <div className="m-auto text-center p-12">
-                            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-dashed border-gray-200">
-                                <FiInfo className="w-10 h-10 text-gray-300" />
+                            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-100">
+                                <FiInfo className="w-8 h-8 text-gray-300" />
                             </div>
-                            <h2 className="text-xl font-bold text-gray-900 mb-2">Select a snag</h2>
-                            <p className="text-sm text-gray-500">Pick an item from the left to view full details and history.</p>
+                            <h2 className="text-lg font-bold text-gray-900 mb-1">Select a snag</h2>
+                            <p className="text-sm text-gray-500 max-w-xs mx-auto">Click on a snag from the list to view its details, photos, and progress history.</p>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Modals & Popups */}
             {/* Raise Snag Modal */}
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col">
-                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                            <h3 className="text-xl font-bold text-gray-900">Report New Site Issue</h3>
-                            <button onClick={() => setShowModal(false)} className="flex items-center justify-center p-2 hover:bg-gray-200 rounded-full transition-colors"><FiX className="w-6 h-6 text-gray-400" /></button>
-                        </div>
-                        <div className="p-8 space-y-6 overflow-y-auto">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Project / Site Name</label>
-                                    <input type="text" value={formData.site_name} onChange={e => setFormData({ ...formData, site_name: e.target.value })} className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-yellow-500 transition-all outline-none" placeholder="e.g. Skyline 4B" />
+            {
+                showModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setShowModal(false)} />
+                        <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col relative border border-gray-100">
+                            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+                                <h3 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Report Site Issue</h3>
+                                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+                                    <FiX className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="p-6 space-y-6 overflow-y-auto">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Site Name</label>
+                                        <input type="text" value={formData.site_name} onChange={e => setFormData({ ...formData, site_name: e.target.value })} className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:border-yellow-500 outline-none transition-all text-sm font-medium" placeholder="e.g. Skyline 4B" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Priority</label>
+                                        <select value={formData.priority} onChange={e => setFormData({ ...formData, priority: e.target.value as any })} className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:border-yellow-500 outline-none transition-all text-sm font-medium">
+                                            <option value="low">Low</option>
+                                            <option value="medium">Medium</option>
+                                            <option value="high">High</option>
+                                        </select>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Priority Level</label>
-                                    <select value={formData.priority} onChange={e => setFormData({ ...formData, priority: e.target.value as any })} className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-yellow-500 transition-all outline-none capitalize">
-                                        <option value="low">Low Priority</option>
-                                        <option value="medium">Medium Priority</option>
-                                        <option value="high">High Priority</option>
-                                    </select>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Description</label>
+                                    <textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:border-yellow-500 outline-none transition-all text-sm font-medium" rows={3} placeholder="Describe the problem..." />
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Assign Member</label>
+                                        <select value={formData.assigned_to_user_id} onChange={e => setFormData({ ...formData, assigned_to_user_id: e.target.value })} className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:border-yellow-500 outline-none transition-all text-sm font-medium">
+                                            <option value="">Unassigned</option>
+                                            {projectUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Location</label>
+                                        <input type="text" value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:border-yellow-500 outline-none transition-all text-sm font-medium" placeholder="e.g. Master Bedroom" />
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Photos</label>
+                                    <div className="flex gap-3 overflow-x-auto py-2 no-scrollbar">
+                                        {formData.photos.map((url, i) => (
+                                            <div key={i} className="relative w-20 h-20 shrink-0">
+                                                <Image src={url} alt="preview" fill className="object-cover rounded-lg border border-gray-100" />
+                                                <button onClick={() => setFormData(p => ({ ...p, photos: p.photos.filter((_, idx) => idx !== i) }))} className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg"><FiX className="w-3.5 h-3.5" /></button>
+                                            </div>
+                                        ))}
+                                        <label className="w-20 h-20 flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg cursor-pointer hover:border-yellow-500 hover:bg-yellow-50 transition-all shrink-0">
+                                            {uploadingPhotos ? <div className="animate-spin w-5 h-5 border-2 border-yellow-500 border-t-transparent rounded-full" /> : <FiCamera className="w-6 h-6 text-gray-300" />}
+                                            <input type="file" multiple accept="image/*" className="hidden" onChange={e => handlePhotoUpload(e)} />
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Client Name</label>
-                                    <input type="text" value={formData.client_name} onChange={e => setFormData({ ...formData, client_name: e.target.value })} className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-yellow-500 transition-all outline-none" placeholder="e.g. John Doe" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Customer Phone</label>
-                                    <input type="text" value={formData.customer_phone} onChange={e => setFormData({ ...formData, customer_phone: e.target.value })} className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-yellow-500 transition-all outline-none" placeholder="e.g. +91 9876543210" />
-                                </div>
+                            <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                                <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm font-semibold text-gray-500 hover:text-gray-700">Cancel</button>
+                                <button
+                                    onClick={handleSubmitNewSnag}
+                                    disabled={!formData.description || uploadingPhotos}
+                                    className="px-6 py-2 bg-yellow-500 text-white rounded-lg font-bold text-sm shadow-sm hover:bg-yellow-600 disabled:opacity-50 transition-all"
+                                >
+                                    Create Snag
+                                </button>
                             </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Issue Description</label>
-                                <textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-4 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-yellow-500 transition-all outline-none" rows={4} placeholder="Describe the problem in detail..." />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Assign To</label>
-                                    <select value={formData.assigned_to_user_id} onChange={e => setFormData({ ...formData, assigned_to_user_id: e.target.value })} className="w-full px-3 py-3 bg-gray-50 border border-transparent rounded-2xl">
-                                        <option value="">Unassigned</option>
-                                        {projectUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Site Location</label>
-                                    <input type="text" value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-2xl" placeholder="e.g. Master Bedroom" />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 ml-1">Site Photos</label>
-                                <div className="flex gap-3 overflow-x-auto py-2">
-                                    {formData.photos.map((url, i) => (
-                                        <div key={i} className="relative w-20 h-20 shrink-0">
-                                            <Image src={url} alt="preview" fill className="object-cover rounded-2xl" />
-                                            <button onClick={() => setFormData(p => ({ ...p, photos: p.photos.filter((_, idx) => idx !== i) }))} className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-1 shadow-lg flex items-center justify-center"><FiX className="w-3 h-3" /></button>
-                                        </div>
-                                    ))}
-                                    <label className="w-20 h-20 flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-3xl cursor-pointer hover:border-yellow-500 hover:bg-yellow-50 transition-all group">
-                                        {uploadingPhotos ? <div className="animate-spin w-5 h-5 border-2 border-yellow-500 border-t-transparent rounded-full" /> : <><FiCamera className="w-8 h-8 text-gray-300 group-hover:text-yellow-500" /></>}
-                                        <input type="file" multiple accept="image/*" className="hidden" onChange={e => handlePhotoUpload(e)} />
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end gap-4">
-                            <button onClick={() => setShowModal(false)} className="px-6 py-2.5 text-sm font-bold text-gray-500">Cancel</button>
-                            <button onClick={handleSubmitNewSnag} disabled={!formData.description} className="px-8 py-2.5 bg-yellow-500 text-white font-bold rounded-2xl shadow-xl hover:bg-yellow-600 disabled:opacity-50">Create Snag</button>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Resolve Modal */}
-            {showResolveModal && selectedSnag && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
-                        <div className="p-6 bg-emerald-50 border-b border-emerald-100 flex justify-between items-center text-emerald-900">
-                            <h3 className="text-xl font-bold flex items-center gap-2"><FiCheckCircle /> Resolve Snag</h3>
-                            <button onClick={() => setShowResolveModal(false)} className="flex items-center justify-center p-1 hover:bg-emerald-100 rounded-full transition-colors"><FiX /></button>
-                        </div>
-                        <div className="p-6 space-y-6">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Resolution Summary</label>
-                                <textarea value={resolveData.description} onChange={e => setResolveData(p => ({ ...p, description: e.target.value }))} className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-emerald-500 transition-all outline-none" rows={3} placeholder="Tell us what was fixed..." />
+            {
+                showResolveModal && selectedSnag && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setShowResolveModal(false)} />
+                        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-gray-100 relative">
+                            <div className="p-6 border-b border-gray-100">
+                                <h3 className="text-lg font-bold text-gray-900 uppercase">Resolve Snag</h3>
                             </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 ml-1">Proof Photos (Required)</label>
-                                <div className="flex gap-2 overflow-x-auto py-1">
-                                    {resolveData.photos.map((url, i) => (
-                                        <div key={i} className="relative w-20 h-20 shrink-0">
-                                            <Image src={url} alt="proof" fill className="object-cover rounded-2xl" />
-                                            <button onClick={() => setResolveData(p => ({ ...p, photos: p.photos.filter((_, idx) => idx !== i) }))} className="flex items-center justify-center absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-1"><FiX className="w-3 h-3" /></button>
-                                        </div>
-                                    ))}
-                                    <label className="w-20 h-20 flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-emerald-50 hover:border-emerald-500 transition-all group">
-                                        {uploadingPhotos ? <div className="animate-spin w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full" /> : <FiCamera className="w-6 h-6 text-gray-300 group-hover:text-emerald-500" />}
-                                        <input type="file" multiple accept="image/*" className="hidden" onChange={e => handlePhotoUpload(e, true)} />
-                                    </label>
+                            <div className="p-6 space-y-6">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Resolution Summary</label>
+                                    <textarea value={resolveData.description} onChange={e => setResolveData(p => ({ ...p, description: e.target.value }))} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:border-yellow-500 outline-none text-sm font-medium" rows={3} placeholder="Describe the resolution..." />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Proof Photos</label>
+                                    <div className="flex gap-3 overflow-x-auto py-2 no-scrollbar">
+                                        {resolveData.photos.map((url, i) => (
+                                            <div key={i} className="relative w-20 h-20 shrink-0">
+                                                <Image src={url} alt="proof" fill className="object-cover rounded-lg border border-gray-100" />
+                                                <button onClick={() => setResolveData(p => ({ ...p, photos: p.photos.filter((_, idx) => idx !== i) }))} className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center"><FiX className="w-3.5 h-3.5" /></button>
+                                            </div>
+                                        ))}
+                                        <label className="w-20 h-20 flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg cursor-pointer hover:border-yellow-500 transition-all shrink-0">
+                                            {uploadingPhotos ? <div className="animate-spin w-5 h-5 border-2 border-yellow-500 border-t-transparent rounded-full" /> : <FiCamera className="w-6 h-6 text-gray-300" />}
+                                            <input type="file" multiple accept="image/*" className="hidden" onChange={e => handlePhotoUpload(e, true)} />
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end gap-3 font-bold">
-                            <button onClick={() => setShowResolveModal(false)} className="px-5 py-2 text-gray-500">Cancel</button>
-                            <button onClick={() => handleUpdateStatus('resolve')} disabled={resolving || !resolveData.description || resolveData.photos.length === 0} className="px-6 py-2.5 bg-emerald-600 text-white rounded-2xl shadow-lg hover:bg-emerald-700 disabled:opacity-50">Submit Resolution</button>
+                            <div className="p-6 bg-gray-50 border-t border-gray-100 flex flex-col gap-2">
+                                <button
+                                    onClick={() => handleUpdateStatus('resolve')}
+                                    disabled={resolving || !resolveData.description || resolveData.photos.length === 0}
+                                    className="w-full py-3 bg-yellow-600 text-white rounded-xl font-bold text-sm shadow-sm hover:bg-yellow-700 disabled:opacity-50 transition-all"
+                                >
+                                    {resolving ? 'Submitting...' : 'Mark as Resolved'}
+                                </button>
+                                <button onClick={() => setShowResolveModal(false)} className="py-2 text-xs font-semibold text-gray-400">Cancel</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Follow Up Modal */}
-            {showFollowUpModal && selectedSnag && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
-                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                            <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                                <FiMessageSquare className="text-yellow-500" /> Progress Update
-                            </h3>
-                            <button onClick={() => setShowFollowUpModal(false)} className="flex items-center justify-center p-1 hover:bg-gray-200 rounded-full transition-colors">
-                                <FiX className="w-6 h-6 text-gray-400" />
-                            </button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Note for stakeholders</p>
-                            <textarea
-                                value={followUpNote}
-                                onChange={e => setFollowUpNote(e.target.value)}
-                                className="w-full px-4 py-4 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-yellow-500 outline-none transition-all text-sm font-medium"
-                                rows={4}
-                                placeholder="What's the current status? (e.g. Work in progress, materials ordered...)"
-                            />
-                        </div>
-                        <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
-                            <button onClick={() => setShowFollowUpModal(false)} className="px-6 py-2 text-sm font-bold text-gray-400">Cancel</button>
-                            <button
-                                onClick={handlePostFollowUp}
-                                disabled={resolving || !followUpNote}
-                                className="px-8 py-2.5 bg-yellow-500 text-white font-bold rounded-2xl shadow-xl hover:bg-yellow-600 disabled:opacity-50 transition-all active:scale-95"
-                            >
-                                {resolving ? 'Posting...' : 'Post Update'}
-                            </button>
+            {
+                showFollowUpModal && selectedSnag && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setShowFollowUpModal(false)} />
+                        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-gray-100 relative">
+                            <div className="p-6 border-b border-gray-100">
+                                <h3 className="text-lg font-bold text-gray-900 uppercase">Add Update</h3>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                <textarea
+                                    value={followUpNote}
+                                    onChange={e => setFollowUpNote(e.target.value)}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:border-yellow-500 outline-none text-sm font-medium"
+                                    rows={4}
+                                    placeholder="E.g. Materials ordered, work started..."
+                                />
+                            </div>
+                            <div className="p-6 bg-gray-50 border-t border-gray-100 flex flex-col gap-2">
+                                <button
+                                    onClick={handlePostFollowUp}
+                                    disabled={resolving || !followUpNote}
+                                    className="w-full py-3 bg-yellow-500 text-white rounded-xl font-bold text-sm shadow-sm hover:bg-yellow-600 transition-all"
+                                >
+                                    {resolving ? 'Posting...' : 'Confirm Update'}
+                                </button>
+                                <button onClick={() => setShowFollowUpModal(false)} className="py-2 text-xs font-semibold text-gray-400">Cancel</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Photo Viewer */}
-            {viewingImage && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 animate-fade-in" onClick={() => setViewingImage(null)}>
-                    <button className="flex items-center justify-center absolute top-8 right-8 text-white/50 hover:text-white transition-colors"><FiX className="w-10 h-10" /></button>
-                    <div className="relative w-full max-w-5xl h-full max-h-[85vh]">
-                        <Image src={viewingImage} alt="Full Size" fill className="object-contain" quality={100} />
+            {
+                viewingImage && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4" onClick={() => setViewingImage(null)}>
+                        <button className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors">
+                            <FiX className="w-8 h-8" />
+                        </button>
+                        <div className="relative w-full max-w-5xl h-full max-h-[85vh]">
+                            <Image src={viewingImage} alt="Full view" fill className="object-contain" quality={100} />
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
         </div>
     );
 }

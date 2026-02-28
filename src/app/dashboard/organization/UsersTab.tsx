@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { FiPlus, FiEdit2, FiTrash2, FiSearch } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiActivity } from 'react-icons/fi';
 import Link from 'next/link';
 
 interface Role {
@@ -177,6 +177,13 @@ export default function UsersTab() {
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <Link
+                                                    href={`/dashboard/organization/${user.id}`}
+                                                    className="flex items-center justify-center p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
+                                                    title="View Profile (360)"
+                                                >
+                                                    <FiActivity className="h-4 w-4" />
+                                                </Link>
+                                                <Link
                                                     href={`/dashboard/organization/${user.id}/edit`}
                                                     className="flex items-center justify-center p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                                                     title="Edit user"
@@ -235,6 +242,13 @@ export default function UsersTab() {
                                             <span className="font-medium text-gray-400">Designation:</span> {user.designation || '-'}
                                         </div>
                                         <div className="flex gap-2">
+                                            <Link
+                                                href={`/dashboard/organization/${user.id}`}
+                                                className="flex items-center justify-center p-2 text-yellow-600 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors"
+                                                title="View Profile"
+                                            >
+                                                <FiActivity className="h-4 w-4" />
+                                            </Link>
                                             <Link
                                                 href={`/dashboard/organization/${user.id}/edit`}
                                                 className="flex items-center justify-center p-2 text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"

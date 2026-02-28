@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const projectId = searchParams.get('project_id');
         const fetchAll = searchParams.get('all') === 'true';
+        const userIdFilter = searchParams.get('user_id');
 
         // NOTE: If both missing, maybe return user's created snags or empty?
         // Current logic requires one.
@@ -71,6 +72,9 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: 'Access denied' }, { status: 403 });
             }
             query = query.eq('project_id', projectId);
+        } else if (userIdFilter && (role === 'admin')) {
+            // Admin filtering specifically for a user's performance/360 view
+            query = query.or(`assigned_to_user_id.eq.${userIdFilter},created_by.eq.${userIdFilter}`);
         } else if (fetchAll) {
             // Fetch all accessible projects AND unassigned snags created by user?
             if (role !== 'admin') {

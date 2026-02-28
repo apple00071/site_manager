@@ -1,6 +1,6 @@
-const CACHE_NAME = 'apple-interior-manager-v5';
-const STATIC_CACHE = 'static-v5';
-const DYNAMIC_CACHE = 'dynamic-v5';
+const CACHE_NAME = 'apple-interior-manager-v6';
+const STATIC_CACHE = 'static-v6';
+const DYNAMIC_CACHE = 'dynamic-v6';
 
 // Static assets to cache on install
 const staticAssets = [
@@ -157,7 +157,7 @@ self.addEventListener('fetch', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating Service Worker v5...');
+  console.log('[SW] Activating Service Worker v6...');
 
   const currentCaches = [CACHE_NAME, STATIC_CACHE, DYNAMIC_CACHE];
 
@@ -178,6 +178,14 @@ self.addEventListener('activate', (event) => {
         return self.clients.claim();
       })
   );
+});
+
+// LISTEN FOR MESSAGES
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') {
+    console.log('[SW] Received SKIP_WAITING message, taking control...');
+    self.skipWaiting();
+  }
 });
 
 // REMOVED: Push notification handlers
