@@ -37,6 +37,20 @@ export default function NativeVersionChecker() {
         return () => clearTimeout(timer);
     }, []);
 
+    const handleDownload = (e: React.MouseEvent) => {
+        e.preventDefault();
+        // Force the URL to open in the device's default external browser (e.g., Chrome).
+        // This is crucial for Android WebViews because native browsers handle the actual 
+        // downloading of .apk files with proper progress indicators and install prompts.
+        // @ts-ignore
+        if (window.median && window.median.open && window.median.open.external) {
+            // @ts-ignore
+            window.median.open.external({ url: DOWNLOAD_URL });
+        } else {
+            window.open(DOWNLOAD_URL, '_blank');
+        }
+    };
+
     if (!showBanner) return null;
 
     return (
@@ -48,14 +62,12 @@ export default function NativeVersionChecker() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <a
-                        href={DOWNLOAD_URL}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                    <button
+                        onClick={handleDownload}
                         className="px-4 py-1.5 bg-white text-blue-600 font-bold rounded-lg text-xs shadow-sm"
                     >
                         Update Now
-                    </a>
+                    </button>
                     <button
                         onClick={() => setShowBanner(false)}
                         className="p-1 hover:bg-black/10 rounded"
