@@ -9,9 +9,8 @@ import { FiDownloadCloud, FiX } from 'react-icons/fi';
  * to force users to download the new APK.
  */
 const REQUIRED_NATIVE_VERSION = 2;
-// Removed expiring AWS links and external Median links.
-// The APK is now hosted locally in the public folder.
-const DOWNLOAD_URL = '/apple-manager.apk';
+// Hosted permanently in Supabase 'public-assets' bucket
+const DOWNLOAD_URL = 'https://uswdtcmemgfqlkzmfkxs.supabase.co/storage/v1/object/public/public-assets/apple-manager.apk';
 
 export default function NativeVersionChecker() {
     const [showBanner, setShowBanner] = useState(false);
