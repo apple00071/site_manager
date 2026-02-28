@@ -9,7 +9,7 @@ import { FiDownloadCloud, FiX } from 'react-icons/fi';
  * to force users to download the new APK.
  */
 const REQUIRED_NATIVE_VERSION = 2;
-const DOWNLOAD_URL = '#'; // User should replace this with the real APK link or Median link
+const DOWNLOAD_URL = 'https://median.co/share/xllydaj#apk';
 
 export default function NativeVersionChecker() {
     const [showBanner, setShowBanner] = useState(false);
