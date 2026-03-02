@@ -458,7 +458,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Clear any local storage/session data if needed
       if (typeof window !== 'undefined') {
+        // Save persistent values we don't want to clear
+        const tourCompleted = localStorage.getItem('apple_admin_tour_completed');
+        const pendingPush = localStorage.getItem('pending_push_route');
+        
         localStorage.clear();
+        
+        // Restore persistent values
+        if (tourCompleted) {
+          localStorage.setItem('apple_admin_tour_completed', tourCompleted);
+        }
+        if (pendingPush) {
+          localStorage.setItem('pending_push_route', pendingPush);
+        }
+        
         sessionStorage.clear();
       }
 

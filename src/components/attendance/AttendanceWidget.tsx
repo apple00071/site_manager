@@ -47,22 +47,32 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
             let latitude: number | null = null;
             let longitude: number | null = null;
 
-            // Capture Location
+            // Capture Location - MANDATORY
             if (typeof window !== 'undefined' && 'geolocation' in navigator) {
                 try {
                     const position = await new Promise<GeolocationPosition>((resolve, reject) => {
                         navigator.geolocation.getCurrentPosition(resolve, reject, {
                             enableHighAccuracy: true,
-                            timeout: 10000,
-                            maximumAge: 0
+                            timeout: 15000, // Increased to 15s for better reliability
+                            maximumAge: 0   // Force fresh location
                         });
                     });
                     latitude = position.coords.latitude;
                     longitude = position.coords.longitude;
-                } catch (posError) {
+                } catch (posError: any) {
                     console.warn('Geolocation failed or denied:', posError);
-                    showToast('warning', 'Could not capture location. Please ensure GPS is enabled.');
+                    let message = 'Could not capture location. Please ensure GPS is enabled.';
+                    if (posError.code === 1) message = 'Location access denied. Please allow location to punch in/out.';
+                    if (posError.code === 3) message = 'Location request timed out. Please try again.';
+
+                    showToast('error', message);
+                    setLoading(false);
+                    return; // STOP HERE if location capture fails
                 }
+            } else {
+                showToast('error', 'Geolocation is not supported by your browser.');
+                setLoading(false);
+                return;
             }
 
             const res = await fetch('/api/attendance', {
