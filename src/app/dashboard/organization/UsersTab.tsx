@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiActivity } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiActivity, FiChevronDown, FiChevronRight } from 'react-icons/fi';
 import Link from 'next/link';
 
 interface Role {
@@ -23,6 +23,7 @@ export default function UsersTab() {
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
     const [loading, setLoading] = useState(true);
+    const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -49,6 +50,13 @@ export default function UsersTab() {
 
         fetchData();
     }, []);
+
+    const toggleGroup = (designation: string) => {
+        setCollapsedGroups(prev => ({
+            ...prev,
+            [designation]: !prev[designation]
+        }));
+    };
 
     const filteredUsers = users.filter((user: User) =>
         user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -150,12 +158,24 @@ export default function UsersTab() {
                     <tbody className="bg-white divide-y divide-gray-100">
                         {sortedDesignations.map(designation => (
                             <React.Fragment key={designation}>
-                                <tr className="bg-gray-50/50">
-                                    <td colSpan={4} className="px-6 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest border-y border-gray-100/50">
-                                        {designation} — {groupedUsers[designation].length} {groupedUsers[designation].length === 1 ? 'Member' : 'Members'}
+                                <tr
+                                    className="bg-gray-50/50 cursor-pointer hover:bg-gray-100/50 transition-colors"
+                                    onClick={() => toggleGroup(designation)}
+                                >
+                                    <td colSpan={4} className="px-6 py-2 border-y border-gray-100/50">
+                                        <div className="flex items-center gap-2">
+                                            {collapsedGroups[designation] ? (
+                                                <FiChevronRight className="w-4 h-4 text-gray-400" />
+                                            ) : (
+                                                <FiChevronDown className="w-4 h-4 text-gray-400" />
+                                            )}
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                                {designation} — {groupedUsers[designation].length} {groupedUsers[designation].length === 1 ? 'Member' : 'Members'}
+                                            </span>
+                                        </div>
                                     </td>
                                 </tr>
-                                {groupedUsers[designation].map((user: User) => (
+                                {!collapsedGroups[designation] && groupedUsers[designation].map((user: User) => (
                                     <tr key={user.id} className="hover:bg-gray-50 transition-colors group">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center gap-3">
@@ -208,64 +228,76 @@ export default function UsersTab() {
             </div>
 
             {/* Mobile View: Cards */}
-            <div className="lg:hidden space-y-8">
+            <div className="lg:hidden space-y-4">
                 {sortedDesignations.map(designation => (
                     <div key={designation} className="space-y-4">
-                        <div className="px-4 py-1.5 bg-gray-100/50 rounded-lg inline-flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest leading-none mt-0.5">
-                                {designation}
-                            </span>
-                            <span className="text-[10px] font-bold text-gray-400 bg-white px-1.5 py-0.5 rounded-full border border-gray-200">
-                                {groupedUsers[designation].length}
-                            </span>
+                        <div
+                            className="px-4 py-2 bg-gray-100/50 rounded-lg flex items-center justify-between cursor-pointer"
+                            onClick={() => toggleGroup(designation)}
+                        >
+                            <div className="flex items-center gap-2">
+                                {collapsedGroups[designation] ? (
+                                    <FiChevronRight className="w-3.5 h-3.5 text-gray-400" />
+                                ) : (
+                                    <FiChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                                )}
+                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest leading-none mt-0.5">
+                                    {designation}
+                                </span>
+                                <span className="text-[10px] font-bold text-gray-400 bg-white px-1.5 py-0.5 rounded-full border border-gray-200">
+                                    {groupedUsers[designation].length}
+                                </span>
+                            </div>
                         </div>
-                        <div className="space-y-4">
-                            {groupedUsers[designation].map((user: User) => (
-                                <div key={user.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-4">
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 rounded-full bg-yellow-50 flex items-center justify-center text-yellow-700 font-bold border border-yellow-100">
-                                                {user.full_name.charAt(0).toUpperCase()}
+                        {!collapsedGroups[designation] && (
+                            <div className="space-y-4">
+                                {groupedUsers[designation].map((user: User) => (
+                                    <div key={user.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-4">
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-10 w-10 rounded-full bg-yellow-50 flex items-center justify-center text-yellow-700 font-bold border border-yellow-100">
+                                                    {user.full_name.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="text-sm font-semibold text-gray-900 truncate">{user.full_name}</div>
+                                                    <div className="text-xs text-gray-500 truncate">{user.email}</div>
+                                                </div>
                                             </div>
-                                            <div className="min-w-0">
-                                                <div className="text-sm font-semibold text-gray-900 truncate">{user.full_name}</div>
-                                                <div className="text-xs text-gray-500 truncate">{user.email}</div>
-                                            </div>
+                                            <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full ${getRoleColor(user)}`}>
+                                                {getRoleDisplay(user)}
+                                            </span>
                                         </div>
-                                        <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full ${getRoleColor(user)}`}>
-                                            {getRoleDisplay(user)}
-                                        </span>
-                                    </div>
 
-                                    <div className="flex items-center justify-between pt-2 border-t border-gray-50">
-                                        <div className="text-xs text-gray-500">
-                                            <span className="font-medium text-gray-400">Designation:</span> {user.designation || '-'}
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <Link
-                                                href={`/dashboard/organization/${user.id}`}
-                                                className="flex items-center justify-center p-2 text-yellow-600 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors"
-                                                title="View Profile"
-                                            >
-                                                <FiActivity className="h-4 w-4" />
-                                            </Link>
-                                            <Link
-                                                href={`/dashboard/organization/${user.id}/edit`}
-                                                className="flex items-center justify-center p-2 text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
-                                            >
-                                                <FiEdit2 className="h-4 w-4" />
-                                            </Link>
-                                            <button
-                                                onClick={() => handleDeleteUser(user.id)}
-                                                className="flex items-center justify-center p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
-                                            >
-                                                <FiTrash2 className="h-4 w-4" />
-                                            </button>
+                                        <div className="flex items-center justify-between pt-2 border-t border-gray-50">
+                                            <div className="text-xs text-gray-500">
+                                                <span className="font-medium text-gray-400">Designation:</span> {user.designation || '-'}
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Link
+                                                    href={`/dashboard/organization/${user.id}`}
+                                                    className="flex items-center justify-center p-2 text-yellow-600 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors"
+                                                    title="View Profile"
+                                                >
+                                                    <FiActivity className="h-4 w-4" />
+                                                </Link>
+                                                <Link
+                                                    href={`/dashboard/organization/${user.id}/edit`}
+                                                    className="flex items-center justify-center p-2 text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
+                                                >
+                                                    <FiEdit2 className="h-4 w-4" />
+                                                </Link>
+                                                <button
+                                                    onClick={() => handleDeleteUser(user.id)}
+                                                    className="flex items-center justify-center p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                                                >
+                                                    <FiTrash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 ))}
             </div>
