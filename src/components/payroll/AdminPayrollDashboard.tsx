@@ -7,6 +7,7 @@ import { FiPlayCircle, FiCheckCircle, FiTrash2, FiDownload, FiEye, FiX } from 'r
 import { TbCurrencyRupee } from 'react-icons/tb';
 import { DataTable, Column, StatusBadge } from '@/components/ui/DataTable';
 import { formatDateIST } from '@/lib/dateUtils';
+import { CustomDropdown } from '@/components/ui/CustomControls';
 
 interface PayrollRecord {
     id: string;
@@ -243,29 +244,23 @@ export default function AdminPayrollDashboard() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 items-end gap-4 w-full">
                     <div className="w-full">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
-                        <select
+                        <CustomDropdown
                             value={targetEmployeeId}
-                            onChange={(e) => setTargetEmployeeId(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 text-sm"
-                        >
-                            <option value="">Select Employee...</option>
-                            <option value="all" className="font-bold text-yellow-700">All Employees</option>
-                            {employees.map(emp => (
-                                <option key={emp.id} value={emp.id}>{emp.full_name}</option>
-                            ))}
-                        </select>
+                            onChange={setTargetEmployeeId}
+                            options={[
+                                { id: 'all', title: 'All Employees' },
+                                ...employees.map(emp => ({ id: emp.id, title: emp.full_name }))
+                            ]}
+                            placeholder="Select Employee..."
+                        />
                     </div>
                     <div className="w-full">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
-                        <select
-                            value={selectedMonth}
-                            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 text-sm"
-                        >
-                            {MONTHS.map((m, idx) => (
-                                <option key={idx} value={idx + 1}>{m}</option>
-                            ))}
-                        </select>
+                        <CustomDropdown
+                            value={selectedMonth.toString()}
+                            onChange={(val) => setSelectedMonth(parseInt(val))}
+                            options={MONTHS.map((m, idx) => ({ id: (idx + 1).toString(), title: m }))}
+                        />
                     </div>
                     <div className="w-full">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>

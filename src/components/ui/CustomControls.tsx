@@ -28,14 +28,16 @@ export const CustomDropdown = ({
     onChange,
     placeholder = 'Select Option',
     emptyMessage = 'No options found',
-    className = ""
+    className = "",
+    disabled = false
 }: {
     value: string,
     options: { id: string, title: string }[],
     onChange: (id: string) => void,
     placeholder?: string,
     emptyMessage?: string,
-    className?: string
+    className?: string,
+    disabled?: boolean
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -80,11 +82,12 @@ export const CustomDropdown = ({
     }, [isOpen, options.length]);
 
     return (
-        <div className={`relative w-full min-w-0 ${className}`} ref={containerRef}>
+        <div className={`relative w-full min-w-0 ${className} ${disabled ? 'opacity-50' : ''}`} ref={containerRef}>
             <button
                 type="button"
-                onClick={() => setIsOpen(!isOpen)}
-                className="w-full flex items-center justify-between px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-yellow-500 overflow-hidden"
+                onClick={() => !disabled && setIsOpen(!isOpen)}
+                disabled={disabled}
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-yellow-500 overflow-hidden ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
             >
                 <span className={`truncate flex-1 text-left ${selectedOption ? 'text-gray-900' : 'text-gray-400'}`}>
                     {selectedOption ? selectedOption.title : placeholder}
@@ -131,12 +134,14 @@ export const CustomDatePicker = ({
     value,
     onChange,
     placeholder = 'Select Date',
-    className = ""
+    className = "",
+    disabled = false
 }: {
     value: string;
     onChange: (date: string) => void;
     placeholder?: string;
     className?: string;
+    disabled?: boolean;
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -211,11 +216,12 @@ export const CustomDatePicker = ({
     };
 
     return (
-        <div className={`relative w-full ${className}`} ref={containerRef}>
+        <div className={`relative w-full ${className} ${disabled ? 'opacity-50' : ''}`} ref={containerRef}>
             <button
                 type="button"
-                onClick={() => setIsOpen(!isOpen)}
-                className="w-full flex items-center justify-between px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                onClick={() => !disabled && setIsOpen(!isOpen)}
+                disabled={disabled}
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-yellow-500 ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
             >
                 <span className={selectedDate ? 'text-gray-900' : 'text-gray-400'}>
                     {selectedDate ? format(selectedDate, 'dd-MMM-yyyy') : placeholder}
@@ -311,7 +317,8 @@ export const TimeSelect = ({
     ampm,
     options,
     onChange,
-    className = ""
+    className = "",
+    disabled = false
 }: {
     hour: string;
     minute: string;
@@ -319,6 +326,7 @@ export const TimeSelect = ({
     options: string[];
     onChange: (h: string, m: string, ap: string) => void;
     className?: string;
+    disabled?: boolean;
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -363,11 +371,12 @@ export const TimeSelect = ({
     }, [isOpen]);
 
     return (
-        <div className={`relative w-full ${className}`} ref={containerRef}>
+        <div className={`relative w-full ${className} ${disabled ? 'opacity-50' : ''}`} ref={containerRef}>
             <button
                 type="button"
-                onClick={() => setIsOpen(!isOpen)}
-                className="w-full flex items-center justify-between px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                onClick={() => !disabled && setIsOpen(!isOpen)}
+                disabled={disabled}
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-yellow-500 ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
             >
                 <span className="text-gray-900">{displayValue}</span>
                 <FiChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />

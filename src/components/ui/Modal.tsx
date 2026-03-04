@@ -34,7 +34,14 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'max-w-lg' 
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+        <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
+            role="dialog"
+            aria-modal="true"
+            data-modal="true"
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+        >
             <div
                 className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
                 onClick={onClose}
@@ -58,7 +65,10 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'max-w-lg' 
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+                <div
+                    className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent"
+                    style={{ overscrollBehavior: 'contain' }}
+                >
                     {children}
                 </div>
             </div>

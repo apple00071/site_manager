@@ -71,10 +71,34 @@ export function BottomSheet({
         }
     };
 
+    const overlayRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const handleTouch = (e: TouchEvent) => {
+            e.stopPropagation();
+        };
+
+        const overlay = overlayRef.current;
+        if (overlay) {
+            overlay.addEventListener('touchstart', handleTouch, { passive: true });
+            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+        }
+
+        return () => {
+            if (overlay) {
+                overlay.removeEventListener('touchstart', handleTouch);
+                overlay.removeEventListener('touchmove', handleTouch);
+            }
+        };
+    }, [isOpen]);
+
     if (!isVisible) return null;
 
     return (
         <div
+            ref={overlayRef}
             className={`fixed inset-0 z-50 transition-colors duration-300 ${isAnimating ? 'bg-black/20' : 'bg-transparent'
                 }`}
             onClick={handleBackdropClick}
@@ -108,7 +132,10 @@ export function BottomSheet({
                 )}
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto px-4 py-4">
+                <div
+                    className="flex-1 overflow-y-auto px-4 py-4"
+                    style={{ overscrollBehavior: 'contain' }}
+                >
                     {children}
                 </div>
 

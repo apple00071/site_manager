@@ -1,7 +1,7 @@
 'use client';
 
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import {
     FiPlus, FiFilter, FiCheckCircle, FiClock, FiAlertTriangle, FiUser,
     FiMapPin, FiCamera, FiX, FiInfo, FiSend, FiSearch, FiChevronRight,
@@ -74,6 +74,29 @@ export default function SnagsPage() {
     const [resolving, setResolving] = useState(false);
     const [uploadingPhotos, setUploadingPhotos] = useState(false);
     const [viewingImage, setViewingImage] = useState<string | null>(null);
+    const modalRef = useRef<HTMLDivElement>(null);
+
+    // Native touch isolation for modals
+    useEffect(() => {
+        if (!showModal && !showResolveModal && !showFollowUpModal && !viewingImage) return;
+
+        const handleTouch = (e: TouchEvent) => {
+            e.stopPropagation();
+        };
+
+        const modal = modalRef.current;
+        if (modal) {
+            modal.addEventListener('touchstart', handleTouch, { passive: true });
+            modal.addEventListener('touchmove', handleTouch, { passive: false });
+        }
+
+        return () => {
+            if (modal) {
+                modal.removeEventListener('touchstart', handleTouch);
+                modal.removeEventListener('touchmove', handleTouch);
+            }
+        };
+    }, [showModal, showResolveModal, showFollowUpModal, viewingImage]);
 
     // Form/Interactive State
     const [resolveData, setResolveData] = useState({ description: '', photos: [] as string[] });
@@ -685,7 +708,15 @@ export default function SnagsPage() {
             {/* Raise Snag Modal */}
             {
                 showModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-modal="true" role="dialog" aria-modal="true">
+                    <div
+                        ref={modalRef}
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                        data-modal="true"
+                        role="dialog"
+                        aria-modal="true"
+                        onTouchStart={(e) => e.stopPropagation()}
+                        onTouchMove={(e) => e.stopPropagation()}
+                    >
                         <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setShowModal(false)} />
                         <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col relative border border-gray-100">
                             <div className="p-6 border-b border-gray-100 flex justify-between items-center">
@@ -694,7 +725,12 @@ export default function SnagsPage() {
                                     <FiX className="w-5 h-5" />
                                 </button>
                             </div>
-                            <div className="p-6 space-y-6 overflow-y-auto">
+                            <div
+                                className="p-6 space-y-6 overflow-y-auto"
+                                style={{ overscrollBehavior: 'contain' }}
+                                onTouchStart={(e) => e.stopPropagation()}
+                                onTouchMove={(e) => e.stopPropagation()}
+                            >
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Site Name</label>
@@ -767,13 +803,26 @@ export default function SnagsPage() {
             {/* Resolve Modal */}
             {
                 showResolveModal && selectedSnag && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-modal="true" role="dialog" aria-modal="true">
+                    <div
+                        ref={modalRef}
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                        data-modal="true"
+                        role="dialog"
+                        aria-modal="true"
+                        onTouchStart={(e) => e.stopPropagation()}
+                        onTouchMove={(e) => e.stopPropagation()}
+                    >
                         <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setShowResolveModal(false)} />
                         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-gray-100 relative">
                             <div className="p-6 border-b border-gray-100">
                                 <h3 className="text-lg font-bold text-gray-900 uppercase">Resolve Snag</h3>
                             </div>
-                            <div className="p-6 space-y-6">
+                            <div
+                                className="p-6 space-y-6"
+                                style={{ overscrollBehavior: 'contain' }}
+                                onTouchStart={(e) => e.stopPropagation()}
+                                onTouchMove={(e) => e.stopPropagation()}
+                            >
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Resolution Summary</label>
                                     <textarea value={resolveData.description} onChange={e => setResolveData(p => ({ ...p, description: e.target.value }))} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:border-yellow-500 outline-none text-sm font-medium" rows={3} placeholder="Describe the resolution..." />
@@ -812,13 +861,26 @@ export default function SnagsPage() {
             {/* Follow Up Modal */}
             {
                 showFollowUpModal && selectedSnag && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-modal="true" role="dialog" aria-modal="true">
+                    <div
+                        ref={modalRef}
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                        data-modal="true"
+                        role="dialog"
+                        aria-modal="true"
+                        onTouchStart={(e) => e.stopPropagation()}
+                        onTouchMove={(e) => e.stopPropagation()}
+                    >
                         <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setShowFollowUpModal(false)} />
                         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-gray-100 relative">
                             <div className="p-6 border-b border-gray-100">
                                 <h3 className="text-lg font-bold text-gray-900 uppercase">Add Update</h3>
                             </div>
-                            <div className="p-6 space-y-4">
+                            <div
+                                className="p-6 space-y-4"
+                                style={{ overscrollBehavior: 'contain' }}
+                                onTouchStart={(e) => e.stopPropagation()}
+                                onTouchMove={(e) => e.stopPropagation()}
+                            >
                                 <textarea
                                     value={followUpNote}
                                     onChange={e => setFollowUpNote(e.target.value)}
@@ -845,7 +907,13 @@ export default function SnagsPage() {
             {/* Photo Viewer */}
             {
                 viewingImage && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4" onClick={() => setViewingImage(null)}>
+                    <div
+                        ref={modalRef}
+                        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4"
+                        onClick={() => setViewingImage(null)}
+                        onTouchStart={(e) => e.stopPropagation()}
+                        onTouchMove={(e) => e.stopPropagation()}
+                    >
                         <button className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors">
                             <FiX className="w-8 h-8" />
                         </button>

@@ -98,6 +98,11 @@ export function ConfirmDialog({
                     ref={popoverRef}
                     className="absolute z-50 mt-2 right-0 w-64 bg-white rounded-lg shadow-xl border border-gray-200 p-4 animate-fade-in"
                     onClick={(e) => e.stopPropagation()}
+                    role="dialog"
+                    aria-modal="true"
+                    data-modal="true"
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onTouchMove={(e) => e.stopPropagation()}
                 >
                     {/* Header */}
                     <div className="flex items-start gap-3 mb-3">
@@ -175,8 +180,18 @@ export function useConfirm() {
     };
 
     const DialogComponent = dialog ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4 p-6 animate-fade-in">
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            data-modal="true"
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+        >
+            <div
+                className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4 p-6 animate-fade-in"
+                style={{ overscrollBehavior: 'contain' }}
+            >
                 <div className="flex items-start gap-3 mb-4">
                     {dialog.options.destructive && (
                         <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">

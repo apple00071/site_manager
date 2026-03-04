@@ -13,6 +13,7 @@ import { useSearchParams } from 'next/navigation';
 
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { useEffect } from 'react';
+import { CustomDropdown } from '@/components/ui/CustomControls';
 
 export default function OrganizationPage() {
   const { isAdmin, isLoading } = useAuth();
@@ -51,15 +52,12 @@ export default function OrganizationPage() {
     <div className="p-4 lg:p-6 space-y-6">
       {/* Mobile Tab Selector */}
       <div className="lg:hidden">
-        <select
+        <CustomDropdown
           value={activeTab}
-          onChange={(e) => setActiveTab(e.target.value)}
-          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500"
-        >
-          {tabs.map((tab) => (
-            <option key={tab.id} value={tab.id}>{tab.label}</option>
-          ))}
-        </select>
+          onChange={(val) => setActiveTab(val)}
+          options={tabs.map(tab => ({ id: tab.id, title: tab.label }))}
+          placeholder="Select Section"
+        />
       </div>
 
       {/* Desktop Tabs */}

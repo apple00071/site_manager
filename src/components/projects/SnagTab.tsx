@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { uploadFiles } from '@/lib/uploadUtils';
+import { CustomDropdown } from '@/components/ui/CustomControls';
 
 interface Snag {
     id: string;
@@ -299,17 +300,17 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
 
                 <div className="flex items-center gap-3">
-                    <select
+                    <CustomDropdown
                         value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
-                        className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                    >
-                        <option value="all">All Status</option>
-                        <option value="open">Open</option>
-                        <option value="assigned">Assigned</option>
-                        <option value="resolved">Resolved</option>
-                        <option value="closed">Closed</option>
-                    </select>
+                        onChange={setFilterStatus}
+                        options={[
+                            { id: 'all', title: 'All Status' },
+                            { id: 'open', title: 'Open' },
+                            { id: 'assigned', title: 'Assigned' },
+                            { id: 'resolved', title: 'Resolved' },
+                            { id: 'closed', title: 'Closed' }
+                        ]}
+                    />
 
                 </div>
             </div>
@@ -530,28 +531,26 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-                                    <select
+                                    <CustomDropdown
                                         value={formData.priority}
-                                        onChange={e => setFormData({ ...formData, priority: e.target.value as any })}
-                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 text-sm"
-                                    >
-                                        <option value="low">Low</option>
-                                        <option value="medium">Medium</option>
-                                        <option value="high">High</option>
-                                    </select>
+                                        onChange={val => setFormData({ ...formData, priority: val as any })}
+                                        options={[
+                                            { id: 'low', title: 'Low' },
+                                            { id: 'medium', title: 'Medium' },
+                                            { id: 'high', title: 'High' }
+                                        ]}
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Assign User</label>
-                                    <select
+                                    <CustomDropdown
                                         value={formData.assigned_to_user_id}
-                                        onChange={e => setFormData({ ...formData, assigned_to_user_id: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 text-sm"
-                                    >
-                                        <option value="">Select User</option>
-                                        {users.map(u => (
-                                            <option key={u.id} value={u.id}>{u.name}</option>
-                                        ))}
-                                    </select>
+                                        onChange={val => setFormData({ ...formData, assigned_to_user_id: val })}
+                                        options={[
+                                            ...users.map(u => ({ id: u.id, title: u.name }))
+                                        ]}
+                                        placeholder="Select User"
+                                    />
                                 </div>
                             </div>
 

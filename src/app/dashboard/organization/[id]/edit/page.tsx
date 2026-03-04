@@ -4,8 +4,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { CustomDropdown } from '@/components/ui/CustomControls';
 import { z } from 'zod';
 import { FiArrowLeft, FiSave } from 'react-icons/fi';
 import Link from 'next/link';
@@ -52,6 +53,7 @@ export default function EditUserPage() {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
     reset,
     setValue,
@@ -318,21 +320,19 @@ export default function EditUserPage() {
                 <label htmlFor="role_id" className="block text-sm font-medium text-gray-700">
                   Role
                 </label>
-                <select
-                  id="role_id"
-                  {...register('role_id')}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
-                >
-                  {roles.length === 0 ? (
-                    <option value="">No roles available</option>
-                  ) : (
-                    roles.map((role) => (
-                      <option key={role.id} value={role.id}>
-                        {role.name}
-                      </option>
-                    ))
+                <Controller
+                  name="role_id"
+                  control={control}
+                  render={({ field }) => (
+                    <CustomDropdown
+                      value={field.value}
+                      onChange={field.onChange}
+                      options={roles.map(r => ({ id: r.id, title: r.name }))}
+                      placeholder={loadingRoles ? "Loading roles..." : "Select Role"}
+                      disabled={loadingRoles}
+                    />
                   )}
-                </select>
+                />
                 {errors.role_id && (
                   <p className="mt-1 text-sm text-red-600">{errors.role_id.message}</p>
                 )}

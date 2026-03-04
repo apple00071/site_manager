@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { FiCheck, FiX, FiCalendar, FiUser, FiTag, FiFileText, FiClock } from 'react-icons/fi';
 import { formatDateIST } from '@/lib/dateUtils';
+import { CustomDropdown } from '@/components/ui/CustomControls';
 
 interface LeaveApprovalModalProps {
     leave: any;
@@ -144,16 +145,16 @@ export default function LeaveApprovalModal({ leave, onSuccess, onClose }: LeaveA
                             <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">
                                 Leave Type <span className="text-red-500">*</span>
                             </label>
-                            <select
+                            <CustomDropdown
                                 value={approvedLeaveType}
-                                onChange={(e) => setApprovedLeaveType(e.target.value)}
-                                className="w-full px-4 py-3 bg-gray-50 border-0 ring-1 ring-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm"
-                            >
-                                <option value="Paid Leave">Paid Leave</option>
-                                <option value="Casual Leave">Casual Leave</option>
-                                <option value="Sick Leave">Sick Leave</option>
-                                <option value="Loss of Pay (LOP)">Loss of Pay (LOP)</option>
-                            </select>
+                                onChange={setApprovedLeaveType}
+                                options={[
+                                    { id: 'Paid Leave', title: 'Paid Leave' },
+                                    { id: 'Casual Leave', title: 'Casual Leave' },
+                                    { id: 'Sick Leave', title: 'Sick Leave' },
+                                    { id: 'Loss of Pay (LOP)', title: 'Loss of Pay (LOP)' }
+                                ]}
+                            />
                         </div>
                     )}
 

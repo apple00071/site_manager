@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { FiX } from 'react-icons/fi';
+import { CustomDropdown } from '@/components/ui/CustomControls';
 
 interface BOQItem {
     id?: string;
@@ -140,27 +141,19 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                            <select
+                            <CustomDropdown
                                 value={form.category || ''}
-                                onChange={e => setForm({ ...form, category: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                            >
-                                {categories.map(cat => (
-                                    <option key={cat} value={cat}>{cat}</option>
-                                ))}
-                            </select>
+                                onChange={val => setForm({ ...form, category: val })}
+                                options={categories.map(cat => ({ id: cat, title: cat }))}
+                            />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Unit (UOM)</label>
-                            <select
+                            <CustomDropdown
                                 value={form.unit || 'Nos'}
-                                onChange={e => setForm({ ...form, unit: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                            >
-                                {UNITS.map(u => (
-                                    <option key={u} value={u}>{u}</option>
-                                ))}
-                            </select>
+                                onChange={val => setForm({ ...form, unit: val })}
+                                options={UNITS.map(u => ({ id: u, title: u }))}
+                            />
                         </div>
                     </div>
 
@@ -193,17 +186,17 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
                     {/* GST Row */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">GST (%)</label>
-                        <select
-                            value={form.gst || 18}
-                            onChange={e => setForm({ ...form, gst: parseFloat(e.target.value) || 0 })}
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                        >
-                            <option value={0}>0% (Exempt)</option>
-                            <option value={5}>5%</option>
-                            <option value={12}>12%</option>
-                            <option value={18}>18%</option>
-                            <option value={28}>28%</option>
-                        </select>
+                        <CustomDropdown
+                            value={(form.gst || 18).toString()}
+                            onChange={val => setForm({ ...form, gst: parseFloat(val) || 0 })}
+                            options={[
+                                { id: '0', title: '0% (Exempt)' },
+                                { id: '5', title: '5%' },
+                                { id: '12', title: '12%' },
+                                { id: '18', title: '18%' },
+                                { id: '28', title: '28%' }
+                            ]}
+                        />
                     </div>
 
                     {/* Amount Display with GST */}
@@ -226,27 +219,19 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Item Type</label>
-                            <select
+                            <CustomDropdown
                                 value={form.item_type || 'material'}
-                                onChange={e => setForm({ ...form, item_type: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                            >
-                                {ITEM_TYPES.map(t => (
-                                    <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
-                                ))}
-                            </select>
+                                onChange={val => setForm({ ...form, item_type: val })}
+                                options={ITEM_TYPES.map(t => ({ id: t, title: t.replace(/_/g, ' ') }))}
+                            />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Source</label>
-                            <select
+                            <CustomDropdown
                                 value={form.source || 'bought_out'}
-                                onChange={e => setForm({ ...form, source: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                            >
-                                {SOURCES.map(s => (
-                                    <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
-                                ))}
-                            </select>
+                                onChange={val => setForm({ ...form, source: val })}
+                                options={SOURCES.map(s => ({ id: s, title: s.replace(/_/g, ' ') }))}
+                            />
                         </div>
                     </div>
 
@@ -254,27 +239,19 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                            <select
+                            <CustomDropdown
                                 value={form.status || 'draft'}
-                                onChange={e => setForm({ ...form, status: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                            >
-                                {STATUSES.map(s => (
-                                    <option key={s} value={s}>{s}</option>
-                                ))}
-                            </select>
+                                onChange={val => setForm({ ...form, status: val })}
+                                options={STATUSES.map(s => ({ id: s, title: s }))}
+                            />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Order Status</label>
-                            <select
+                            <CustomDropdown
                                 value={form.order_status || 'pending'}
-                                onChange={e => setForm({ ...form, order_status: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                            >
-                                {ORDER_STATUSES.map(s => (
-                                    <option key={s} value={s}>{s}</option>
-                                ))}
-                            </select>
+                                onChange={val => setForm({ ...form, order_status: val })}
+                                options={ORDER_STATUSES.map(s => ({ id: s, title: s }))}
+                            />
                         </div>
                     </div>
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FiX, FiSave } from 'react-icons/fi';
+import { CustomDropdown, CustomDatePicker } from '@/components/ui/CustomControls';
 
 type ModalSection = 'info' | 'customer' | 'property' | 'workers' | null;
 
@@ -82,44 +83,38 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                                    <select
+                                    <CustomDropdown
                                         value={formData.status || 'pending'}
-                                        onChange={(e) => handleChange('status', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
-                                    >
-                                        <option value="pending">Design Phase</option>
-                                        <option value="in_progress">Execution Phase</option>
-                                        <option value="handover">Handover Phase</option>
-                                        <option value="on_hold">On Hold</option>
-                                        <option value="completed">Completed</option>
-                                    </select>
+                                        onChange={(val) => handleChange('status', val)}
+                                        options={[
+                                            { id: 'pending', title: 'Design Phase' },
+                                            { id: 'in_progress', title: 'Execution Phase' },
+                                            { id: 'handover', title: 'Handover Phase' },
+                                            { id: 'on_hold', title: 'On Hold' },
+                                            { id: 'completed', title: 'Completed' }
+                                        ]}
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                                    <input
-                                        type="date"
+                                    <CustomDatePicker
                                         value={formData.start_date ? formData.start_date.split('T')[0] : ''}
-                                        onChange={(e) => handleChange('start_date', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
+                                        onChange={(val) => handleChange('start_date', val)}
                                     />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Expected Completion</label>
-                                    <input
-                                        type="date"
+                                    <CustomDatePicker
                                         value={formData.estimated_completion_date ? formData.estimated_completion_date.split('T')[0] : ''}
-                                        onChange={(e) => handleChange('estimated_completion_date', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
+                                        onChange={(val) => handleChange('estimated_completion_date', val)}
                                     />
                                 </div>
                                 {formData.status === 'completed' && (
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Actual Completion Date</label>
-                                        <input
-                                            type="date"
+                                        <CustomDatePicker
                                             value={formData.actual_completion_date ? formData.actual_completion_date.split('T')[0] : ''}
-                                            onChange={(e) => handleChange('actual_completion_date', e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
+                                            onChange={(val) => handleChange('actual_completion_date', val)}
                                         />
                                     </div>
                                 )}
@@ -191,17 +186,17 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                             <>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Property Type</label>
-                                    <select
+                                    <CustomDropdown
                                         value={formData.property_type || ''}
-                                        onChange={(e) => handleChange('property_type', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
-                                    >
-                                        <option value="">Select Type</option>
-                                        <option value="apartment">Apartment</option>
-                                        <option value="villa">Villa</option>
-                                        <option value="office">Office</option>
-                                        <option value="plot">Plot</option>
-                                    </select>
+                                        onChange={(val) => handleChange('property_type', val)}
+                                        options={[
+                                            { id: 'apartment', title: 'Apartment' },
+                                            { id: 'villa', title: 'Villa' },
+                                            { id: 'office', title: 'Office' },
+                                            { id: 'plot', title: 'Plot' }
+                                        ]}
+                                        placeholder="Select Type"
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Apartment/Building Name</label>
@@ -257,18 +252,18 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                 <div className="grid grid-cols-1 gap-4 p-4 border border-gray-100 rounded-lg bg-gray-50/50">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
-                                        <select
+                                        <CustomDropdown
                                             value={selectedWorker}
-                                            onChange={(e) => setSelectedWorker(e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
-                                        >
-                                            <option value="carpenter">Carpenter</option>
-                                            <option value="electrician">Electrician</option>
-                                            <option value="plumber">Plumber</option>
-                                            <option value="painter">Painter</option>
-                                            <option value="granite_worker">Granite Worker</option>
-                                            <option value="glass_worker">Glass Worker</option>
-                                        </select>
+                                            onChange={setSelectedWorker}
+                                            options={[
+                                                { id: 'carpenter', title: 'Carpenter' },
+                                                { id: 'electrician', title: 'Electrician' },
+                                                { id: 'plumber', title: 'Plumber' },
+                                                { id: 'painter', title: 'Painter' },
+                                                { id: 'granite_worker', title: 'Granite Worker' },
+                                                { id: 'glass_worker', title: 'Glass Worker' }
+                                            ]}
+                                        />
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>

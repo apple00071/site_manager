@@ -4,11 +4,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { FiArrowLeft, FiSave } from 'react-icons/fi';
+import * as z from 'zod';
+import { FiArrowLeft, FiSave, FiUpload, FiX, FiCheck, FiAlertCircle, FiPlus } from 'react-icons/fi';
 import Link from 'next/link';
+import { CustomDropdown, CustomDatePicker } from '@/components/ui/CustomControls';
 import BackButton from '@/components/BackButton';
 
 const projectSchema = z.object({
@@ -88,6 +89,7 @@ export default function EditProjectPage() {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
     reset,
   } = useForm<ProjectFormValues>({
@@ -378,17 +380,24 @@ export default function EditProjectPage() {
                     <label htmlFor="status" className="block text-sm font-semibold text-gray-700 mb-2">
                       Status *
                     </label>
-                    <select
-                      id="status"
-                      {...register('status')}
-                      className="block w-full px-4 py-3 sm:py-4 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white touch-target"
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="on_hold">On Hold</option>
-                      <option value="completed">Completed</option>
-                      <option value="cancelled">Cancelled</option>
-                    </select>
+                    <Controller
+                      name="status"
+                      control={control}
+                      render={({ field }) => (
+                        <CustomDropdown
+                          value={field.value}
+                          onChange={field.onChange}
+                          options={[
+                            { id: 'pending', title: 'Pending' },
+                            { id: 'in_progress', title: 'In Progress' },
+                            { id: 'on_hold', title: 'On Hold' },
+                            { id: 'completed', title: 'Completed' },
+                            { id: 'cancelled', title: 'Cancelled' }
+                          ]}
+                          placeholder="Select Status"
+                        />
+                      )}
+                    />
                     {errors.status && (
                       <p className="mt-2 text-xs sm:text-sm text-red-600 flex items-center">
                         <span className="inline-block w-1 h-1 bg-red-600 rounded-full mr-2"></span>
@@ -469,19 +478,25 @@ export default function EditProjectPage() {
                       <label htmlFor="property_type" className="block text-sm font-medium text-gray-700 mb-2">
                         Property Type
                       </label>
-                      <select
-                        id="property_type"
-                        {...register('property_type')}
-                        className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-white touch-target"
-                      >
-                        <option value="">Select property type</option>
-                        <option value="apartment">Apartment</option>
-                        <option value="villa">Villa</option>
-                        <option value="independent_house">Independent House</option>
-                        <option value="office">Office</option>
-                        <option value="commercial">Commercial</option>
-                        <option value="other">Other</option>
-                      </select>
+                      <Controller
+                        name="property_type"
+                        control={control}
+                        render={({ field }) => (
+                          <CustomDropdown
+                            value={field.value || ''}
+                            onChange={field.onChange}
+                            options={[
+                              { id: 'apartment', title: 'Apartment' },
+                              { id: 'villa', title: 'Villa' },
+                              { id: 'independent_house', title: 'Independent House' },
+                              { id: 'office', title: 'Office' },
+                              { id: 'commercial', title: 'Commercial' },
+                              { id: 'other', title: 'Other' }
+                            ]}
+                            placeholder="Select property type"
+                          />
+                        )}
+                      />
                     </div>
 
                     <div>
@@ -583,11 +598,16 @@ export default function EditProjectPage() {
                     <label htmlFor="start_date" className="block text-sm font-semibold text-gray-700 mb-2">
                       Start Date *
                     </label>
-                    <input
-                      id="start_date"
-                      type="date"
-                      {...register('start_date')}
-                      className="block w-full px-4 py-3 sm:py-4 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white touch-target"
+                    <Controller
+                      name="start_date"
+                      control={control}
+                      render={({ field }) => (
+                        <CustomDatePicker
+                          value={field.value || ''}
+                          onChange={field.onChange}
+                          placeholder="Select Start Date"
+                        />
+                      )}
                     />
                     {errors.start_date && (
                       <p className="mt-2 text-xs sm:text-sm text-red-600 flex items-center">
@@ -601,11 +621,16 @@ export default function EditProjectPage() {
                     <label htmlFor="estimated_completion_date" className="block text-sm font-semibold text-gray-700 mb-2">
                       Estimated Completion Date *
                     </label>
-                    <input
-                      id="estimated_completion_date"
-                      type="date"
-                      {...register('estimated_completion_date')}
-                      className="block w-full px-4 py-3 sm:py-4 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white touch-target"
+                    <Controller
+                      name="estimated_completion_date"
+                      control={control}
+                      render={({ field }) => (
+                        <CustomDatePicker
+                          value={field.value || ''}
+                          onChange={field.onChange}
+                          placeholder="Select Completion Date"
+                        />
+                      )}
                     />
                     {errors.estimated_completion_date && (
                       <p className="mt-2 text-xs sm:text-sm text-red-600 flex items-center">

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { FiCalendar, FiPlus, FiTrash2, FiInfo } from 'react-icons/fi';
 import { useToast } from '@/components/ui/Toast';
+import { CustomDatePicker } from '@/components/ui/CustomControls';
 
 interface Holiday {
     id: string;
@@ -147,11 +148,10 @@ export default function HolidaysTab() {
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-2">Select Dates</label>
                             <div className="flex gap-2">
-                                <input
-                                    type="date"
+                                <CustomDatePicker
                                     value={tempDate}
-                                    onChange={e => handleAddDate(e.target.value)}
-                                    className="flex-1 border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-yellow-500 outline-none bg-white transition-all shadow-sm"
+                                    onChange={handleAddDate}
+                                    placeholder="Click to pick a date"
                                 />
                             </div>
                             <p className="mt-1.5 text-[10px] text-gray-400">Select multiple dates from the calendar to group them.</p>

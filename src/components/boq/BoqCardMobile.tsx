@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { FiEdit2, FiTrash2, FiX, FiCheck, FiChevronRight, FiMoreVertical } from 'react-icons/fi';
+import { CustomDropdown } from '@/components/ui/CustomControls';
 
 interface BOQItem {
     id: string;
@@ -324,25 +325,21 @@ export function BoqCardMobile({
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
                                             Order Status
                                         </label>
-                                        <select
+                                        <CustomDropdown
                                             value={editForm.order_status}
-                                            onChange={(e) => setEditForm({ ...editForm, order_status: e.target.value })}
-                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-                                        >
-                                            {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                                        </select>
+                                            onChange={(val) => setEditForm({ ...editForm, order_status: val })}
+                                            options={ORDER_STATUSES.map(s => ({ id: s, title: s }))}
+                                        />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
                                             Item Type
                                         </label>
-                                        <select
+                                        <CustomDropdown
                                             value={editForm.item_type}
-                                            onChange={(e) => setEditForm({ ...editForm, item_type: e.target.value })}
-                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-                                        >
-                                            {ITEM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                                        </select>
+                                            onChange={(val) => setEditForm({ ...editForm, item_type: val })}
+                                            options={ITEM_TYPES.map(t => ({ id: t, title: t }))}
+                                        />
                                     </div>
                                 </div>
 
@@ -351,25 +348,21 @@ export function BoqCardMobile({
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
                                             Source
                                         </label>
-                                        <select
+                                        <CustomDropdown
                                             value={editForm.source}
-                                            onChange={(e) => setEditForm({ ...editForm, source: e.target.value })}
-                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-                                        >
-                                            {SOURCES.map(src => <option key={src} value={src}>{src.replace(/_/g, ' ')}</option>)}
-                                        </select>
+                                            onChange={(val) => setEditForm({ ...editForm, source: val })}
+                                            options={SOURCES.map(src => ({ id: src, title: src.replace(/_/g, ' ') }))}
+                                        />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
                                             Status
                                         </label>
-                                        <select
+                                        <CustomDropdown
                                             value={editForm.status}
-                                            onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-                                        >
-                                            {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                                        </select>
+                                            onChange={(val) => setEditForm({ ...editForm, status: val })}
+                                            options={STATUSES.map(s => ({ id: s, title: s }))}
+                                        />
                                     </div>
                                 </div>
 

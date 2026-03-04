@@ -26,21 +26,39 @@ export function PullToRefresh({ children, onRefresh, disabled = false }: PullToR
     const isModalActive = useCallback(() => {
         if (typeof window === 'undefined') return false;
 
-        // 1. Check body overflow (most reliable when modals block scroll)
+        // 1. Check body and html overflow (most reliable when modals block scroll)
         const bodyStyle = window.getComputedStyle(document.body);
+        const htmlStyle = window.getComputedStyle(document.documentElement);
+
         if (bodyStyle.overflow === 'hidden' ||
             bodyStyle.overflowY === 'hidden' ||
+            htmlStyle.overflow === 'hidden' ||
+            htmlStyle.overflowY === 'hidden' ||
             document.body.style.overflow === 'hidden') {
             return true;
         }
 
-        // 2. Check for common modal attributes and classes
+        // 2. Check for common modal attributes, classes, and overlays
         if (document.querySelector('[role="dialog"]') ||
             document.querySelector('[aria-modal="true"]') ||
             document.querySelector('.modal-open') ||
             document.querySelector('[data-modal="true"]') ||
-            document.querySelector('[data-bottom-sheet="true"]')) {
+            document.querySelector('[data-bottom-sheet="true"]') ||
+            document.querySelector('.fixed.inset-0.z-50') || // Common modal wrapper
+            document.querySelector('.fixed.inset-0.z-\\[50\\]')) {
             return true;
+        }
+
+        // 3. Look for any fixed/absolute element with high z-index that is visible
+        // (This is a bit more expensive but very robust)
+        const highZElements = document.querySelectorAll('.fixed, .absolute');
+        for (let i = 0; i < highZElements.length; i++) {
+            const el = highZElements[i] as HTMLElement;
+            const style = window.getComputedStyle(el);
+            const zIndex = parseInt(style.zIndex, 10);
+            if (zIndex >= 40 && style.display !== 'none' && style.visibility !== 'hidden') {
+                return true;
+            }
         }
 
         return false;

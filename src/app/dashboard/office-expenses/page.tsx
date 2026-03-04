@@ -15,6 +15,7 @@ import { ImageModal } from '@/components/ui/ImageModal';
 import OfficeExpenseApprovalModal from '@/components/office-expenses/OfficeExpenseApprovalModal';
 import { formatDateIST } from '@/lib/dateUtils';
 import { DataTable, StatusBadge, CurrencyCell, Column } from '@/components/ui/DataTable';
+import { CustomDropdown } from '@/components/ui/CustomControls';
 
 interface OfficeExpense {
     id: string;
@@ -352,27 +353,29 @@ export default function OfficeExpensesPage() {
 
                     {/* Actions */}
                     <div className="flex flex-wrap items-center gap-3">
-                        <select
-                            value={selectedMonth}
-                            onChange={(e) => setSelectedMonth(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
-                            className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 bg-white"
-                        >
-                            <option value="all">All Months</option>
-                            {MONTHS.map((m, idx) => (
-                                <option key={idx} value={idx + 1}>{m}</option>
-                            ))}
-                        </select>
+                        <div className="min-w-[140px]">
+                            <CustomDropdown
+                                value={selectedMonth.toString()}
+                                onChange={(val) => setSelectedMonth(val === 'all' ? 'all' : parseInt(val))}
+                                options={[
+                                    { id: 'all', title: 'All Months' },
+                                    ...MONTHS.map((m, idx) => ({ id: (idx + 1).toString(), title: m }))
+                                ]}
+                                placeholder="Select Month"
+                            />
+                        </div>
 
-                        <select
-                            value={selectedYear}
-                            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                            className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 bg-white"
-                        >
-                            {[...Array(5)].map((_, i) => {
-                                const year = new Date().getFullYear() - 2 + i;
-                                return <option key={year} value={year}>{year}</option>;
-                            })}
-                        </select>
+                        <div className="min-w-[100px]">
+                            <CustomDropdown
+                                value={selectedYear.toString()}
+                                onChange={(val) => setSelectedYear(parseInt(val))}
+                                options={[...Array(5)].map((_, i) => {
+                                    const year = new Date().getFullYear() - 2 + i;
+                                    return { id: year.toString(), title: year.toString() };
+                                })}
+                                placeholder="Select Year"
+                            />
+                        </div>
 
                         <div className="relative flex-1 md:flex-none">
                             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { FiTrash2, FiPlus, FiCheck, FiX, FiChevronDown, FiChevronRight, FiSearch, FiEdit2, FiMoreVertical, FiCheckCircle, FiSend } from 'react-icons/fi';
-import { CustomSelect } from '@/components/ui/CustomSelect';
+import { CustomDropdown } from '@/components/ui/CustomControls';
 
 interface BOQItem {
     id: string;
@@ -294,16 +294,18 @@ export function BoqGrid({
                                             <div className="relative">
                                                 {col.type === 'select' ? (
                                                     <div className="relative w-full">
-                                                        <select
+                                                        <CustomDropdown
                                                             value={columnFilters[col.key] || ''}
-                                                            onChange={(e) => setColumnFilters({ ...columnFilters, [col.key]: e.target.value })}
-                                                            className="w-full pl-3 pr-8 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white appearance-none"
-                                                        >
-                                                            <option value="">Select</option>
-                                                            {col.options?.map(opt => (
-                                                                <option key={opt} value={opt}>{opt.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
-                                                            ))}
-                                                        </select>
+                                                            onChange={(val) => setColumnFilters({ ...columnFilters, [col.key]: val })}
+                                                            options={[
+                                                                { id: '', title: 'Select' },
+                                                                ...(col.options?.map(opt => ({
+                                                                    id: opt,
+                                                                    title: opt.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                                                                })) || [])
+                                                            ]}
+                                                            className="!py-1 text-xs"
+                                                        />
                                                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
                                                             <FiChevronDown className="w-3 h-3" />
                                                         </div>

@@ -1212,6 +1212,30 @@ export default function TasksPage() {
   };
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  // Native touch isolation for modals
+  useEffect(() => {
+    if (!modalOpen && !viewModalOpen) return;
+
+    const handleTouch = (e: TouchEvent) => {
+      e.stopPropagation();
+    };
+
+    const modal = modalRef.current;
+    if (modal) {
+      modal.addEventListener('touchstart', handleTouch, { passive: true });
+      modal.addEventListener('touchmove', handleTouch, { passive: false });
+    }
+
+    return () => {
+      if (modal) {
+        modal.removeEventListener('touchstart', handleTouch);
+        modal.removeEventListener('touchmove', handleTouch);
+      }
+    };
+  }, [modalOpen, viewModalOpen]);
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -1234,7 +1258,6 @@ export default function TasksPage() {
   const isEditing = !!editingTask;
 
   const [viewTask, setViewTask] = useState<CalendarTask | null>(null);
-  const [viewModalOpen, setViewModalOpen] = useState(false);
 
   // ESC key handler to close modals
   useEffect(() => {
@@ -1701,24 +1724,32 @@ export default function TasksPage() {
 
                 <div className="tasks-calendar-card bg-white border border-gray-200 rounded-lg p-3 shadow-sm" role="region" aria-label="Tasks calendar" aria-live="polite">
                   <div className="flex flex-wrap items-center gap-3 mb-3">
-                    <div className="inline-flex items-center gap-2">
-                      <FiFilter className="h-4 w-4 text-gray-600" />
-                      <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)} className="px-2 py-1 border border-gray-300 rounded-md text-sm">
-                        <option value="all">All assignees</option>
-                        {assignees.map(a => (
-                          <option key={a.id} value={a.id}>{a.name}</option>
-                        ))}
-                      </select>
+                    <div className="inline-flex items-center gap-2 min-w-[160px]">
+                      <FiFilter className="h-4 w-4 text-gray-600 flex-shrink-0" />
+                      <CustomDropdown
+                        value={filterAssignee}
+                        onChange={setFilterAssignee}
+                        options={[
+                          { id: 'all', title: 'All assignees' },
+                          ...assignees.map(a => ({ id: a.id, title: a.name }))
+                        ]}
+                        placeholder="Select Assignee"
+                      />
                     </div>
-                    <div className="inline-flex items-center gap-2">
-                      <FiUser className="h-4 w-4 text-gray-600" />
-                      <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)} className="px-2 py-1 border border-gray-300 rounded-md text-sm">
-                        <option value="all">All status</option>
-                        <option value="todo">To Do</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="blocked">Blocked</option>
-                        <option value="done">Completed</option>
-                      </select>
+                    <div className="inline-flex items-center gap-2 min-w-[160px]">
+                      <FiUser className="h-4 w-4 text-gray-600 flex-shrink-0" />
+                      <CustomDropdown
+                        value={filterStatus}
+                        onChange={(val) => setFilterStatus(val as any)}
+                        options={[
+                          { id: 'all', title: 'All status' },
+                          { id: 'todo', title: 'To Do' },
+                          { id: 'in_progress', title: 'In Progress' },
+                          { id: 'blocked', title: 'Blocked' },
+                          { id: 'done', title: 'Completed' }
+                        ]}
+                        placeholder="Select Status"
+                      />
                     </div>
                   </div>
 
@@ -1846,11 +1877,14 @@ export default function TasksPage() {
                 {
                   viewModalOpen && !isMobile && viewTask && (
                     <div
+                      ref={modalRef}
                       className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
                       data-modal="true"
                       role="dialog"
                       aria-modal="true"
                       onClick={handleCloseViewModal}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      onTouchMove={(e) => e.stopPropagation()}
                     >
                       <div
                         className="bg-white rounded-lg shadow-xl w-full max-w-lg p-5"
@@ -1904,11 +1938,14 @@ export default function TasksPage() {
                 {
                   modalOpen && !isMobile && (
                     <div
+                      ref={modalRef}
                       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-3 sm:px-0"
                       data-modal="true"
                       role="dialog"
                       aria-modal="true"
                       onClick={handleCloseFormModal}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      onTouchMove={(e) => e.stopPropagation()}
                     >
                       <div
                         className="bg-white rounded-lg shadow-xl w-full max-w-md sm:max-w-2xl max-h-[95vh] overflow-y-auto p-3 sm:p-4"

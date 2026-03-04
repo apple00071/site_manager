@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { FiPlus, FiTrash2 } from 'react-icons/fi';
+import { CustomDropdown } from '@/components/ui/CustomControls';
 
 export default function ApprovalHierarchyTab() {
     const [workflows, setWorkflows] = useState<any[]>([]);
@@ -118,14 +119,15 @@ export default function ApprovalHierarchyTab() {
                         <h3 className="text-lg font-bold">Add Approval Rule</h3>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Entity</label>
-                            <select
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500"
+                            <CustomDropdown
                                 value={newRule.entity_type}
-                                onChange={(e) => setNewRule({ ...newRule, entity_type: e.target.value })}
-                            >
-                                <option value="purchase_order">Purchase Order</option>
-                                <option value="payment">Payment</option>
-                            </select>
+                                onChange={(val) => setNewRule({ ...newRule, entity_type: val })}
+                                options={[
+                                    { id: 'purchase_order', title: 'Purchase Order' },
+                                    { id: 'payment', title: 'Payment' }
+                                ]}
+                                placeholder="Select Entity"
+                            />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Min Amount (₹)</label>
@@ -138,14 +140,15 @@ export default function ApprovalHierarchyTab() {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Approver Role</label>
-                            <select
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500"
+                            <CustomDropdown
                                 value={newRule.approver_role}
-                                onChange={(e) => setNewRule({ ...newRule, approver_role: e.target.value })}
-                            >
-                                <option value="admin">Admin</option>
-                                <option value="manager">Manager (N/A)</option>
-                            </select>
+                                onChange={(val) => setNewRule({ ...newRule, approver_role: val })}
+                                options={[
+                                    { id: 'admin', title: 'Admin' },
+                                    { id: 'manager', title: 'Manager (N/A)' }
+                                ]}
+                                placeholder="Select Role"
+                            />
                         </div>
                         <div className="flex justify-end space-x-2">
                             <button
