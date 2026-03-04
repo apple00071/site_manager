@@ -89,7 +89,10 @@ export function DPRSettings({ projectId, onClose }: DPRSettingsProps) {
                 </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            <div
+                className="flex-1 overflow-y-auto p-4 sm:p-6"
+                style={{ overscrollBehavior: 'contain' }}
+            >
                 <div className="space-y-6">
                     <div className="bg-gray-50 p-4 rounded-xl space-y-3">
                         <h4 className="text-xs font-bold text-gray-500 uppercase">Add Subscriber</h4>

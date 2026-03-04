@@ -216,7 +216,10 @@ export function ReportGenerator({ projectId, onClose, onSuccess }: ReportGenerat
             </div>
 
             {/* Stepper Content */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 sm:space-y-8 pb-24 sm:pb-6">
+            <div
+                className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 sm:space-y-8 pb-24 sm:pb-6"
+                style={{ overscrollBehavior: 'contain' }}
+            >
                 {step === 1 && (
                     <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
                         <div>

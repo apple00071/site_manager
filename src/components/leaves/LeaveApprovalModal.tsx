@@ -114,7 +114,10 @@ export default function LeaveApprovalModal({ leave, onSuccess, onClose }: LeaveA
                 className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-200"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="space-y-6 p-6 overflow-y-auto">
+                <div
+                    className="space-y-6 p-6 overflow-y-auto"
+                    style={{ overscrollBehavior: 'contain' }}
+                >
                     <div className="bg-white rounded-xl overflow-hidden">
                         <div className="text-center pb-6 border-b border-dashed border-gray-200">
                             <p className="text-sm font-medium text-gray-500 mb-1 uppercase tracking-wider">Type</p>
