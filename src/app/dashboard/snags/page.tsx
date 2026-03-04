@@ -108,6 +108,18 @@ export default function SnagsPage() {
         }
     }, [showModal]);
 
+    // Manage body scroll for modals
+    useEffect(() => {
+        if (showModal || showResolveModal || showFollowUpModal) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [showModal, showResolveModal, showFollowUpModal]);
+
     // Deep Linking
     useEffect(() => {
         if (snagIdParam && snags.length > 0) {
@@ -670,7 +682,7 @@ export default function SnagsPage() {
             {/* Raise Snag Modal */}
             {
                 showModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-modal="true">
                         <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setShowModal(false)} />
                         <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col relative border border-gray-100">
                             <div className="p-6 border-b border-gray-100 flex justify-between items-center">
@@ -752,7 +764,7 @@ export default function SnagsPage() {
             {/* Resolve Modal */}
             {
                 showResolveModal && selectedSnag && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-modal="true">
                         <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setShowResolveModal(false)} />
                         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-gray-100 relative">
                             <div className="p-6 border-b border-gray-100">
@@ -797,7 +809,7 @@ export default function SnagsPage() {
             {/* Follow Up Modal */}
             {
                 showFollowUpModal && selectedSnag && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-modal="true">
                         <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setShowFollowUpModal(false)} />
                         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-gray-100 relative">
                             <div className="p-6 border-b border-gray-100">

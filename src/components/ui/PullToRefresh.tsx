@@ -28,12 +28,29 @@ export function PullToRefresh({ children, onRefresh, disabled = false }: PullToR
 
         // Check if touch started inside a modal, bottom sheet, or side panel
         const target = e.target as HTMLElement;
+
+        // 1. Check if body scroll is disabled (standard for modals)
+        if (typeof window !== 'undefined') {
+            const bodyStyle = window.getComputedStyle(document.body);
+            if (bodyStyle.overflow === 'hidden') return;
+        }
+
+        // 2. Check for presence of any modal/dialog in the entire document
+        if (document.querySelector('[role="dialog"]') ||
+            document.querySelector('[aria-modal="true"]') ||
+            document.querySelector('.modal-open') ||
+            document.querySelector('[data-modal="true"]')) {
+            return;
+        }
+
+        // 3. Current target check (as backup)
         const isInsideOverlay = target.closest('[data-modal]') ||
             target.closest('[data-bottom-sheet]') ||
             target.closest('[data-side-panel]') ||
             target.closest('[role="dialog"]') ||
             target.closest('.fixed.inset-0') ||
-            target.closest('.fixed.inset-x-0');
+            target.closest('.fixed.inset-x-0') ||
+            target.closest('.z-50'); // Usually modals are z-50
         if (isInsideOverlay) return;
 
         // Only allow pull if at very top of page

@@ -425,6 +425,18 @@ const ViewTaskContent = ({
   const [isSaving, setIsSaving] = useState(false);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
 
+  // Manage body scroll for image viewer
+  useEffect(() => {
+    if (viewingImage) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [viewingImage]);
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -662,6 +674,7 @@ const ViewTaskContent = ({
       {viewingImage && (
         <div
           className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
+          data-modal="true"
           onClick={() => setViewingImage(null)}
         >
           <button className="absolute top-4 right-4 text-white p-2">
@@ -1237,6 +1250,18 @@ export default function TasksPage() {
 
     document.addEventListener('keydown', handleEscKey);
     return () => document.removeEventListener('keydown', handleEscKey);
+  }, [modalOpen, viewModalOpen]);
+
+  // Manage body scroll for main modals
+  useEffect(() => {
+    if (modalOpen || viewModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [modalOpen, viewModalOpen]);
 
 
@@ -1816,6 +1841,7 @@ export default function TasksPage() {
                   viewModalOpen && !isMobile && viewTask && (
                     <div
                       className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
+                      data-modal="true"
                       onClick={handleCloseViewModal}
                     >
                       <div
@@ -1871,6 +1897,7 @@ export default function TasksPage() {
                   modalOpen && !isMobile && (
                     <div
                       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-3 sm:px-0"
+                      data-modal="true"
                       onClick={handleCloseFormModal}
                     >
                       <div
