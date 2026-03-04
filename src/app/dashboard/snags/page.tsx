@@ -98,7 +98,15 @@ export default function SnagsPage() {
     useEffect(() => {
         setTitle('Snag Dashboard');
         fetchGlobalSnags();
-    }, []);
+        fetchAllUsers();
+    }, [user]);
+
+    // Ensure users are fetched when modal opens (backup)
+    useEffect(() => {
+        if (showModal) {
+            fetchAllUsers();
+        }
+    }, [showModal]);
 
     // Deep Linking
     useEffect(() => {
@@ -137,18 +145,31 @@ export default function SnagsPage() {
     };
 
     const fetchAllUsers = async () => {
+        console.log('DEBUG: fetchAllUsers called');
         try {
             const res = await fetch(`/api/admin/users`);
+            console.log('DEBUG: fetch response status:', res.status);
+            if (!res.ok) {
+                const text = await res.text();
+                console.error('DEBUG: fetch users failed:', text);
+                return;
+            }
             const data = await res.json();
+            console.log('DEBUG: raw data type:', typeof data, Array.isArray(data) ? 'Array' : 'Not Array');
+            console.log('DEBUG: raw data sample:', Array.isArray(data) ? data.slice(0, 2) : data);
+
             if (Array.isArray(data)) {
-                setProjectUsers(data
-                    .map((u: any) => ({
-                        id: u.id,
-                        name: (u.full_name || u.email) + (u.role === 'admin' ? ' (Admin)' : '')
-                    })));
+                const mapped = data.map((u: any) => ({
+                    id: u.id,
+                    name: (u.full_name || u.email || 'Unknown') + (u.role === 'admin' ? ' (Admin)' : '')
+                }));
+                console.log('DEBUG: mapped users count:', mapped.length);
+                setProjectUsers(mapped);
+            } else {
+                console.error('DEBUG: data is not an array');
             }
         } catch (err) {
-            console.error('Failed to fetch users', err);
+            console.error('DEBUG: fetchAllUsers exception:', err);
         }
     };
 
