@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode, useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { FiX } from 'react-icons/fi';
 
 interface BottomSheetProps {
@@ -96,7 +97,7 @@ export function BottomSheet({
 
     if (!isVisible) return null;
 
-    return (
+    const content = (
         <div
             ref={overlayRef}
             className={`fixed inset-0 z-50 transition-colors duration-300 ${isAnimating ? 'bg-black/20' : 'bg-transparent'
@@ -148,6 +149,8 @@ export function BottomSheet({
             </div>
         </div>
     );
+
+    return createPortal(content, document.body);
 }
 
 export default BottomSheet;

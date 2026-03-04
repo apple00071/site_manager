@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { FiPlus, FiFileText, FiDownload, FiSend, FiClock, FiCheckCircle, FiTrash2, FiSettings, FiCamera, FiUsers } from 'react-icons/fi';
+import React, { useState, useEffect, forwardRef, useImperativeHandle, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { FiPlus, FiFileText, FiDownload, FiSend, FiClock, FiCheckCircle, FiTrash2, FiSettings, FiCamera, FiUsers, FiX } from 'react-icons/fi';
 import { formatDateIST } from '@/lib/dateUtils';
 import { useToast } from '@/components/ui/Toast';
 import { ReportGenerator } from './report/ReportGenerator';
@@ -29,6 +30,65 @@ export const ProgressReportTab = forwardRef(({ projectId }: ProgressReportTabPro
     const [isRetrying, setIsRetrying] = useState<string | null>(null);
     const { showToast } = useToast();
     const { isAdmin } = useUserPermissions();
+
+    const generatorOverlayRef = useRef<HTMLDivElement>(null);
+    const settingsOverlayRef = useRef<HTMLDivElement>(null);
+
+    // Isolation for Generator Modal
+    useEffect(() => {
+        if (!isGeneratorOpen) return;
+
+        // Prevent body scroll and native pull-to-refresh
+        document.body.style.overflow = 'hidden';
+        document.body.style.overscrollBehaviorY = 'none';
+
+        const handleTouch = (e: TouchEvent) => {
+            e.stopPropagation();
+        };
+
+        const overlay = generatorOverlayRef.current;
+        if (overlay) {
+            overlay.addEventListener('touchstart', handleTouch, { passive: true });
+            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+        }
+
+        return () => {
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
+            if (overlay) {
+                overlay.removeEventListener('touchstart', handleTouch);
+                overlay.removeEventListener('touchmove', handleTouch);
+            }
+        };
+    }, [isGeneratorOpen]);
+
+    // Isolation for Settings Modal
+    useEffect(() => {
+        if (!isSettingsOpen) return;
+
+        // Prevent body scroll and native pull-to-refresh
+        document.body.style.overflow = 'hidden';
+        document.body.style.overscrollBehaviorY = 'none';
+
+        const handleTouch = (e: TouchEvent) => {
+            e.stopPropagation();
+        };
+
+        const overlay = settingsOverlayRef.current;
+        if (overlay) {
+            overlay.addEventListener('touchstart', handleTouch, { passive: true });
+            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+        }
+
+        return () => {
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
+            if (overlay) {
+                overlay.removeEventListener('touchstart', handleTouch);
+                overlay.removeEventListener('touchmove', handleTouch);
+            }
+        };
+    }, [isSettingsOpen]);
 
     useImperativeHandle(ref, () => ({
         openGenerator: () => setIsGeneratorOpen(true),
@@ -178,10 +238,14 @@ export const ProgressReportTab = forwardRef(({ projectId }: ProgressReportTabPro
                 )}
             </div>
 
-            {/* Placeholder for Modals */}
-            {isGeneratorOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 sm:p-4">
-                    <div className="w-full h-full sm:max-w-4xl sm:max-h-[90vh] bg-white sm:rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+            {/* Modals using createPortal */}
+            {isGeneratorOpen && createPortal(
+                <div
+                    ref={generatorOverlayRef}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 sm:p-4"
+                    data-modal="true"
+                >
+                    <div className="w-full h-full sm:max-w-4xl sm:max-h-[90vh] bg-white sm:rounded-2xl overflow-hidden shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-200">
                         <ReportGenerator
                             projectId={projectId}
                             onClose={() => setIsGeneratorOpen(false)}
@@ -191,18 +255,24 @@ export const ProgressReportTab = forwardRef(({ projectId }: ProgressReportTabPro
                             }}
                         />
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
-            {isSettingsOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 sm:p-4">
-                    <div className="w-full h-full sm:h-auto sm:max-w-2xl sm:max-h-[90vh] bg-white sm:rounded-2xl overflow-hidden shadow-2xl">
+            {isSettingsOpen && createPortal(
+                <div
+                    ref={settingsOverlayRef}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 sm:p-4"
+                    data-modal="true"
+                >
+                    <div className="w-full h-full sm:h-auto sm:max-w-2xl sm:max-h-[90vh] bg-white sm:rounded-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                         <DPRSettings
                             projectId={projectId}
                             onClose={() => setIsSettingsOpen(false)}
                         />
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

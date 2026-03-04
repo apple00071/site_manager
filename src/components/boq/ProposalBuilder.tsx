@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { FiSend, FiX, FiCheck, FiAlertCircle } from 'react-icons/fi';
 
 interface BOQItem {
@@ -34,6 +35,33 @@ export function ProposalBuilder({
     const [selectedIds, setSelectedIds] = useState<string[]>(selectedItemIds);
     const [sending, setSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    const overlayRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        // Prevent body scroll and native pull-to-refresh
+        document.body.style.overflow = 'hidden';
+        document.body.style.overscrollBehaviorY = 'none';
+
+        const handleTouch = (e: TouchEvent) => {
+            e.stopPropagation();
+        };
+
+        const overlay = overlayRef.current;
+        if (overlay) {
+            overlay.addEventListener('touchstart', handleTouch, { passive: true });
+            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+        }
+
+        return () => {
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
+            if (overlay) {
+                overlay.removeEventListener('touchstart', handleTouch);
+                overlay.removeEventListener('touchmove', handleTouch);
+            }
+        };
+    }, []);
 
     const selectedItems = useMemo(() =>
         items.filter(i => selectedIds.includes(i.id)),
@@ -128,8 +156,14 @@ export function ProposalBuilder({
         return grouped;
     }, [items, selectedIds]);
 
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50">
+    return createPortal(
+        <div
+            ref={overlayRef}
+            className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm"
+            data-modal="true"
+            role="dialog"
+            aria-modal="true"
+        >
             <div className="absolute right-0 top-0 bottom-0 bg-white w-full max-w-lg flex flex-col shadow-2xl animate-slide-in-right">
                 {/* Header */}
                 <div className="px-6 py-4 flex items-center justify-between">
@@ -279,7 +313,8 @@ export function ProposalBuilder({
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
 

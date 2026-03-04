@@ -1034,14 +1034,19 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
         currentIndex={0}
       />
 
-      {viewingPDF && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm">
+      {viewingPDF && createPortal(
+        <div
+          className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm"
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+        >
           <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h3 className="font-semibold text-gray-900">{viewingPDF.filename}</h3>
               <button
                 onClick={() => setViewingPDF(null)}
                 className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                aria-label="Close"
               >
                 <FiX className="w-6 h-6 text-gray-500" />
               </button>
@@ -1049,12 +1054,13 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
             <div className="flex-1 bg-gray-100 p-0 overflow-hidden">
               <iframe
                 src={viewingPDF.url}
-                className="w-full h-full"
+                className="w-full h-full border-none"
                 title="PDF Viewer"
               />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div >
   );

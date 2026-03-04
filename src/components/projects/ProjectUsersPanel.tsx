@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '@/lib/supabase';
 import { FiUser, FiPhone, FiPlus, FiX, FiCheck, FiSearch, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -57,6 +58,35 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
         fetchProjectUsers();
     }, [projectId]);
 
+    const overlayRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!showAddModal) return;
+
+        // Prevent body scroll and native pull-to-refresh
+        document.body.style.overflow = 'hidden';
+        document.body.style.overscrollBehaviorY = 'none';
+
+        const handleTouch = (e: TouchEvent) => {
+            e.stopPropagation();
+        };
+
+        const overlay = overlayRef.current;
+        if (overlay) {
+            overlay.addEventListener('touchstart', handleTouch, { passive: true });
+            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+        }
+
+        return () => {
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
+            if (overlay) {
+                overlay.removeEventListener('touchstart', handleTouch);
+                overlay.removeEventListener('touchmove', handleTouch);
+            }
+        };
+    }, [showAddModal]);
+
     const fetchProjectUsers = async () => {
         try {
             setIsLoading(true);
@@ -99,7 +129,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                 console.error('Error fetching available users:', await response.text());
                 return;
             }
-            
+
             const allUsers = await response.json();
 
             // Filter out users already in the project
@@ -340,13 +370,14 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
             </div>
 
             {/* Add User Modal */}
-            {showAddModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center">
-                    {/* Backdrop */}
-                    <div
-                        className="absolute inset-0 bg-black/50"
-                        onClick={() => setShowAddModal(false)}
-                    />
+            {showAddModal && createPortal(
+                <div
+                    ref={overlayRef}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+                    data-modal="true"
+                    role="dialog"
+                    aria-modal="true"
+                >
 
                     {/* Modal */}
                     <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-hidden">
@@ -454,10 +485,8 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                             </button>
                         </div>
                     </div>
-                </div >
-            )
-            }
+                </div>
+                , document.body)}
         </>
     );
 }
-

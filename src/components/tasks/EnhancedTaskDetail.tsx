@@ -3,7 +3,8 @@
 import { FiAlertTriangle, FiCalendar, FiCheck, FiClock, FiEdit, FiFlag, FiFolder, FiUser, FiX, FiCamera, FiCheckCircle } from 'react-icons/fi';
 import { ActivityTimeline } from './ActivityTimeline';
 import { formatDistanceToNow } from 'date-fns';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import { uploadFiles } from '@/lib/uploadUtils';
 
@@ -50,6 +51,35 @@ export function EnhancedTaskDetail({
     const [isSaving, setIsSaving] = useState(false);
     const [showCompletionForm, setShowCompletionForm] = useState(false);
     const [viewingImage, setViewingImage] = useState<string | null>(null);
+    const imageViewerOverlayRef = useRef<HTMLDivElement>(null);
+
+    // Isolation for Image Viewer
+    useEffect(() => {
+        if (!viewingImage) return;
+
+        // Prevent body scroll and native pull-to-refresh
+        document.body.style.overflow = 'hidden';
+        document.body.style.overscrollBehaviorY = 'none';
+
+        const handleTouch = (e: TouchEvent) => {
+            e.stopPropagation();
+        };
+
+        const overlay = imageViewerOverlayRef.current;
+        if (overlay) {
+            overlay.addEventListener('touchstart', handleTouch, { passive: true });
+            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+        }
+
+        return () => {
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
+            if (overlay) {
+                overlay.removeEventListener('touchstart', handleTouch);
+                overlay.removeEventListener('touchmove', handleTouch);
+            }
+        };
+    }, [viewingImage]);
 
     const isOverdue = task.status !== 'done' && new Date(task.end_at).getTime() < Date.now();
 
@@ -411,10 +441,12 @@ export function EnhancedTaskDetail({
             </div>
 
             {/* Image Viewer Overlay */}
-            {viewingImage && (
+            {viewingImage && createPortal(
                 <div
+                    ref={imageViewerOverlayRef}
                     className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
                     onClick={() => setViewingImage(null)}
+                    data-modal="true"
                 >
                     <button className="absolute top-4 right-4 text-white p-2">
                         <FiX className="w-8 h-8" />
@@ -428,7 +460,8 @@ export function EnhancedTaskDetail({
                             unoptimized
                         />
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { FiPlus, FiFilter, FiCheckCircle, FiClock, FiAlertTriangle, FiUser, FiCamera, FiX, FiMoreVertical, FiTrash2, FiMapPin, FiCheck, FiArrowRight } from 'react-icons/fi';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
@@ -56,7 +57,6 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
     const [users, setUsers] = useState<ProjectUser[]>([]);
     const [uploadingPhotos, setUploadingPhotos] = useState(false);
 
-    // Missing State
     const [showModal, setShowModal] = useState(false);
     const [showResolveModal, setShowResolveModal] = useState(false);
     const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -65,6 +65,42 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
     const [resolutionPhotos, setResolutionPhotos] = useState<string[]>([]);
     const [resolutionDescription, setResolutionDescription] = useState('');
     const [viewingImage, setViewingImage] = useState<string | null>(null);
+
+    const overlayRef = useRef<HTMLDivElement>(null);
+    const resolveOverlayRef = useRef<HTMLDivElement>(null);
+    const imageOverlayRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const isAnyModalOpen = showModal || showResolveModal || !!viewingImage;
+        if (!isAnyModalOpen) return;
+
+        // Prevent body scroll and native pull-to-refresh
+        document.body.style.overflow = 'hidden';
+        document.body.style.overscrollBehaviorY = 'none';
+
+        const handleTouch = (e: TouchEvent) => {
+            e.stopPropagation();
+        };
+
+        const overlays = [overlayRef.current, resolveOverlayRef.current, imageOverlayRef.current];
+        overlays.forEach(overlay => {
+            if (overlay) {
+                overlay.addEventListener('touchstart', handleTouch, { passive: true });
+                overlay.addEventListener('touchmove', handleTouch, { passive: false });
+            }
+        });
+
+        return () => {
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
+            overlays.forEach(overlay => {
+                if (overlay) {
+                    overlay.removeEventListener('touchstart', handleTouch);
+                    overlay.removeEventListener('touchmove', handleTouch);
+                }
+            });
+        };
+    }, [showModal, showResolveModal, viewingImage]);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -481,8 +517,14 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
             </div>
 
             {/* Create/Edit Modal */}
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            {showModal && createPortal(
+                <div
+                    ref={overlayRef}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+                    data-modal="true"
+                    role="dialog"
+                    aria-modal="true"
+                >
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
                         <div className="p-4 border-b border-gray-100 flex justify-between items-center">
                             <h3 className="text-lg font-bold text-gray-900">{editingSnag ? 'Edit Snag' : 'Report New Snag'}</h3>
@@ -594,10 +636,18 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
-            {showResolveModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+
+            {showResolveModal && createPortal(
+                <div
+                    ref={resolveOverlayRef}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+                    data-modal="true"
+                    role="dialog"
+                    aria-modal="true"
+                >
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
                         <div className="p-4 border-b border-gray-100 flex justify-between items-center">
                             <h3 className="text-lg font-bold text-gray-900">Resolve Snag</h3>
@@ -678,12 +728,18 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
-            {viewingImage && (
+
+            {viewingImage && createPortal(
                 <div
-                    className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4"
+                    ref={imageOverlayRef}
+                    className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
                     onClick={() => setViewingImage(null)}
+                    data-modal="true"
+                    role="dialog"
+                    aria-modal="true"
                 >
                     <button
                         onClick={() => setViewingImage(null)}
@@ -700,7 +756,8 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
                             quality={100}
                         />
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

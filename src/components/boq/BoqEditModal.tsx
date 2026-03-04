@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { FiX } from 'react-icons/fi';
 import { CustomDropdown } from '@/components/ui/CustomControls';
 
@@ -49,6 +50,35 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
         draft_quantity: 0,
     });
     const [saving, setSaving] = useState(false);
+
+    const overlayRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        // Prevent body scroll and native pull-to-refresh
+        document.body.style.overflow = 'hidden';
+        document.body.style.overscrollBehaviorY = 'none';
+
+        const handleTouch = (e: TouchEvent) => {
+            e.stopPropagation();
+        };
+
+        const overlay = overlayRef.current;
+        if (overlay) {
+            overlay.addEventListener('touchstart', handleTouch, { passive: true });
+            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+        }
+
+        return () => {
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
+            if (overlay) {
+                overlay.removeEventListener('touchstart', handleTouch);
+                overlay.removeEventListener('touchmove', handleTouch);
+            }
+        };
+    }, [isOpen]);
 
     useEffect(() => {
         if (item) {
@@ -101,8 +131,14 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/30">
+    return createPortal(
+        <div
+            ref={overlayRef}
+            className="fixed inset-0 z-50 flex justify-end bg-black/30 backdrop-blur-sm"
+            data-modal="true"
+            role="dialog"
+            aria-modal="true"
+        >
             <div
                 className="bg-white shadow-2xl w-full max-w-md h-full overflow-y-auto animate-slide-in-right"
                 style={{ animation: 'slideInRight 0.2s ease-out' }}
@@ -288,6 +324,7 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

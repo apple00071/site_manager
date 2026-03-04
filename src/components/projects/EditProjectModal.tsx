@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { FiX, FiSave } from 'react-icons/fi';
 import { CustomDropdown, CustomDatePicker } from '@/components/ui/CustomControls';
 
@@ -30,6 +31,35 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
         }
     }, [isOpen, initialData]);
 
+    const overlayRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        // Prevent body scroll and native pull-to-refresh
+        document.body.style.overflow = 'hidden';
+        document.body.style.overscrollBehaviorY = 'none';
+
+        const handleTouch = (e: TouchEvent) => {
+            e.stopPropagation();
+        };
+
+        const overlay = overlayRef.current;
+        if (overlay) {
+            overlay.addEventListener('touchstart', handleTouch, { passive: true });
+            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+        }
+
+        return () => {
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
+            if (overlay) {
+                overlay.removeEventListener('touchstart', handleTouch);
+                overlay.removeEventListener('touchmove', handleTouch);
+            }
+        };
+    }, [isOpen]);
+
     if (!isOpen || !section) return null;
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -51,8 +81,14 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
         }
     };
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+    return createPortal(
+        <div
+            ref={overlayRef}
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            data-modal="true"
+            role="dialog"
+            aria-modal="true"
+        >
             {/* Backdrop */}
             <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
@@ -67,7 +103,7 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                 </div>
 
                 {/* Content */}
-                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 md:p-6">
+                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 md:p-6" style={{ overscrollBehavior: 'contain' }}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                         {/* Project Info Fields */}
                         {section === 'info' && (
@@ -323,6 +359,7 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                     </div>
                 </form>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

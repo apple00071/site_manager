@@ -116,9 +116,36 @@ export default function ProjectDetailsPage() {
   const siteLogRef = useRef<any>(null);
   const snagRef = useRef<SnagTabHandle>(null);
   const reportRef = useRef<any>(null);
+  const shareModalOverlayRef = useRef<HTMLDivElement>(null);
   const [showShareModal, setShowShareModal] = useState(false);
 
+  // Isolation for Share Modal
+  useEffect(() => {
+    if (!showShareModal) return;
 
+    // Prevent body scroll and native pull-to-refresh
+    document.body.style.overflow = 'hidden';
+    document.body.style.overscrollBehaviorY = 'none';
+
+    const handleTouch = (e: TouchEvent) => {
+      e.stopPropagation();
+    };
+
+    const overlay = shareModalOverlayRef.current;
+    if (overlay) {
+      overlay.addEventListener('touchstart', handleTouch, { passive: true });
+      overlay.addEventListener('touchmove', handleTouch, { passive: false });
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.overscrollBehaviorY = '';
+      if (overlay) {
+        overlay.removeEventListener('touchstart', handleTouch);
+        overlay.removeEventListener('touchmove', handleTouch);
+      }
+    };
+  }, [showShareModal]);
 
   // Calculate visible stages based on permissions
   const visibleStages = useMemo(() => {
@@ -963,15 +990,20 @@ export default function ProjectDetailsPage() {
         initialWorker={editingWorker}
       />
 
-      {showShareModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl">
+      {showShareModal && createPortal(
+        <div
+          ref={shareModalOverlayRef}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+          data-modal="true"
+        >
+          <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <ShareLinkModal
               projectId={id as string}
               onClose={() => setShowShareModal(false)}
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div >
   );

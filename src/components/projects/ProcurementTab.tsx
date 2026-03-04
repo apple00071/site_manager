@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     FiPlus, FiEdit2, FiTrash2, FiCheck, FiX, FiDownload, FiMail,
@@ -141,6 +142,43 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
     const [showPoView, setShowPoView] = useState(false);
     const [viewProposal, setViewProposal] = useState<any>(null);
     const [showProposalView, setShowProposalView] = useState(false);
+
+    const poOverlayRef = useRef<HTMLDivElement>(null);
+    const invoiceOverlayRef = useRef<HTMLDivElement>(null);
+    const paymentOverlayRef = useRef<HTMLDivElement>(null);
+    const supplierOverlayRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const isAnyModalOpen = showPoForm || showInvoiceForm || showPaymentForm || showSupplierForm;
+        if (!isAnyModalOpen) return;
+
+        // Prevent body scroll and native pull-to-refresh
+        document.body.style.overflow = 'hidden';
+        document.body.style.overscrollBehaviorY = 'none';
+
+        const handleTouch = (e: TouchEvent) => {
+            e.stopPropagation();
+        };
+
+        const overlays = [poOverlayRef.current, invoiceOverlayRef.current, paymentOverlayRef.current, supplierOverlayRef.current];
+        overlays.forEach(overlay => {
+            if (overlay) {
+                overlay.addEventListener('touchstart', handleTouch, { passive: true });
+                overlay.addEventListener('touchmove', handleTouch, { passive: false });
+            }
+        });
+
+        return () => {
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
+            overlays.forEach(overlay => {
+                if (overlay) {
+                    overlay.removeEventListener('touchstart', handleTouch);
+                    overlay.removeEventListener('touchmove', handleTouch);
+                }
+            });
+        };
+    }, [showPoForm, showInvoiceForm, showPaymentForm, showSupplierForm]);
 
     const fetchData = async () => {
         try {
@@ -821,8 +859,14 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                 </div>
             )}
 
-            {showPoForm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            {showPoForm && createPortal(
+                <div
+                    ref={poOverlayRef}
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
+                    data-modal="true"
+                    role="dialog"
+                    aria-modal="true"
+                >
                     <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
                         <h3 className="text-lg font-bold mb-4">Create Purchase Order</h3>
                         <form onSubmit={handleCreatePO} className="space-y-4">
@@ -876,11 +920,18 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                             </div>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
-            {showInvoiceForm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            {showInvoiceForm && createPortal(
+                <div
+                    ref={invoiceOverlayRef}
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
+                    data-modal="true"
+                    role="dialog"
+                    aria-modal="true"
+                >
                     <div className="bg-white rounded-xl w-full max-w-md p-6">
                         <h3 className="text-lg font-bold mb-4">{viewMode === 'client' ? 'Create Client Invoice' : 'Add Vendor Invoice'}</h3>
                         <form onSubmit={viewMode === 'client' ? handleCreateClientInvoice : handleCreateInvoice} className="space-y-4">
@@ -907,11 +958,18 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                             </div>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
-            {showPaymentForm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            {showPaymentForm && createPortal(
+                <div
+                    ref={paymentOverlayRef}
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
+                    data-modal="true"
+                    role="dialog"
+                    aria-modal="true"
+                >
                     <div className="bg-white rounded-xl w-full max-w-md p-6">
                         <h3 className="text-lg font-bold mb-4">{viewMode === 'client' ? 'Record Client Payment' : 'Record Vendor Payment'}</h3>
                         <form onSubmit={viewMode === 'client' ? handleCreateClientPayment : handleCreatePayment} className="space-y-4">
@@ -938,11 +996,18 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                             </div>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
-            {showSupplierForm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            {showSupplierForm && createPortal(
+                <div
+                    ref={supplierOverlayRef}
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
+                    data-modal="true"
+                    role="dialog"
+                    aria-modal="true"
+                >
                     <div className="bg-white rounded-xl w-full max-w-md p-6">
                         <h3 className="text-lg font-bold mb-4">Add Supplier</h3>
                         <form onSubmit={handleCreateSupplier} className="space-y-4">
@@ -958,7 +1023,8 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                             </div>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {showPoView && viewPo && (

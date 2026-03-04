@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { FiX, FiPrinter } from 'react-icons/fi';
 
@@ -12,10 +12,33 @@ interface ProposalViewModalProps {
 
 export function ProposalViewModal({ proposal, onClose, projectAddress }: ProposalViewModalProps) {
     const [mounted, setMounted] = useState(false);
+    const overlayRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         setMounted(true);
-        return () => setMounted(false);
+        // Prevent body scroll and native pull-to-refresh
+        document.body.style.overflow = 'hidden';
+        document.body.style.overscrollBehaviorY = 'none';
+
+        const handleTouch = (e: TouchEvent) => {
+            e.stopPropagation();
+        };
+
+        const overlay = overlayRef.current;
+        if (overlay) {
+            overlay.addEventListener('touchstart', handleTouch, { passive: true });
+            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+        }
+
+        return () => {
+            setMounted(false);
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
+            if (overlay) {
+                overlay.removeEventListener('touchstart', handleTouch);
+                overlay.removeEventListener('touchmove', handleTouch);
+            }
+        };
     }, []);
 
     if (!proposal || !mounted) return null;
@@ -41,7 +64,14 @@ export function ProposalViewModal({ proposal, onClose, projectAddress }: Proposa
     };
 
     const content = (
-        <div id="proposal-modal-overlay" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm print:p-0 print:bg-white print:static print:block">
+        <div
+            id="proposal-modal-overlay"
+            ref={overlayRef}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm print:p-0 print:bg-white print:static print:block"
+            data-modal="true"
+            role="dialog"
+            aria-modal="true"
+        >
             <style type="text/css" media="print">
                 {`
                 @page { size: auto; margin: 15mm; }

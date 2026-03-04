@@ -34,7 +34,8 @@ export function PullToRefresh({ children, onRefresh, disabled = false }: PullToR
             bodyStyle.overflowY === 'hidden' ||
             htmlStyle.overflow === 'hidden' ||
             htmlStyle.overflowY === 'hidden' ||
-            document.body.style.overflow === 'hidden') {
+            document.body.style.overflow === 'hidden' ||
+            document.body.getAttribute('data-ptr-disabled') === 'true') {
             return true;
         }
 
@@ -44,20 +45,26 @@ export function PullToRefresh({ children, onRefresh, disabled = false }: PullToR
             document.querySelector('.modal-open') ||
             document.querySelector('[data-modal="true"]') ||
             document.querySelector('[data-bottom-sheet="true"]') ||
-            document.querySelector('.fixed.inset-0.z-50') || // Common modal wrapper
-            document.querySelector('.fixed.inset-0.z-\\[50\\]')) {
+            document.querySelector('.fixed.inset-0.z-50') ||
+            document.querySelector('.fixed.inset-0.z-\\[50\\]') ||
+            document.querySelector('.fixed.inset-0.z-40') || // For sidebar overlays
+            document.querySelector('.fixed.z-[100]')) {
             return true;
         }
 
         // 3. Look for any fixed/absolute element with high z-index that is visible
-        // (This is a bit more expensive but very robust)
-        const highZElements = document.querySelectorAll('.fixed, .absolute');
+        const highZElements = document.querySelectorAll('.fixed, .absolute, [style*="position: fixed"], [style*="position: absolute"]');
         for (let i = 0; i < highZElements.length; i++) {
             const el = highZElements[i] as HTMLElement;
             const style = window.getComputedStyle(el);
-            const zIndex = parseInt(style.zIndex, 10);
-            if (zIndex >= 40 && style.display !== 'none' && style.visibility !== 'hidden') {
-                return true;
+            const zIndexStr = style.zIndex;
+            const zIndex = parseInt(zIndexStr, 10);
+
+            // If z-index is high enough and element is visible and covers significant area
+            if (!isNaN(zIndex) && zIndex >= 30) {
+                if (style.display !== 'none' && style.visibility !== 'hidden' && el.offsetWidth > 0) {
+                    return true;
+                }
             }
         }
 

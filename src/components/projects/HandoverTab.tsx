@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { FiCheckCircle, FiClock, FiPlus, FiTrash2, FiMessageSquare, FiCamera, FiImage, FiX, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -43,6 +44,35 @@ export function HandoverTab({ projectId }: HandoverTabProps) {
 
     // Accordion state
     const [expandedRooms, setExpandedRooms] = useState<Record<string, boolean>>({});
+
+    // Modal ref for touch isolation
+    const modalRef = useRef<HTMLDivElement>(null);
+
+    // Touch isolation for modal
+    useEffect(() => {
+        if (!isAdding || !modalRef.current) return;
+
+        const handleTouch = (e: TouchEvent) => {
+            e.stopPropagation();
+        };
+
+        const el = modalRef.current;
+        el.addEventListener('touchstart', handleTouch, { passive: false });
+        el.addEventListener('touchmove', handleTouch, { passive: false });
+
+        // Lock body scroll
+        const originalOverflow = document.body.style.overflow;
+        const originalOverscroll = document.body.style.overscrollBehaviorY;
+        document.body.style.overflow = 'hidden';
+        document.body.style.overscrollBehaviorY = 'none';
+
+        return () => {
+            el.removeEventListener('touchstart', handleTouch);
+            el.removeEventListener('touchmove', handleTouch);
+            document.body.style.overflow = originalOverflow;
+            document.body.style.overscrollBehaviorY = originalOverscroll;
+        };
+    }, [isAdding]);
 
     useEffect(() => {
         fetchItems();
@@ -320,8 +350,12 @@ export function HandoverTab({ projectId }: HandoverTabProps) {
                         </div>
 
                         {/* Add Item Modal */}
-                        {isAdding && canEdit && (
-                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                        {isAdding && canEdit && createPortal(
+                            <div
+                                ref={modalRef}
+                                className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 overscroll-none"
+                                onClick={(e) => e.stopPropagation()}
+                            >
                                 <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
                                     <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                                         <h3 className="text-lg font-semibold text-gray-900">Add New Checklist Item</h3>
@@ -370,7 +404,8 @@ export function HandoverTab({ projectId }: HandoverTabProps) {
                                         </div>
                                     </form>
                                 </div>
-                            </div>
+                            </div>,
+                            document.body
                         )}
 
                         {/* Checklist Content */}

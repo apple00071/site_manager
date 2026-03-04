@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 
 type ImageModalProps = {
@@ -14,6 +15,7 @@ type ImageModalProps = {
 export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }: ImageModalProps) {
   const [activeIndex, setActiveIndex] = useState(currentIndex);
   const [mounted, setMounted] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   // Helper function to check if URL is a PDF
   const isPDF = (url: string | undefined) => {
@@ -63,30 +65,44 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
       }
     };
 
+    const handleTouch = (e: TouchEvent) => {
+      e.stopPropagation();
+    };
+
     document.addEventListener('keydown', handleKeyDown);
     document.body.style.overflow = 'hidden';
+    document.body.style.overscrollBehaviorY = 'none';
+
+    const modal = modalRef.current;
+    if (modal) {
+      modal.addEventListener('touchstart', handleTouch, { passive: true });
+      modal.addEventListener('touchmove', handleTouch, { passive: false });
+    }
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = '';
+      document.body.style.overscrollBehaviorY = '';
+      if (modal) {
+        modal.removeEventListener('touchstart', handleTouch);
+        modal.removeEventListener('touchmove', handleTouch);
+      }
     };
-  }, [isOpen, activeIndex, handlePrevious, handleNext, onClose]);
+  }, [isOpen, activeIndex, onClose, handlePrevious, handleNext]); // Added handlePrevious, handleNext to deps
 
   // Early return AFTER all hooks to prevent hooks rule violation
-  if (!isOpen || !images.length) return null;
+  if (!isOpen || !images.length || !mounted || !currentUrl) return null;
 
-  // Don't render until mounted to prevent hydration issues
-  if (!mounted) return null;
-
-  // Don't render if current URL is invalid
-  if (!currentUrl) return null;
-
-  return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black bg-opacity-95">
+  const content = (
+    <div
+      ref={modalRef}
+      className="fixed inset-0 z-[150] flex items-center justify-center bg-black bg-opacity-95"
+      style={{ touchAction: 'none' }}
+    >
       {/* Close Button */}
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 z-60 p-3 text-white hover:text-gray-300 bg-black bg-opacity-50 rounded-full hover:bg-opacity-70 transition-all duration-200 touch-target"
+        className="absolute top-4 right-4 z-[160] p-3 text-white hover:text-gray-300 bg-black bg-opacity-50 rounded-full hover:bg-opacity-70 transition-all duration-200 touch-target"
         aria-label="Close modal"
       >
         <FiX className="w-6 h-6" />
@@ -94,7 +110,7 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
 
       {/* Image Counter */}
       {images.length > 1 && (
-        <div className="absolute top-4 left-4 z-60 px-3 py-2 bg-black bg-opacity-50 text-white text-sm rounded-full">
+        <div className="absolute top-4 left-4 z-[160] px-3 py-2 bg-black bg-opacity-50 text-white text-sm rounded-full">
           {activeIndex + 1} / {images.length}
         </div>
       )}
@@ -103,7 +119,7 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
       {images.length > 1 && (
         <button
           onClick={handlePrevious}
-          className="absolute left-4 top-1/2 -translate-y-1/2 z-60 p-3 text-white hover:text-gray-300 bg-black bg-opacity-50 rounded-full hover:bg-opacity-70 transition-all duration-200 touch-target"
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-[160] p-3 text-white hover:text-gray-300 bg-black bg-opacity-50 rounded-full hover:bg-opacity-70 transition-all duration-200 touch-target"
           aria-label="Previous image"
         >
           <FiChevronLeft className="w-6 h-6" />
@@ -114,7 +130,7 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
       {images.length > 1 && (
         <button
           onClick={handleNext}
-          className="absolute right-4 top-1/2 -translate-y-1/2 z-60 p-3 text-white hover:text-gray-300 bg-black bg-opacity-50 rounded-full hover:bg-opacity-70 transition-all duration-200 touch-target"
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-[160] p-3 text-white hover:text-gray-300 bg-black bg-opacity-50 rounded-full hover:bg-opacity-70 transition-all duration-200 touch-target"
           aria-label="Next image"
         >
           <FiChevronRight className="w-6 h-6" />
@@ -163,7 +179,7 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
 
       {/* Thumbnail Navigation (for mobile swipe) */}
       {images.length > 1 && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-60 flex gap-2 bg-black bg-opacity-50 p-2 rounded-full max-w-xs overflow-x-auto">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[160] flex gap-2 bg-black bg-opacity-50 p-2 rounded-full max-w-xs overflow-x-auto">
           {images.map((image, index) => (
             <button
               key={index}
@@ -215,4 +231,6 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
       </div>
     </div>
   );
+
+  return createPortal(content, document.body);
 }

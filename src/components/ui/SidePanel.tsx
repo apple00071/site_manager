@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { FiX } from 'react-icons/fi';
 
 interface SidePanelProps {
@@ -27,7 +28,7 @@ export function SidePanel({
 }: SidePanelProps) {
     const panelRef = useRef<HTMLDivElement>(null);
 
-    // Handle ESC key
+    // Handle ESC key and touch isolation
     useEffect(() => {
         const handleEscape = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && isOpen) {
@@ -37,13 +38,29 @@ export function SidePanel({
 
         if (isOpen) {
             document.addEventListener('keydown', handleEscape);
-            // Prevent body scroll when panel is open
+            // Prevent body scroll and native pull-to-refresh
             document.body.style.overflow = 'hidden';
+            document.body.style.overscrollBehaviorY = 'none';
+        }
+
+        const handleTouch = (e: TouchEvent) => {
+            e.stopPropagation();
+        };
+
+        const panel = panelRef.current;
+        if (isOpen && panel) {
+            panel.addEventListener('touchstart', handleTouch, { passive: true });
+            panel.addEventListener('touchmove', handleTouch, { passive: false });
         }
 
         return () => {
             document.removeEventListener('keydown', handleEscape);
             document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
+            if (panel) {
+                panel.removeEventListener('touchstart', handleTouch);
+                panel.removeEventListener('touchmove', handleTouch);
+            }
         };
     }, [isOpen, onClose]);
 
@@ -62,7 +79,7 @@ export function SidePanel({
 
     if (!isOpen) return null;
 
-    return (
+    const content = (
         <>
             {/* Backdrop */}
             <div
@@ -77,15 +94,17 @@ export function SidePanel({
                 ref={panelRef}
                 tabIndex={-1}
                 className={`
-          fixed top-0 right-0 h-full bg-white shadow-2xl z-50
-          ${widthClasses[width]}
-          transform transition-transform duration-300 ease-out
-          flex flex-col
-          animate-slide-in-right
-        `}
+                    fixed top-0 right-0 h-full bg-white shadow-2xl z-50
+                    ${widthClasses[width]}
+                    transform transition-transform duration-300 ease-out
+                    flex flex-col
+                    animate-slide-in-right
+                    overscroll-behavior-contain
+                `}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="side-panel-title"
+                style={{ overscrollBehavior: 'contain' }}
             >
                 {/* Header */}
                 {title && (
@@ -118,20 +137,22 @@ export function SidePanel({
 
             {/* CSS animation */}
             <style jsx global>{`
-        @keyframes slide-in-right {
-          from {
-            transform: translateX(100%);
-          }
-          to {
-            transform: translateX(0);
-          }
-        }
-        .animate-slide-in-right {
-          animation: slide-in-right 0.3s ease-out;
-        }
-      `}</style>
+                @keyframes slide-in-right {
+                from {
+                    transform: translateX(100%);
+                }
+                to {
+                    transform: translateX(0);
+                }
+                }
+                .animate-slide-in-right {
+                animation: slide-in-right 0.3s ease-out;
+                }
+            `}</style>
         </>
     );
+
+    return createPortal(content, document.body);
 }
 
 export default SidePanel;

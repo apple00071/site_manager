@@ -36,7 +36,7 @@ export function ConfirmDialog({
     const popoverRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLDivElement>(null);
 
-    // Close on click outside
+    // Close on click outside and handle body scroll lock
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (
@@ -51,8 +51,18 @@ export function ConfirmDialog({
 
         if (isOpen) {
             document.addEventListener('mousedown', handleClickOutside);
+            document.body.style.overflow = 'hidden';
+            document.body.style.overscrollBehaviorY = 'none';
+        } else {
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
         }
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
+        };
     }, [isOpen]);
 
     // Close on escape
@@ -162,6 +172,35 @@ export function useConfirm() {
         options: ConfirmOptions;
         resolve: (value: boolean) => void;
     } | null>(null);
+    const overlayRef = useRef<HTMLDivElement>(null);
+
+    // Isolation for useConfirm Modal
+    useEffect(() => {
+        if (!dialog) return;
+
+        // Prevent body scroll and native pull-to-refresh
+        document.body.style.overflow = 'hidden';
+        document.body.style.overscrollBehaviorY = 'none';
+
+        const handleTouch = (e: TouchEvent) => {
+            e.stopPropagation();
+        };
+
+        const overlay = overlayRef.current;
+        if (overlay) {
+            overlay.addEventListener('touchstart', handleTouch, { passive: true });
+            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+        }
+
+        return () => {
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
+            if (overlay) {
+                overlay.removeEventListener('touchstart', handleTouch);
+                overlay.removeEventListener('touchmove', handleTouch);
+            }
+        };
+    }, [dialog]);
 
     const confirm = (options: ConfirmOptions): Promise<boolean> => {
         return new Promise((resolve) => {
@@ -181,12 +220,11 @@ export function useConfirm() {
 
     const DialogComponent = dialog ? (
         <div
+            ref={overlayRef}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
             role="dialog"
             aria-modal="true"
             data-modal="true"
-            onTouchStart={(e) => e.stopPropagation()}
-            onTouchMove={(e) => e.stopPropagation()}
         >
             <div
                 className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4 p-6 animate-fade-in"

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { FiPlayCircle, FiCheckCircle, FiTrash2, FiDownload, FiEye, FiX } from 'react-icons/fi';
@@ -51,6 +52,35 @@ export default function AdminPayrollDashboard() {
     const [employees, setEmployees] = useState<any[]>([]);
     const [selectedPayroll, setSelectedPayroll] = useState<PayrollRecord | null>(null);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const payrollModalOverlayRef = useRef<HTMLDivElement>(null);
+
+    // Isolation for Payroll Modal
+    useEffect(() => {
+        if (!isViewModalOpen) return;
+
+        // Prevent body scroll and native pull-to-refresh
+        document.body.style.overflow = 'hidden';
+        document.body.style.overscrollBehaviorY = 'none';
+
+        const handleTouch = (e: TouchEvent) => {
+            e.stopPropagation();
+        };
+
+        const overlay = payrollModalOverlayRef.current;
+        if (overlay) {
+            overlay.addEventListener('touchstart', handleTouch, { passive: true });
+            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+        }
+
+        return () => {
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
+            if (overlay) {
+                overlay.removeEventListener('touchstart', handleTouch);
+                overlay.removeEventListener('touchmove', handleTouch);
+            }
+        };
+    }, [isViewModalOpen]);
 
     useEffect(() => {
         fetchPayrolls();
@@ -371,8 +401,12 @@ export default function AdminPayrollDashboard() {
             </div>
 
             {/* Payroll Details Modal */}
-            {isViewModalOpen && selectedPayroll && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            {isViewModalOpen && selectedPayroll && createPortal(
+                <div
+                    ref={payrollModalOverlayRef}
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+                    data-modal="true"
+                >
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
                         <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                             <div>
@@ -472,7 +506,8 @@ export default function AdminPayrollDashboard() {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

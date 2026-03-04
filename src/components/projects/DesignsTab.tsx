@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -232,8 +233,64 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
     version_number: 1,
   });
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadIndex, setUploadIndex] = useState({ current: 0, total: 0 });
+  const [uploadIndex, setUploadIndex] = useState({ current: 0, total: uploadForm.files.length });
   const [uploadRecoveryMessage, setUploadRecoveryMessage] = useState<string | null>(null);
+
+  // Modal refs for touch isolation
+  const viewerRef = useRef<HTMLDivElement>(null);
+  const approvalModalRef = useRef<HTMLDivElement>(null);
+
+  // Touch isolation for full-screen viewer
+  useEffect(() => {
+    if (!viewerDesign || !viewerRef.current) return;
+
+    const handleTouch = (e: TouchEvent) => {
+      e.stopPropagation();
+    };
+
+    const el = viewerRef.current;
+    el.addEventListener('touchstart', handleTouch, { passive: false });
+    el.addEventListener('touchmove', handleTouch, { passive: false });
+
+    // Lock body scroll
+    const originalOverflow = document.body.style.overflow;
+    const originalOverscroll = document.body.style.overscrollBehaviorY;
+    document.body.style.overflow = 'hidden';
+    document.body.style.overscrollBehaviorY = 'none';
+
+    return () => {
+      el.removeEventListener('touchstart', handleTouch);
+      el.removeEventListener('touchmove', handleTouch);
+      document.body.style.overflow = originalOverflow;
+      document.body.style.overscrollBehaviorY = originalOverscroll;
+    };
+  }, [viewerDesign]);
+
+  // Touch isolation for approval feedback modal
+  useEffect(() => {
+    if (!approvalDesign || !approvalModalRef.current) return;
+
+    const handleTouch = (e: TouchEvent) => {
+      e.stopPropagation();
+    };
+
+    const el = approvalModalRef.current;
+    el.addEventListener('touchstart', handleTouch, { passive: false });
+    el.addEventListener('touchmove', handleTouch, { passive: false });
+
+    // Lock body scroll
+    const originalOverflow = document.body.style.overflow;
+    const originalOverscroll = document.body.style.overscrollBehaviorY;
+    document.body.style.overflow = 'hidden';
+    document.body.style.overscrollBehaviorY = 'none';
+
+    return () => {
+      el.removeEventListener('touchstart', handleTouch);
+      el.removeEventListener('touchmove', handleTouch);
+      document.body.style.overflow = originalOverflow;
+      document.body.style.overscrollBehaviorY = originalOverscroll;
+    };
+  }, [approvalDesign]);
 
   // Session storage key for upload recovery
   const UPLOAD_STORAGE_KEY = `design_upload_${projectId}`;
@@ -1165,8 +1222,12 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
 
       {/* Rejection/Changes Modal */}
       {
-        approvalDesign && approvalAction && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        approvalDesign && approvalAction && createPortal(
+          <div
+            ref={approvalModalRef}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-[110] p-4 overscroll-none"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 {approvalAction === 'reject' ? 'Reject Design' : 'Request Changes'}
@@ -1206,14 +1267,19 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )
       }
 
       {/* Design Viewer Modal - Full Screen */}
       {
-        viewerDesign && (
-          <div className="fixed inset-0 z-50 bg-black">
+        viewerDesign && createPortal(
+          <div
+            ref={viewerRef}
+            className="fixed inset-0 z-[100] bg-black overscroll-none"
+            onClick={(e) => e.stopPropagation()}
+          >
             <DesignViewer
               designId={viewerDesign.id}
               fileUrl={viewerDesign.file_url}
@@ -1243,7 +1309,8 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
               }}
               onClose={() => setViewerDesign(null)}
             />
-          </div>
+          </div>,
+          document.body
         )
       }
 

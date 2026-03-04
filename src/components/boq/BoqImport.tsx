@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { FiUpload, FiFile, FiCheck, FiX, FiAlertCircle } from 'react-icons/fi';
 import * as XLSX from 'xlsx';
 import * as mammoth from 'mammoth';
@@ -44,6 +45,32 @@ export function BoqImport({ projectId, onImportComplete, onClose, existingCatego
     const [step, setStep] = useState<'upload' | 'preview' | 'done'>('upload');
     const [bulkCategory, setBulkCategory] = useState<string>('');
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const overlayRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        // Prevent body scroll and native pull-to-refresh
+        document.body.style.overflow = 'hidden';
+        document.body.style.overscrollBehaviorY = 'none';
+
+        const handleTouch = (e: TouchEvent) => {
+            e.stopPropagation();
+        };
+
+        const overlay = overlayRef.current;
+        if (overlay) {
+            overlay.addEventListener('touchstart', handleTouch, { passive: true });
+            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+        }
+
+        return () => {
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
+            if (overlay) {
+                overlay.removeEventListener('touchstart', handleTouch);
+                overlay.removeEventListener('touchmove', handleTouch);
+            }
+        };
+    }, []);
 
     const normalizeColumnName = (col: string): string | null => {
         const lower = col.toLowerCase().trim();
@@ -268,9 +295,15 @@ export function BoqImport({ projectId, onImportComplete, onClose, existingCatego
         }).format(qty * rate);
     };
 
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50">
-            <div className="absolute right-0 top-0 bottom-0 bg-white w-full max-w-2xl flex flex-col shadow-2xl">
+    return createPortal(
+        <div
+            ref={overlayRef}
+            className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm"
+            data-modal="true"
+            role="dialog"
+            aria-modal="true"
+        >
+            <div className="absolute right-0 top-0 bottom-0 bg-white w-full max-w-2xl flex flex-col shadow-2xl animate-slide-in-right">
                 {/* Header */}
                 <div className="px-6 py-4 flex items-center justify-between">
                     <h2 className="text-xl font-bold text-gray-900">Import BOQ Items</h2>
@@ -476,7 +509,8 @@ export function BoqImport({ projectId, onImportComplete, onClose, existingCatego
                     </div>
                 )}
             </div>
-        </div >
+        </div>,
+        document.body
     );
 }
 

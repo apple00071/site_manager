@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { FiAlertTriangle, FiLock, FiEye, FiEyeOff, FiCheck } from 'react-icons/fi';
 
 interface PasswordChangeModalProps {
@@ -14,6 +15,33 @@ export default function PasswordChangeModal({ onSuccess }: PasswordChangeModalPr
     const [showConfirm, setShowConfirm] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const overlayRef = useRef<HTMLDivElement>(null);
+
+    // Isolation for Password Change Modal
+    useEffect(() => {
+        // Prevent body scroll and native pull-to-refresh
+        document.body.style.overflow = 'hidden';
+        document.body.style.overscrollBehaviorY = 'none';
+
+        const handleTouch = (e: TouchEvent) => {
+            e.stopPropagation();
+        };
+
+        const overlay = overlayRef.current;
+        if (overlay) {
+            overlay.addEventListener('touchstart', handleTouch, { passive: true });
+            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+        }
+
+        return () => {
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
+            if (overlay) {
+                overlay.removeEventListener('touchstart', handleTouch);
+                overlay.removeEventListener('touchmove', handleTouch);
+            }
+        };
+    }, []);
 
     const passwordStrength = (pw: string) => {
         let score = 0;
@@ -70,8 +98,12 @@ export default function PasswordChangeModal({ onSuccess }: PasswordChangeModalPr
         }
     };
 
-    return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    return createPortal(
+        <div
+            ref={overlayRef}
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            data-modal="true"
+        >
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-amber-500 to-yellow-500 px-6 py-5">
@@ -152,10 +184,10 @@ export default function PasswordChangeModal({ onSuccess }: PasswordChangeModalPr
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
                                 className={`w-full px-4 py-2.5 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition-all text-sm pr-12 ${confirmPassword && confirmPassword !== newPassword
-                                        ? 'border-red-300'
-                                        : confirmPassword && confirmPassword === newPassword
-                                            ? 'border-green-300'
-                                            : 'border-gray-200'
+                                    ? 'border-red-300'
+                                    : confirmPassword && confirmPassword === newPassword
+                                        ? 'border-green-300'
+                                        : 'border-gray-200'
                                     }`}
                                 placeholder="Confirm new password"
                                 required
@@ -194,6 +226,7 @@ export default function PasswordChangeModal({ onSuccess }: PasswordChangeModalPr
                     </p>
                 </form>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

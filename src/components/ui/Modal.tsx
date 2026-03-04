@@ -22,11 +22,13 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'max-w-lg' 
 
         if (isOpen) {
             document.body.style.overflow = 'hidden';
+            document.body.style.overscrollBehaviorY = 'none';
             window.addEventListener('keydown', handleEscape);
         }
 
         return () => {
-            document.body.style.overflow = 'unset';
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
             window.removeEventListener('keydown', handleEscape);
         };
     }, [isOpen, onClose]);

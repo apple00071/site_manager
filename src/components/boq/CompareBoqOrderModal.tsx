@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { FiX, FiCheckCircle, FiAlertCircle, FiTrendingUp, FiTrendingDown, FiArchive, FiPackage } from 'react-icons/fi';
 
 interface CompareBoqOrderModalProps {
@@ -13,6 +14,35 @@ interface CompareBoqOrderModalProps {
 export const CompareBoqOrderModal: React.FC<CompareBoqOrderModalProps> = ({ isOpen, onClose, items, inventoryItems = [] }) => {
     const [filter, setFilter] = useState<'all' | 'variance' | 'completed'>('all');
     const [searchTerm, setSearchTerm] = useState('');
+
+    const overlayRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        // Prevent body scroll and native pull-to-refresh
+        document.body.style.overflow = 'hidden';
+        document.body.style.overscrollBehaviorY = 'none';
+
+        const handleTouch = (e: TouchEvent) => {
+            e.stopPropagation();
+        };
+
+        const overlay = overlayRef.current;
+        if (overlay) {
+            overlay.addEventListener('touchstart', handleTouch, { passive: true });
+            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+        }
+
+        return () => {
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
+            if (overlay) {
+                overlay.removeEventListener('touchstart', handleTouch);
+                overlay.removeEventListener('touchmove', handleTouch);
+            }
+        };
+    }, [isOpen]);
 
     const comparisonData = useMemo(() => {
         // Create a map of inventory items by normalized name for faster lookup
@@ -92,8 +122,14 @@ export const CompareBoqOrderModal: React.FC<CompareBoqOrderModalProps> = ({ isOp
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    return createPortal(
+        <div
+            ref={overlayRef}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+            data-modal="true"
+            role="dialog"
+            aria-modal="true"
+        >
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
 
                 {/* Header */}
@@ -263,6 +299,7 @@ export const CompareBoqOrderModal: React.FC<CompareBoqOrderModalProps> = ({ isOp
                     </table>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
