@@ -33,8 +33,9 @@ export function BottomSheet({
                     setIsAnimating(true);
                 });
             });
-            // Prevent body scroll
+            // Prevent body scroll and native pull-to-refresh
             document.body.style.overflow = 'hidden';
+            document.body.style.overscrollBehaviorY = 'none';
         } else {
             setIsAnimating(false);
             // Wait for animation to complete before hiding
@@ -42,11 +43,13 @@ export function BottomSheet({
                 setIsVisible(false);
             }, 300);
             document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
             return () => clearTimeout(timer);
         }
 
         return () => {
             document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
         };
     }, [isOpen]);
 

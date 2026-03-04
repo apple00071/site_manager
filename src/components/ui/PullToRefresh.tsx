@@ -23,34 +23,44 @@ export function PullToRefresh({ children, onRefresh, disabled = false }: PullToR
     const MAX_PULL = 120; // Maximum pull distance
     const ACTIVATION_THRESHOLD = 15; // Minimum downward movement to activate pull
 
-    const handleTouchStart = useCallback((e: TouchEvent) => {
-        if (disabled || isRefreshing) return;
+    const isModalActive = useCallback(() => {
+        if (typeof window === 'undefined') return false;
 
-        // Check if touch started inside a modal, bottom sheet, or side panel
-        const target = e.target as HTMLElement;
-
-        // 1. Check if body scroll is disabled (standard for modals)
-        if (typeof window !== 'undefined') {
-            const bodyStyle = window.getComputedStyle(document.body);
-            if (bodyStyle.overflow === 'hidden') return;
+        // 1. Check body overflow (most reliable when modals block scroll)
+        const bodyStyle = window.getComputedStyle(document.body);
+        if (bodyStyle.overflow === 'hidden' ||
+            bodyStyle.overflowY === 'hidden' ||
+            document.body.style.overflow === 'hidden') {
+            return true;
         }
 
-        // 2. Check for presence of any modal/dialog in the entire document
+        // 2. Check for common modal attributes and classes
         if (document.querySelector('[role="dialog"]') ||
             document.querySelector('[aria-modal="true"]') ||
             document.querySelector('.modal-open') ||
-            document.querySelector('[data-modal="true"]')) {
-            return;
+            document.querySelector('[data-modal="true"]') ||
+            document.querySelector('[data-bottom-sheet="true"]')) {
+            return true;
         }
 
-        // 3. Current target check (as backup)
+        return false;
+    }, []);
+
+    const handleTouchStart = useCallback((e: TouchEvent) => {
+        if (disabled || isRefreshing) return;
+
+        // Check if touch started inside a modal or if any modal is present
+        if (isModalActive()) return;
+
+        const target = e.target as HTMLElement;
+
+        // Final target check (as backup)
         const isInsideOverlay = target.closest('[data-modal]') ||
             target.closest('[data-bottom-sheet]') ||
             target.closest('[data-side-panel]') ||
             target.closest('[role="dialog"]') ||
             target.closest('.fixed.inset-0') ||
-            target.closest('.fixed.inset-x-0') ||
-            target.closest('.z-50'); // Usually modals are z-50
+            target.closest('.z-50');
         if (isInsideOverlay) return;
 
         // Only allow pull if at very top of page
@@ -63,10 +73,18 @@ export function PullToRefresh({ children, onRefresh, disabled = false }: PullToR
         startY.current = e.touches[0].clientY;
         canPull.current = true;
         pullStarted.current = false;
-    }, [disabled, isRefreshing]);
+    }, [disabled, isRefreshing, isModalActive]);
 
     const handleTouchMove = useCallback((e: TouchEvent) => {
         if (!canPull.current || disabled || isRefreshing) return;
+
+        // Secondary safety check for modals
+        if (isModalActive()) {
+            canPull.current = false;
+            setIsPulling(false);
+            setPullDistance(0);
+            return;
+        }
 
         // Re-check scroll position - if user scrolled down, disable pull
         const scrollTop = window.scrollY || document.documentElement.scrollTop;
@@ -109,9 +127,11 @@ export function PullToRefresh({ children, onRefresh, disabled = false }: PullToR
 
         // Prevent default scrolling when pulling
         if (distance > 0) {
-            e.preventDefault();
+            if (e.cancelable) {
+                e.preventDefault();
+            }
         }
-    }, [disabled, isRefreshing]);
+    }, [disabled, isRefreshing, isModalActive]);
 
     const handleTouchEnd = useCallback(async () => {
         // Reset refs
@@ -165,7 +185,7 @@ export function PullToRefresh({ children, onRefresh, disabled = false }: PullToR
     const rotation = progress * 180;
 
     return (
-        <div ref={containerRef} className="relative">
+        <div ref={containerRef} className="relative" style={{ overscrollBehaviorY: isPulling ? 'none' : 'auto' }}>
             {/* Pull to refresh indicator */}
             <div
                 className="fixed left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-opacity duration-200"

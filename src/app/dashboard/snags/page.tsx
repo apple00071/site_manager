@@ -110,15 +110,18 @@ export default function SnagsPage() {
 
     // Manage body scroll for modals
     useEffect(() => {
-        if (showModal || showResolveModal || showFollowUpModal) {
+        if (showModal || showResolveModal || showFollowUpModal || viewingImage) {
             document.body.style.overflow = 'hidden';
+            document.body.style.overscrollBehaviorY = 'none'; // Prevent native pull-to-refresh
         } else {
             document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
         }
         return () => {
             document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
         };
-    }, [showModal, showResolveModal, showFollowUpModal]);
+    }, [showModal, showResolveModal, showFollowUpModal, viewingImage]);
 
     // Deep Linking
     useEffect(() => {
@@ -682,7 +685,7 @@ export default function SnagsPage() {
             {/* Raise Snag Modal */}
             {
                 showModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-modal="true">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-modal="true" role="dialog" aria-modal="true">
                         <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setShowModal(false)} />
                         <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col relative border border-gray-100">
                             <div className="p-6 border-b border-gray-100 flex justify-between items-center">
@@ -764,7 +767,7 @@ export default function SnagsPage() {
             {/* Resolve Modal */}
             {
                 showResolveModal && selectedSnag && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-modal="true">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-modal="true" role="dialog" aria-modal="true">
                         <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setShowResolveModal(false)} />
                         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-gray-100 relative">
                             <div className="p-6 border-b border-gray-100">
@@ -809,7 +812,7 @@ export default function SnagsPage() {
             {/* Follow Up Modal */}
             {
                 showFollowUpModal && selectedSnag && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-modal="true">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-modal="true" role="dialog" aria-modal="true">
                         <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setShowFollowUpModal(false)} />
                         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-gray-100 relative">
                             <div className="p-6 border-b border-gray-100">

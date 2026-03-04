@@ -429,11 +429,14 @@ const ViewTaskContent = ({
   useEffect(() => {
     if (viewingImage) {
       document.body.style.overflow = 'hidden';
+      document.body.style.overscrollBehaviorY = 'none';
     } else {
       document.body.style.overflow = '';
+      document.body.style.overscrollBehaviorY = '';
     }
     return () => {
       document.body.style.overflow = '';
+      document.body.style.overscrollBehaviorY = '';
     };
   }, [viewingImage]);
 
@@ -1256,11 +1259,14 @@ export default function TasksPage() {
   useEffect(() => {
     if (modalOpen || viewModalOpen) {
       document.body.style.overflow = 'hidden';
+      document.body.style.overscrollBehaviorY = 'none';
     } else {
       document.body.style.overflow = '';
+      document.body.style.overscrollBehaviorY = '';
     }
     return () => {
       document.body.style.overflow = '';
+      document.body.style.overscrollBehaviorY = '';
     };
   }, [modalOpen, viewModalOpen]);
 
@@ -1842,6 +1848,8 @@ export default function TasksPage() {
                     <div
                       className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
                       data-modal="true"
+                      role="dialog"
+                      aria-modal="true"
                       onClick={handleCloseViewModal}
                     >
                       <div
@@ -1898,6 +1906,8 @@ export default function TasksPage() {
                     <div
                       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-3 sm:px-0"
                       data-modal="true"
+                      role="dialog"
+                      aria-modal="true"
                       onClick={handleCloseFormModal}
                     >
                       <div
