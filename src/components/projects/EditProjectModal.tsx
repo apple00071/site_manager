@@ -67,21 +67,21 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                 </div>
 
                 {/* Content */}
-                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 md:p-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                         {/* Project Info Fields */}
                         {section === 'info' && (
                             <>
-                                <div className="col-span-2">
+                                <div className="sm:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                                     <textarea
                                         value={formData.description || ''}
                                         onChange={(e) => handleChange('description', e.target.value)}
                                         rows={3}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
                                     />
                                 </div>
-                                <div>
+                                <div className="col-span-1">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                                     <CustomDropdown
                                         value={formData.status || 'pending'}
@@ -95,22 +95,31 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                         ]}
                                     />
                                 </div>
-                                <div>
+                                <div className="col-span-1">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                                     <CustomDatePicker
                                         value={formData.start_date ? formData.start_date.split('T')[0] : ''}
                                         onChange={(val) => handleChange('start_date', val)}
                                     />
                                 </div>
-                                <div>
+                                <div className="col-span-1">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Expected Completion</label>
                                     <CustomDatePicker
                                         value={formData.estimated_completion_date ? formData.estimated_completion_date.split('T')[0] : ''}
                                         onChange={(val) => handleChange('estimated_completion_date', val)}
                                     />
                                 </div>
+                                <div className="col-span-1">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Project Budget (₹)</label>
+                                    <input
+                                        type="number"
+                                        value={formData.project_budget || ''}
+                                        onChange={(e) => handleChange('project_budget', e.target.value === '' ? null : parseFloat(e.target.value))}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
+                                    />
+                                </div>
                                 {formData.status === 'completed' && (
-                                    <div>
+                                    <div className="col-span-1">
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Actual Completion Date</label>
                                         <CustomDatePicker
                                             value={formData.actual_completion_date ? formData.actual_completion_date.split('T')[0] : ''}
@@ -118,22 +127,13 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                         />
                                     </div>
                                 )}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Project Budget (₹)</label>
-                                    <input
-                                        type="number"
-                                        value={formData.project_budget || ''}
-                                        onChange={(e) => handleChange('project_budget', e.target.value === '' ? null : parseFloat(e.target.value))}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
-                                    />
-                                </div>
-                                <div className="col-span-2">
+                                <div className="sm:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Project Notes</label>
                                     <textarea
                                         value={formData.project_notes || ''}
                                         onChange={(e) => handleChange('project_notes', e.target.value)}
                                         rows={3}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
                                     />
                                 </div>
                             </>
@@ -142,40 +142,40 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                         {/* Customer Details Fields */}
                         {section === 'customer' && (
                             <>
-                                <div>
+                                <div className="col-span-1">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
                                     <input
                                         type="text"
                                         value={formData.customer_name || ''}
                                         onChange={(e) => handleChange('customer_name', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
                                     />
                                 </div>
-                                <div>
+                                <div className="col-span-1">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
                                     <input
                                         type="text"
                                         value={formData.phone_number || ''}
                                         onChange={(e) => handleChange('phone_number', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
                                     />
                                 </div>
-                                <div>
+                                <div className="col-span-1">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Alternate Phone</label>
                                     <input
                                         type="text"
                                         value={formData.alt_phone_number || ''}
                                         onChange={(e) => handleChange('alt_phone_number', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
                                     />
                                 </div>
-                                <div className="col-span-2">
+                                <div className="sm:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
                                     <textarea
                                         value={formData.address || ''}
                                         onChange={(e) => handleChange('address', e.target.value)}
                                         rows={3}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
                                     />
                                 </div>
                             </>
@@ -184,7 +184,7 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                         {/* Property Details Fields */}
                         {section === 'property' && (
                             <>
-                                <div>
+                                <div className="col-span-1">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Property Type</label>
                                     <CustomDropdown
                                         value={formData.property_type || ''}
@@ -198,49 +198,49 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                         placeholder="Select Type"
                                     />
                                 </div>
-                                <div>
+                                <div className="col-span-1">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Apartment/Building Name</label>
                                     <input
                                         type="text"
                                         value={formData.apartment_name || ''}
                                         onChange={(e) => handleChange('apartment_name', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
                                     />
                                 </div>
-                                <div>
+                                <div className="col-span-1">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Block Number</label>
                                     <input
                                         type="text"
                                         value={formData.block_number || ''}
                                         onChange={(e) => handleChange('block_number', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
                                     />
                                 </div>
-                                <div>
+                                <div className="col-span-1">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Flat Number</label>
                                     <input
                                         type="text"
                                         value={formData.flat_number || ''}
                                         onChange={(e) => handleChange('flat_number', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
                                     />
                                 </div>
-                                <div>
+                                <div className="col-span-1">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Floor Number</label>
                                     <input
                                         type="text"
                                         value={formData.floor_number || ''}
                                         onChange={(e) => handleChange('floor_number', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
                                     />
                                 </div>
-                                <div>
+                                <div className="col-span-1">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Area (sq.ft)</label>
                                     <input
                                         type="number"
                                         value={formData.area_sqft || ''}
                                         onChange={(e) => handleChange('area_sqft', e.target.value === '' ? null : parseFloat(e.target.value))}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
                                     />
                                 </div>
                             </>
