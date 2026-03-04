@@ -70,6 +70,8 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
     };
 
     document.addEventListener('keydown', handleKeyDown);
+    document.documentElement.style.overflow = 'hidden';
+    document.documentElement.style.overscrollBehaviorY = 'none';
     document.body.style.overflow = 'hidden';
     document.body.style.overscrollBehaviorY = 'none';
 
@@ -81,6 +83,8 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
+      document.documentElement.style.overflow = '';
+      document.documentElement.style.overscrollBehaviorY = '';
       document.body.style.overflow = '';
       document.body.style.overscrollBehaviorY = '';
       if (modal) {

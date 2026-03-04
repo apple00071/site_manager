@@ -36,26 +36,46 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
     useEffect(() => {
         if (!isOpen) return;
 
-        // Prevent body scroll and native pull-to-refresh
+        // Style Guard: Lock both html and body
+        document.documentElement.style.overflow = 'hidden';
+        document.documentElement.style.overscrollBehaviorY = 'none';
         document.body.style.overflow = 'hidden';
         document.body.style.overscrollBehaviorY = 'none';
 
-        const handleTouch = (e: TouchEvent) => {
+        const handleTouchMove = (e: TouchEvent) => {
+            const touchY = e.touches[0].clientY;
+            const scrollEl = overlayRef.current?.querySelector('form');
+
+            if (scrollEl) {
+                const touchDiff = touchY - (window as any)._modalTouchStartY || 0;
+                if (scrollEl.scrollTop <= 0 && touchDiff > 0) {
+                    if (e.cancelable) e.preventDefault();
+                }
+            } else {
+                if (e.cancelable) e.preventDefault();
+            }
+            e.stopPropagation();
+        };
+
+        const handleTouchStart = (e: TouchEvent) => {
+            (window as any)._modalTouchStartY = e.touches[0].clientY;
             e.stopPropagation();
         };
 
         const overlay = overlayRef.current;
         if (overlay) {
-            overlay.addEventListener('touchstart', handleTouch, { passive: true });
-            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+            overlay.addEventListener('touchstart', handleTouchStart, { passive: true });
+            overlay.addEventListener('touchmove', handleTouchMove, { passive: false });
         }
 
         return () => {
+            document.documentElement.style.overflow = '';
+            document.documentElement.style.overscrollBehaviorY = '';
             document.body.style.overflow = '';
             document.body.style.overscrollBehaviorY = '';
             if (overlay) {
-                overlay.removeEventListener('touchstart', handleTouch);
-                overlay.removeEventListener('touchmove', handleTouch);
+                overlay.removeEventListener('touchstart', handleTouchStart);
+                overlay.removeEventListener('touchmove', handleTouchMove);
             }
         };
     }, [isOpen]);
@@ -103,7 +123,7 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                 </div>
 
                 {/* Content */}
-                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 md:p-6" style={{ overscrollBehavior: 'contain' }}>
+                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 md:p-6" style={{ overscrollBehavior: 'none' }}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                         {/* Project Info Fields */}
                         {section === 'info' && (

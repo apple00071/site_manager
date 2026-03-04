@@ -19,26 +19,30 @@ export default function PasswordChangeModal({ onSuccess }: PasswordChangeModalPr
 
     // Isolation for Password Change Modal
     useEffect(() => {
-        // Prevent body scroll and native pull-to-refresh
+        // Style Guard: Lock both html and body
+        document.documentElement.style.overflow = 'hidden';
+        document.documentElement.style.overscrollBehaviorY = 'none';
         document.body.style.overflow = 'hidden';
         document.body.style.overscrollBehaviorY = 'none';
 
-        const handleTouch = (e: TouchEvent) => {
+        const handleTouchMove = (e: TouchEvent) => {
+            // Password modal is usually short, so we block all moves on overlay
+            if (e.cancelable) e.preventDefault();
             e.stopPropagation();
         };
 
         const overlay = overlayRef.current;
         if (overlay) {
-            overlay.addEventListener('touchstart', handleTouch, { passive: true });
-            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+            overlay.addEventListener('touchmove', handleTouchMove, { passive: false });
         }
 
         return () => {
+            document.documentElement.style.overflow = '';
+            document.documentElement.style.overscrollBehaviorY = '';
             document.body.style.overflow = '';
             document.body.style.overscrollBehaviorY = '';
             if (overlay) {
-                overlay.removeEventListener('touchstart', handleTouch);
-                overlay.removeEventListener('touchmove', handleTouch);
+                overlay.removeEventListener('touchmove', handleTouchMove);
             }
         };
     }, []);

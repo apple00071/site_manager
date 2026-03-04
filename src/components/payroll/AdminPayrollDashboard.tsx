@@ -54,30 +54,63 @@ export default function AdminPayrollDashboard() {
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const payrollModalOverlayRef = useRef<HTMLDivElement>(null);
 
+    const payrollScrollRef = useRef<HTMLDivElement>(null);
+
     // Isolation for Payroll Modal
     useEffect(() => {
         if (!isViewModalOpen) return;
 
-        // Prevent body scroll and native pull-to-refresh
+        // Style Guard: Lock both html and body
+        document.documentElement.style.overflow = 'hidden';
+        document.documentElement.style.overscrollBehaviorY = 'none';
         document.body.style.overflow = 'hidden';
         document.body.style.overscrollBehaviorY = 'none';
 
-        const handleTouch = (e: TouchEvent) => {
+        return () => {
+            document.documentElement.style.overflow = '';
+            document.documentElement.style.overscrollBehaviorY = '';
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
+        };
+    }, [isViewModalOpen]);
+
+    // Event Guard: Prevent pull-to-refresh at the JS level
+    useEffect(() => {
+        if (!isViewModalOpen) return;
+
+        let touchStartY = 0;
+
+        const handleTouchStart = (e: TouchEvent) => {
+            touchStartY = e.touches[0].clientY;
+        };
+
+        const handleTouchMove = (e: TouchEvent) => {
+            const touchY = e.touches[0].clientY;
+            const touchDiff = touchY - touchStartY;
+            const scrollEl = payrollScrollRef.current;
+
+            if (scrollEl) {
+                // If pulling DOWN at the TOP, cancel to prevent pull-to-refresh
+                if (scrollEl.scrollTop <= 0 && touchDiff > 0) {
+                    if (e.cancelable) e.preventDefault();
+                }
+            } else {
+                // Overlay/Header: cancel all moves
+                if (e.cancelable) e.preventDefault();
+            }
             e.stopPropagation();
         };
 
-        const overlay = payrollModalOverlayRef.current;
-        if (overlay) {
-            overlay.addEventListener('touchstart', handleTouch, { passive: true });
-            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+        const currentScrollEl = payrollScrollRef.current;
+        if (currentScrollEl) {
+            currentScrollEl.addEventListener('touchstart', handleTouchStart, { passive: true });
+            currentScrollEl.addEventListener('touchmove', handleTouchMove, { passive: false });
         }
 
         return () => {
-            document.body.style.overflow = '';
-            document.body.style.overscrollBehaviorY = '';
-            if (overlay) {
-                overlay.removeEventListener('touchstart', handleTouch);
-                overlay.removeEventListener('touchmove', handleTouch);
+            if (currentScrollEl) {
+                currentScrollEl.removeEventListener('touchstart', handleTouchStart);
+                currentScrollEl.removeEventListener('touchmove', handleTouchMove);
             }
         };
     }, [isViewModalOpen]);
@@ -418,7 +451,11 @@ export default function AdminPayrollDashboard() {
                             </button>
                         </div>
 
-                        <div className="p-5 overflow-y-auto space-y-4">
+                        <div
+                            ref={payrollScrollRef}
+                            className="p-5 overflow-y-auto space-y-4"
+                            style={{ overscrollBehavior: 'none' }}
+                        >
                             {/* Attendance Section */}
                             <section>
                                 <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Attendance Summary</h4>

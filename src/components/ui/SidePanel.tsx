@@ -27,8 +27,9 @@ export function SidePanel({
     footer
 }: SidePanelProps) {
     const panelRef = useRef<HTMLDivElement>(null);
+    const scrollRef = useRef<HTMLDivElement>(null);
 
-    // Handle ESC key and touch isolation
+    // Handle ESC key and advanced isolation
     useEffect(() => {
         const handleEscape = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && isOpen) {
@@ -38,31 +39,70 @@ export function SidePanel({
 
         if (isOpen) {
             document.addEventListener('keydown', handleEscape);
-            // Prevent body scroll and native pull-to-refresh
+            // Style Guard: Lock both html and body
+            document.documentElement.style.overflow = 'hidden';
+            document.documentElement.style.overscrollBehaviorY = 'none';
             document.body.style.overflow = 'hidden';
             document.body.style.overscrollBehaviorY = 'none';
         }
 
-        const handleTouch = (e: TouchEvent) => {
+        return () => {
+            document.removeEventListener('keydown', handleEscape);
+            document.documentElement.style.overflow = '';
+            document.documentElement.style.overscrollBehaviorY = '';
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
+        };
+    }, [isOpen, onClose]);
+
+    // Event Guard: Prevent pull-to-refresh at the JS level
+    useEffect(() => {
+        if (!isOpen) return;
+
+        let touchStartY = 0;
+
+        const handleTouchStart = (e: TouchEvent) => {
+            touchStartY = e.touches[0].clientY;
+        };
+
+        const handleTouchMove = (e: TouchEvent) => {
+            const touchY = e.touches[0].clientY;
+            const touchDiff = touchY - touchStartY;
+            const scrollEl = scrollRef.current;
+
+            if (scrollEl) {
+                // If pulling DOWN at the TOP, cancel to prevent pull-to-refresh
+                if (scrollEl.scrollTop <= 0 && touchDiff > 0) {
+                    if (e.cancelable) e.preventDefault();
+                }
+            } else {
+                // Overlay/Header: cancel all moves
+                if (e.cancelable) e.preventDefault();
+            }
             e.stopPropagation();
         };
 
-        const panel = panelRef.current;
-        if (isOpen && panel) {
-            panel.addEventListener('touchstart', handleTouch, { passive: true });
-            panel.addEventListener('touchmove', handleTouch, { passive: false });
+        const currentScrollEl = scrollRef.current;
+        const currentPanelEl = panelRef.current;
+
+        if (currentScrollEl) {
+            currentScrollEl.addEventListener('touchstart', handleTouchStart, { passive: true });
+            currentScrollEl.addEventListener('touchmove', handleTouchMove, { passive: false });
         }
 
+        // Apply strict blockade to header and footer
+        const blockTouch = (e: TouchEvent) => {
+            if (e.cancelable) e.preventDefault();
+            e.stopPropagation();
+        };
+
         return () => {
-            document.removeEventListener('keydown', handleEscape);
-            document.body.style.overflow = '';
-            document.body.style.overscrollBehaviorY = '';
-            if (panel) {
-                panel.removeEventListener('touchstart', handleTouch);
-                panel.removeEventListener('touchmove', handleTouch);
+            if (currentScrollEl) {
+                currentScrollEl.removeEventListener('touchstart', handleTouchStart);
+                currentScrollEl.removeEventListener('touchmove', handleTouchMove);
             }
         };
-    }, [isOpen, onClose]);
+    }, [isOpen]);
 
     // Focus trap
     useEffect(() => {
@@ -87,6 +127,7 @@ export function SidePanel({
                 onClick={onClose}
                 aria-hidden="true"
                 data-side-panel="true"
+                style={{ touchAction: 'none' }}
             />
 
             {/* Panel */}
@@ -99,37 +140,47 @@ export function SidePanel({
                     transform transition-transform duration-300 ease-out
                     flex flex-col
                     animate-slide-in-right
-                    overscroll-behavior-contain
                 `}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="side-panel-title"
-                style={{ overscrollBehavior: 'contain' }}
+                style={{ touchAction: 'none' }} // Base panel is non-touchable to prevent leakage
             >
                 {/* Header */}
-                {title && (
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
-                        <h2 id="side-panel-title" className="text-lg font-semibold text-gray-900">
-                            {title}
-                        </h2>
-                        <button
-                            onClick={onClose}
-                            className="btn-ghost"
-                            aria-label="Close panel"
-                        >
-                            <FiX className="w-5 h-5" />
-                        </button>
-                    </div>
-                )}
+                <div
+                    className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50 shrink-0"
+                    onTouchMove={(e) => e.cancelable && e.preventDefault()}
+                >
+                    <h2 id="side-panel-title" className="text-lg font-semibold text-gray-900">
+                        {title}
+                    </h2>
+                    <button
+                        onClick={onClose}
+                        className="btn-ghost"
+                        aria-label="Close panel"
+                    >
+                        <FiX className="w-5 h-5" />
+                    </button>
+                </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6">
+                <div
+                    ref={scrollRef}
+                    className="flex-1 overflow-y-auto p-6"
+                    style={{
+                        overscrollBehavior: 'none',
+                        touchAction: 'pan-y' // Only allow vertical scrolling within content
+                    }}
+                >
                     {children}
                 </div>
 
                 {/* Footer (optional) */}
                 {footer && (
-                    <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                    <div
+                        className="px-6 py-4 border-t border-gray-200 bg-gray-50 shrink-0"
+                        onTouchMove={(e) => e.cancelable && e.preventDefault()}
+                    >
                         {footer}
                     </div>
                 )}

@@ -56,26 +56,46 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
     useEffect(() => {
         if (!isOpen) return;
 
-        // Prevent body scroll and native pull-to-refresh
+        // Style Guard: Lock both html and body
+        document.documentElement.style.overflow = 'hidden';
+        document.documentElement.style.overscrollBehaviorY = 'none';
         document.body.style.overflow = 'hidden';
         document.body.style.overscrollBehaviorY = 'none';
 
-        const handleTouch = (e: TouchEvent) => {
+        const handleTouchMove = (e: TouchEvent) => {
+            const touchY = e.touches[0].clientY;
+            const scrollEl = overlayRef.current?.querySelector('.overflow-y-auto');
+
+            if (scrollEl) {
+                const touchDiff = touchY - (window as any)._boqTouchStartY || 0;
+                if (scrollEl.scrollTop <= 0 && touchDiff > 0) {
+                    if (e.cancelable) e.preventDefault();
+                }
+            } else {
+                if (e.cancelable) e.preventDefault();
+            }
+            e.stopPropagation();
+        };
+
+        const handleTouchStart = (e: TouchEvent) => {
+            (window as any)._boqTouchStartY = e.touches[0].clientY;
             e.stopPropagation();
         };
 
         const overlay = overlayRef.current;
         if (overlay) {
-            overlay.addEventListener('touchstart', handleTouch, { passive: true });
-            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+            overlay.addEventListener('touchstart', handleTouchStart, { passive: true });
+            overlay.addEventListener('touchmove', handleTouchMove, { passive: false });
         }
 
         return () => {
+            document.documentElement.style.overflow = '';
+            document.documentElement.style.overscrollBehaviorY = '';
             document.body.style.overflow = '';
             document.body.style.overscrollBehaviorY = '';
             if (overlay) {
-                overlay.removeEventListener('touchstart', handleTouch);
-                overlay.removeEventListener('touchmove', handleTouch);
+                overlay.removeEventListener('touchstart', handleTouchStart);
+                overlay.removeEventListener('touchmove', handleTouchMove);
             }
         };
     }, [isOpen]);
@@ -141,7 +161,7 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
         >
             <div
                 className="bg-white shadow-2xl w-full max-w-md h-full overflow-y-auto animate-slide-in-right"
-                style={{ animation: 'slideInRight 0.2s ease-out' }}
+                style={{ animation: 'slideInRight 0.2s ease-out', overscrollBehavior: 'none' }}
             >
                 {/* Header */}
                 <div className="sticky top-0 flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-white z-10">

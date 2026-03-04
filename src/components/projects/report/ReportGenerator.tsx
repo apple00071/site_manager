@@ -134,6 +134,47 @@ export function ReportGenerator({ projectId, onClose, onSuccess }: ReportGenerat
     };
 
 
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    // Event Guard: Prevent pull-to-refresh at the JS level
+    useEffect(() => {
+        let touchStartY = 0;
+
+        const handleTouchStart = (e: TouchEvent) => {
+            touchStartY = e.touches[0].clientY;
+        };
+
+        const handleTouchMove = (e: TouchEvent) => {
+            const touchY = e.touches[0].clientY;
+            const touchDiff = touchY - touchStartY;
+            const scrollEl = scrollRef.current;
+
+            if (scrollEl) {
+                // If pulling DOWN at the TOP, cancel to prevent pull-to-refresh
+                if (scrollEl.scrollTop <= 0 && touchDiff > 0) {
+                    if (e.cancelable) e.preventDefault();
+                }
+            } else {
+                // Non-scrollable: cancel all moves
+                if (e.cancelable) e.preventDefault();
+            }
+            e.stopPropagation();
+        };
+
+        const currentScrollEl = scrollRef.current;
+        if (currentScrollEl) {
+            currentScrollEl.addEventListener('touchstart', handleTouchStart, { passive: true });
+            currentScrollEl.addEventListener('touchmove', handleTouchMove, { passive: false });
+        }
+
+        return () => {
+            if (currentScrollEl) {
+                currentScrollEl.removeEventListener('touchstart', handleTouchStart);
+                currentScrollEl.removeEventListener('touchmove', handleTouchMove);
+            }
+        };
+    }, []);
+
     const handleSubmit = async () => {
         try {
             setIsLoading(true);
@@ -217,8 +258,9 @@ export function ReportGenerator({ projectId, onClose, onSuccess }: ReportGenerat
 
             {/* Stepper Content */}
             <div
+                ref={scrollRef}
                 className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 sm:space-y-8 pb-24 sm:pb-6"
-                style={{ overscrollBehavior: 'contain' }}
+                style={{ overscrollBehavior: 'none' }}
             >
                 {step === 1 && (
                     <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">

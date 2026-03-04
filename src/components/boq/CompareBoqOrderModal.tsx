@@ -20,26 +20,46 @@ export const CompareBoqOrderModal: React.FC<CompareBoqOrderModalProps> = ({ isOp
     useEffect(() => {
         if (!isOpen) return;
 
-        // Prevent body scroll and native pull-to-refresh
+        // Style Guard: Lock both html and body
+        document.documentElement.style.overflow = 'hidden';
+        document.documentElement.style.overscrollBehaviorY = 'none';
         document.body.style.overflow = 'hidden';
         document.body.style.overscrollBehaviorY = 'none';
 
-        const handleTouch = (e: TouchEvent) => {
+        const handleTouchMove = (e: TouchEvent) => {
+            const touchY = e.touches[0].clientY;
+            const scrollEl = overlayRef.current?.querySelector('.overflow-auto');
+
+            if (scrollEl) {
+                const touchDiff = touchY - (window as any)._compTouchStartY || 0;
+                if (scrollEl.scrollTop <= 0 && touchDiff > 0) {
+                    if (e.cancelable) e.preventDefault();
+                }
+            } else {
+                if (e.cancelable) e.preventDefault();
+            }
+            e.stopPropagation();
+        };
+
+        const handleTouchStart = (e: TouchEvent) => {
+            (window as any)._compTouchStartY = e.touches[0].clientY;
             e.stopPropagation();
         };
 
         const overlay = overlayRef.current;
         if (overlay) {
-            overlay.addEventListener('touchstart', handleTouch, { passive: true });
-            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+            overlay.addEventListener('touchstart', handleTouchStart, { passive: true });
+            overlay.addEventListener('touchmove', handleTouchMove, { passive: false });
         }
 
         return () => {
+            document.documentElement.style.overflow = '';
+            document.documentElement.style.overscrollBehaviorY = '';
             document.body.style.overflow = '';
             document.body.style.overscrollBehaviorY = '';
             if (overlay) {
-                overlay.removeEventListener('touchstart', handleTouch);
-                overlay.removeEventListener('touchmove', handleTouch);
+                overlay.removeEventListener('touchstart', handleTouchStart);
+                overlay.removeEventListener('touchmove', handleTouchMove);
             }
         };
     }, [isOpen]);
@@ -130,7 +150,7 @@ export const CompareBoqOrderModal: React.FC<CompareBoqOrderModalProps> = ({ isOp
             role="dialog"
             aria-modal="true"
         >
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200" style={{ overscrollBehavior: 'none' }}>
 
                 {/* Header */}
                 <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50/50">

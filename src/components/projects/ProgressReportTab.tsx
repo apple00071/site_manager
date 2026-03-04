@@ -38,7 +38,9 @@ export const ProgressReportTab = forwardRef(({ projectId }: ProgressReportTabPro
     useEffect(() => {
         if (!isGeneratorOpen) return;
 
-        // Prevent body scroll and native pull-to-refresh
+        // Style Guard: Lock both html and body
+        document.documentElement.style.overflow = 'hidden';
+        document.documentElement.style.overscrollBehaviorY = 'none';
         document.body.style.overflow = 'hidden';
         document.body.style.overscrollBehaviorY = 'none';
 
@@ -53,6 +55,8 @@ export const ProgressReportTab = forwardRef(({ projectId }: ProgressReportTabPro
         }
 
         return () => {
+            document.documentElement.style.overflow = '';
+            document.documentElement.style.overscrollBehaviorY = '';
             document.body.style.overflow = '';
             document.body.style.overscrollBehaviorY = '';
             if (overlay) {
@@ -66,7 +70,9 @@ export const ProgressReportTab = forwardRef(({ projectId }: ProgressReportTabPro
     useEffect(() => {
         if (!isSettingsOpen) return;
 
-        // Prevent body scroll and native pull-to-refresh
+        // Style Guard: Lock both html and body
+        document.documentElement.style.overflow = 'hidden';
+        document.documentElement.style.overscrollBehaviorY = 'none';
         document.body.style.overflow = 'hidden';
         document.body.style.overscrollBehaviorY = 'none';
 
@@ -81,6 +87,8 @@ export const ProgressReportTab = forwardRef(({ projectId }: ProgressReportTabPro
         }
 
         return () => {
+            document.documentElement.style.overflow = '';
+            document.documentElement.style.overscrollBehaviorY = '';
             document.body.style.overflow = '';
             document.body.style.overscrollBehaviorY = '';
             if (overlay) {

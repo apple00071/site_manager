@@ -17,27 +17,47 @@ export function POViewModal({ po, onClose, onUpdateStatus, projectAddress }: POV
 
     useEffect(() => {
         setMounted(true);
-        // Prevent body scroll and native pull-to-refresh
+        // Style Guard: Lock both html and body
+        document.documentElement.style.overflow = 'hidden';
+        document.documentElement.style.overscrollBehaviorY = 'none';
         document.body.style.overflow = 'hidden';
         document.body.style.overscrollBehaviorY = 'none';
 
-        const handleTouch = (e: TouchEvent) => {
+        const handleTouchMove = (e: TouchEvent) => {
+            const touchY = e.touches[0].clientY;
+            const scrollEl = document.getElementById('po-print-container');
+
+            if (scrollEl) {
+                const touchDiff = touchY - (window as any)._poTouchStartY || 0;
+                if (scrollEl.scrollTop <= 0 && touchDiff > 0) {
+                    if (e.cancelable) e.preventDefault();
+                }
+            } else {
+                if (e.cancelable) e.preventDefault();
+            }
+            e.stopPropagation();
+        };
+
+        const handleTouchStart = (e: TouchEvent) => {
+            (window as any)._poTouchStartY = e.touches[0].clientY;
             e.stopPropagation();
         };
 
         const overlay = overlayRef.current;
         if (overlay) {
-            overlay.addEventListener('touchstart', handleTouch, { passive: true });
-            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+            overlay.addEventListener('touchstart', handleTouchStart, { passive: true });
+            overlay.addEventListener('touchmove', handleTouchMove, { passive: false });
         }
 
         return () => {
             setMounted(false);
+            document.documentElement.style.overflow = '';
+            document.documentElement.style.overscrollBehaviorY = '';
             document.body.style.overflow = '';
             document.body.style.overscrollBehaviorY = '';
             if (overlay) {
-                overlay.removeEventListener('touchstart', handleTouch);
-                overlay.removeEventListener('touchmove', handleTouch);
+                overlay.removeEventListener('touchstart', handleTouchStart);
+                overlay.removeEventListener('touchmove', handleTouchMove);
             }
         };
     }, []);
@@ -112,7 +132,7 @@ export function POViewModal({ po, onClose, onUpdateStatus, projectAddress }: POV
                 ::-webkit-scrollbar { display: none; }
                 `}
             </style>
-            <div id="po-print-container" className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl shadow-2xl print:shadow-none print:max-h-none print:w-full print:max-w-none print:overflow-visible text-left">
+            <div id="po-print-container" className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl shadow-2xl print:shadow-none print:max-h-none print:w-full print:max-w-none print:overflow-visible text-left" style={{ overscrollBehavior: 'none' }}>
                 {/* Header Actions - Hidden in Print */}
                 <div className="sticky top-0 z-10 flex items-center justify-between p-4 bg-white border-b border-gray-100 print:hidden">
                     <h3 className="font-bold text-gray-900">Purchase Order Details</h3>

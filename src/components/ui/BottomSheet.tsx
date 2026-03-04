@@ -24,6 +24,8 @@ export function BottomSheet({
     const [isAnimating, setIsAnimating] = useState(false);
     const [isVisible, setIsVisible] = useState(false);
     const sheetRef = useRef<HTMLDivElement>(null);
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const overlayRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -34,7 +36,9 @@ export function BottomSheet({
                     setIsAnimating(true);
                 });
             });
-            // Prevent body scroll and native pull-to-refresh
+            // Style Guard: Lock both html and body
+            document.documentElement.style.overflow = 'hidden';
+            document.documentElement.style.overscrollBehaviorY = 'none';
             document.body.style.overflow = 'hidden';
             document.body.style.overscrollBehaviorY = 'none';
         } else {
@@ -43,14 +47,59 @@ export function BottomSheet({
             const timer = setTimeout(() => {
                 setIsVisible(false);
             }, 300);
+            document.documentElement.style.overflow = '';
+            document.documentElement.style.overscrollBehaviorY = '';
             document.body.style.overflow = '';
             document.body.style.overscrollBehaviorY = '';
             return () => clearTimeout(timer);
         }
 
         return () => {
+            document.documentElement.style.overflow = '';
+            document.documentElement.style.overscrollBehaviorY = '';
             document.body.style.overflow = '';
             document.body.style.overscrollBehaviorY = '';
+        };
+    }, [isOpen]);
+
+    // Event Guard: Prevent pull-to-refresh at the JS level
+    useEffect(() => {
+        if (!isOpen) return;
+
+        let touchStartY = 0;
+
+        const handleTouchStart = (e: TouchEvent) => {
+            touchStartY = e.touches[0].clientY;
+        };
+
+        const handleTouchMove = (e: TouchEvent) => {
+            const touchY = e.touches[0].clientY;
+            const touchDiff = touchY - touchStartY;
+            const scrollEl = scrollRef.current;
+
+            if (scrollEl) {
+                // If pulling DOWN at the TOP, cancel to prevent pull-to-refresh
+                if (scrollEl.scrollTop <= 0 && touchDiff > 0) {
+                    if (e.cancelable) e.preventDefault();
+                }
+            } else {
+                // Overlay/Header: cancel all moves
+                if (e.cancelable) e.preventDefault();
+            }
+            e.stopPropagation();
+        };
+
+        const currentScrollEl = scrollRef.current;
+        if (currentScrollEl) {
+            currentScrollEl.addEventListener('touchstart', handleTouchStart, { passive: true });
+            currentScrollEl.addEventListener('touchmove', handleTouchMove, { passive: false });
+        }
+
+        return () => {
+            if (currentScrollEl) {
+                currentScrollEl.removeEventListener('touchstart', handleTouchStart);
+                currentScrollEl.removeEventListener('touchmove', handleTouchMove);
+            }
         };
     }, [isOpen]);
 
@@ -72,29 +121,6 @@ export function BottomSheet({
         }
     };
 
-    const overlayRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        if (!isOpen) return;
-
-        const handleTouch = (e: TouchEvent) => {
-            e.stopPropagation();
-        };
-
-        const overlay = overlayRef.current;
-        if (overlay) {
-            overlay.addEventListener('touchstart', handleTouch, { passive: true });
-            overlay.addEventListener('touchmove', handleTouch, { passive: false });
-        }
-
-        return () => {
-            if (overlay) {
-                overlay.removeEventListener('touchstart', handleTouch);
-                overlay.removeEventListener('touchmove', handleTouch);
-            }
-        };
-    }, [isOpen]);
-
     if (!isVisible) return null;
 
     const content = (
@@ -106,21 +132,29 @@ export function BottomSheet({
             aria-modal="true"
             role="dialog"
             data-bottom-sheet="true"
+            style={{ touchAction: 'none' }} // Disable actions on background
         >
             <div
                 ref={sheetRef}
                 className={`fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl transition-transform duration-300 ease-out flex flex-col ${isAnimating ? 'translate-y-0' : 'translate-y-full'
                     }`}
-                style={{ maxHeight }}
+                style={{ maxHeight, touchAction: 'none' }} // Header/Handle area is non-draggable for scroll chain
+                onClick={(e) => e.stopPropagation()}
             >
                 {/* Handle bar */}
-                <div className="flex justify-center pt-3 pb-2">
+                <div
+                    className="flex justify-center pt-3 pb-2 shrink-0"
+                    onTouchMove={(e) => e.cancelable && e.preventDefault()}
+                >
                     <div className="w-10 h-1 bg-gray-300 rounded-full" />
                 </div>
 
                 {/* Header */}
                 {title && (
-                    <div className="flex items-center justify-between px-4 pb-3 border-b border-gray-100">
+                    <div
+                        className="flex items-center justify-between px-4 pb-3 border-b border-gray-100 shrink-0"
+                        onTouchMove={(e) => e.cancelable && e.preventDefault()}
+                    >
                         <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
                         <button
                             onClick={onClose}
@@ -134,15 +168,22 @@ export function BottomSheet({
 
                 {/* Content */}
                 <div
+                    ref={scrollRef}
                     className="flex-1 overflow-y-auto px-4 py-4"
-                    style={{ overscrollBehavior: 'contain' }}
+                    style={{
+                        overscrollBehavior: 'none',
+                        touchAction: 'pan-y'
+                    }}
                 >
                     {children}
                 </div>
 
                 {/* Footer (sticky) */}
                 {footer && (
-                    <div className="sticky bottom-0 px-4 py-4 bg-white border-t border-gray-100 safe-area-bottom">
+                    <div
+                        className="sticky bottom-0 px-4 py-4 bg-white border-t border-gray-100 safe-area-bottom shrink-0"
+                        onTouchMove={(e) => e.cancelable && e.preventDefault()}
+                    >
                         {footer}
                     </div>
                 )}

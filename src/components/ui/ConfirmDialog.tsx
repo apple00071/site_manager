@@ -51,15 +51,22 @@ export function ConfirmDialog({
 
         if (isOpen) {
             document.addEventListener('mousedown', handleClickOutside);
+            // Style Guard: Lock both html and body
+            document.documentElement.style.overflow = 'hidden';
+            document.documentElement.style.overscrollBehaviorY = 'none';
             document.body.style.overflow = 'hidden';
             document.body.style.overscrollBehaviorY = 'none';
         } else {
+            document.documentElement.style.overflow = '';
+            document.documentElement.style.overscrollBehaviorY = '';
             document.body.style.overflow = '';
             document.body.style.overscrollBehaviorY = '';
         }
 
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
+            document.documentElement.style.overflow = '';
+            document.documentElement.style.overscrollBehaviorY = '';
             document.body.style.overflow = '';
             document.body.style.overscrollBehaviorY = '';
         };
@@ -178,26 +185,38 @@ export function useConfirm() {
     useEffect(() => {
         if (!dialog) return;
 
-        // Prevent body scroll and native pull-to-refresh
+        // Style Guard: Lock both html and body
+        document.documentElement.style.overflow = 'hidden';
+        document.documentElement.style.overscrollBehaviorY = 'none';
         document.body.style.overflow = 'hidden';
         document.body.style.overscrollBehaviorY = 'none';
 
-        const handleTouch = (e: TouchEvent) => {
+        return () => {
+            document.documentElement.style.overflow = '';
+            document.documentElement.style.overscrollBehaviorY = '';
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
+        };
+    }, [dialog]);
+
+    // Event Guard: Prevent pull-to-refresh at the JS level
+    useEffect(() => {
+        if (!dialog) return;
+
+        const handleTouchMove = (e: TouchEvent) => {
+            // Confirm dialog usually doesn't scroll, so we block ALL moves on overlay
+            if (e.cancelable) e.preventDefault();
             e.stopPropagation();
         };
 
         const overlay = overlayRef.current;
         if (overlay) {
-            overlay.addEventListener('touchstart', handleTouch, { passive: true });
-            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+            overlay.addEventListener('touchmove', handleTouchMove, { passive: false });
         }
 
         return () => {
-            document.body.style.overflow = '';
-            document.body.style.overscrollBehaviorY = '';
             if (overlay) {
-                overlay.removeEventListener('touchstart', handleTouch);
-                overlay.removeEventListener('touchmove', handleTouch);
+                overlay.removeEventListener('touchmove', handleTouchMove);
             }
         };
     }, [dialog]);
@@ -228,7 +247,7 @@ export function useConfirm() {
         >
             <div
                 className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4 p-6 animate-fade-in"
-                style={{ overscrollBehavior: 'contain' }}
+                style={{ overscrollBehavior: 'none', touchAction: 'none' }}
             >
                 <div className="flex items-start gap-3 mb-4">
                     {dialog.options.destructive && (

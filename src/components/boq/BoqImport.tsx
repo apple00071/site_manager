@@ -48,26 +48,46 @@ export function BoqImport({ projectId, onImportComplete, onClose, existingCatego
     const overlayRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        // Prevent body scroll and native pull-to-refresh
+        // Style Guard: Lock both html and body
+        document.documentElement.style.overflow = 'hidden';
+        document.documentElement.style.overscrollBehaviorY = 'none';
         document.body.style.overflow = 'hidden';
         document.body.style.overscrollBehaviorY = 'none';
 
-        const handleTouch = (e: TouchEvent) => {
+        const handleTouchMove = (e: TouchEvent) => {
+            const touchY = e.touches[0].clientY;
+            const scrollEl = overlayRef.current?.querySelector('.overflow-auto');
+
+            if (scrollEl) {
+                const touchDiff = touchY - (window as any)._importTouchStartY || 0;
+                if (scrollEl.scrollTop <= 0 && touchDiff > 0) {
+                    if (e.cancelable) e.preventDefault();
+                }
+            } else {
+                if (e.cancelable) e.preventDefault();
+            }
+            e.stopPropagation();
+        };
+
+        const handleTouchStart = (e: TouchEvent) => {
+            (window as any)._importTouchStartY = e.touches[0].clientY;
             e.stopPropagation();
         };
 
         const overlay = overlayRef.current;
         if (overlay) {
-            overlay.addEventListener('touchstart', handleTouch, { passive: true });
-            overlay.addEventListener('touchmove', handleTouch, { passive: false });
+            overlay.addEventListener('touchstart', handleTouchStart, { passive: true });
+            overlay.addEventListener('touchmove', handleTouchMove, { passive: false });
         }
 
         return () => {
+            document.documentElement.style.overflow = '';
+            document.documentElement.style.overscrollBehaviorY = '';
             document.body.style.overflow = '';
             document.body.style.overscrollBehaviorY = '';
             if (overlay) {
-                overlay.removeEventListener('touchstart', handleTouch);
-                overlay.removeEventListener('touchmove', handleTouch);
+                overlay.removeEventListener('touchstart', handleTouchStart);
+                overlay.removeEventListener('touchmove', handleTouchMove);
             }
         };
     }, []);
@@ -303,7 +323,7 @@ export function BoqImport({ projectId, onImportComplete, onClose, existingCatego
             role="dialog"
             aria-modal="true"
         >
-            <div className="absolute right-0 top-0 bottom-0 bg-white w-full max-w-2xl flex flex-col shadow-2xl animate-slide-in-right">
+            <div className="absolute right-0 top-0 bottom-0 bg-white w-full max-w-2xl flex flex-col shadow-2xl animate-slide-in-right" style={{ overscrollBehavior: 'none' }}>
                 {/* Header */}
                 <div className="px-6 py-4 flex items-center justify-between">
                     <h2 className="text-xl font-bold text-gray-900">Import BOQ Items</h2>
