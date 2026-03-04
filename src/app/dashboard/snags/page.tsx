@@ -13,6 +13,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { SnagTimeline, TimelineItem } from '@/components/projects/SnagTimeline';
+import { CustomDropdown } from '@/components/ui/CustomControls';
 
 interface Snag {
     id: string;
@@ -141,10 +142,9 @@ export default function SnagsPage() {
             const data = await res.json();
             if (Array.isArray(data)) {
                 setProjectUsers(data
-                    .filter((u: any) => u.role !== 'admin')
                     .map((u: any) => ({
                         id: u.id,
-                        name: u.full_name || u.email
+                        name: (u.full_name || u.email) + (u.role === 'admin' ? ' (Admin)' : '')
                     })));
             }
         } catch (err) {
@@ -421,25 +421,24 @@ export default function SnagsPage() {
                             </div>
 
                             <div className="grid grid-cols-2 gap-2">
-                                <select
-                                    className="w-full px-2 lg:px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-[10px] lg:text-xs font-bold text-gray-600 focus:bg-white focus:border-yellow-500 outline-none"
+                                <CustomDropdown
                                     value={selectedProjectId}
-                                    onChange={(e) => setSelectedProjectId(e.target.value)}
-                                >
-                                    <option value="all">ALL PROJECTS</option>
-                                    {projectOptions.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-                                </select>
-                                <select
-                                    className="w-full px-2 lg:px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-[10px] lg:text-xs font-bold text-gray-600 focus:bg-white focus:border-yellow-500 outline-none"
+                                    options={[{ id: 'all', title: 'ALL PROJECTS' }, ...projectOptions]}
+                                    onChange={(id) => setSelectedProjectId(id)}
+                                    placeholder="ALL PROJECTS"
+                                />
+                                <CustomDropdown
                                     value={filterStatus}
-                                    onChange={(e) => setFilterStatus(e.target.value)}
-                                >
-                                    <option value="all">STATUS</option>
-                                    <option value="open">OPEN</option>
-                                    <option value="assigned">ASSIGNED</option>
-                                    <option value="resolved">RESOLVED</option>
-                                    <option value="closed">CLOSED</option>
-                                </select>
+                                    options={[
+                                        { id: 'all', title: 'STATUS' },
+                                        { id: 'open', title: 'OPEN' },
+                                        { id: 'assigned', title: 'ASSIGNED' },
+                                        { id: 'resolved', title: 'RESOLVED' },
+                                        { id: 'closed', title: 'CLOSED' }
+                                    ]}
+                                    onChange={(id) => setFilterStatus(id)}
+                                    placeholder="STATUS"
+                                />
                             </div>
                         </div>
                     </div>
@@ -667,11 +666,16 @@ export default function SnagsPage() {
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Priority</label>
-                                        <select value={formData.priority} onChange={e => setFormData({ ...formData, priority: e.target.value as any })} className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:border-yellow-500 outline-none transition-all text-sm font-medium">
-                                            <option value="low">Low</option>
-                                            <option value="medium">Medium</option>
-                                            <option value="high">High</option>
-                                        </select>
+                                        <CustomDropdown
+                                            value={formData.priority}
+                                            options={[
+                                                { id: 'low', title: 'Low' },
+                                                { id: 'medium', title: 'Medium' },
+                                                { id: 'high', title: 'High' }
+                                            ]}
+                                            onChange={(val) => setFormData({ ...formData, priority: val as any })}
+                                            placeholder="Select Priority"
+                                        />
                                     </div>
                                 </div>
                                 <div className="space-y-1">
@@ -681,10 +685,12 @@ export default function SnagsPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Assign Member</label>
-                                        <select value={formData.assigned_to_user_id} onChange={e => setFormData({ ...formData, assigned_to_user_id: e.target.value })} className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:border-yellow-500 outline-none transition-all text-sm font-medium">
-                                            <option value="">Unassigned</option>
-                                            {projectUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                                        </select>
+                                        <CustomDropdown
+                                            value={formData.assigned_to_user_id}
+                                            options={[{ id: '', title: 'Unassigned' }, ...projectUsers.map(u => ({ id: u.id, title: u.name }))]}
+                                            onChange={(id) => setFormData({ ...formData, assigned_to_user_id: id })}
+                                            placeholder="Select Assignee"
+                                        />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Location</label>

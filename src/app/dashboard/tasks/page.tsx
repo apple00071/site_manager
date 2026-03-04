@@ -1,17 +1,38 @@
 'use client';
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
-import { format, parse, startOfWeek, getDay } from 'date-fns';
+import { format, parse, startOfWeek, getDay, startOfMonth, endOfMonth, endOfWeek, eachDayOfInterval, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import '@/styles/calendar-custom.css';
-import { FiCheck, FiFilter, FiPlus, FiUser, FiAlertTriangle, FiChevronLeft, FiChevronRight, FiUserX, FiX, FiClock, FiList, FiFileText, FiCheckCircle, FiXCircle } from 'react-icons/fi';
+import {
+  FiChevronLeft,
+  FiChevronRight,
+  FiPlus,
+  FiFilter,
+  FiUser,
+  FiCheck,
+  FiEdit,
+  FiSearch,
+  FiChevronDown,
+  FiX,
+  FiAlertTriangle,
+  FiList,
+  FiClock,
+  FiFileText,
+  FiCheckCircle,
+  FiXCircle,
+  FiUserX,
+  FiCalendar
+} from 'react-icons/fi';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useToast } from '@/components/ui/Toast';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
+import { CustomDropdown, CustomDatePicker, TimeSelect } from '@/components/ui/CustomControls';
 
 type CalendarViewType = 'month' | 'week' | 'work_week' | 'day' | 'agenda';
 
@@ -228,6 +249,8 @@ function toDDMMYYYYFromPicker(yyyyMmDd: string) {
 
 // --- Sub-components ---
 
+// --- Sub-components removed (now imported from CustomControls) ---
+
 interface TaskFormContentProps {
   form: any;
   setForm: React.Dispatch<React.SetStateAction<any>>;
@@ -253,122 +276,123 @@ const TaskFormContent = ({
   closeModal,
   partsToTimeString
 }: TaskFormContentProps) => (
-  <div className="space-y-3">
-    <div>
-      <label className="block text-xs text-gray-600 mb-1">Title *</label>
-      <input list="task-title-templates" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-required="true" />
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+    <div className="sm:col-span-2">
+      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">Title *</label>
+      <input list="task-title-templates" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-yellow-500" aria-required="true" />
       <datalist id="task-title-templates">
         {titleSuggestions.map((s, i) => (
           <option key={i} value={s} />
         ))}
       </datalist>
     </div>
-    <div>
-      <label className="block text-xs text-gray-600 mb-1">Description</label>
-      <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+    <div className="sm:col-span-2">
+      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">Description</label>
+      <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={1} className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-yellow-500 resize-none min-h-[38px]" />
     </div>
-    <div>
-      <label className="block text-xs text-gray-600 mb-1">Project (optional)</label>
-      <select value={form.project_id} onChange={e => setForm({ ...form, project_id: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md">
-        <option value="">No Project</option>
-        {projects.map(p => (
-          <option key={p.id} value={p.id}>{p.title}</option>
-        ))}
-      </select>
+    <div className="min-w-0">
+      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">Project (optional)</label>
+      <CustomDropdown
+        value={form.project_id}
+        options={projects}
+        onChange={(id) => setForm({ ...form, project_id: id })}
+        placeholder="Select Project"
+        emptyMessage="No projects found"
+      />
     </div>
-    <div className="space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Start Date</label>
-          <input type="date" value={form.start_date_picker} onChange={e => setForm({ ...form, start_date_picker: e.target.value, end_date_picker: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-label="Calendar start date picker" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Start Time</label>
-          <select
-            value={partsToTimeString(form.start_hour, form.start_minute, form.start_ampm)}
-            onChange={e => {
-              const value = e.target.value;
-              const [time, ap] = value.split(' ');
-              const [hh, mm] = time.split(':');
-              setForm((prev: any) => ({
-                ...prev,
-                start_hour: hh,
-                start_minute: mm,
-                start_ampm: ap as 'AM' | 'PM',
-              }));
-            }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            aria-label="Start time"
-          >
-            {timeOptions.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+    <div className="min-w-0">
+      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">Assign to</label>
+      <CustomDropdown
+        value={form.assigned_to}
+        options={assignees.map(a => ({ id: a.id, title: a.name }))}
+        onChange={(id) => setForm({ ...form, assigned_to: id })}
+        placeholder="Select Assignee"
+        emptyMessage="No assignees found"
+      />
+    </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">End Date</label>
-          <input type="date" value={form.end_date_picker} onChange={e => setForm({ ...form, end_date_picker: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" aria-label="Calendar end date picker" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">End Time</label>
-          <select
-            value={partsToTimeString(form.end_hour, form.end_minute, form.end_ampm)}
-            onChange={e => {
-              const value = e.target.value;
-              const [time, ap] = value.split(' ');
-              const [hh, mm] = time.split(':');
-              setForm((prev: any) => ({
-                ...prev,
-                end_hour: hh,
-                end_minute: mm,
-                end_ampm: ap as 'AM' | 'PM',
-              }));
-            }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            aria-label="End time"
-          >
-            {timeOptions.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Priority</label>
-          <select value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value as 'low' | 'medium' | 'high' | 'urgent' })} className="w-full px-3 py-2 border border-gray-300 rounded-md">
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="urgent">Urgent</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Assign to</label>
-          <select value={form.assigned_to} onChange={e => setForm({ ...form, assigned_to: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md">
-            <option value="">Unassigned</option>
-            {assignees.map(a => (
-              <option key={a.id} value={a.id}>{a.name}</option>
-            ))}
-          </select>
-        </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 gap-y-2 sm:col-span-2">
+      <div className="min-w-0">
+        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">Start Date</label>
+        <CustomDatePicker
+          value={form.start_date_picker}
+          onChange={(date: string) => setForm({ ...form, start_date_picker: date, end_date_picker: date })}
+        />
       </div>
       <div>
-        <label className="block text-xs text-gray-600 mb-1">Location (optional)</label>
-        <input type="text" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Site address or office location" />
+        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">Start Time</label>
+        <TimeSelect
+          hour={form.start_hour}
+          minute={form.start_minute}
+          ampm={form.start_ampm}
+          options={timeOptions}
+          onChange={(h, m, ap) => setForm({ ...form, start_hour: h, start_minute: m, start_ampm: ap })}
+        />
+      </div>
+
+      <div className="min-w-0">
+        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">End Date</label>
+        <CustomDatePicker
+          value={form.end_date_picker}
+          onChange={(date: string) => setForm({ ...form, end_date_picker: date })}
+        />
       </div>
       <div>
-        <label className="block text-xs text-gray-600 mb-1">Meeting Link (optional)</label>
-        <input type="url" value={form.meeting_link} onChange={e => setForm({ ...form, meeting_link: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="https://zoom.us/j/..." />
+        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">End Time</label>
+        <TimeSelect
+          hour={form.end_hour}
+          minute={form.end_minute}
+          ampm={form.end_ampm}
+          options={(() => {
+            const startDate = toDDMMYYYYFromPicker(form.start_date_picker);
+            const endDate = toDDMMYYYYFromPicker(form.end_date_picker) || startDate;
+
+            if (startDate === endDate) {
+              const startTimeStr = partsToTimeString(form.start_hour, form.start_minute, form.start_ampm);
+              const startIso = parseISTToISO(startDate, startTimeStr);
+
+              if (startIso) {
+                const startTs = new Date(startIso).getTime();
+                return timeOptions.filter(opt => {
+                  const optIso = parseISTToISO(endDate, opt);
+                  return optIso && new Date(optIso).getTime() > startTs;
+                });
+              }
+            }
+            return timeOptions;
+          })()}
+          onChange={(h, m, ap) => setForm({ ...form, end_hour: h, end_minute: m, end_ampm: ap })}
+        />
       </div>
-      <div className="flex justify-end gap-2 pt-2">
-        <button onClick={closeModal} className="btn-secondary">Cancel</button>
-        <button onClick={saveTask} className="btn-primary">{isEditing ? 'Save Changes' : 'Create Task'}</button>
-      </div>
+    </div>
+
+    <div className="min-w-0">
+      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">Priority</label>
+      <CustomDropdown
+        value={form.priority}
+        options={[
+          { id: 'low', title: 'Low' },
+          { id: 'medium', title: 'Medium' },
+          { id: 'high', title: 'High' },
+          { id: 'urgent', title: 'Urgent' }
+        ]}
+        onChange={(val) => setForm({ ...form, priority: val as any })}
+        placeholder="Select Priority"
+      />
+    </div>
+
+    <div>
+      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">Location (optional)</label>
+      <input type="text" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-yellow-500" placeholder="Site address or office location" />
+    </div>
+
+    <div className="sm:col-span-2">
+      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">Meeting Link (optional)</label>
+      <input type="url" value={form.meeting_link} onChange={e => setForm({ ...form, meeting_link: e.target.value })} className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-yellow-500" placeholder="https://zoom.us/j/..." />
+    </div>
+    <div className="sm:col-span-2 flex justify-end gap-2 pt-2 mt-0.5 border-t border-gray-100">
+      <button onClick={closeModal} className="btn-secondary py-1.5">Cancel</button>
+      <button onClick={saveTask} className="btn-primary py-1.5 font-medium">{isEditing ? 'Save Changes' : 'Create Task'}</button>
     </div>
   </div>
 );
@@ -1435,17 +1459,15 @@ export default function TasksPage() {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const { supabase } = await import('@/lib/supabase');
-        const { data, error } = await supabase
-          .from('projects')
-          .select('id,title,status')
-          .neq('status', 'completed')
-          .order('title', { ascending: true })
-          .limit(100);
-        if (!error && Array.isArray(data)) {
-          setProjects(data.map(p => ({ id: p.id as string, title: (p as any).title as string })));
+        const res = await fetch('/api/admin/projects');
+        if (!res.ok) throw new Error('Failed to fetch projects');
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setProjects(data.map(p => ({ id: p.id as string, title: p.title as string })));
         }
-      } catch { }
+      } catch (e: any) {
+        console.error('Error fetching projects:', e.message);
+      }
     };
     fetchProjects();
   }, []);
@@ -1455,489 +1477,479 @@ export default function TasksPage() {
 
   return (
     <div className="flex h-full overflow-hidden">
-      {/* Sidebar - Desktop Only */}
-      {!isMobile && showSidebar && (
-        <aside className="w-64 bg-white border-r border-gray-200 flex-shrink-0 flex flex-col">
-          <div className="p-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Task Manager</h2>
-          </div>
-          <nav className="flex-1 overflow-y-auto p-2 space-y-1">
-            <button
-              onClick={() => setActiveCategory('for-me')}
-              className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeCategory === 'for-me'
-                ? 'bg-yellow-500 text-gray-900'
-                : 'text-gray-700 hover:bg-gray-100'
-                }`}
-            >
-              <div className="flex items-center gap-3">
-                <FiUser className="w-5 h-5" />
-                <span>Tasks for me</span>
-              </div>
-              <span className={`inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded ${activeCategory === 'for-me' ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-700'
-                }`}>
-                {categoryCounts.forMe}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveCategory('by-me')}
-              className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeCategory === 'by-me'
-                ? 'bg-yellow-500 text-gray-900'
-                : 'text-gray-700 hover:bg-gray-100'
-                }`}
-            >
-              <div className="flex items-center gap-3">
-                <FiClock className="w-5 h-5" />
-                <span>Tasks by me</span>
-              </div>
-              <span className={`inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded ${activeCategory === 'by-me' ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-700'
-                }`}>
-                {categoryCounts.byMe}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveCategory('all')}
-              className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeCategory === 'all'
-                ? 'bg-yellow-500 text-gray-900'
-                : 'text-gray-700 hover:bg-gray-100'
-                }`}
-            >
-              <div className="flex items-center gap-3">
-                <FiList className="w-5 h-5" />
-                <span>All Tasks</span>
-              </div>
-              <span className={`inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded ${activeCategory === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-700'
-                }`}>
-                {categoryCounts.all}
-              </span>
-            </button>
-
-            <div className="mt-4 pt-4 border-t border-gray-200">
+      {/* Main Content with Top Nav */}
+      <div className="flex flex-col flex-1 min-w-0 bg-gray-50 overflow-hidden">
+        {/* Top Navigation Tabs - Desktop Only */}
+        {!isMobile && (
+          <div className="bg-white border-b border-gray-200 px-4 sm:px-6 z-10 flex-shrink-0">
+            <nav className="-mb-px flex space-x-8 overflow-x-auto no-scrollbar" aria-label="Tabs">
               <button
-                onClick={() => setActiveCategory('proposals')}
-                className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeCategory === 'proposals'
-                  ? 'bg-yellow-500 text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
+                onClick={() => setActiveCategory('for-me')}
+                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${activeCategory === 'for-me'
+                  ? 'border-yellow-500 text-yellow-700'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
               >
-                <div className="flex items-center gap-3">
-                  <FiFileText className="w-5 h-5" />
-                  <span>Proposals</span>
-                </div>
+                <FiUser className="w-4 h-4" />
+                Tasks for me
+                <span className={`ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium ${activeCategory === 'for-me' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-900'
+                  }`}>
+                  {categoryCounts.forMe}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveCategory('by-me')}
+                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${activeCategory === 'by-me'
+                  ? 'border-yellow-500 text-yellow-700'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+              >
+                <FiClock className="w-4 h-4" />
+                Tasks by me
+                <span className={`ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium ${activeCategory === 'by-me' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-900'
+                  }`}>
+                  {categoryCounts.byMe}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveCategory('all')}
+                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${activeCategory === 'all'
+                  ? 'border-yellow-500 text-yellow-700'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+              >
+                <FiList className="w-4 h-4" />
+                All Tasks
+                <span className={`ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium ${activeCategory === 'all' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-900'
+                  }`}>
+                  {categoryCounts.all}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveCategory('proposals')}
+                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${activeCategory === 'proposals'
+                  ? 'border-yellow-500 text-yellow-700'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+              >
+                <FiFileText className="w-4 h-4" />
+                Proposals
                 {proposals.length > 0 && (
-                  <span className={`inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded ${activeCategory === 'proposals' ? 'bg-white text-yellow-700' : 'bg-yellow-100 text-yellow-700'
+                  <span className={`ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium ${activeCategory === 'proposals' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-900'
                     }`}>
                     {proposals.length}
                   </span>
                 )}
               </button>
-            </div>
-          </nav>
-        </aside>
-      )}
+            </nav>
+          </div>
+        )}
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        <div className="space-y-4 p-4">
-          {activeCategory === 'proposals' ? (
-            <>
-              <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold text-gray-900">Pending Proposals</h1>
-              </div>
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-auto">
+          <div className="space-y-4 p-4 lg:p-6 w-full max-w-[1600px] mx-auto pb-24 lg:pb-6">
+            {activeCategory === 'proposals' ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <h1 className="text-2xl font-bold text-gray-900">Pending Proposals</h1>
+                </div>
 
-              {loadingProposals ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500" />
-                </div>
-              ) : proposals.length === 0 ? (
-                <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-                  <FiFileText className="w-12 h-12 mx-auto text-gray-300 mb-4" />
-                  <p className="text-gray-500">No pending proposals</p>
-                  <p className="text-sm text-gray-400 mt-1">Proposals sent from BOQ will appear here for approval</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {proposals.map((proposal: any) => (
-                    <div key={proposal.id} className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-                      {/* Header */}
-                      <div className="p-4 border-b border-gray-100">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              {proposal.project?.title && (
-                                <span className="text-xs font-medium px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded">
-                                  {proposal.project.title}
-                                </span>
+                {loadingProposals ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500" />
+                  </div>
+                ) : proposals.length === 0 ? (
+                  <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                    <FiFileText className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+                    <p className="text-gray-500">No pending proposals</p>
+                    <p className="text-sm text-gray-400 mt-1">Proposals sent from BOQ will appear here for approval</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {proposals.map((proposal: any) => (
+                      <div key={proposal.id} className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+                        {/* Header */}
+                        <div className="p-4 border-b border-gray-100">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                {proposal.project?.title && (
+                                  <span className="text-xs font-medium px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded">
+                                    {proposal.project.title}
+                                  </span>
+                                )}
+                              </div>
+                              <h3 className="font-semibold text-gray-900 text-lg">{proposal.title}</h3>
+                              {proposal.description && (
+                                <p className="text-sm text-gray-500 mt-1">{proposal.description}</p>
                               )}
+                              <div className="flex flex-wrap gap-3 mt-3 text-sm">
+                                <span className="text-gray-600">
+                                  <span className="font-medium">Sent by:</span> {proposal.created_by_user?.full_name || 'Unknown'}
+                                </span>
+                                <span className="text-gray-600">
+                                  <span className="font-medium">Date:</span> {new Date(proposal.sent_at || proposal.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </span>
+                              </div>
                             </div>
-                            <h3 className="font-semibold text-gray-900 text-lg">{proposal.title}</h3>
-                            {proposal.description && (
-                              <p className="text-sm text-gray-500 mt-1">{proposal.description}</p>
-                            )}
-                            <div className="flex flex-wrap gap-3 mt-3 text-sm">
-                              <span className="text-gray-600">
-                                <span className="font-medium">Sent by:</span> {proposal.created_by_user?.full_name || 'Unknown'}
-                              </span>
-                              <span className="text-gray-600">
-                                <span className="font-medium">Date:</span> {new Date(proposal.sent_at || proposal.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                              </span>
+                            <div className="flex flex-col gap-2 ml-4">
+                              <button
+                                onClick={() => handleApproveProposal(proposal.id)}
+                                className="btn-base px-4 py-2 bg-green-600 text-white hover:bg-green-700 text-sm"
+                              >
+                                <FiCheckCircle className="w-4 h-4" />
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handleRejectProposal(proposal.id)}
+                                className="btn-base px-4 py-2 bg-red-100 text-red-700 hover:bg-red-200 text-sm"
+                              >
+                                <FiXCircle className="w-4 h-4" />
+                                Reject
+                              </button>
                             </div>
                           </div>
-                          <div className="flex flex-col gap-2 ml-4">
-                            <button
-                              onClick={() => handleApproveProposal(proposal.id)}
-                              className="btn-base px-4 py-2 bg-green-600 text-white hover:bg-green-700 text-sm"
-                            >
-                              <FiCheckCircle className="w-4 h-4" />
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => handleRejectProposal(proposal.id)}
-                              className="btn-base px-4 py-2 bg-red-100 text-red-700 hover:bg-red-200 text-sm"
-                            >
-                              <FiXCircle className="w-4 h-4" />
-                              Reject
-                            </button>
+                        </div>
+
+                        {/* Item Details */}
+                        <div className="p-4 bg-gray-50">
+                          <h4 className="text-sm font-medium text-gray-700 mb-3">
+                            Items ({proposal.selected_items?.length || 0})
+                          </h4>
+                          {proposal.items && proposal.items.length > 0 ? (
+                            <div className="space-y-2">
+                              {proposal.items.map((item: any) => (
+                                <div key={item.id} className="flex justify-between items-center py-2 px-3 bg-white rounded border border-gray-100">
+                                  <div className="flex-1">
+                                    <p className="font-medium text-gray-900">{item.item_name}</p>
+                                    <p className="text-xs text-gray-500">
+                                      {item.quantity} × ₹{(item.rate || 0).toLocaleString('en-IN')}
+                                    </p>
+                                  </div>
+                                  <span className="font-medium text-gray-900">
+                                    ₹{(item.amount || 0).toLocaleString('en-IN')}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-400 italic">Item details not loaded</p>
+                          )}
+
+                          {/* Total */}
+                          <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-200">
+                            <span className="font-semibold text-gray-700">Total Amount</span>
+                            <span className="text-xl font-bold text-yellow-700">
+                              ₹{(proposal.total_amount || 0).toLocaleString('en-IN')}
+                            </span>
                           </div>
                         </div>
                       </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
+                  <div className="hidden sm:flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setModalOpen(true)}
+                      className="btn-primary"
+                    >
+                      <FiPlus className="h-4 w-4 mr-1" />
+                      New Task
+                    </button>
+                  </div>
+                </div>
 
-                      {/* Item Details */}
-                      <div className="p-4 bg-gray-50">
-                        <h4 className="text-sm font-medium text-gray-700 mb-3">
-                          Items ({proposal.selected_items?.length || 0})
-                        </h4>
-                        {proposal.items && proposal.items.length > 0 ? (
-                          <div className="space-y-2">
-                            {proposal.items.map((item: any) => (
-                              <div key={item.id} className="flex justify-between items-center py-2 px-3 bg-white rounded border border-gray-100">
-                                <div className="flex-1">
-                                  <p className="font-medium text-gray-900">{item.item_name}</p>
-                                  <p className="text-xs text-gray-500">
-                                    {item.quantity} × ₹{(item.rate || 0).toLocaleString('en-IN')}
-                                  </p>
+                <div className="tasks-calendar-card bg-white border border-gray-200 rounded-lg p-3 shadow-sm" role="region" aria-label="Tasks calendar" aria-live="polite">
+                  <div className="flex flex-wrap items-center gap-3 mb-3">
+                    <div className="inline-flex items-center gap-2">
+                      <FiFilter className="h-4 w-4 text-gray-600" />
+                      <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)} className="px-2 py-1 border border-gray-300 rounded-md text-sm">
+                        <option value="all">All assignees</option>
+                        {assignees.map(a => (
+                          <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="inline-flex items-center gap-2">
+                      <FiUser className="h-4 w-4 text-gray-600" />
+                      <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)} className="px-2 py-1 border border-gray-300 rounded-md text-sm">
+                        <option value="all">All status</option>
+                        <option value="todo">To Do</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="blocked">Blocked</option>
+                        <option value="done">Completed</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-gray-200">
+                    <Calendar
+                      localizer={localizer}
+                      events={events}
+                      startAccessor="start"
+                      endAccessor="end"
+                      view={view}
+                      date={date}
+                      min={minTime}
+                      max={maxTime}
+                      step={30}
+                      timeslots={2}
+                      showAllDayEventRow={false}
+                      onView={(v: CalendarViewType) => setView(v)}
+                      onNavigate={(d: Date) => setDate(d)}
+                      formats={customFormats}
+                      selectable
+                      onSelectSlot={(slotInfo: any) => {
+                        console.log('Slot selected raw info:', slotInfo);
+
+                        let selectedTime: Date;
+
+                        if (slotInfo.start instanceof Date) {
+                          selectedTime = new Date(slotInfo.start);
+                        } else {
+                          selectedTime = new Date(slotInfo.start);
+                        }
+
+                        // If user clicks on the "all day" section or top of the day, 
+                        // it might return 00:00. We might want to default to something sensible
+                        // or just respect whatever was clicked.
+                        // For week/day view, slotInfo.start is the exact slot.
+
+                        console.log('Derived selected time:', selectedTime.toString(),
+                          'Hours:', selectedTime.getHours(),
+                          'Minutes:', selectedTime.getMinutes());
+
+                        openCreateAt(selectedTime);
+                      }}
+                      onSelectEvent={(event: any) => {
+                        const task: CalendarTask | undefined = event.resource;
+                        if (task) {
+                          openViewTask(task);
+                        }
+                      }}
+                      components={{
+                        event: (props: any) => <EventComp {...props} view={view} onSelectEvent={onSelectEvent} />,
+                        toolbar: TasksToolbar,
+                        month: {
+                          dateHeader: ({ date, label }: { date: Date; label: string }) => {
+                            let isToday = false;
+                            try {
+                              isToday = format(new Date(), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
+                            } catch (e) {
+                              // Ignore format errors
+                            }
+                            return (
+                              <div className="rbc-date-cell">
+                                <div className={`rbc-date-cell-content ${isToday ? 'rbc-now' : ''}`}>
+                                  {label}
                                 </div>
-                                <span className="font-medium text-gray-900">
-                                  ₹{(item.amount || 0).toLocaleString('en-IN')}
-                                </span>
                               </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-sm text-gray-400 italic">Item details not loaded</p>
-                        )}
+                            );
+                          }
+                        }
+                      }}
+                      style={{
+                        height: '100%',
+                        minHeight: '600px',
+                        '--rbc-today-bg': '#f0f9ff',
+                        '--rbc-off-range-bg': '#f9fafb',
+                        '--rbc-event-bg': '#4f46e5',
+                        '--rbc-event-color': '#fff',
+                        '--rbc-current-time-indicator': '#4f46e5',
+                      } as React.CSSProperties}
+                      popup
+                      messages={{
+                        showMore: (count: number) => `+${count} more` as any,
+                        noEventsInRange: loading ? 'Loading...' : 'No tasks'
+                      }}
+                      className="tasks-calendar"
+                    />
+                  </div>
+                </div>
 
-                        {/* Total */}
-                        <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-200">
-                          <span className="font-semibold text-gray-700">Total Amount</span>
-                          <span className="text-xl font-bold text-yellow-700">
-                            ₹{(proposal.total_amount || 0).toLocaleString('en-IN')}
-                          </span>
+                <button
+                  type="button"
+                  onClick={() => openCreateAt(new Date())}
+                  className="fixed bottom-20 right-4 z-40 w-14 h-14 bg-yellow-400 text-yellow-900 rounded-full shadow-lg flex items-center justify-center hover:bg-yellow-500 active:scale-95 transition-all duration-200 sm:hidden"
+                  aria-label="Add new task"
+                >
+                  <FiPlus className="w-6 h-6" />
+                </button>
+
+                {
+                  error && (
+                    <div className="bg-red-50 border-l-4 border-red-500 p-3 text-sm text-red-700 rounded">{error}</div>
+                  )
+                }
+
+                {/* Mobile: BottomSheet for View Task */}
+                <BottomSheet
+                  isOpen={viewModalOpen && isMobile}
+                  onClose={handleCloseViewModal}
+                  title="Task Details"
+                >
+                  {viewTask && (
+                    <ViewTaskContent
+                      viewTask={viewTask}
+                      projects={projects}
+                      assignees={assignees}
+                      onClose={handleCloseViewModal}
+                      onEdit={openEditTask}
+                      onMarkAsDone={handleMarkAsDone}
+                      formatISTDate={formatISTDate}
+                      formatISTTime={formatISTTime}
+                    />
+                  )}
+                </BottomSheet>
+
+                {/* Desktop: Modal for View Task */}
+                {
+                  viewModalOpen && !isMobile && viewTask && (
+                    <div
+                      className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
+                      onClick={handleCloseViewModal}
+                    >
+                      <div
+                        className="bg-white rounded-lg shadow-xl w-full max-w-lg p-5"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <h2 className="text-lg font-semibold text-gray-900">Task Details</h2>
+                          <button
+                            onClick={handleCloseViewModal}
+                            className="btn-ghost rounded-md"
+                          >
+                            <FiX className="w-5 h-5" />
+                          </button>
                         </div>
+                        <ViewTaskContent
+                          viewTask={viewTask}
+                          projects={projects}
+                          assignees={assignees}
+                          onClose={handleCloseViewModal}
+                          onEdit={openEditTask}
+                          onMarkAsDone={handleMarkAsDone}
+                          formatISTDate={formatISTDate}
+                          formatISTTime={formatISTTime}
+                        />
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
-                <div className="hidden sm:flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setModalOpen(true)}
-                    className="btn-primary"
-                  >
-                    <FiPlus className="h-4 w-4 mr-1" />
-                    New Task
-                  </button>
-                </div>
-              </div>
+                  )
+                }
 
-              <div className="tasks-calendar-card bg-white border border-gray-200 rounded-lg p-3 shadow-sm" role="region" aria-label="Tasks calendar" aria-live="polite">
-                <div className="flex flex-wrap items-center gap-3 mb-3">
-                  <div className="inline-flex items-center gap-2">
-                    <FiFilter className="h-4 w-4 text-gray-600" />
-                    <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)} className="px-2 py-1 border border-gray-300 rounded-md text-sm">
-                      <option value="all">All assignees</option>
-                      {assignees.map(a => (
-                        <option key={a.id} value={a.id}>{a.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="inline-flex items-center gap-2">
-                    <FiUser className="h-4 w-4 text-gray-600" />
-                    <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)} className="px-2 py-1 border border-gray-300 rounded-md text-sm">
-                      <option value="all">All status</option>
-                      <option value="todo">To Do</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="blocked">Blocked</option>
-                      <option value="done">Completed</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-gray-200">
-                  <Calendar
-                    localizer={localizer}
-                    events={events}
-                    startAccessor="start"
-                    endAccessor="end"
-                    view={view}
-                    date={date}
-                    min={minTime}
-                    max={maxTime}
-                    step={30}
-                    timeslots={2}
-                    showAllDayEventRow={false}
-                    onView={(v: CalendarViewType) => setView(v)}
-                    onNavigate={(d: Date) => setDate(d)}
-                    formats={customFormats}
-                    selectable
-                    onSelectSlot={(slotInfo: any) => {
-                      console.log('Slot selected raw info:', slotInfo);
-
-                      let selectedTime: Date;
-
-                      if (slotInfo.start instanceof Date) {
-                        selectedTime = new Date(slotInfo.start);
-                      } else {
-                        selectedTime = new Date(slotInfo.start);
-                      }
-
-                      // If user clicks on the "all day" section or top of the day, 
-                      // it might return 00:00. We might want to default to something sensible
-                      // or just respect whatever was clicked.
-                      // For week/day view, slotInfo.start is the exact slot.
-
-                      console.log('Derived selected time:', selectedTime.toString(),
-                        'Hours:', selectedTime.getHours(),
-                        'Minutes:', selectedTime.getMinutes());
-
-                      openCreateAt(selectedTime);
-                    }}
-                    onSelectEvent={(event: any) => {
-                      const task: CalendarTask | undefined = event.resource;
-                      if (task) {
-                        openViewTask(task);
-                      }
-                    }}
-                    components={{
-                      event: (props: any) => <EventComp {...props} view={view} onSelectEvent={onSelectEvent} />,
-                      toolbar: TasksToolbar,
-                      month: {
-                        dateHeader: ({ date, label }: { date: Date; label: string }) => {
-                          let isToday = false;
-                          try {
-                            isToday = format(new Date(), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
-                          } catch (e) {
-                            // Ignore format errors
-                          }
-                          return (
-                            <div className="rbc-date-cell">
-                              <div className={`rbc-date-cell-content ${isToday ? 'rbc-now' : ''}`}>
-                                {label}
-                              </div>
-                            </div>
-                          );
-                        }
-                      }
-                    }}
-                    style={{
-                      height: '100%',
-                      minHeight: '600px',
-                      '--rbc-today-bg': '#f0f9ff',
-                      '--rbc-off-range-bg': '#f9fafb',
-                      '--rbc-event-bg': '#4f46e5',
-                      '--rbc-event-color': '#fff',
-                      '--rbc-current-time-indicator': '#4f46e5',
-                    } as React.CSSProperties}
-                    popup
-                    messages={{
-                      showMore: (count: number) => `+${count} more` as any,
-                      noEventsInRange: loading ? 'Loading...' : 'No tasks'
-                    }}
-                    className="tasks-calendar"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => openCreateAt(new Date())}
-                className="fixed bottom-20 right-4 z-40 w-14 h-14 bg-yellow-400 text-yellow-900 rounded-full shadow-lg flex items-center justify-center hover:bg-yellow-500 active:scale-95 transition-all duration-200 sm:hidden"
-                aria-label="Add new task"
-              >
-                <FiPlus className="w-6 h-6" />
-              </button>
-
-              {
-                error && (
-                  <div className="bg-red-50 border-l-4 border-red-500 p-3 text-sm text-red-700 rounded">{error}</div>
-                )
-              }
-
-              {/* Mobile: BottomSheet for View Task */}
-              <BottomSheet
-                isOpen={viewModalOpen && isMobile}
-                onClose={handleCloseViewModal}
-                title="Task Details"
-              >
-                {viewTask && (
-                  <ViewTaskContent
-                    viewTask={viewTask}
+                {/* Mobile: BottomSheet for Create/Edit Task */}
+                <BottomSheet
+                  isOpen={modalOpen && isMobile}
+                  onClose={handleCloseFormModal}
+                  title={isEditing ? 'Edit Task' : 'Create Task'}
+                >
+                  <TaskFormContent
+                    form={form}
+                    setForm={setForm}
                     projects={projects}
                     assignees={assignees}
-                    onClose={handleCloseViewModal}
-                    onEdit={openEditTask}
-                    onMarkAsDone={handleMarkAsDone}
-                    formatISTDate={formatISTDate}
-                    formatISTTime={formatISTTime}
+                    titleSuggestions={titleSuggestions}
+                    timeOptions={timeOptions}
+                    isEditing={isEditing}
+                    saveTask={saveTask}
+                    closeModal={handleCloseFormModal}
+                    partsToTimeString={partsToTimeString}
                   />
-                )}
-              </BottomSheet>
+                </BottomSheet>
 
-              {/* Desktop: Modal for View Task */}
-              {
-                viewModalOpen && !isMobile && viewTask && (
-                  <div
-                    className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
-                    onClick={handleCloseViewModal}
-                  >
+                {/* Desktop: Modal for Create/Edit Task */}
+                {
+                  modalOpen && !isMobile && (
                     <div
-                      className="bg-white rounded-lg shadow-xl w-full max-w-lg p-5"
-                      onClick={(e) => e.stopPropagation()}
+                      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-3 sm:px-0"
+                      onClick={handleCloseFormModal}
                     >
-                      <div className="flex items-center justify-between mb-3">
-                        <h2 className="text-lg font-semibold text-gray-900">Task Details</h2>
+                      <div
+                        className="bg-white rounded-lg shadow-xl w-full max-w-md sm:max-w-2xl max-h-[95vh] overflow-y-auto p-3 sm:p-4"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <h2 className="text-lg font-semibold text-gray-900">{isEditing ? 'Edit Task' : 'Create Task'}</h2>
+                          <button
+                            onClick={handleCloseFormModal}
+                            className="btn-ghost rounded-md"
+                          >
+                            <FiX className="w-5 h-5" />
+                          </button>
+                        </div>
+                        <TaskFormContent
+                          form={form}
+                          setForm={setForm}
+                          projects={projects}
+                          assignees={assignees}
+                          titleSuggestions={titleSuggestions}
+                          timeOptions={timeOptions}
+                          isEditing={isEditing}
+                          saveTask={saveTask}
+                          closeModal={handleCloseFormModal}
+                          partsToTimeString={partsToTimeString}
+                        />
+                      </div>
+                    </div>
+                  )
+                }
+
+                {/* Mobile Bottom Navigation */}
+                {
+                  isMobile && (
+                    <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-30">
+                      <div className="flex justify-around">
                         <button
-                          onClick={handleCloseViewModal}
-                          className="btn-ghost rounded-md"
+                          onClick={() => setActiveCategory('for-me')}
+                          className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'for-me' ? 'text-yellow-600' : 'text-gray-600'}`}
                         >
-                          <FiX className="w-5 h-5" />
+                          <FiUser className="w-5 h-5" />
+                          <span className="text-xs">For Me</span>
+                          {categoryCounts.forMe > 0 && (
+                            <span className="absolute top-1 right-1/4 bg-yellow-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                              {categoryCounts.forMe}
+                            </span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => setActiveCategory('by-me')}
+                          className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'by-me' ? 'text-yellow-600' : 'text-gray-600'}`}
+                        >
+                          <FiClock className="w-5 h-5" />
+                          <span className="text-xs">By Me</span>
+                          {categoryCounts.byMe > 0 && (
+                            <span className="absolute top-1 right-1/4 bg-yellow-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                              {categoryCounts.byMe}
+                            </span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => setActiveCategory('all')}
+                          className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'all' ? 'text-yellow-600' : 'text-gray-600'}`}
+                        >
+                          <FiList className="w-5 h-5" />
+                          <span className="text-xs">All</span>
+                          {categoryCounts.all > 0 && (
+                            <span className="absolute top-1 right-1/4 bg-yellow-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                              {categoryCounts.all}
+                            </span>
+                          )}
                         </button>
                       </div>
-                      <ViewTaskContent
-                        viewTask={viewTask}
-                        projects={projects}
-                        assignees={assignees}
-                        onClose={handleCloseViewModal}
-                        onEdit={openEditTask}
-                        onMarkAsDone={handleMarkAsDone}
-                        formatISTDate={formatISTDate}
-                        formatISTTime={formatISTTime}
-                      />
                     </div>
-                  </div>
-                )
-              }
-
-              {/* Mobile: BottomSheet for Create/Edit Task */}
-              <BottomSheet
-                isOpen={modalOpen && isMobile}
-                onClose={handleCloseFormModal}
-                title={isEditing ? 'Edit Task' : 'Create Task'}
-              >
-                <TaskFormContent
-                  form={form}
-                  setForm={setForm}
-                  projects={projects}
-                  assignees={assignees}
-                  titleSuggestions={titleSuggestions}
-                  timeOptions={timeOptions}
-                  isEditing={isEditing}
-                  saveTask={saveTask}
-                  closeModal={handleCloseFormModal}
-                  partsToTimeString={partsToTimeString}
-                />
-              </BottomSheet>
-
-              {/* Desktop: Modal for Create/Edit Task */}
-              {
-                modalOpen && !isMobile && (
-                  <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-3 sm:px-0"
-                    onClick={handleCloseFormModal}
-                  >
-                    <div
-                      className="bg-white rounded-lg shadow-xl w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto p-3 sm:p-5"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <h2 className="text-lg font-semibold text-gray-900">{isEditing ? 'Edit Task' : 'Create Task'}</h2>
-                        <button
-                          onClick={handleCloseFormModal}
-                          className="btn-ghost rounded-md"
-                        >
-                          <FiX className="w-5 h-5" />
-                        </button>
-                      </div>
-                      <TaskFormContent
-                        form={form}
-                        setForm={setForm}
-                        projects={projects}
-                        assignees={assignees}
-                        titleSuggestions={titleSuggestions}
-                        timeOptions={timeOptions}
-                        isEditing={isEditing}
-                        saveTask={saveTask}
-                        closeModal={handleCloseFormModal}
-                        partsToTimeString={partsToTimeString}
-                      />
-                    </div>
-                  </div>
-                )
-              }
-
-              {/* Mobile Bottom Navigation */}
-              {
-                isMobile && (
-                  <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-30">
-                    <div className="flex justify-around">
-                      <button
-                        onClick={() => setActiveCategory('for-me')}
-                        className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'for-me' ? 'text-yellow-600' : 'text-gray-600'}`}
-                      >
-                        <FiUser className="w-5 h-5" />
-                        <span className="text-xs">For Me</span>
-                        {categoryCounts.forMe > 0 && (
-                          <span className="absolute top-1 right-1/4 bg-yellow-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                            {categoryCounts.forMe}
-                          </span>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => setActiveCategory('by-me')}
-                        className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'by-me' ? 'text-yellow-600' : 'text-gray-600'}`}
-                      >
-                        <FiClock className="w-5 h-5" />
-                        <span className="text-xs">By Me</span>
-                        {categoryCounts.byMe > 0 && (
-                          <span className="absolute top-1 right-1/4 bg-yellow-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                            {categoryCounts.byMe}
-                          </span>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => setActiveCategory('all')}
-                        className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'all' ? 'text-yellow-600' : 'text-gray-600'}`}
-                      >
-                        <FiList className="w-5 h-5" />
-                        <span className="text-xs">All</span>
-                        {categoryCounts.all > 0 && (
-                          <span className="absolute top-1 right-1/4 bg-yellow-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                            {categoryCounts.all}
-                          </span>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                )}
-            </>
-          )}
+                  )}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
