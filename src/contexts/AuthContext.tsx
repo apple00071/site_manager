@@ -461,9 +461,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Save persistent values we don't want to clear
         const tourCompleted = localStorage.getItem('apple_admin_tour_completed');
         const pendingPush = localStorage.getItem('pending_push_route');
-        
+        const womensDayDismissed = localStorage.getItem('womens_day_2026_dismissed');
+
         localStorage.clear();
-        
+
         // Restore persistent values
         if (tourCompleted) {
           localStorage.setItem('apple_admin_tour_completed', tourCompleted);
@@ -471,7 +472,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (pendingPush) {
           localStorage.setItem('pending_push_route', pendingPush);
         }
-        
+        if (womensDayDismissed) {
+          localStorage.setItem('womens_day_2026_dismissed', womensDayDismissed);
+        }
+
         sessionStorage.clear();
       }
 

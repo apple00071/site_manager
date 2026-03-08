@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { AuthProvider } from '@/contexts/AuthContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { ToastProvider } from '@/components/ui/Toast';
+import WomensDayPopup from '@/components/WomensDayPopup';
 
 
 export default function ClientLayout({
@@ -84,6 +85,7 @@ export default function ClientLayout({
       <ToastProvider>
         <AuthProvider>
 
+          <WomensDayPopup />
           {children}
         </AuthProvider>
       </ToastProvider>
