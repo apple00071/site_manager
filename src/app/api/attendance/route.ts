@@ -17,23 +17,18 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const date = searchParams.get('date');
         const userId = searchParams.get('user_id');
+        const latestOnly = searchParams.get('latest') === 'true';
 
         const { data: userData } = await supabaseAdmin.from('users').select('role').eq('id', userResult.user.id).single();
         const isAdmin = userData?.role === 'admin';
 
         // Check permission: Admins can view anything, employees can view THEIR OWN logs
-        // If an employee is trying to view someone else's log (userId provided), they need ATTENDANCE_VIEW
         if (!isAdmin && userId && userId !== userResult.user.id) {
             const check = await verifyPermission(userResult.user.id, PERMISSION_NODES.ATTENDANCE_VIEW);
             if (!check.allowed) {
                 return NextResponse.json({ error: check.message }, { status: 403 });
             }
         }
-
-        // If it's a general list request (no date/userId) or filtering by date only, 
-        // employees still need ATTENDANCE_VIEW if they want to see "Team" logs.
-        // But for today's status (used by widget), we should allow it.
-        // Let's just allow own logs bypass.
 
         let query = supabaseAdmin.from('attendance').select(`
             *,
@@ -51,7 +46,13 @@ export async function GET(request: NextRequest) {
             query = query.eq('date', date);
         }
 
-        const { data, error } = await query.order('date', { ascending: false });
+        if (latestOnly) {
+            query = query.order('date', { ascending: false }).order('check_in', { ascending: false }).limit(1);
+        } else {
+            query = query.order('date', { ascending: false });
+        }
+
+        const { data, error } = await query;
 
         if (error) {
             console.error('Error fetching attendance logs:', error);
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST: Punch In / Punch Out
+ * POST: Punch In / Punch Out / Quick Close
  */
 export async function POST(request: NextRequest) {
     try {
@@ -75,16 +76,16 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Check permission
+        const body = await request.json();
+        const action = body.action; // 'punch_in', 'punch_out', or 'quick_close'
+        const { latitude, longitude, date, check_out_time } = body;
+        const today = new Date().toISOString().split('T')[0];
+
+        // Permission check
         const check = await verifyPermission(userResult.user.id, PERMISSION_NODES.ATTENDANCE_LOG);
         if (!check.allowed) {
             return NextResponse.json({ error: check.message }, { status: 403 });
         }
-
-        const body = await request.json();
-        const action = body.action; // 'punch_in' or 'punch_out'
-        const { latitude, longitude } = body;
-        const today = new Date().toISOString().split('T')[0];
 
         if (action === 'punch_in') {
             const { data, error } = await supabaseAdmin
@@ -95,6 +96,7 @@ export async function POST(request: NextRequest) {
                     check_in: new Date().toISOString(),
                     check_in_latitude: latitude,
                     check_in_longitude: longitude,
+                    status: 'approved' // Normal punches are approved by default
                 }, { onConflict: 'user_id,date' })
                 .select()
                 .single();
@@ -131,9 +133,83 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(data);
         }
 
+        if (action === 'quick_close') {
+            if (!date || !check_out_time) {
+                return NextResponse.json({ error: 'Missing date or check-out time' }, { status: 400 });
+            }
+
+            // Create a ISO string for the check_out based on the record's date and the provided time
+            const checkOutDate = new Date(`${date}T${check_out_time}`);
+
+            const { data, error } = await supabaseAdmin
+                .from('attendance')
+                .update({
+                    check_out: checkOutDate.toISOString(),
+                    status: 'pending', // Requires admin approval
+                    admin_comments: 'Submitted via Quick Close (Forgotten Punch Out)'
+                })
+                .eq('user_id', userResult.user.id)
+                .eq('date', date)
+                .select()
+                .maybeSingle();
+
+            if (error) {
+                console.error('Quick close error:', error);
+                return NextResponse.json({ error: error.message }, { status: 500 });
+            }
+
+            return NextResponse.json(data);
+        }
+
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     } catch (error: any) {
         console.error('Unexpected error in POST /api/attendance:', error);
+        return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+    }
+}
+
+/**
+ * PATCH: Admin approval of attendance
+ */
+export async function PATCH(request: NextRequest) {
+    try {
+        const userResult = await getAuthUser();
+        if (!userResult.user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Verify Admin/Approve permission
+        const check = await verifyPermission(userResult.user.id, PERMISSION_NODES.ATTENDANCE_APPROVE);
+        if (!check.allowed) {
+            return NextResponse.json({ error: check.message }, { status: 403 });
+        }
+
+        const body = await request.json();
+        const { id, status, admin_comments } = body;
+
+        if (!['approved', 'rejected'].includes(status)) {
+            return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+        }
+
+        const { data, error } = await supabaseAdmin
+            .from('attendance')
+            .update({
+                status,
+                admin_comments,
+                resolved_at: new Date().toISOString()
+            })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Attendance approval error:', error);
+            return NextResponse.json({ error: error.message }, { status: 500 });
+        }
+
+        return NextResponse.json(data);
+    } catch (error: any) {
+        console.error('Unexpected error in PATCH /api/attendance:', error);
         return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
     }
 }

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
-import { FiPlus, FiUser, FiClock, FiCalendar, FiClipboard, FiTrash2, FiMapPin, FiSearch } from 'react-icons/fi';
+import { FiPlus, FiUser, FiClock, FiCalendar, FiClipboard, FiTrash2, FiMapPin, FiSearch, FiCheck, FiX } from 'react-icons/fi';
 import { useToast } from '@/components/ui/Toast';
 import LeaveRequestForm from '@/components/leaves/LeaveRequestForm';
 import LeaveApprovalModal from '@/components/leaves/LeaveApprovalModal';
@@ -13,6 +13,7 @@ import { Modal } from '@/components/ui/Modal';
 import { SidePanel } from '@/components/ui/SidePanel';
 import { formatDateIST } from '@/lib/dateUtils';
 import { DataTable, StatusBadge, Column } from '@/components/ui/DataTable';
+import { CustomDatePicker } from '@/components/ui/CustomControls';
 
 interface AttendanceRecord {
     id: string;
@@ -20,6 +21,8 @@ interface AttendanceRecord {
     check_in: string;
     check_out?: string;
     user_id: string;
+    status: 'approved' | 'pending' | 'rejected';
+    admin_comments?: string;
     users?: {
         full_name: string;
         email: string;
@@ -78,6 +81,7 @@ export default function AttendancePage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterMonth, setFilterMonth] = useState<number>(new Date().getMonth());
     const [filterYear, setFilterYear] = useState<number>(new Date().getFullYear());
+    const [filterDate, setFilterDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
     // Responsiveness
     const [isMobile, setIsMobile] = useState(false);
@@ -123,21 +127,45 @@ export default function AttendancePage() {
                 const data = await res.json();
                 setLeaves(data.leaves);
             }
-        } catch (error) {
-            console.error('Error fetching leaves:', error);
+        } catch (_) {
+            console.error('Error fetching leaves');
             showToast('error', 'Failed to load leave requests');
         } finally {
             setLeavesLoading(false);
         }
     };
 
-    const filteredAttendance = attendanceLogs.filter(log => {
-        // Month/Year Filter
-        const logDate = new Date(log.date);
-        const matchesMonth = logDate.getMonth() === filterMonth;
-        const matchesYear = logDate.getFullYear() === filterYear;
+    const handleApproval = async (id: string, status: 'approved' | 'rejected') => {
+        try {
+            const res = await fetch('/api/attendance', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, status, admin_comments: `Action taken by ${user?.full_name}` })
+            });
 
-        if (!matchesMonth || !matchesYear) return false;
+            if (res.ok) {
+                showToast('success', `Attendance ${status} successfully`);
+                fetchAttendance();
+            } else {
+                const err = await res.json();
+                showToast('error', err.error || `Failed to ${status} attendance`);
+            }
+        } catch (_) {
+            showToast('error', 'Something went wrong');
+        }
+    };
+
+    const filteredAttendance = attendanceLogs.filter(log => {
+        // Date Filter (Day-wise for Admin)
+        if (isAdmin && filterDate && log.date !== filterDate) return false;
+        
+        // Month Filter for employees
+        if (!isAdmin) {
+            const logDate = new Date(log.date);
+            const matchesMonth = logDate.getMonth() === filterMonth;
+            const matchesYear = logDate.getFullYear() === filterYear;
+            if (!matchesMonth || !matchesYear) return false;
+        }
 
         // Search Filter
         if (!searchQuery) return true;
@@ -194,7 +222,10 @@ export default function AttendancePage() {
                     <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
                         <FiUser className="w-4 h-4" />
                     </div>
-                    <span className="text-sm font-medium text-gray-900">{row.users?.full_name}</span>
+                    <div>
+                        <p className="text-sm font-medium text-gray-900 leading-none">{row.users?.full_name}</p>
+                        <p className="text-[10px] text-gray-500 mt-1">{row.users?.email}</p>
+                    </div>
                 </div>
             )
         }] : []),
@@ -229,22 +260,45 @@ export default function AttendancePage() {
             key: 'check_out',
             label: 'Punch Out',
             render: (_, row: AttendanceRecord) => (
-                <div className="flex items-center gap-2">
-                    <span className="text-sm text-orange-600 font-medium">
-                        {row.check_out
-                            ? new Date(row.check_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                            : '—'}
-                    </span>
-                    {isAdmin && row.check_out && row.check_out_latitude && row.check_out_longitude && (
-                        <a
-                            href={`https://www.google.com/maps?q=${row.check_out_latitude},${row.check_out_longitude}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1 text-gray-400 hover:text-orange-500 rounded-full hover:bg-orange-50 transition-colors"
-                            title="View Check-out Location"
-                        >
-                            <FiMapPin className="w-3.5 h-3.5" />
-                        </a>
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                        <span className={`text-sm font-medium ${row.status === 'pending' ? 'text-yellow-600' : 'text-orange-600'}`}>
+                            {row.check_out
+                                ? new Date(row.check_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                : '—'}
+                        </span>
+                        {row.status === 'pending' && (
+                            <span className="px-1.5 py-0.5 text-[9px] font-bold bg-yellow-100 text-yellow-700 rounded uppercase tracking-wider">Pending</span>
+                        )}
+                        {isAdmin && row.check_out && row.check_out_latitude && row.check_out_longitude && (
+                            <a
+                                href={`https://www.google.com/maps?q=${row.check_out_latitude},${row.check_out_longitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1 text-gray-400 hover:text-orange-500 rounded-full hover:bg-orange-50 transition-colors"
+                                title="View Check-out Location"
+                            >
+                                <FiMapPin className="w-3.5 h-3.5" />
+                            </a>
+                        )}
+                    </div>
+                    {isAdmin && row.status === 'pending' && (
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => handleApproval(row.id, 'approved')}
+                                className="text-[10px] font-bold text-green-600 hover:text-green-700 flex items-center gap-0.5"
+                                title="Approve"
+                            >
+                                <FiCheck className="w-3 h-3" /> Approve
+                            </button>
+                            <button
+                                onClick={() => handleApproval(row.id, 'rejected')}
+                                className="text-[10px] font-bold text-red-600 hover:text-red-700 flex items-center gap-0.5"
+                                title="Reject"
+                            >
+                                <FiX className="w-3 h-3" /> Reject
+                            </button>
+                        </div>
                     )}
                 </div>
             )
@@ -397,18 +451,29 @@ export default function AttendancePage() {
                         />
                     </div>
                     {activeTab === 'attendance' && (
-                        <input
-                            type="month"
-                            value={`${filterYear}-${String(filterMonth + 1).padStart(2, '0')}`}
-                            onChange={(e) => {
-                                if (e.target.value) {
-                                    const [year, month] = e.target.value.split('-');
-                                    setFilterYear(parseInt(year, 10));
-                                    setFilterMonth(parseInt(month, 10) - 1);
-                                }
-                            }}
-                            className="w-full sm:w-auto px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500 transition-all shadow-sm text-gray-600 cursor-pointer"
-                        />
+                        <div className="flex gap-2 w-full sm:w-auto">
+                            {isAdmin ? (
+                                <CustomDatePicker
+                                    value={filterDate}
+                                    onChange={(date) => setFilterDate(date)}
+                                    placeholder="Filter by date"
+                                    className="w-full sm:w-48"
+                                />
+                            ) : (
+                                <input
+                                    type="month"
+                                    value={`${filterYear}-${String(filterMonth + 1).padStart(2, '0')}`}
+                                    onChange={(e) => {
+                                        if (e.target.value) {
+                                            const [year, month] = e.target.value.split('-');
+                                            setFilterYear(parseInt(year, 10));
+                                            setFilterMonth(parseInt(month, 10) - 1);
+                                        }
+                                    }}
+                                    className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500 transition-all shadow-sm text-gray-600 cursor-pointer"
+                                />
+                            )}
+                        </div>
                     )}
                 </div>
 
@@ -458,8 +523,10 @@ export default function AttendancePage() {
                                                     <div className="text-xs font-semibold text-gray-500">{formatDateIST(log.date)}</div>
                                                 </div>
                                             </div>
-                                            <div className="text-right">
-                                                {log.check_out ? (
+                                            <div className="text-right flex flex-col items-end">
+                                                {log.status === 'pending' ? (
+                                                    <span className="px-1.5 py-0.5 text-[9px] font-bold bg-yellow-100 text-yellow-700 rounded uppercase tracking-wider mb-1">Pending</span>
+                                                ) : log.check_out ? (
                                                     <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Duration</div>
                                                 ) : (
                                                     <div className="text-[10px] font-bold text-blue-600 uppercase animate-pulse">In Progress</div>
@@ -509,11 +576,27 @@ export default function AttendancePage() {
                                                     )}
                                                     <span className="text-[10px] font-bold text-gray-400 uppercase">Punch Out</span>
                                                 </div>
-                                                <span className="text-sm font-bold text-orange-600">
+                                                <span className={`text-sm font-bold ${log.status === 'pending' ? 'text-yellow-600' : 'text-orange-600'}`}>
                                                     {log.check_out ? new Date(log.check_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
                                                 </span>
                                             </div>
                                         </div>
+                                        {isAdmin && log.status === 'pending' && (
+                                            <div className="flex gap-2 pt-2 border-t border-gray-50">
+                                                <button
+                                                    onClick={() => handleApproval(log.id, 'approved')}
+                                                    className="flex-1 bg-green-50 text-green-600 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 hover:bg-green-100 transition-all"
+                                                >
+                                                    <FiCheck className="w-3.5 h-3.5" /> Approve
+                                                </button>
+                                                <button
+                                                    onClick={() => handleApproval(log.id, 'rejected')}
+                                                    className="flex-1 bg-red-50 text-red-600 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 hover:bg-red-100 transition-all"
+                                                >
+                                                    <FiX className="w-3.5 h-3.5" /> Reject
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 ))
                             )}

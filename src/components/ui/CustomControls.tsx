@@ -66,18 +66,24 @@ export const CustomDropdown = ({
             const windowHeight = window.innerHeight;
             const dropdownHeight = Math.min(60 * 4, options.length * 40 + 40); // Approximate
 
-            let top = rect.bottom + 4;
+            const top = rect.bottom + 4;
             if (top + dropdownHeight > windowHeight - 20) {
-                top = rect.top - dropdownHeight - 4;
+                setDropdownStyle({
+                    position: 'fixed',
+                    bottom: window.innerHeight - rect.top + 4,
+                    left: rect.left,
+                    width: rect.width,
+                    zIndex: 9999,
+                });
+            } else {
+                setDropdownStyle({
+                    position: 'fixed',
+                    top: top,
+                    left: rect.left,
+                    width: rect.width,
+                    zIndex: 9999,
+                });
             }
-
-            setDropdownStyle({
-                position: 'fixed',
-                top: top,
-                left: rect.left,
-                width: rect.width,
-                zIndex: 9999,
-            });
         }
     }, [isOpen, options.length]);
 
@@ -183,18 +189,24 @@ export const CustomDatePicker = ({
                 left = windowWidth - dropdownWidth - 20;
             }
 
-            let top = rect.bottom + 4;
+            const top = rect.bottom + 4;
             if (top + dropdownHeight > windowHeight - 20) {
-                top = rect.top - dropdownHeight - 4;
+                setDropdownStyle({
+                    position: 'fixed',
+                    bottom: window.innerHeight - rect.top + 4,
+                    left: left,
+                    width: dropdownWidth,
+                    zIndex: 9999,
+                });
+            } else {
+                setDropdownStyle({
+                    position: 'fixed',
+                    top: top,
+                    left: left,
+                    width: dropdownWidth,
+                    zIndex: 9999,
+                });
             }
-
-            setDropdownStyle({
-                position: 'fixed',
-                top: top,
-                left: left,
-                width: dropdownWidth,
-                zIndex: 9999,
-            });
         }
     }, [isOpen]);
 

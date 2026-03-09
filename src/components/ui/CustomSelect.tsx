@@ -31,13 +31,26 @@ export function CustomSelect({
     useEffect(() => {
         if (isOpen && buttonRef.current) {
             const rect = buttonRef.current.getBoundingClientRect();
-            setDropdownStyle({
-                position: 'fixed',
-                top: rect.bottom + 2,
-                left: rect.left,
-                minWidth: rect.width,
-                zIndex: 9999
-            });
+            const windowHeight = window.innerHeight;
+            const dropdownHeight = 200; // max-h-48 approximation
+
+            if (rect.bottom + dropdownHeight > windowHeight - 20) {
+                setDropdownStyle({
+                    position: 'fixed',
+                    bottom: windowHeight - rect.top + 2,
+                    left: rect.left,
+                    minWidth: rect.width,
+                    zIndex: 9999
+                });
+            } else {
+                setDropdownStyle({
+                    position: 'fixed',
+                    top: rect.bottom + 2,
+                    left: rect.left,
+                    minWidth: rect.width,
+                    zIndex: 9999
+                });
+            }
         }
     }, [isOpen]);
 

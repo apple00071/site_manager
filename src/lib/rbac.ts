@@ -123,6 +123,9 @@ export const PERMISSION_NODES = {
     LEAVES_APPLY: 'leaves.apply',
     LEAVES_APPROVE: 'leaves.approve',
 
+    // Attendance Approval
+    ATTENDANCE_APPROVE: 'attendance.approve',
+
     // Payroll Permissions
     PAYROLL_VIEW: 'payroll.view',
     PAYROLL_MANAGE: 'payroll.manage',

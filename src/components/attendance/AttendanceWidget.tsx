@@ -7,35 +7,81 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function AttendanceWidget({ variant = 'default' }: { variant?: 'default' | 'compact' }) {
     const { user } = useAuth();
-    const [status, setStatus] = useState<'out' | 'in' | 'done'>('out');
+    const [status, setStatus] = useState<'out' | 'in' | 'done' | 'forgotten'>('out');
     const [loading, setLoading] = useState(true);
     const [attendance, setAttendance] = useState<any>(null);
+    const [showQuickClose, setShowQuickClose] = useState(false);
+    const [quickCloseTime, setQuickCloseTime] = useState('18:00');
     const { showToast } = useToast();
 
     useEffect(() => {
         if (user) {
-            fetchTodayAttendance();
+            fetchAttendanceStatus();
         }
     }, [user]);
 
-    const fetchTodayAttendance = async () => {
+    const fetchAttendanceStatus = async () => {
         try {
             const today = new Date().toISOString().split('T')[0];
-            const res = await fetch(`/api/attendance?date=${today}&user_id=${user?.id}`);
+            // Fetch the latest record regardless of date
+            const res = await fetch(`/api/attendance?user_id=${user?.id}&latest=true`);
             if (res.ok) {
                 const data = await res.json();
                 if (data && data.length > 0) {
                     const record = data[0];
                     setAttendance(record);
-                    if (record.check_out) {
-                        setStatus('done');
-                    } else if (record.check_in) {
-                        setStatus('in');
+
+                    if (record.date === today) {
+                        if (record.check_out) {
+                            setStatus('done');
+                        } else if (record.check_in) {
+                            setStatus('in');
+                        }
+                    } else {
+                        // Record is from a previous day
+                        if (!record.check_out) {
+                            setStatus('forgotten');
+                        } else {
+                            // Latest record is completed and from previous day, so today is "out"
+                            setStatus('out');
+                            setAttendance(null);
+                        }
                     }
+                } else {
+                    setStatus('out');
                 }
             }
         } catch (error) {
             console.error('Error fetching attendance:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleQuickClose = async () => {
+        setLoading(true);
+        try {
+            const res = await fetch('/api/attendance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'quick_close',
+                    date: attendance.date,
+                    check_out_time: quickCloseTime
+                }),
+            });
+
+            if (res.ok) {
+                showToast('success', 'Submitted for approval. You can now punch in for today.');
+                setShowQuickClose(false);
+                setStatus('out');
+                setAttendance(null);
+            } else {
+                const err = await res.json();
+                showToast('error', err.error || 'Failed to submit quick close');
+            }
+        } catch (error) {
+            showToast('error', 'Something went wrong');
         } finally {
             setLoading(false);
         }
@@ -53,8 +99,8 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
                     const position = await new Promise<GeolocationPosition>((resolve, reject) => {
                         navigator.geolocation.getCurrentPosition(resolve, reject, {
                             enableHighAccuracy: true,
-                            timeout: 15000, // Increased to 15s for better reliability
-                            maximumAge: 0   // Force fresh location
+                            timeout: 15000,
+                            maximumAge: 0
                         });
                     });
                     latitude = position.coords.latitude;
@@ -67,7 +113,7 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
 
                     showToast('error', message);
                     setLoading(false);
-                    return; // STOP HERE if location capture fails
+                    return;
                 }
             } else {
                 showToast('error', 'Geolocation is not supported by your browser.');
@@ -99,7 +145,7 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
                 const err = await res.json();
                 showToast('error', err.error || 'Failed to update attendance');
             }
-        } catch (error) {
+        } catch (_) {
             showToast('error', 'Something went wrong');
         } finally {
             setLoading(false);
@@ -109,6 +155,52 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
     if (loading && !attendance) {
         return (
             <div className={`${variant === 'compact' ? 'h-8 w-10' : 'h-12 w-48'} bg-gray-100 animate-pulse rounded-xl`}></div>
+        );
+    }
+
+    if (status === 'forgotten') {
+        return (
+            <div className={`flex flex-col gap-2 bg-yellow-50 border border-yellow-100 rounded-xl p-3 ${variant === 'compact' ? 'w-full' : 'w-64'}`}>
+                <div className="flex items-center gap-2 text-yellow-800">
+                    <FiClock className="h-5 w-5" />
+                    <span className="text-xs font-bold leading-tight">Missing Punch Out from {new Date(attendance.date).toLocaleDateString()}</span>
+                </div>
+                {!showQuickClose ? (
+                    <button
+                        onClick={() => setShowQuickClose(true)}
+                        className="bg-yellow-500 hover:bg-yellow-600 text-white text-[10px] font-bold py-1.5 rounded-lg transition-all"
+                    >
+                        Resolve Now
+                    </button>
+                ) : (
+                    <div className="space-y-2">
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[9px] font-bold text-yellow-700 uppercase">Logout Time</label>
+                            <input
+                                type="time"
+                                value={quickCloseTime}
+                                onChange={(e) => setQuickCloseTime(e.target.value)}
+                                className="px-2 py-1 text-xs border border-yellow-200 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                            />
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handleQuickClose}
+                                disabled={loading}
+                                className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white text-[10px] font-bold py-1.5 rounded-lg transition-all"
+                            >
+                                Submit
+                            </button>
+                            <button
+                                onClick={() => setShowQuickClose(false)}
+                                className="px-2 py-1.5 text-yellow-700 text-[10px] font-bold hover:bg-yellow-100 rounded-lg transition-all"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
         );
     }
 
