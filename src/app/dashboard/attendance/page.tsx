@@ -270,6 +270,9 @@ export default function AttendancePage() {
                         {row.status === 'pending' && (
                             <span className="px-1.5 py-0.5 text-[9px] font-bold bg-yellow-100 text-yellow-700 rounded uppercase tracking-wider">Pending</span>
                         )}
+                        {row.status === 'rejected' && (
+                            <span className="px-1.5 py-0.5 text-[9px] font-bold bg-red-100 text-red-700 rounded uppercase tracking-wider">Rejected</span>
+                        )}
                         {isAdmin && row.check_out && row.check_out_latitude && row.check_out_longitude && (
                             <a
                                 href={`https://www.google.com/maps?q=${row.check_out_latitude},${row.check_out_longitude}`}

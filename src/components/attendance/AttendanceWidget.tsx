@@ -176,17 +176,23 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
     if (status === 'forgotten') {
         return (
             <div className={`flex flex-col gap-2 bg-yellow-50 border border-yellow-100 rounded-xl p-3 ${variant === 'compact' ? 'w-full' : 'w-64'}`}>
-                <div className="flex items-center gap-2 text-yellow-800">
-                    <FiClock className="h-5 w-5" />
-                    <span className="text-xs font-bold leading-tight">Missing Punch Out from {new Date(attendance.date).toLocaleDateString()}</span>
-                </div>
                 {!showQuickClose ? (
-                    <button
-                        onClick={() => setShowQuickClose(true)}
-                        className="bg-yellow-500 hover:bg-yellow-600 text-white text-[10px] font-bold py-1.5 rounded-lg transition-all"
-                    >
-                        Resolve Now
-                    </button>
+                    <>
+                        <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-2 p-2 pt-0 text-amber-700 bg-amber-50 rounded-lg">
+                                <FiClock className="w-10 h-10 flex-shrink-0" />
+                                <p className="text-[10px] sm:text-xs font-semibold leading-tight">
+                                    You missed a punch-out! Submit your estimated time to continue today.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setShowQuickClose(true)}
+                                className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-bold shadow-sm"
+                            >
+                                Quick Close
+                            </button>
+                        </div>
+                    </>
                 ) : (
                     <div className="space-y-2">
                         <div className="flex flex-col gap-1">
@@ -246,15 +252,23 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
     return (
         <div className="flex items-center gap-2">
             {status === 'out' ? (
-                <button
-                    onClick={() => handlePunch('punch_in')}
-                    disabled={loading}
-                    className={`flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl font-bold shadow-sm transition-all active:scale-95 disabled:opacity-50 ${variant === 'compact' ? 'px-2 py-2' : 'px-5 py-2.5'}`}
-                    title="Punch In"
-                >
-                    <FiLogIn className={`${variant === 'compact' ? 'h-4 w-4' : 'h-5 w-5'}`} />
-                    {variant !== 'compact' && <span>Punch In</span>}
-                </button>
+                <div className="flex flex-col gap-2">
+                    {attendance?.status === 'rejected' && (
+                        <div className="px-2 py-1 bg-red-50 border border-red-100 rounded-lg flex items-center gap-1.5 animate-pulse">
+                            <FiClock className="text-red-500 w-3 h-3" />
+                            <span className="text-[9px] font-bold text-red-600 uppercase">Last Punch Rejected</span>
+                        </div>
+                    )}
+                    <button
+                        onClick={() => handlePunch('punch_in')}
+                        disabled={loading}
+                        className={`flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl font-bold shadow-sm transition-all active:scale-95 disabled:opacity-50 ${variant === 'compact' ? 'px-2 py-2' : 'px-5 py-2.5'}`}
+                        title="Punch In"
+                    >
+                        <FiLogIn className={`${variant === 'compact' ? 'h-4 w-4' : 'h-5 w-5'}`} />
+                        {variant !== 'compact' && <span>Punch In</span>}
+                    </button>
+                </div>
             ) : (
                 <div className={`flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-xl ${variant === 'compact' ? 'px-1.5 py-1' : 'pl-4 pr-2 py-1.5'}`}>
                     <div className="flex flex-col items-center">
