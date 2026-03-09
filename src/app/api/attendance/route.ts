@@ -222,19 +222,24 @@ export async function PATCH(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { id, status, admin_comments } = body;
+        const { id, status, admin_comments, check_in, check_out } = body;
 
         if (!['approved', 'rejected'].includes(status)) {
             return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
         }
 
+        const updateData: any = {
+            status,
+            admin_comments,
+            resolved_at: new Date().toISOString()
+        };
+        
+        if (check_in) updateData.check_in = check_in;
+        if (check_out) updateData.check_out = check_out;
+
         const { data, error } = await supabaseAdmin
             .from('attendance')
-            .update({
-                status,
-                admin_comments,
-                resolved_at: new Date().toISOString()
-            })
+            .update(updateData)
             .eq('id', id)
             .select()
             .single();

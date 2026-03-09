@@ -135,12 +135,16 @@ export default function AttendancePage() {
         }
     };
 
-    const handleApproval = async (id: string, status: 'approved' | 'rejected') => {
+    const handleApproval = async (id: string, status: 'approved' | 'rejected', newCheckIn?: string, newCheckOut?: string) => {
         try {
+            const bodyData: any = { id, status, admin_comments: `Action taken by ${user?.full_name}` };
+            if (newCheckIn) bodyData.check_in = newCheckIn;
+            if (newCheckOut) bodyData.check_out = newCheckOut;
+
             const res = await fetch('/api/attendance', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, status, admin_comments: `Action taken by ${user?.full_name}` })
+                body: JSON.stringify(bodyData)
             });
 
             if (res.ok) {
@@ -209,6 +213,23 @@ export default function AttendancePage() {
             return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
         } catch (e) {
             return time;
+        }
+    };
+
+    const parseTimeStringToDate = (dateStr: string, time12h: string) => {
+        try {
+            const [time, modifier] = time12h.split(' ');
+            let [hours, minutes] = time.split(':');
+            let h = parseInt(hours, 10);
+            if (modifier === 'PM' && h < 12) h += 12;
+            if (modifier === 'AM' && h === 12) h = 0;
+            
+            const date = new Date(dateStr);
+            date.setHours(h, parseInt(minutes, 10), 0, 0);
+            return date.toISOString();
+        } catch (e) {
+            console.error("Failed parsing time:", e);
+            return undefined;
         }
     };
 
@@ -297,7 +318,27 @@ export default function AttendancePage() {
                     {isAdmin && row.status === 'pending' && (
                         <div className="flex gap-2 mt-1">
                             <button
-                                onClick={() => handleApproval(row.id, 'approved')}
+                                onClick={() => {
+                                    let newIn, newOut;
+                                    if (row.user_comments?.startsWith('[Requested Time')) {
+                                        const timeMatch = row.user_comments.match(/\[Requested Time - (.*?)\]/);
+                                        if (timeMatch && timeMatch[1]) {
+                                            const times = timeMatch[1].split('|').map((t: string) => t.trim());
+                                            times.forEach((t: string) => {
+                                                if (t.startsWith('In:')) {
+                                                    const timeStr = t.replace('In:', '').trim();
+                                                    // Convert "08:40 AM" to Date object using row.date
+                                                    newIn = parseTimeStringToDate(row.date, timeStr);
+                                                }
+                                                if (t.startsWith('Out:')) {
+                                                    const timeStr = t.replace('Out:', '').trim();
+                                                    newOut = parseTimeStringToDate(row.date, timeStr);
+                                                }
+                                            });
+                                        }
+                                    }
+                                    handleApproval(row.id, 'approved', newIn, newOut);
+                                }}
                                 className="text-[10px] font-bold text-green-600 hover:text-green-700 flex items-center gap-0.5"
                                 title="Approve"
                             >
