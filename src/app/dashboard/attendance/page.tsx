@@ -285,8 +285,17 @@ export default function AttendancePage() {
                             </a>
                         )}
                     </div>
+                    
+                    {/* Display User Appeal Comments */}
+                    {isAdmin && row.status === 'pending' && row.user_comments && (
+                        <div className="mt-1 bg-yellow-50 p-1.5 rounded border border-yellow-100 max-w-[200px]">
+                            <p className="text-[10px] font-semibold text-yellow-800 mb-0.5">Appeal Remarks:</p>
+                            <p className="text-[10px] text-yellow-700 leading-tight italic break-words">"{row.user_comments}"</p>
+                        </div>
+                    )}
+
                     {isAdmin && row.status === 'pending' && (
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 mt-1">
                             <button
                                 onClick={() => handleApproval(row.id, 'approved')}
                                 className="text-[10px] font-bold text-green-600 hover:text-green-700 flex items-center gap-0.5"
