@@ -64,13 +64,14 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
     const handleQuickClose = async () => {
         setLoading(true);
         try {
+            const checkOutISO = new Date(`${attendance.date}T${quickCloseTime}`).toISOString();
             const res = await fetch('/api/attendance', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'quick_close',
                     date: attendance.date,
-                    check_out_time: quickCloseTime
+                    check_out: checkOutISO
                 }),
             });
 

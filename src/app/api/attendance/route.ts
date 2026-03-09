@@ -173,17 +173,15 @@ export async function POST(request: NextRequest) {
         }
 
         if (action === 'quick_close') {
-            if (!date || !check_out_time) {
-                return NextResponse.json({ error: 'Missing date or check-out time' }, { status: 400 });
+            const { date, check_out } = body;
+            if (!date || !check_out) {
+                return NextResponse.json({ error: 'Missing date or check-out details' }, { status: 400 });
             }
-
-            // Construct ISO string. Assume local time.
-            const checkOutDate = new Date(`${date}T${check_out_time}`);
 
             const { data, error } = await supabaseAdmin
                 .from('attendance')
                 .update({
-                    check_out: checkOutDate.toISOString(),
+                    check_out: check_out,
                     status: 'pending',
                     admin_comments: 'Submitted via Quick Close (Forgotten Punch Out)'
                 })
