@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUser } from '@/lib/auth';
-import { supabaseAdmin } from '@/lib/supabase-admin';
+import { supabaseAdmin, getAuthUser } from '@/lib/supabase-server';
 
 /**
  * POST: Employee appeals a rejected attendance record
