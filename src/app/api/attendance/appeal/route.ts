@@ -33,10 +33,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
-        if (existingRecord.status !== 'rejected') {
-            return NextResponse.json({ error: 'Only rejected records can be appealed' }, { status: 400 });
-        }
-
         // Update the record with the appeal
         const { data, error } = await supabaseAdmin
             .from('attendance')

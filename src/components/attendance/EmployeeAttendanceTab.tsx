@@ -146,20 +146,18 @@ export default function EmployeeAttendanceTab() {
             label: '',
             render: (_, row: AttendanceRecord) => (
                 <div className="flex justify-end gap-2 pr-2">
-                    {row.status === 'rejected' && (
-                        <button
-                            onClick={() => {
-                                setAppealingRecord(row);
-                                setUserComments(row.user_comments || '');
-                            }}
-                            className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm active:scale-95 border border-red-200"
-                        >
-                            Appeal
-                        </button>
+                    <button
+                        onClick={() => {
+                            setAppealingRecord(row);
+                            setUserComments(row.user_comments || '');
+                        }}
+                        className="bg-yellow-50 hover:bg-yellow-100 text-yellow-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm active:scale-95 border border-yellow-200"
+                    >
+                        Appeal
+                    </button>
+                    {row.status === 'pending' && row.user_comments && (
+                        <span className="text-[10px] text-yellow-600 italic mt-2">Under review</span>
                     )}
-                     {row.status === 'pending' && row.user_comments && (
-                        <span className="text-[10px] text-yellow-600 italic">Appeal under review</span>
-                     )}
                 </div>
             )
         }
