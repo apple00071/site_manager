@@ -28,6 +28,8 @@ export default function EmployeeAttendanceTab() {
     // Appeal State
     const [appealingRecord, setAppealingRecord] = useState<AttendanceRecord | null>(null);
     const [userComments, setUserComments] = useState('');
+    const [requestedCheckIn, setRequestedCheckIn] = useState('');
+    const [requestedCheckOut, setRequestedCheckOut] = useState('');
     const [submittingAppeal, setSubmittingAppeal] = useState(false);
 
     useEffect(() => {
@@ -56,16 +58,30 @@ export default function EmployeeAttendanceTab() {
 
     const handleAppealSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!appealingRecord || !userComments.trim()) return;
+        
+        const hasTimeInput = requestedCheckIn || requestedCheckOut;
+        const hasComment = userComments.trim();
+        
+        if (!appealingRecord || (!hasTimeInput && !hasComment)) return;
 
         setSubmittingAppeal(true);
+
+        let finalComments = userComments.trim();
+        const timeNotes = [];
+        if (requestedCheckIn) timeNotes.push(`In: ${formatTime12Hour(requestedCheckIn)}`);
+        if (requestedCheckOut) timeNotes.push(`Out: ${formatTime12Hour(requestedCheckOut)}`);
+        
+        if (timeNotes.length > 0) {
+            finalComments = `[Requested Time - ${timeNotes.join(' | ')}]\n${finalComments}`;
+        }
+
         try {
             const res = await fetch('/api/attendance/appeal', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     id: appealingRecord.id,
-                    user_comments: userComments
+                    user_comments: finalComments
                 })
             });
 
@@ -73,6 +89,8 @@ export default function EmployeeAttendanceTab() {
                 showToast('success', 'Appeal submitted successfully');
                 setAppealingRecord(null);
                 setUserComments('');
+                setRequestedCheckIn('');
+                setRequestedCheckOut('');
                 fetchAttendance(); // Refresh list
             } else {
                 const data = await res.json();
@@ -89,6 +107,17 @@ export default function EmployeeAttendanceTab() {
     const formatTime = (isoString: string | null) => {
         if (!isoString) return '—';
         return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+
+    const formatTime12Hour = (time24: string) => {
+        try {
+            const [h, m] = time24.split(':');
+            const date = new Date();
+            date.setHours(parseInt(h), parseInt(m));
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } catch {
+            return time24;
+        }
     };
 
     const columns: Column<AttendanceRecord>[] = [
@@ -149,7 +178,15 @@ export default function EmployeeAttendanceTab() {
                     <button
                         onClick={() => {
                             setAppealingRecord(row);
-                            setUserComments(row.user_comments || '');
+                            // Only set comments if it doesn't already have the requested time prefix
+                            let existing = row.user_comments || '';
+                            if (existing.startsWith('[Requested Time')) {
+                                const parts = existing.split('\n');
+                                existing = parts.slice(1).join('\n');
+                            }
+                            setUserComments(existing);
+                            setRequestedCheckIn('');
+                            setRequestedCheckOut('');
                         }}
                         className="bg-yellow-50 hover:bg-yellow-100 text-yellow-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm active:scale-95 border border-yellow-200"
                     >
@@ -201,6 +238,33 @@ export default function EmployeeAttendanceTab() {
                         </div>
 
                         <form onSubmit={handleAppealSubmit} className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label htmlFor="req_check_in" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Expected Punch In (Optional)
+                                    </label>
+                                    <input
+                                        type="time"
+                                        id="req_check_in"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-yellow-500 focus:border-yellow-500 text-sm"
+                                        value={requestedCheckIn}
+                                        onChange={(e) => setRequestedCheckIn(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="req_check_out" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Expected Punch Out (Optional)
+                                    </label>
+                                    <input
+                                        type="time"
+                                        id="req_check_out"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-yellow-500 focus:border-yellow-500 text-sm"
+                                        value={requestedCheckOut}
+                                        onChange={(e) => setRequestedCheckOut(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
                             <div>
                                 <label htmlFor="user_comments" className="block text-sm font-medium text-gray-700 mb-1">
                                     Your Remarks / Justification
@@ -212,7 +276,6 @@ export default function EmployeeAttendanceTab() {
                                     placeholder="Explain why this record is correct or provide necessary context..."
                                     value={userComments}
                                     onChange={(e) => setUserComments(e.target.value)}
-                                    required
                                 />
                             </div>
 
@@ -227,7 +290,7 @@ export default function EmployeeAttendanceTab() {
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={submittingAppeal || !userComments.trim()}
+                                    disabled={submittingAppeal || (!userComments.trim() && !requestedCheckIn && !requestedCheckOut)}
                                     className="btn-primary"
                                 >
                                     {submittingAppeal ? 'Submitting...' : 'Submit Appeal'}
