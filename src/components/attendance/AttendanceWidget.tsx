@@ -97,34 +97,42 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
             let longitude: number | null = null;
 
             // Capture Location - MANDATORY
-            if (typeof window !== 'undefined' && 'geolocation' in navigator) {
-                try {
-                    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-                        navigator.geolocation.getCurrentPosition(resolve, reject, {
-                            enableHighAccuracy: true,
-                            timeout: 15000,
-                            maximumAge: 0
-                        });
-                    });
-                    latitude = position.coords.latitude;
-                    longitude = position.coords.longitude;
-                } catch (posError: any) {
-                    console.error('Geolocation error details:', posError);
-                    let message = 'Could not capture location. Please ensure GPS is enabled.';
-                    if (posError.code === 1) {
-                        message = 'Location access denied. Since your browser shows "Allowed", please check your Windows/System Privacy Settings for Location.';
-                    } else if (posError.code === 3) {
-                        message = 'Location request timed out. Please try again (move near a window if indoors).';
-                    }
-
-                    showToast('error', message);
+            if (typeof window !== 'undefined') {
+                if (!window.isSecureContext) {
+                    showToast('error', 'Location tracking requires a secure (HTTPS) connection. Please use https://app.appleinteriors.in');
                     setLoading(false);
                     return;
                 }
-            } else {
-                showToast('error', 'Geolocation is not supported by your browser.');
-                setLoading(false);
-                return;
+
+                if ('geolocation' in navigator) {
+                    try {
+                        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                            navigator.geolocation.getCurrentPosition(resolve, reject, {
+                                enableHighAccuracy: true,
+                                timeout: 15000,
+                                maximumAge: 0
+                            });
+                        });
+                        latitude = position.coords.latitude;
+                        longitude = position.coords.longitude;
+                    } catch (posError: any) {
+                        console.error('Geolocation error details:', posError);
+                        let message = 'Could not capture location. Please ensure GPS is enabled.';
+                        if (posError.code === 1) {
+                            message = 'Location access denied. Please check your browser permission and Windows Location Settings.';
+                        } else if (posError.code === 3) {
+                            message = 'Location request timed out. Please try again (move near a window if indoors).';
+                        }
+
+                        showToast('error', message);
+                        setLoading(false);
+                        return;
+                    }
+                } else {
+                    showToast('error', 'Geolocation is not supported by your browser.');
+                    setLoading(false);
+                    return;
+                }
             }
 
             const res = await fetch('/api/attendance', {
