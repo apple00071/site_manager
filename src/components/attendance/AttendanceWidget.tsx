@@ -31,18 +31,21 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
                     const record = data[0];
                     setAttendance(record);
 
-                    if (record.date === today) {
-                        if (record.check_out) {
-                            setStatus('done');
-                        } else if (record.check_in) {
+                    if (!record.check_out) {
+                        const checkInDate = new Date(record.check_in);
+                        const now = new Date();
+                        const diffHours = (now.getTime() - checkInDate.getTime()) / (1000 * 60 * 60);
+
+                        // If it's been more than 20 hours, assume they forgot to punch out
+                        if (diffHours > 20) {
+                            setStatus('forgotten');
+                        } else {
                             setStatus('in');
                         }
                     } else {
-                        // Record is from a previous day
-                        if (!record.check_out) {
-                            setStatus('forgotten');
+                        if (record.date === today) {
+                            setStatus('done');
                         } else {
-                            // Latest record is completed and from previous day, so today is "out"
                             setStatus('out');
                             setAttendance(null);
                         }

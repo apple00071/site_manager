@@ -88,16 +88,40 @@ export async function POST(request: NextRequest) {
         }
 
         if (action === 'punch_in') {
+            // 1. Check if already punched in (any open record)
+            const { data: openRecord } = await supabaseAdmin
+                .from('attendance')
+                .select('id, date')
+                .eq('user_id', userResult.user.id)
+                .is('check_out', null)
+                .maybeSingle();
+
+            if (openRecord) {
+                return NextResponse.json({ error: 'You are already punched in. Please punch out first.' }, { status: 400 });
+            }
+
+            // 2. Check if already punched in for TODAY (prevent double shift on same calendar date UTC)
+            const { data: existingToday } = await supabaseAdmin
+                .from('attendance')
+                .select('id')
+                .eq('user_id', userResult.user.id)
+                .eq('date', today)
+                .maybeSingle();
+
+            if (existingToday) {
+                return NextResponse.json({ error: 'You have already completed or started a shift for today.' }, { status: 400 });
+            }
+
             const { data, error } = await supabaseAdmin
                 .from('attendance')
-                .upsert({
+                .insert({
                     user_id: userResult.user.id,
                     date: today,
                     check_in: new Date().toISOString(),
                     check_in_latitude: latitude,
                     check_in_longitude: longitude,
-                    status: 'approved' // Normal punches are approved by default
-                }, { onConflict: 'user_id,date' })
+                    status: 'approved'
+                })
                 .select()
                 .single();
 
@@ -109,6 +133,26 @@ export async function POST(request: NextRequest) {
         }
 
         if (action === 'punch_out') {
+            // Find the most recent open record
+            const { data: openRecord, error: findError } = await supabaseAdmin
+                .from('attendance')
+                .select('*')
+                .eq('user_id', userResult.user.id)
+                .is('check_out', null)
+                .order('date', { ascending: false })
+                .order('check_in', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (findError) {
+                console.error('Error finding open record:', findError);
+                return NextResponse.json({ error: findError.message }, { status: 500 });
+            }
+
+            if (!openRecord) {
+                return NextResponse.json({ error: 'No active punch-in found. Please punch in first.' }, { status: 400 });
+            }
+
             const { data, error } = await supabaseAdmin
                 .from('attendance')
                 .update({
@@ -116,18 +160,13 @@ export async function POST(request: NextRequest) {
                     check_out_latitude: latitude,
                     check_out_longitude: longitude,
                 })
-                .eq('user_id', userResult.user.id)
-                .eq('date', today)
+                .eq('id', openRecord.id)
                 .select()
-                .maybeSingle();
+                .single();
 
             if (error) {
                 console.error('Punch out error:', error);
                 return NextResponse.json({ error: error.message }, { status: 500 });
-            }
-
-            if (!data) {
-                return NextResponse.json({ error: 'No punch-in record found for today. Please punch in first.' }, { status: 400 });
             }
 
             return NextResponse.json(data);
@@ -138,14 +177,14 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Missing date or check-out time' }, { status: 400 });
             }
 
-            // Create a ISO string for the check_out based on the record's date and the provided time
+            // Construct ISO string. Assume local time.
             const checkOutDate = new Date(`${date}T${check_out_time}`);
 
             const { data, error } = await supabaseAdmin
                 .from('attendance')
                 .update({
                     check_out: checkOutDate.toISOString(),
-                    status: 'pending', // Requires admin approval
+                    status: 'pending',
                     admin_comments: 'Submitted via Quick Close (Forgotten Punch Out)'
                 })
                 .eq('user_id', userResult.user.id)
