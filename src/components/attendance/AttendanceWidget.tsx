@@ -106,10 +106,13 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
                     latitude = position.coords.latitude;
                     longitude = position.coords.longitude;
                 } catch (posError: any) {
-                    console.warn('Geolocation failed or denied:', posError);
+                    console.error('Geolocation error details:', posError);
                     let message = 'Could not capture location. Please ensure GPS is enabled.';
-                    if (posError.code === 1) message = 'Location access denied. Please allow location to punch in/out.';
-                    if (posError.code === 3) message = 'Location request timed out. Please try again.';
+                    if (posError.code === 1) {
+                        message = 'Location access denied. Since your browser shows "Allowed", please check your Windows/System Privacy Settings for Location.';
+                    } else if (posError.code === 3) {
+                        message = 'Location request timed out. Please try again (move near a window if indoors).';
+                    }
 
                     showToast('error', message);
                     setLoading(false);
