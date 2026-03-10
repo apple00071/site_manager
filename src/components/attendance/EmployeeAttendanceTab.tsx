@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { FiClock, FiAlertCircle } from 'react-icons/fi';
 import { useToast } from '@/components/ui/Toast';
 import { DataTable, StatusBadge, Column } from '@/components/ui/DataTable';
-import { formatDateIST } from '@/lib/dateUtils';
+import { formatDateIST, formatTimeIST } from '@/lib/dateUtils';
 import { Modal } from '@/components/ui/Modal';
 
 interface AttendanceRecord {
@@ -106,7 +106,7 @@ export default function EmployeeAttendanceTab() {
 
     const formatTime = (isoString: string | null) => {
         if (!isoString) return '—';
-        return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return formatTimeIST(isoString);
     };
 
     const formatTime12Hour = (time24: string) => {
@@ -114,7 +114,13 @@ export default function EmployeeAttendanceTab() {
             const [h, m] = time24.split(':');
             const date = new Date();
             date.setHours(parseInt(h), parseInt(m));
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            // Use Asia/Kolkata timezone specifically
+            return date.toLocaleTimeString('en-US', { 
+                timeZone: 'Asia/Kolkata',
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: true 
+            });
         } catch {
             return time24;
         }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, getAuthUser } from '@/lib/supabase-server';
 import { verifyPermission, PERMISSION_NODES } from '@/lib/rbac';
+import { getTodayDateString } from '@/lib/dateUtils';
 
 /**
  * GET: Fetch attendance logs
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const action = body.action; // 'punch_in', 'punch_out', or 'quick_close'
         const { latitude, longitude, date, check_out_time } = body;
-        const today = new Date().toISOString().split('T')[0];
+        const today = getTodayDateString();
 
         // Permission check
         const check = await verifyPermission(userResult.user.id, PERMISSION_NODES.ATTENDANCE_LOG);

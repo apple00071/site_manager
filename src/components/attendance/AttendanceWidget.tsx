@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { FiClock, FiLogIn, FiLogOut, FiCheckCircle } from 'react-icons/fi';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { getTodayDateString, formatTimeIST } from '@/lib/dateUtils';
 
 export default function AttendanceWidget({ variant = 'default' }: { variant?: 'default' | 'compact' }) {
     const { user } = useAuth();
@@ -22,7 +23,7 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
 
     const fetchAttendanceStatus = async () => {
         try {
-            const today = new Date().toISOString().split('T')[0];
+            const today = getTodayDateString();
             // Fetch the latest record regardless of date
             const res = await fetch(`/api/attendance?user_id=${user?.id}&latest=true`);
             if (res.ok) {
@@ -64,7 +65,7 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
     const handleQuickClose = async () => {
         setLoading(true);
         try {
-            const checkOutISO = new Date(`${attendance.date}T${quickCloseTime}`).toISOString();
+            const checkOutISO = new Date(`${attendance.date}T${quickCloseTime}:00+05:30`).toISOString();
             const res = await fetch('/api/attendance', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -226,8 +227,8 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
     }
 
     if (status === 'done') {
-        const checkIn = new Date(attendance.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const checkOut = new Date(attendance.check_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const checkIn = formatTimeIST(attendance.check_in);
+        const checkOut = formatTimeIST(attendance.check_out);
 
         if (variant === 'compact') {
             return (
@@ -274,7 +275,7 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
                     <div className="flex flex-col items-center">
                         <span className={`${variant === 'compact' ? 'text-[7px]' : 'text-[10px]'} uppercase font-bold text-blue-500`}>{variant === 'compact' ? 'IN' : 'IN SINCE'}</span>
                         <span className={`${variant === 'compact' ? 'text-[10px]' : 'text-sm'} font-bold text-blue-900 leading-tight`}>
-                            {new Date(attendance.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {formatTimeIST(attendance.check_in)}
                         </span>
                     </div>
                     <button

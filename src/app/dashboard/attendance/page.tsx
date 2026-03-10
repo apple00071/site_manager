@@ -11,7 +11,7 @@ import LeaveApprovalModal from '@/components/leaves/LeaveApprovalModal';
 import { LeaveCard } from '@/components/leaves/LeaveCard';
 import { Modal } from '@/components/ui/Modal';
 import { SidePanel } from '@/components/ui/SidePanel';
-import { formatDateIST } from '@/lib/dateUtils';
+import { formatDateIST, formatTimeIST } from '@/lib/dateUtils';
 import { DataTable, StatusBadge, Column } from '@/components/ui/DataTable';
 import { CustomDatePicker } from '@/components/ui/CustomControls';
 
@@ -210,7 +210,12 @@ export default function AttendancePage() {
             const [hours, minutes] = time.split(':');
             const date = new Date();
             date.setHours(parseInt(hours), parseInt(minutes));
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+            return date.toLocaleTimeString('en-US', { 
+                timeZone: 'Asia/Kolkata',
+                hour: '2-digit', 
+                minute: '2-digit', 
+                hour12: true 
+            });
         } catch (e) {
             return time;
         }
@@ -219,18 +224,39 @@ export default function AttendancePage() {
     const parseTimeStringToDate = (dateStr: string, time12h: string) => {
         try {
             const [time, modifier] = time12h.split(' ');
-            let [hours, minutes] = time.split(':');
-            let h = parseInt(hours, 10);
+            let [hoursStr, minutesStr] = time.split(':');
+            let h = parseInt(hoursStr, 10);
             if (modifier === 'PM' && h < 12) h += 12;
             if (modifier === 'AM' && h === 12) h = 0;
             
-            const date = new Date(dateStr);
-            date.setHours(h, parseInt(minutes, 10), 0, 0);
-            return date.toISOString();
+            // Use ISO format with IST offset for robust parsing
+            const isoString = `${dateStr}T${String(h).padStart(2, '0')}:${minutesStr.padStart(2, '0')}:00+05:30`;
+            return new Date(isoString).toISOString();
         } catch (e) {
             console.error("Failed parsing time:", e);
             return undefined;
         }
+    };
+
+    const getRequestedTimes = (row: AttendanceRecord) => {
+        let newIn, newOut;
+        if (row.user_comments?.startsWith('[Requested Time')) {
+            const timeMatch = row.user_comments.match(/\[Requested Time - (.*?)\]/);
+            if (timeMatch && timeMatch[1]) {
+                const times = timeMatch[1].split('|').map((t: string) => t.trim());
+                times.forEach((t: string) => {
+                    if (t.startsWith('In:')) {
+                        const timeStr = t.replace('In:', '').trim();
+                        newIn = parseTimeStringToDate(row.date, timeStr);
+                    }
+                    if (t.startsWith('Out:')) {
+                        const timeStr = t.replace('Out:', '').trim();
+                        newOut = parseTimeStringToDate(row.date, timeStr);
+                    }
+                });
+            }
+        }
+        return { newIn, newOut };
     };
 
     // Columns for Attendance Table
@@ -261,7 +287,7 @@ export default function AttendancePage() {
             render: (_, row: AttendanceRecord) => (
                 <div className="flex items-center gap-2">
                     <span className="text-sm text-blue-600 font-medium">
-                        {new Date(row.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {formatTimeIST(row.check_in)}
                     </span>
                     {isAdmin && row.check_in_latitude && row.check_in_longitude && (
                         <a
@@ -284,9 +310,7 @@ export default function AttendancePage() {
                 <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
                         <span className={`text-sm font-medium ${row.status === 'pending' ? 'text-yellow-600' : 'text-orange-600'}`}>
-                            {row.check_out
-                                ? new Date(row.check_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                                : '—'}
+                            {row.check_out ? formatTimeIST(row.check_out) : '—'}
                         </span>
                         {row.status === 'pending' && (
                             <span className="px-1.5 py-0.5 text-[9px] font-bold bg-yellow-100 text-yellow-700 rounded uppercase tracking-wider">Pending</span>
@@ -319,24 +343,7 @@ export default function AttendancePage() {
                         <div className="flex gap-2 mt-1">
                             <button
                                 onClick={() => {
-                                    let newIn, newOut;
-                                    if (row.user_comments?.startsWith('[Requested Time')) {
-                                        const timeMatch = row.user_comments.match(/\[Requested Time - (.*?)\]/);
-                                        if (timeMatch && timeMatch[1]) {
-                                            const times = timeMatch[1].split('|').map((t: string) => t.trim());
-                                            times.forEach((t: string) => {
-                                                if (t.startsWith('In:')) {
-                                                    const timeStr = t.replace('In:', '').trim();
-                                                    // Convert "08:40 AM" to Date object using row.date
-                                                    newIn = parseTimeStringToDate(row.date, timeStr);
-                                                }
-                                                if (t.startsWith('Out:')) {
-                                                    const timeStr = t.replace('Out:', '').trim();
-                                                    newOut = parseTimeStringToDate(row.date, timeStr);
-                                                }
-                                            });
-                                        }
-                                    }
+                                    const { newIn, newOut } = getRequestedTimes(row);
                                     handleApproval(row.id, 'approved', newIn, newOut);
                                 }}
                                 className="text-[10px] font-bold text-green-600 hover:text-green-700 flex items-center gap-0.5"
@@ -612,7 +619,7 @@ export default function AttendancePage() {
                                                     )}
                                                 </div>
                                                 <span className="text-sm font-bold text-blue-600">
-                                                    {new Date(log.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    {formatTimeIST(log.check_in)}
                                                 </span>
                                             </div>
                                             <div className="flex flex-col text-right">
@@ -630,14 +637,17 @@ export default function AttendancePage() {
                                                     <span className="text-[10px] font-bold text-gray-400 uppercase">Punch Out</span>
                                                 </div>
                                                 <span className={`text-sm font-bold ${log.status === 'pending' ? 'text-yellow-600' : 'text-orange-600'}`}>
-                                                    {log.check_out ? new Date(log.check_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                                    {log.check_out ? formatTimeIST(log.check_out) : '—'}
                                                 </span>
                                             </div>
                                         </div>
                                         {isAdmin && log.status === 'pending' && (
                                             <div className="flex gap-2 pt-2 border-t border-gray-50">
                                                 <button
-                                                    onClick={() => handleApproval(log.id, 'approved')}
+                                                    onClick={() => {
+                                                        const { newIn, newOut } = getRequestedTimes(log);
+                                                        handleApproval(log.id, 'approved', newIn, newOut);
+                                                    }}
                                                     className="flex-1 bg-green-50 text-green-600 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 hover:bg-green-100 transition-all"
                                                 >
                                                     <FiCheck className="w-3.5 h-3.5" /> Approve
