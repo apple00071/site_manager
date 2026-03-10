@@ -130,8 +130,6 @@ export default function LeaveApprovalModal({ leave, onSuccess, onClose }: LeaveA
                             onChange={setApprovedLeaveType}
                             options={[
                                 { id: 'Paid Leave', title: 'Paid Leave' },
-                                { id: 'Casual Leave', title: 'Casual Leave' },
-                                { id: 'Sick Leave', title: 'Sick Leave' },
                                 { id: 'Loss of Pay (LOP)', title: 'Loss of Pay (LOP)' }
                             ]}
                         />

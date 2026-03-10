@@ -259,7 +259,7 @@ export default function AttendancePage() {
         return { newIn, newOut };
     };
 
-    const renderAppealRemarks = (row: AttendanceRecord, type: 'in' | 'out') => {
+    const renderAppealRemarksAndActions = (row: AttendanceRecord, type: 'in' | 'out') => {
         if (!isAdmin || row.status !== 'pending' || !row.user_comments) return null;
 
         const isTimeAppeal = row.user_comments.startsWith('[Requested Time');
@@ -276,9 +276,31 @@ export default function AttendancePage() {
         }
 
         return (
-            <div className="mt-1 bg-yellow-50 p-1.5 rounded border border-yellow-100 max-w-[200px]">
-                <p className="text-[10px] font-semibold text-yellow-800 mb-0.5">Appeal Remarks:</p>
-                <p className="text-[10px] text-yellow-700 leading-tight italic break-words">"{row.user_comments}"</p>
+            <div className="mt-1 space-y-2">
+                <div className="bg-yellow-50 p-1.5 rounded border border-yellow-100 max-w-[200px]">
+                    <p className="text-[10px] font-semibold text-yellow-800 mb-0.5">Appeal Remarks:</p>
+                    <p className="text-[10px] text-yellow-700 leading-tight italic break-words">"{row.user_comments}"</p>
+                </div>
+                
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => {
+                            const { newIn, newOut } = getRequestedTimes(row);
+                            handleApproval(row.id, 'approved', newIn, newOut);
+                        }}
+                        className="text-[10px] font-bold text-green-600 hover:text-green-700 flex items-center gap-0.5 transition-colors"
+                        title="Approve"
+                    >
+                        <FiCheck className="w-3 h-3" /> Approve
+                    </button>
+                    <button
+                        onClick={() => handleApproval(row.id, 'rejected')}
+                        className="text-[10px] font-bold text-red-600 hover:text-red-700 flex items-center gap-0.5 transition-colors"
+                        title="Reject"
+                    >
+                        <FiX className="w-3 h-3" /> Reject
+                    </button>
+                </div>
             </div>
         );
     };
@@ -326,7 +348,7 @@ export default function AttendancePage() {
                             </a>
                         )}
                     </div>
-                    {renderAppealRemarks(row, 'in')}
+                    {renderAppealRemarksAndActions(row, 'in')}
                 </div>
             )
         },
@@ -357,31 +379,8 @@ export default function AttendancePage() {
                             </a>
                         )}
                     </div>
-                    
-                    {/* Selective Appeal Remarks */}
-                    {renderAppealRemarks(row, 'out')}
-
-                    {isAdmin && row.status === 'pending' && (
-                        <div className="flex gap-2 mt-1">
-                            <button
-                                onClick={() => {
-                                    const { newIn, newOut } = getRequestedTimes(row);
-                                    handleApproval(row.id, 'approved', newIn, newOut);
-                                }}
-                                className="text-[10px] font-bold text-green-600 hover:text-green-700 flex items-center gap-0.5"
-                                title="Approve"
-                            >
-                                <FiCheck className="w-3 h-3" /> Approve
-                            </button>
-                            <button
-                                onClick={() => handleApproval(row.id, 'rejected')}
-                                className="text-[10px] font-bold text-red-600 hover:text-red-700 flex items-center gap-0.5"
-                                title="Reject"
-                            >
-                                <FiX className="w-3 h-3" /> Reject
-                            </button>
-                        </div>
-                    )}
+                    {/* Selective Appeal Remarks & Actions */}
+                    {renderAppealRemarksAndActions(row, 'out')}
                 </div>
             )
         },
@@ -643,7 +642,7 @@ export default function AttendancePage() {
                                                 <span className="text-sm font-bold text-blue-600">
                                                     {formatTimeIST(log.check_in)}
                                                 </span>
-                                                {renderAppealRemarks(log, 'in')}
+                                                {renderAppealRemarksAndActions(log, 'in')}
                                             </div>
                                             <div className="flex flex-col text-right">
                                                 <div className="flex items-center justify-end gap-1">
@@ -662,28 +661,9 @@ export default function AttendancePage() {
                                                 <span className={`text-sm font-bold ${log.status === 'pending' ? 'text-yellow-600' : 'text-orange-600'}`}>
                                                     {log.check_out ? formatTimeIST(log.check_out) : '—'}
                                                 </span>
-                                                {renderAppealRemarks(log, 'out')}
+                                                {renderAppealRemarksAndActions(log, 'out')}
                                             </div>
                                         </div>
-                                        {isAdmin && log.status === 'pending' && (
-                                            <div className="flex gap-2 pt-2 border-t border-gray-50">
-                                                <button
-                                                    onClick={() => {
-                                                        const { newIn, newOut } = getRequestedTimes(log);
-                                                        handleApproval(log.id, 'approved', newIn, newOut);
-                                                    }}
-                                                    className="flex-1 bg-green-50 text-green-600 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 hover:bg-green-100 transition-all"
-                                                >
-                                                    <FiCheck className="w-3.5 h-3.5" /> Approve
-                                                </button>
-                                                <button
-                                                    onClick={() => handleApproval(log.id, 'rejected')}
-                                                    className="flex-1 bg-red-50 text-red-600 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 hover:bg-red-100 transition-all"
-                                                >
-                                                    <FiX className="w-3.5 h-3.5" /> Reject
-                                                </button>
-                                            </div>
-                                        )}
                                     </div>
                                 ))
                             )}

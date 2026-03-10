@@ -12,14 +12,6 @@ interface LeaveRequestFormProps {
     onCancel: () => void;
 }
 
-const LEAVE_TYPES = [
-    'Casual Leave',
-    'Sick Leave',
-    'Paid Leave',
-    'Other',
-    'Permission' // Keep internal
-];
-
 export default function LeaveRequestForm({ leave, defaultType, onSuccess, onCancel }: LeaveRequestFormProps) {
     const { user } = useAuth();
     const { showToast } = useToast();
