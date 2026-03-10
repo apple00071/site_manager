@@ -259,6 +259,30 @@ export default function AttendancePage() {
         return { newIn, newOut };
     };
 
+    const renderAppealRemarks = (row: AttendanceRecord, type: 'in' | 'out') => {
+        if (!isAdmin || row.status !== 'pending' || !row.user_comments) return null;
+
+        const isTimeAppeal = row.user_comments.startsWith('[Requested Time');
+        
+        if (isTimeAppeal) {
+            const hasIn = row.user_comments.includes('In:');
+            const hasOut = row.user_comments.includes('Out:');
+
+            if (type === 'in' && !hasIn) return null;
+            if (type === 'out' && !hasOut) return null;
+        } else {
+            // General remarks (not time specific) - show under Punch Out by default
+            if (type === 'in') return null;
+        }
+
+        return (
+            <div className="mt-1 bg-yellow-50 p-1.5 rounded border border-yellow-100 max-w-[200px]">
+                <p className="text-[10px] font-semibold text-yellow-800 mb-0.5">Appeal Remarks:</p>
+                <p className="text-[10px] text-yellow-700 leading-tight italic break-words">"{row.user_comments}"</p>
+            </div>
+        );
+    };
+
     // Columns for Attendance Table
     const attendanceColumns: Column<AttendanceRecord>[] = [
         ...(isAdmin ? [{
@@ -285,21 +309,24 @@ export default function AttendancePage() {
             key: 'check_in',
             label: 'Punch In',
             render: (_, row: AttendanceRecord) => (
-                <div className="flex items-center gap-2">
-                    <span className="text-sm text-blue-600 font-medium">
-                        {formatTimeIST(row.check_in)}
-                    </span>
-                    {isAdmin && row.check_in_latitude && row.check_in_longitude && (
-                        <a
-                            href={`https://www.google.com/maps?q=${row.check_in_latitude},${row.check_in_longitude}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1 text-gray-400 hover:text-blue-500 rounded-full hover:bg-blue-50 transition-colors"
-                            title="View Check-in Location"
-                        >
-                            <FiMapPin className="w-3.5 h-3.5" />
-                        </a>
-                    )}
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-blue-600 font-medium">
+                            {formatTimeIST(row.check_in)}
+                        </span>
+                        {isAdmin && row.check_in_latitude && row.check_in_longitude && (
+                            <a
+                                href={`https://www.google.com/maps?q=${row.check_in_latitude},${row.check_in_longitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1 text-gray-400 hover:text-blue-500 rounded-full hover:bg-blue-50 transition-colors"
+                                title="View Check-in Location"
+                            >
+                                <FiMapPin className="w-3.5 h-3.5" />
+                            </a>
+                        )}
+                    </div>
+                    {renderAppealRemarks(row, 'in')}
                 </div>
             )
         },
@@ -331,13 +358,8 @@ export default function AttendancePage() {
                         )}
                     </div>
                     
-                    {/* Display User Appeal Comments */}
-                    {isAdmin && row.status === 'pending' && row.user_comments && (
-                        <div className="mt-1 bg-yellow-50 p-1.5 rounded border border-yellow-100 max-w-[200px]">
-                            <p className="text-[10px] font-semibold text-yellow-800 mb-0.5">Appeal Remarks:</p>
-                            <p className="text-[10px] text-yellow-700 leading-tight italic break-words">"{row.user_comments}"</p>
-                        </div>
-                    )}
+                    {/* Selective Appeal Remarks */}
+                    {renderAppealRemarks(row, 'out')}
 
                     {isAdmin && row.status === 'pending' && (
                         <div className="flex gap-2 mt-1">
@@ -621,6 +643,7 @@ export default function AttendancePage() {
                                                 <span className="text-sm font-bold text-blue-600">
                                                     {formatTimeIST(log.check_in)}
                                                 </span>
+                                                {renderAppealRemarks(log, 'in')}
                                             </div>
                                             <div className="flex flex-col text-right">
                                                 <div className="flex items-center justify-end gap-1">
@@ -639,6 +662,7 @@ export default function AttendancePage() {
                                                 <span className={`text-sm font-bold ${log.status === 'pending' ? 'text-yellow-600' : 'text-orange-600'}`}>
                                                     {log.check_out ? formatTimeIST(log.check_out) : '—'}
                                                 </span>
+                                                {renderAppealRemarks(log, 'out')}
                                             </div>
                                         </div>
                                         {isAdmin && log.status === 'pending' && (
