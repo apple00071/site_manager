@@ -74,7 +74,7 @@ export default function AttendancePage() {
 
     // Modal States
     const [showLeaveForm, setShowLeaveForm] = useState(false);
-    const [leaveFormType, setLeaveFormType] = useState<string>('Casual Leave');
+    const [leaveFormType, setLeaveFormType] = useState<string>('Leave');
     const [approvingLeave, setApprovingLeave] = useState<Leave | null>(null);
 
     // Search & Filter State
@@ -487,7 +487,7 @@ export default function AttendancePage() {
         }
     ];
 
-    const openLeaveForm = (type: string = 'Casual Leave') => {
+    const openLeaveForm = (type: string = 'Leave') => {
         setLeaveFormType(type);
         setShowLeaveForm(true);
     };
@@ -568,7 +568,7 @@ export default function AttendancePage() {
                             Request Permission
                         </button>
                         <button
-                            onClick={() => openLeaveForm('Casual Leave')}
+                            onClick={() => openLeaveForm('Leave')}
                             className="flex-1 sm:flex-none justify-center bg-yellow-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-yellow-600 transition-all shadow-sm active:scale-95"
                         >
                             <FiPlus className="h-4 w-4" />

@@ -65,12 +65,14 @@ export default function LeaveApprovalModal({ leave, onSuccess, onClose }: LeaveA
     return (
         <div className="space-y-6">
             <div className="bg-white rounded-xl overflow-hidden">
-                <div className="text-center pb-6 border-b border-dashed border-gray-200">
-                    <p className="text-sm font-medium text-gray-500 mb-1 uppercase tracking-wider">Type</p>
-                    <div className="text-2xl font-extrabold text-gray-900 tracking-tight">
-                        {isPermission ? 'Short Permission' : leave.leave_type}
+                {isPermission && (
+                    <div className="text-center pb-6 border-b border-dashed border-gray-200">
+                        <p className="text-sm font-medium text-gray-500 mb-1 uppercase tracking-wider">Type</p>
+                        <div className="text-2xl font-extrabold text-gray-900 tracking-tight">
+                            Short Permission
+                        </div>
                     </div>
-                </div>
+                )}
 
                 <div className="py-6 grid grid-cols-2 gap-y-6 gap-x-4">
                     {isPermission ? (

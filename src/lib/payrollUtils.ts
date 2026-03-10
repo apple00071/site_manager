@@ -65,7 +65,7 @@ export async function calculateWorkingDays(userId: string, month: number, year: 
                 const diffTime = Math.abs(effectiveEnd.getTime() - effectiveStart.getTime());
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
-                if (leave.leave_type === 'Paid Leave' || leave.leave_type === 'Casual Leave' || leave.leave_type === 'Sick Leave') {
+                if (leave.leave_type === 'Paid Leave' || leave.leave_type === 'Leave' || leave.leave_type === 'Casual Leave' || leave.leave_type === 'Sick Leave') {
                     paidLeaves += diffDays;
                 } else if (leave.leave_type === 'Loss of Pay (LOP)') {
                     unpaidLeaves += diffDays;

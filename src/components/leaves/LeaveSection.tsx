@@ -37,7 +37,7 @@ export default function LeaveSection() {
     const [leaves, setLeaves] = useState<Leave[]>([]);
     const [loading, setLoading] = useState(true);
     const [showLeaveForm, setShowLeaveForm] = useState(false);
-    const [leaveFormType, setLeaveFormType] = useState<string>('Casual Leave');
+    const [leaveFormType, setLeaveFormType] = useState<string>('Leave');
     const [approvingLeave, setApprovingLeave] = useState<Leave | null>(null);
     const [isMobile, setIsMobile] = useState(false);
 
@@ -166,7 +166,7 @@ export default function LeaveSection() {
         }
     ];
 
-    const openLeaveForm = (type: string = 'Casual Leave') => {
+    const openLeaveForm = (type: string = 'Leave') => {
         setLeaveFormType(type);
         setShowLeaveForm(true);
     };
@@ -188,7 +188,7 @@ export default function LeaveSection() {
                             Request Permission
                         </button>
                         <button
-                            onClick={() => openLeaveForm('Casual Leave')}
+                            onClick={() => openLeaveForm('Leave')}
                             className="bg-yellow-500 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-yellow-600 transition-all shadow-sm active:scale-95"
                         >
                             <FiPlus className="h-3.5 w-3.5" />
