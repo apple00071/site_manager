@@ -63,9 +63,10 @@ export async function POST(request: NextRequest) {
             const date = data.date;
 
             if (admins) {
-                await Promise.all(
-                    admins.map((admin: { id: string }) => NotificationService.notifyAttendanceAppealed(admin.id, employeeName, date))
-                );
+                const adminList = admins as { id: string }[];
+                for (const admin of adminList) {
+                    await NotificationService.notifyAttendanceAppealed(admin.id, employeeName, date);
+                }
             }
         } catch (notifyError) {
             console.error('Failed to send appeal notification:', notifyError);
