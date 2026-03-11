@@ -145,9 +145,9 @@ function DashboardLayoutContent({
         <div className="p-3 lg:p-4 mb-2 flex items-center justify-center lg:justify-start">
             <Link href="/dashboard" className="flex items-center gap-3">
                 <img
-                    src="/New-logo.png"
+                    src="/icon_1.png"
                     alt="Logo"
-                    className="h-8 w-8 lg:h-8 lg:w-8 min-w-[32px] object-contain"
+                    className="h-7 w-7 lg:h-8 lg:w-8 min-w-[28px] object-contain"
                 />
                 <span className="text-sm font-black text-gray-900 lg:hidden group-hover:block whitespace-nowrap overflow-hidden">
                     APPLE
