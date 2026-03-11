@@ -107,9 +107,9 @@ export default function PublicProjectPage() {
             </div>
 
             {/* Tabs Bar - Sticky Below Header */}
-            <div className="bg-white border-b border-gray-100 sticky top-[80px] sm:top-[88px] z-10">
+            <div className="bg-white border-b border-gray-100 sticky top-[80px] sm:top-[88px] z-10 overflow-x-auto scrollbar-hide">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6">
-                    <div className="flex gap-8">
+                    <div className="flex gap-6 sm:gap-8 min-w-max">
                         {[
                             { id: 'photos', label: 'Site Photos', icon: FiImage },
                             { id: 'designs', label: 'Approved Designs', icon: FiCheckCircle },
