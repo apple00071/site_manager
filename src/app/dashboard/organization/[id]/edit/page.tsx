@@ -181,7 +181,7 @@ export default function EditUserPage() {
       }
 
       // Step 2: Update Salary Profile
-      await fetch('/api/payroll/salary-config', {
+      const salaryResponse = await fetch('/api/payroll/salary-config', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -193,6 +193,13 @@ export default function EditUserPage() {
           special_allowance: data.special_allowance,
         }),
       });
+
+      if (!salaryResponse.ok) {
+        const salaryResult = await salaryResponse.json().catch(() => ({}));
+        console.error('Salary save error:', salaryResult);
+        alert('User profile updated, but salary details could not be saved. Please try again.');
+        return;
+      }
 
       router.push('/dashboard/organization');
     } catch (error: any) {

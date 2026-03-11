@@ -117,7 +117,7 @@ export default function NewUserPage() {
       });
 
       const result = await response.json();
-      const userId = result.id;
+      const userId = result.user?.id || result.id; // Support both structures
 
       if (!response.ok) {
         throw new Error(result.error || 'Failed to create user');
@@ -125,7 +125,7 @@ export default function NewUserPage() {
 
       // Step 2: Save Salary Profile
       if (userId) {
-        await fetch('/api/payroll/salary-config', {
+        const salaryResponse = await fetch('/api/payroll/salary-config', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -137,6 +137,12 @@ export default function NewUserPage() {
             special_allowance: data.special_allowance,
           }),
         });
+
+        if (!salaryResponse.ok) {
+          const salaryResult = await salaryResponse.json().catch(() => ({}));
+          console.error('Salary save error:', salaryResult);
+          alert('User created, but salary profile could not be saved. You can update it later from the edit page.');
+        }
       }
 
       router.push('/dashboard/organization');
