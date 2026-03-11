@@ -137,7 +137,7 @@ function DashboardLayoutContent({
 
       {/* Sidebar */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-64 lg:w-14 lg:hover:w-32 bg-white text-gray-900 shadow-lg border-r border-gray-200 transform transition-all duration-300 ease-in-out group peer
+        fixed inset-y-0 left-0 z-50 w-40 lg:w-14 lg:hover:w-32 bg-white text-gray-900 shadow-lg border-r border-gray-200 transform transition-all duration-300 ease-in-out group peer
         lg:translate-x-0 lg:fixed lg:top-0 lg:h-screen lg:left-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
