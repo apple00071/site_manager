@@ -62,7 +62,7 @@ export default function PublicProjectPage() {
         );
     }
 
-    const { project, photos, reports } = data;
+    const { project, photos, reports, designs } = data;
 
     return (
         <div className="min-h-screen bg-gray-50 pb-12">
@@ -177,6 +177,61 @@ export default function PublicProjectPage() {
                     ) : (
                         <div className="bg-white p-8 rounded-3xl border border-dashed border-gray-200 text-center text-gray-400">
                             No photos uploaded yet.
+                        </div>
+                    )}
+                </section>
+                
+                {/* Approved Designs */}
+                <section>
+                    <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <FiCheckCircle className="text-green-500" /> Approved Designs
+                    </h2>
+                    {designs && designs.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {designs.map((design: any) => (
+                                <div key={design.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                                                <FiImage className="w-5 h-5" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="text-sm font-bold text-gray-900 leading-tight truncate">{design.file_name}</div>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <span className="text-[10px] font-bold text-yellow-600 bg-yellow-50 px-1.5 py-0.5 rounded uppercase">{design.category}</span>
+                                                    <span className="text-[10px] text-gray-400 font-medium">v{design.version_number}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <a
+                                            href={design.file_url}
+                                            target="_blank"
+                                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold"
+                                        >
+                                            <FiDownload className="w-4 h-4" />
+                                            <span className="hidden sm:inline">View</span>
+                                        </a>
+                                    </div>
+                                    
+                                    {/* Design Preview if it's an image */}
+                                    {design.file_type?.startsWith('image/') && (
+                                        <div className="relative aspect-video bg-gray-50 rounded-xl border border-gray-100 overflow-hidden group cursor-pointer" onClick={() => window.open(design.file_url, '_blank')}>
+                                            <img 
+                                                src={design.file_url} 
+                                                alt={design.file_name} 
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                            />
+                                            <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <div className="bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-[10px] font-bold shadow-lg">Click to Enlarge</div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="bg-white p-8 rounded-3xl border border-dashed border-gray-200 text-center text-gray-400">
+                            No designs approved yet.
                         </div>
                     )}
                 </section>

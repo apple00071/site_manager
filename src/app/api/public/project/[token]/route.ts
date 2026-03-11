@@ -72,6 +72,36 @@ export async function GET(
             .eq('status', 'submitted')
             .order('report_date', { ascending: false });
 
+        // 6. Fetch Approved Designs
+        const { data: designsSource } = await supabaseAdmin
+            .from('design_files')
+            .select('*')
+            .eq('project_id', project.id)
+            .eq('approval_status', 'approved')
+            .order('category', { ascending: true })
+            .order('version_number', { ascending: false });
+
+        // Generate signed URLs for designs if they are in private storage
+        const designs = await Promise.all((designsSource || []).map(async (design: any) => {
+            if (design.file_url && design.file_url.includes('/storage/v1/object/public/design-files/')) {
+                try {
+                    const path = design.file_url.split('/design-files/')[1];
+                    if (path) {
+                        const { data: signedData, error: signedError } = await supabaseAdmin.storage
+                            .from('design-files')
+                            .createSignedUrl(path, 3600); // 1 hour
+
+                        if (!signedError && signedData?.signedUrl) {
+                            return { ...design, file_url: signedData.signedUrl };
+                        }
+                    }
+                } catch (signedErr) {
+                    console.error('Error signing URL for public design:', design.id, signedErr);
+                }
+            }
+            return design;
+        }));
+
         // Extract team info - find site engineer by designation
         const siteEngineer = members?.find((m: any) =>
             m.users?.designation?.toLowerCase().includes('site engineer') ||
@@ -82,6 +112,7 @@ export async function GET(
             project,
             photos: updates?.flatMap((u: { photos: string[] | null }) => u.photos || []) || [],
             reports: reports || [],
+            designs: designs || [],
             siteEngineer
         });
 
