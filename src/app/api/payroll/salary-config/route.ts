@@ -22,9 +22,11 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
+        console.log('Salary Config Request Body:', body);
         const parsed = salaryConfigSchema.safeParse(body);
 
         if (!parsed.success) {
+            console.error('Salary Config Validation Failed:', parsed.error.format());
             return NextResponse.json(
                 { error: 'Invalid payload', details: parsed.error.format() },
                 { status: 400 }
@@ -32,6 +34,7 @@ export async function POST(req: NextRequest) {
         }
 
         const { user_id, base_salary, hra, special_allowance } = parsed.data;
+        console.log('Upserting Salary Config:', { user_id, base_salary, hra, special_allowance });
 
         // Upsert the profile (update if exists, insert if new)
         const { data, error } = await supabaseAdmin
@@ -48,10 +51,13 @@ export async function POST(req: NextRequest) {
 
         if (error) {
             console.error('Database error upserting salary config:', error);
-            return NextResponse.json({ error: 'Failed to save salary configuration' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to save salary configuration', details: error.message }, { status: 500 });
         }
 
-        return NextResponse.json(data);
+        const upsertResult = Array.isArray(data) ? data[0] : data;
+        console.log('Upsert Result Data (Processed):', upsertResult);
+
+        return NextResponse.json(upsertResult || { success: true });
     } catch (error) {
         console.error('API Error /api/payroll/salary-config:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

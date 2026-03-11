@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const roleFilter = searchParams.get('role');
     const idFilter = searchParams.get('id');
-
+    
     const { user, role: userRole, error: userAuthError } = await getAuthUser();
 
     if (userAuthError || !user) {
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     if (idFilter) {
       const { data, error } = await supabaseAdmin
         .from('users')
-        .select(`*, roles(id, name)`)
+        .select(`*, roles(id, name), employee_salary_profiles(*)`)
         .eq('id', idFilter)
         .single();
 
@@ -65,7 +65,20 @@ export async function GET(request: NextRequest) {
         console.error('Error fetching single user:', error);
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
-      return NextResponse.json(data);
+
+      // Fetch salary profile separately to be absolutely sure
+      const { data: salaryData } = await supabaseAdmin
+        .from('employee_salary_profiles')
+        .select('*')
+        .eq('user_id', idFilter)
+        .maybeSingle();
+
+      const userWithSalary = {
+        ...data,
+        salary_profile: salaryData || null
+      };
+
+      return NextResponse.json(userWithSalary);
     }
 
     // Build query for multiple users

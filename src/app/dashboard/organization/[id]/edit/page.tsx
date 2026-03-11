@@ -93,8 +93,8 @@ export default function EditUserPage() {
         const res = await fetch(`/api/admin/users?id=${userId}`);
         if (!res.ok) throw new Error('Failed to fetch user');
         const data = await res.json();
-
         setUser(data);
+        const salaryData = data.salary_profile;
 
         // Find the role_id - prefer role_id field, fallback to matching by name
         let roleId = data.role_id || '';
@@ -105,13 +105,6 @@ export default function EditUserPage() {
           }
         }
 
-        // Fetch salary data
-        const { data: salaryData } = await supabase
-          .from('employee_salary_profiles')
-          .select('*')
-          .eq('user_id', userId)
-          .maybeSingle();
-
         reset({
           email: data.email,
           username: data.username || '',
@@ -119,9 +112,9 @@ export default function EditUserPage() {
           designation: data.designation || '',
           role_id: roleId,
           phone_number: data.phone_number || '',
-          base_salary: salaryData?.base_salary || 0,
-          hra: salaryData?.hra || 0,
-          special_allowance: salaryData?.special_allowance || 0,
+          base_salary: Number(salaryData?.base_salary || 0),
+          hra: Number(salaryData?.hra || 0),
+          special_allowance: Number(salaryData?.special_allowance || 0),
         });
       } catch (error) {
         console.error('Error fetching user:', error);
