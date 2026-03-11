@@ -149,9 +149,6 @@ function DashboardLayoutContent({
                     alt="Logo"
                     className="h-7 w-7 lg:h-8 lg:w-8 min-w-[28px] object-contain"
                 />
-                <span className="text-sm font-black text-gray-900 lg:hidden group-hover:block whitespace-nowrap overflow-hidden">
-                    APPLE
-                </span>
             </Link>
         </div>
 
