@@ -137,27 +137,29 @@ function DashboardLayoutContent({
 
       {/* Sidebar */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-20 lg:w-14 lg:hover:w-32 bg-white text-gray-900 shadow-lg border-r border-gray-200 transform transition-all duration-300 ease-in-out group peer
+        fixed inset-y-0 left-0 z-50 w-64 lg:w-14 lg:hover:w-32 bg-white text-gray-900 shadow-lg border-r border-gray-200 transform transition-all duration-300 ease-in-out group peer
         lg:translate-x-0 lg:fixed lg:top-0 lg:h-screen lg:left-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        {/* Mobile Close Button */}
-        <button
-          onClick={() => setSidebarOpen(false)}
-          className="lg:hidden absolute top-2 right-2 p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
-          aria-label="Close sidebar"
-        >
-          <FiX className="h-4 w-4" />
-        </button>
-        {/* Logo at top */}
-        <div className="p-2 lg:p-3 mb-0 flex items-center justify-center lg:justify-start">
-            <Link href="/dashboard" className="flex items-center gap-3">
+        {/* Sidebar Header with Logo and Close Button */}
+        <div className="p-3 lg:p-3 flex items-center justify-between border-b border-gray-100 lg:border-none">
+            <Link href="/dashboard" className="flex items-center gap-2">
                 <img
                     src="/icon_1.png"
                     alt="Logo"
-                    className="h-8 w-8 lg:h-8 lg:w-8 min-w-[32px] object-contain"
+                    className="h-8 w-8 min-w-[32px] object-contain"
                 />
+                <span className="font-bold text-gray-900 lg:hidden group-hover:block whitespace-nowrap">Apple Interior</span>
             </Link>
+            
+            {/* Mobile Close Button - repositioned to avoid overlap */}
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="Close sidebar"
+            >
+              <FiX className="h-5 w-5" />
+            </button>
         </div>
 
         {/* Navigation */}
@@ -165,16 +167,16 @@ function DashboardLayoutContent({
           <div className="space-y-0.5">
             <Link
               href="/dashboard"
-              className="flex items-center justify-center lg:justify-start px-3 lg:pl-[14px] lg:pr-2 py-2 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
+              className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
               onClick={() => setSidebarOpen(false)}
               title="Dashboard"
             >
               <FiHome className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
-              <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Dashboard</span>
+              <span className="ml-3 text-sm font-medium lg:text-xs block lg:group-hover:block whitespace-nowrap">Dashboard</span>
             </Link>
             <Link
               href="/dashboard/projects"
-              className="flex items-center justify-center lg:justify-start px-3 lg:pl-[14px] lg:pr-2 py-2 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
+              className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
               onClick={() => setSidebarOpen(false)}
               title="Projects"
             >
@@ -183,7 +185,7 @@ function DashboardLayoutContent({
             </Link>
             <Link
               href="/dashboard/tasks"
-              className="flex items-center justify-center lg:justify-start px-3 lg:pl-[14px] lg:pr-2 py-2 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
+              className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
               onClick={() => setSidebarOpen(false)}
               title="All Tasks"
             >
@@ -192,7 +194,7 @@ function DashboardLayoutContent({
             </Link>
             <Link
               href="/dashboard/snags"
-              className="flex items-center justify-center lg:justify-start px-3 lg:pl-[14px] lg:pr-2 py-2 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
+              className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
               onClick={() => setSidebarOpen(false)}
               title="Snags"
             >
@@ -201,7 +203,7 @@ function DashboardLayoutContent({
             </Link>
             <Link
               href="/dashboard/office-expenses"
-              className="flex items-center justify-center lg:justify-start px-3 lg:pl-[14px] lg:pr-2 py-2 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
+              className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
               onClick={() => setSidebarOpen(false)}
               title="Expenses"
             >
@@ -211,7 +213,7 @@ function DashboardLayoutContent({
             {hasPermission('attendance.view') && (
               <Link
                 href="/dashboard/attendance"
-                className="flex items-center justify-center lg:justify-start px-3 lg:pl-[14px] lg:pr-2 py-2 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
+                className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
                 onClick={() => setSidebarOpen(false)}
                 title="Attendance"
                 id="sidebar-attendance"
@@ -223,7 +225,7 @@ function DashboardLayoutContent({
             {hasPermission('payroll.view') && (
               <Link
                 href="/dashboard/payroll"
-                className="flex items-center justify-center lg:justify-start px-3 lg:pl-[14px] lg:pr-2 py-2 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
+                className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
                 onClick={() => setSidebarOpen(false)}
                 title="Payroll"
                 id="sidebar-payroll"
@@ -251,7 +253,7 @@ function DashboardLayoutContent({
               id="sidebar-org"
             >
               <FiUsers className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
-              <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Org</span>
+              <span className="ml-3 text-sm font-medium lg:text-xs block lg:group-hover:block whitespace-nowrap">Org</span>
             </Link>
               </>
             )}
