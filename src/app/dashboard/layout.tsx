@@ -15,7 +15,7 @@ import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import AttendanceWidget from '@/components/attendance/AttendanceWidget';
 import PasswordChangeModal from '@/components/PasswordChangeModal';
-import AdminTour from '@/components/AdminTour';
+
 
 function DashboardLayoutContent({
   children,
@@ -126,8 +126,7 @@ function DashboardLayoutContent({
       {showPasswordModal && (
         <PasswordChangeModal onSuccess={() => setShowPasswordModal(false)} />
       )}
-      {/* Admin Feature Tour */}
-      <AdminTour setSidebarOpen={setSidebarOpen} />
+
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
