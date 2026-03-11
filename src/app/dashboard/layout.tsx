@@ -141,25 +141,17 @@ function DashboardLayoutContent({
         lg:translate-x-0 lg:fixed lg:top-0 lg:h-screen lg:left-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        {/* Sidebar Header with Logo and Close Button */}
-        <div className="p-3 lg:p-3 flex items-center justify-between border-b border-gray-100 lg:border-none">
-            <Link href="/dashboard" className="flex items-center gap-2">
-                <img
-                    src="/icon_1.png"
-                    alt="Logo"
-                    className="h-8 w-8 min-w-[32px] object-contain"
-                />
-                <span className="font-bold text-gray-900 lg:hidden group-hover:block whitespace-nowrap">Apple Interior</span>
+        {/* Logo at top */}
+        <div className="p-2 lg:p-3">
+          <div className="flex items-center justify-start pl-3 lg:pl-1">
+            <Link href="/dashboard" className="flex items-center gap-3">
+              <img
+                src="/icon_1.png"
+                alt="Apple Interiors"
+                className="h-6 w-6 lg:h-7 lg:w-7"
+              />
             </Link>
-            
-            {/* Mobile Close Button - repositioned to avoid overlap */}
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-              aria-label="Close sidebar"
-            >
-              <FiX className="h-5 w-5" />
-            </button>
+          </div>
         </div>
 
         {/* Navigation */}
@@ -172,7 +164,7 @@ function DashboardLayoutContent({
               title="Dashboard"
             >
               <FiHome className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
-              <span className="ml-3 text-sm font-medium lg:text-xs block lg:group-hover:block whitespace-nowrap">Dashboard</span>
+              <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Dashboard</span>
             </Link>
             <Link
               href="/dashboard/projects"
@@ -238,7 +230,7 @@ function DashboardLayoutContent({
               <>
                 <Link
                   href="/dashboard/organization?tab=broadcast"
-                  className="flex items-center justify-center lg:justify-start px-3 lg:pl-[14px] lg:pr-2 py-2 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
+                  className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
                   onClick={() => setSidebarOpen(false)}
                   title="Broadcast"
                 >
@@ -247,14 +239,14 @@ function DashboardLayoutContent({
                 </Link>
                 <Link
                   href="/dashboard/organization"
-              className="flex items-center justify-center lg:justify-start px-3 lg:pl-[14px] lg:pr-2 py-2 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
-              onClick={() => setSidebarOpen(false)}
-              title="Org"
-              id="sidebar-org"
-            >
-              <FiUsers className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
-              <span className="ml-3 text-sm font-medium lg:text-xs block lg:group-hover:block whitespace-nowrap">Org</span>
-            </Link>
+                  className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
+                  onClick={() => setSidebarOpen(false)}
+                  title="Org"
+                  id="sidebar-org"
+                >
+                  <FiUsers className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
+                  <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Org</span>
+                </Link>
               </>
             )}
           </div>
