@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo, use } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
-import { FiUser, FiClock, FiCalendar, FiBriefcase, FiDollarSign, FiActivity, FiArrowLeft, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
+import { FiUser, FiClock, FiCalendar, FiBriefcase, FiActivity, FiArrowLeft, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { formatDateIST } from '@/lib/dateUtils';
 import { DataTable, StatusBadge, getStatusVariant } from '@/components/ui/DataTable';
 import Link from 'next/link';
@@ -84,7 +85,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
         { id: 'projects', label: 'Projects', icon: <FiBriefcase /> },
         { id: 'attendance', label: 'Attendance', icon: <FiClock /> },
         { id: 'leaves', label: 'Leaves', icon: <FiCalendar /> },
-        { id: 'expenses', label: 'Expenses', icon: <FiDollarSign /> },
+        { id: 'expenses', label: 'Expenses', icon: <TbCurrencyRupee /> },
     ];
 
     if (loading) {
@@ -151,7 +152,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
                     title="Approved Costs"
                     value={`₹${expenses.filter(e => e.status === 'approved').reduce((acc, e) => acc + (Number(e.amount) || 0), 0).toLocaleString()}`}
                     subtitle="Total office expenses"
-                    icon={<FiDollarSign className="text-purple-500" />}
+                    icon={<TbCurrencyRupee className="text-purple-500" />}
                 />
             </div>
 

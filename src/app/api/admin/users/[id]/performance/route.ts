@@ -59,7 +59,7 @@ export async function GET(
             .eq('status', 'done')
             .gte('updated_at', ninetyDaysAgo);
 
-        let adherenceRate = 100;
+        let adherenceRate = 0;
         if (tasks && tasks.length > 0) {
             const onTimeTasks = tasks.filter((task: any) => {
                 if (!task.estimated_completion_date) return true;
