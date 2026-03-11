@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, getAuthUser } from '@/lib/supabase-server';
+import { NotificationService } from '@/lib/notificationService';
 
 /**
  * POST: Employee appeals a rejected attendance record
@@ -49,6 +50,25 @@ export async function POST(request: NextRequest) {
         if (error) {
             console.error('Attendance appeal error:', error);
             return NextResponse.json({ error: error.message }, { status: 500 });
+        }
+
+        // Notify Admins
+        try {
+            const { data: admins } = await supabaseAdmin
+                .from('users')
+                .select('id')
+                .eq('role', 'admin');
+
+            const employeeName = userResult.user.user_metadata?.full_name || 'An employee';
+            const date = data.date;
+
+            if (admins) {
+                await Promise.all(
+                    admins.map((admin: { id: string }) => NotificationService.notifyAttendanceAppealed(admin.id, employeeName, date))
+                );
+            }
+        } catch (notifyError) {
+            console.error('Failed to send appeal notification:', notifyError);
         }
 
         return NextResponse.json(data);

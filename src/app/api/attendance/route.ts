@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, getAuthUser } from '@/lib/supabase-server';
 import { verifyPermission, PERMISSION_NODES } from '@/lib/rbac';
 import { getTodayDateString } from '@/lib/dateUtils';
+import { NotificationService } from '@/lib/notificationService';
 
 /**
  * GET: Fetch attendance logs
@@ -248,6 +249,17 @@ export async function PATCH(request: NextRequest) {
         if (error) {
             console.error('Attendance approval error:', error);
             return NextResponse.json({ error: error.message }, { status: 500 });
+        }
+
+        // Notify Employee
+        try {
+            if (status === 'approved') {
+                await NotificationService.notifyAttendanceApproved(data.user_id, data.date);
+            } else if (status === 'rejected') {
+                await NotificationService.notifyAttendanceRejected(data.user_id, data.date, admin_comments);
+            }
+        } catch (notifyError) {
+            console.error('Failed to send attendance status notification:', notifyError);
         }
 
         return NextResponse.json(data);

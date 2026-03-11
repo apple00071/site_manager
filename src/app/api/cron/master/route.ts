@@ -129,6 +129,19 @@ export async function GET(req: NextRequest) {
             }
         }
 
+        // F. Attendance Punch-In Reminder: 10:00 AM IST (4:30 AM UTC)
+        if (manualJob === 'attendance-in' || (!manualJob && utcHour === 4 && utcMin >= 30)) {
+            if (await shouldRunJob('attendance-in')) {
+                const { runPunchInReminder } = await import('@/lib/cron-jobs/attendanceReminders');
+                console.log('Running Punch-In Reminder (10 AM IST)...');
+                results.punchInReminder = await runPunchInReminder();
+                results.executed.push('punchInReminder');
+                await markJobCompleted('attendance-in');
+            } else {
+                console.log('Punch-In Reminder skipped (already run today)');
+            }
+        }
+
         // C. Member Check-up: 1:00 PM IST (7:30 AM UTC)
         if (manualJob === 'member-checkup' || (!manualJob && utcHour === 7 && utcMin >= 30)) {
             if (await shouldRunJob('member-checkup')) {
@@ -164,6 +177,19 @@ export async function GET(req: NextRequest) {
                 await markJobCompleted('admin-check');
             } else {
                 console.log('Admin Review skipped (already run today)');
+            }
+        }
+
+        // G. Attendance Punch-Out Reminder: 6:00 PM IST (12:30 PM UTC)
+        if (manualJob === 'attendance-out' || (!manualJob && utcHour === 12 && utcMin >= 30)) {
+            if (await shouldRunJob('attendance-out')) {
+                const { runPunchOutReminder } = await import('@/lib/cron-jobs/attendanceReminders');
+                console.log('Running Punch-Out Reminder (6 PM IST)...');
+                results.punchOutReminder = await runPunchOutReminder();
+                results.executed.push('punchOutReminder');
+                await markJobCompleted('attendance-out');
+            } else {
+                console.log('Punch-Out Reminder skipped (already run today)');
             }
         }
 

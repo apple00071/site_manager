@@ -34,7 +34,10 @@ export type NotificationType =
   | 'expense_rejected'
   | 'leave_created'
   | 'leave_approved'
-  | 'leave_rejected';
+  | 'leave_rejected'
+  | 'attendance_appealed'
+  | 'attendance_approved'
+  | 'attendance_rejected';
 
 export interface CreateNotificationParams {
   userId: string;
@@ -89,6 +92,9 @@ export class NotificationService {
       case 'leave_created':
       case 'leave_approved':
       case 'leave_rejected':
+      case 'attendance_appealed':
+      case 'attendance_approved':
+      case 'attendance_rejected':
         return `${baseUrl}/attendance`;
       case 'site_log_submitted':
         return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=dlogs` : undefined;
@@ -564,5 +570,32 @@ export class NotificationService {
       .map(userId => this.createNotification({ ...params, userId }));
 
     return Promise.allSettled(notifications);
+  }
+
+  static async notifyAttendanceAppealed(userId: string, employeeName: string, date: string) {
+    return this.createNotification({
+      userId,
+      title: 'Attendance Appeal Submitted',
+      message: `${employeeName} has submitted an attendance appeal for ${date}. Please review it in the dashboard.`,
+      type: 'attendance_appealed',
+    });
+  }
+
+  static async notifyAttendanceApproved(userId: string, date: string) {
+    return this.createNotification({
+      userId,
+      title: 'Attendance Approved',
+      message: `Your attendance record for ${date} has been approved.`,
+      type: 'attendance_approved',
+    });
+  }
+
+  static async notifyAttendanceRejected(userId: string, date: string, reason?: string) {
+    return this.createNotification({
+      userId,
+      title: 'Attendance Rejected',
+      message: `Your attendance record for ${date} has been rejected.${reason ? ` Reason: ${reason}` : ''}`,
+      type: 'attendance_rejected',
+    });
   }
 }
