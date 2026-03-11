@@ -11,6 +11,9 @@ export default function PublicProjectPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // Tab State
+    const [activeTab, setActiveTab] = useState<'photos' | 'designs' | 'reports'>('photos');
+
     // Image Modal State
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -103,6 +106,35 @@ export default function PublicProjectPage() {
                 </div>
             </div>
 
+            {/* Tabs Bar - Sticky Below Header */}
+            <div className="bg-white border-b border-gray-100 sticky top-[80px] sm:top-[88px] z-10">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6">
+                    <div className="flex gap-8">
+                        {[
+                            { id: 'photos', label: 'Site Photos', icon: FiImage },
+                            { id: 'designs', label: 'Approved Designs', icon: FiCheckCircle },
+                            { id: 'reports', label: 'Progress Reports', icon: FiFileText },
+                        ].map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id as any)}
+                                className={`flex items-center gap-2 py-4 border-b-2 font-bold text-xs sm:text-sm transition-all relative ${
+                                    activeTab === tab.id
+                                        ? 'border-yellow-500 text-yellow-600'
+                                        : 'border-transparent text-gray-400 hover:text-gray-600'
+                                }`}
+                            >
+                                <tab.icon className="w-4 h-4" />
+                                {tab.label}
+                                {activeTab === tab.id && (
+                                    <div className="absolute -bottom-[2px] left-0 right-0 h-[2px] bg-yellow-500 rounded-full shadow-[0_0_8px_rgba(234,179,8,0.5)]"></div>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
             <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-6 space-y-6">
 
                 {/* Contact Info - Compact Project Team */}
@@ -155,126 +187,145 @@ export default function PublicProjectPage() {
                 )}
 
                 {/* Latest Photos */}
-                <section>
-                    <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <FiImage className="text-yellow-500" /> Recent Site Photos
-                    </h2>
-                    {photos.length > 0 ? (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                            {photos.slice(0, 9).map((url: string, idx: number) => (
-                                <button
-                                    key={idx}
-                                    onClick={() => {
-                                        setCurrentImageIndex(idx);
-                                        setIsImageModalOpen(true);
-                                    }}
-                                    className="aspect-square bg-gray-200 rounded-2xl overflow-hidden shadow-sm hover:opacity-90 transition-opacity border border-gray-100"
-                                >
-                                    <img src={url} alt="Site update" className="w-full h-full object-cover" />
-                                </button>
-                            ))}
+                {activeTab === 'photos' && (
+                    <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                <FiImage className="text-yellow-500" /> Recent Site Photos
+                            </h2>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{photos.length} Photos</span>
                         </div>
-                    ) : (
-                        <div className="bg-white p-8 rounded-3xl border border-dashed border-gray-200 text-center text-gray-400">
-                            No photos uploaded yet.
-                        </div>
-                    )}
-                </section>
-                
+                        {photos.length > 0 ? (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                {photos.map((url: string, idx: number) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => {
+                                            setCurrentImageIndex(idx);
+                                            setIsImageModalOpen(true);
+                                        }}
+                                        className="aspect-square bg-gray-200 rounded-2xl overflow-hidden shadow-sm hover:opacity-90 transition-all hover:scale-[1.02] border border-gray-100 group relative"
+                                    >
+                                        <img src={url} alt="Site update" className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="bg-white p-12 rounded-3xl border border-dashed border-gray-200 text-center text-gray-400">
+                                <FiImage className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                                <p className="font-medium text-sm">No photos uploaded yet.</p>
+                            </div>
+                        )}
+                    </section>
+                )}
+
                 {/* Approved Designs */}
-                <section>
-                    <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <FiCheckCircle className="text-green-500" /> Approved Designs
-                    </h2>
-                    {designs && designs.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {designs.map((design: any) => (
-                                <div key={design.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                                                <FiImage className="w-5 h-5" />
+                {activeTab === 'designs' && (
+                    <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                <FiCheckCircle className="text-green-500" /> Final Approved Designs
+                            </h2>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{designs?.length || 0} Designs</span>
+                        </div>
+                        {designs && designs.length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {designs.map((design: any) => (
+                                    <div key={design.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-4 hover:shadow-md transition-shadow">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-12 h-12 bg-green-50 text-green-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                                                    <FiImage className="w-6 h-6" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="text-sm font-bold text-gray-900 leading-tight truncate">{design.file_name}</div>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className="text-[10px] font-bold text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full uppercase tracking-wider">{design.category}</span>
+                                                        <span className="text-[10px] text-gray-400 font-bold">VERSION {design.version_number}</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div className="min-w-0">
-                                                <div className="text-sm font-bold text-gray-900 leading-tight truncate">{design.file_name}</div>
-                                                <div className="flex items-center gap-2 mt-0.5">
-                                                    <span className="text-[10px] font-bold text-yellow-600 bg-yellow-50 px-1.5 py-0.5 rounded uppercase">{design.category}</span>
-                                                    <span className="text-[10px] text-gray-400 font-medium">v{design.version_number}</span>
+                                            <a
+                                                href={design.file_url}
+                                                target="_blank"
+                                                className="px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-xl transition-colors flex items-center gap-1.5 text-xs font-bold"
+                                            >
+                                                <FiDownload className="w-4 h-4" />
+                                                <span>View</span>
+                                            </a>
+                                        </div>
+                                        
+                                        {/* Design Preview if it's an image */}
+                                        {design.file_type?.startsWith('image/') && (
+                                            <div className="relative aspect-video bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden group cursor-pointer" onClick={() => window.open(design.file_url, '_blank')}>
+                                                <img 
+                                                    src={design.file_url} 
+                                                    alt={design.file_name} 
+                                                    className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
+                                                />
+                                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                    <div className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full text-xs font-bold shadow-xl transform translate-y-2 group-hover:translate-y-0 transition-transform">Click to View Full Size</div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="bg-white p-12 rounded-3xl border border-dashed border-gray-200 text-center text-gray-400">
+                                <FiCheckCircle className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                                <p className="font-medium text-sm">No designs approved yet.</p>
+                            </div>
+                        )}
+                    </section>
+                )}
+
+                {/* Progress Reports */}
+                {activeTab === 'reports' && (
+                    <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                <FiFileText className="text-yellow-500" /> Progress Reports
+                            </h2>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{reports.length} Reports</span>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3">
+                            {reports.length > 0 ? (
+                                reports.map((report: any) => (
+                                    <div key={report.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-50 flex items-center justify-between group hover:border-yellow-200 transition-colors">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 bg-yellow-50 text-yellow-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                                                <FiCalendar className="w-6 h-6" />
+                                            </div>
+                                            <div>
+                                                <div className="text-sm font-bold text-gray-900">
+                                                    {new Date(report.report_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                </div>
+                                                <div className="text-[10px] text-gray-400 font-medium line-clamp-1 max-w-[200px] sm:max-w-none mt-0.5">
+                                                    {report.summary || 'Weekly summary report and site update status.'}
                                                 </div>
                                             </div>
                                         </div>
                                         <a
-                                            href={design.file_url}
+                                            href={report.pdf_url}
                                             target="_blank"
-                                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold"
+                                            className="px-4 py-2 bg-yellow-50 text-yellow-600 hover:bg-yellow-100 rounded-xl transition-colors flex items-center gap-2 text-xs font-bold"
                                         >
                                             <FiDownload className="w-4 h-4" />
-                                            <span className="hidden sm:inline">View</span>
+                                            <span>PDF</span>
                                         </a>
                                     </div>
-                                    
-                                    {/* Design Preview if it's an image */}
-                                    {design.file_type?.startsWith('image/') && (
-                                        <div className="relative aspect-video bg-gray-50 rounded-xl border border-gray-100 overflow-hidden group cursor-pointer" onClick={() => window.open(design.file_url, '_blank')}>
-                                            <img 
-                                                src={design.file_url} 
-                                                alt={design.file_name} 
-                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                            />
-                                            <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                <div className="bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-[10px] font-bold shadow-lg">Click to Enlarge</div>
-                                            </div>
-                                        </div>
-                                    )}
+                                ))
+                            ) : (
+                                <div className="bg-white p-12 rounded-3xl border border-dashed border-gray-200 text-center text-gray-400">
+                                    <FiFileText className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                                    <p className="font-medium text-sm">No reports shared yet.</p>
                                 </div>
-                            ))}
+                            )}
                         </div>
-                    ) : (
-                        <div className="bg-white p-8 rounded-3xl border border-dashed border-gray-200 text-center text-gray-400">
-                            No designs approved yet.
-                        </div>
-                    )}
-                </section>
-
-                {/* Progress Reports */}
-                <section>
-                    <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <FiFileText className="text-yellow-500" /> Progress Reports
-                    </h2>
-                    <div className="space-y-3">
-                        {reports.length > 0 ? (
-                            reports.map((report: any) => (
-                                <div key={report.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-50 flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 bg-yellow-50 text-yellow-500 rounded-xl flex items-center justify-center">
-                                            <FiCalendar className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <div className="text-sm font-bold text-gray-900">
-                                                {new Date(report.report_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                            </div>
-                                            <div className="text-[10px] text-gray-400 font-medium line-clamp-1 max-w-[150px] sm:max-w-none">
-                                                {report.summary || 'Summary report...'}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <a
-                                        href={report.pdf_url}
-                                        target="_blank"
-                                        className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold"
-                                    >
-                                        <FiDownload className="w-4 h-4" />
-                                        <span className="hidden sm:inline">PDF</span>
-                                    </a>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="bg-white p-8 rounded-3xl border border-dashed border-gray-200 text-center text-gray-400">
-                                No reports shared yet.
-                            </div>
-                        )}
-                    </div>
-                </section>
+                    </section>
+                )}
 
                 <footer className="text-center pt-8 opacity-30">
                     <div className="text-[10px] font-black tracking-widest text-gray-500 uppercase">Powered by Apple Interiors</div>
