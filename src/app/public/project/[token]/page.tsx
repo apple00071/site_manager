@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { FiCalendar, FiMapPin, FiCheckCircle, FiClock, FiImage, FiFileText, FiDownload, FiPhone, FiUser } from 'react-icons/fi';
+import { FiCalendar, FiMapPin, FiCheckCircle, FiClock, FiImage, FiFileText, FiDownload, FiPhone, FiUser, FiChevronRight } from 'react-icons/fi';
 import { ImageModal } from '@/components/ui/ImageModal';
 
 export default function PublicProjectPage() {
@@ -68,66 +68,72 @@ export default function PublicProjectPage() {
     const { project, photos, reports, designs } = data;
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-12">
+        <div className="min-h-screen bg-[#F8F9FA] pb-12">
+            <style jsx global>{`
+                .scrollbar-hide::-webkit-scrollbar {
+                    display: none;
+                }
+                .scrollbar-hide {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                }
+            `}</style>
+            
             {/* Header Area - Full Width with Status */}
-            <div className="bg-white border-b border-gray-100 pt-6 pb-5 px-4 sm:px-6 sticky top-0 z-10 shadow-sm">
-                <div className="max-w-6xl mx-auto">
-                    <div className="flex items-center gap-2 text-yellow-500 font-bold text-[10px] uppercase tracking-widest mb-1">
-                        <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>
+            <div className="bg-white border-b border-gray-100 pt-6 pb-2 px-4 sm:px-6 sticky top-0 z-20 shadow-sm flex flex-col gap-4">
+                <div className="max-w-6xl mx-auto w-full">
+                    <div className="flex items-center gap-2 text-[#EAB308] font-bold text-[10px] uppercase tracking-widest mb-1">
+                        <div className="w-2 h-2 rounded-full bg-[#EAB308] animate-pulse"></div>
                         Live Project Update
                     </div>
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div>
-                            <h1 className="text-xl sm:text-2xl font-black text-gray-900">{project.title}</h1>
-                            <p className="text-gray-500 text-xs sm:text-sm flex items-center gap-1 mt-0.5">
-                                <FiMapPin className="text-gray-400" /> {project.apartment_name || project.address || 'Site Location'}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="min-w-0">
+                            <h1 className="text-xl sm:text-2xl font-black text-gray-900 truncate">{project.title}</h1>
+                            <p className="text-gray-500 text-xs sm:text-sm flex items-center gap-1 mt-0.5 truncate">
+                                <FiMapPin className="text-gray-400 flex-shrink-0" /> {project.apartment_name || project.address || 'Site Location'}
                             </p>
                         </div>
-                        <div className="flex items-center gap-4 bg-gray-50 px-4 py-2 rounded-2xl">
-                            <div>
-                                <div className="text-[10px] font-bold text-gray-400 uppercase">Stage</div>
-                                <div className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
+                        <div className="flex items-center gap-2 sm:gap-4 overflow-x-auto scrollbar-hide">
+                            <div className="bg-gray-50 px-3 py-2 rounded-xl border border-gray-100 flex-shrink-0">
+                                <div className="text-[9px] font-bold text-gray-400 uppercase leading-none mb-1">Stage</div>
+                                <div className="text-xs font-bold text-gray-900 flex items-center gap-1.5 leading-none">
                                     {project.status === 'pending' ? 'Design' :
                                         project.status === 'in_progress' ? 'Execution' :
                                             project.status === 'on_hold' ? 'On Hold' :
                                                 project.status === 'completed' ? 'Completed' : project.status.replace('_', ' ')}
-                                    {project.status === 'completed' && <FiCheckCircle className="text-green-500 w-4 h-4" />}
                                 </div>
                             </div>
-                            <div className="h-8 w-px bg-gray-200"></div>
-                            <div>
-                                <div className="text-[10px] font-bold text-gray-400 uppercase">Est. Completion</div>
-                                <div className="text-sm font-medium text-gray-700">
-                                    {new Date(project.estimated_completion_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            <div className="bg-gray-50 px-3 py-2 rounded-xl border border-gray-100 flex-shrink-0">
+                                <div className="text-[9px] font-bold text-gray-400 uppercase leading-none mb-1">Completion</div>
+                                <div className="text-xs font-bold text-gray-900 leading-none">
+                                    {new Date(project.estimated_completion_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Tabs Bar - Sticky Below Header */}
-            <div className="bg-white border-b border-gray-100 sticky top-[80px] sm:top-[88px] z-10 overflow-x-auto scrollbar-hide">
-                <div className="max-w-6xl mx-auto px-4 sm:px-6">
-                    <div className="flex gap-6 sm:gap-8 min-w-max">
+                {/* Tabs inside the same sticky container to avoid overlap issues */}
+                <div className="max-w-6xl mx-auto w-full -mb-2 mt-2">
+                    <div className="flex gap-6 sm:gap-10 overflow-x-auto scrollbar-hide min-w-max">
                         {[
                             { id: 'photos', label: 'Site Photos', icon: FiImage },
                             { id: 'designs', label: 'Approved Designs', icon: FiCheckCircle },
-                            { id: 'reports', label: 'Progress Reports', icon: FiFileText },
+                            { id: 'reports', label: 'Reports', icon: FiFileText },
                         ].map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as any)}
-                                className={`flex items-center gap-2 py-4 border-b-2 font-bold text-xs sm:text-sm transition-all relative ${
+                                className={`flex items-center gap-2 py-3 border-b-2 font-bold text-[11px] sm:text-sm transition-all relative whitespace-nowrap ${
                                     activeTab === tab.id
-                                        ? 'border-yellow-500 text-yellow-600'
+                                        ? 'border-[#EAB308] text-[#D19E04]'
                                         : 'border-transparent text-gray-400 hover:text-gray-600'
                                 }`}
                             >
-                                <tab.icon className="w-4 h-4" />
+                                <tab.icon className={`w-3.5 h-3.5 ${activeTab === tab.id ? 'text-[#EAB308]' : ''}`} />
                                 {tab.label}
                                 {activeTab === tab.id && (
-                                    <div className="absolute -bottom-[2px] left-0 right-0 h-[2px] bg-yellow-500 rounded-full shadow-[0_0_8px_rgba(234,179,8,0.5)]"></div>
+                                    <div className="absolute -bottom-[2px] left-0 right-0 h-[2.5px] bg-[#EAB308] rounded-full shadow-[0_0_10px_rgba(234,179,8,0.4)]"></div>
                                 )}
                             </button>
                         ))}
@@ -135,7 +141,7 @@ export default function PublicProjectPage() {
                 </div>
             </div>
 
-            <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-6 space-y-6">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-6 space-y-8">
 
                 {/* Contact Info - Compact Project Team */}
                 {(project.assigned_employee || data.siteEngineer) && (
