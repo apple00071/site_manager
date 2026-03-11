@@ -265,7 +265,7 @@ export default function AdminPayrollDashboard() {
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => { setSelectedPayroll(row); setIsViewModalOpen(true); }}
-                        className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="flex items-center justify-center w-8 h-8 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                         title="View Details"
                     >
                         <FiEye className="w-4 h-4" />
@@ -273,7 +273,7 @@ export default function AdminPayrollDashboard() {
                     {row.status === 'draft' && (
                         <button
                             onClick={() => updatePayrollStatus(row.id, 'processed')}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            className="flex items-center justify-center w-8 h-8 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             title="Mark as Processed"
                         >
                             <FiPlayCircle className="w-4 h-4" />
@@ -282,7 +282,7 @@ export default function AdminPayrollDashboard() {
                     {row.status === 'processed' && (
                         <button
                             onClick={() => updatePayrollStatus(row.id, 'paid')}
-                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            className="flex items-center justify-center w-8 h-8 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                             title="Mark as Paid"
                         >
                             <FiCheckCircle className="w-4 h-4" />
@@ -290,7 +290,7 @@ export default function AdminPayrollDashboard() {
                     )}
                     <button
                         onClick={() => deletePayroll(row.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="flex items-center justify-center w-8 h-8 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         title="Delete Record"
                     >
                         <FiTrash2 className="w-4 h-4" />
@@ -399,32 +399,32 @@ export default function AdminPayrollDashboard() {
                                 <div className="flex items-center justify-end gap-3 pt-2">
                                     <button
                                         onClick={() => { setSelectedPayroll(row); setIsViewModalOpen(true); }}
-                                        className="p-1.5 text-gray-600 bg-gray-50 rounded-lg"
+                                        className="flex items-center justify-center w-9 h-9 text-gray-600 bg-gray-50 rounded-lg"
                                         title="View Details"
                                     >
-                                        <FiEye />
+                                        <FiEye className="w-4 h-4" />
                                     </button>
                                     {row.status === 'draft' && (
                                         <button
                                             onClick={() => updatePayrollStatus(row.id, 'processed')}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 rounded-lg"
+                                            className="flex items-center justify-center gap-1.5 px-3 h-9 text-xs font-semibold text-blue-600 bg-blue-50 rounded-lg"
                                         >
-                                            <FiPlayCircle /> Process
+                                            <FiPlayCircle className="w-4 h-4" /> Process
                                         </button>
                                     )}
                                     {row.status === 'processed' && (
                                         <button
                                             onClick={() => updatePayrollStatus(row.id, 'paid')}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-green-600 bg-green-50 rounded-lg"
+                                            className="flex items-center justify-center gap-1.5 px-3 h-9 text-xs font-semibold text-green-600 bg-green-50 rounded-lg"
                                         >
-                                            <FiCheckCircle /> Mark Paid
+                                            <FiCheckCircle className="w-4 h-4" /> Mark Paid
                                         </button>
                                     )}
                                     <button
                                         onClick={() => deletePayroll(row.id)}
-                                        className="p-1.5 text-red-600 bg-red-50 rounded-lg"
+                                        className="flex items-center justify-center w-9 h-9 text-red-600 bg-red-50 rounded-lg"
                                     >
-                                        <FiTrash2 />
+                                        <FiTrash2 className="w-4 h-4" />
                                     </button>
                                 </div>
                             </div>

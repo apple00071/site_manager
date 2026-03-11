@@ -100,7 +100,7 @@ export const LeaveCard: React.FC<LeaveCardProps> = ({
                 {isAdmin && leave.status === 'pending' && (
                     <button
                         onClick={() => onReview?.(leave)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                        className="flex items-center justify-center gap-1.5 h-9 px-4 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
                     >
                         <FiClipboard className="h-3.5 w-3.5" />
                         Review
@@ -109,7 +109,7 @@ export const LeaveCard: React.FC<LeaveCardProps> = ({
                 {currentUserId === leave.user_id && leave.status === 'pending' && (
                     <button
                         onClick={() => onDelete?.(leave.id)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                        className="flex items-center justify-center gap-1.5 h-9 px-4 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
                     >
                         <FiTrash2 className="h-3.5 w-3.5" />
                         Cancel

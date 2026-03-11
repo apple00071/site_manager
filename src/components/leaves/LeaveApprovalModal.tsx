@@ -155,7 +155,7 @@ export default function LeaveApprovalModal({ leave, onSuccess, onClose }: LeaveA
                     <button
                         onClick={() => handleAction('rejected')}
                         disabled={loading}
-                        className="flex-1 px-4 py-2.5 border border-red-200 text-red-600 rounded-xl font-bold text-xs hover:bg-red-50 transition-all flex items-center justify-center gap-2"
+                        className="flex-1 h-11 border border-red-200 text-red-600 rounded-xl font-bold text-xs hover:bg-red-50 transition-all flex items-center justify-center gap-2"
                     >
                         <FiX className="w-3.5 h-3.5" />
                         <span>Reject</span>
@@ -163,7 +163,7 @@ export default function LeaveApprovalModal({ leave, onSuccess, onClose }: LeaveA
                     <button
                         onClick={() => handleAction('approved')}
                         disabled={loading}
-                        className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-xl font-bold text-xs hover:bg-green-700 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                        className="flex-1 h-11 bg-green-600 text-white rounded-xl font-bold text-xs hover:bg-green-700 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
                     >
                         <FiCheck className="w-3.5 h-3.5" />
                         <span>Approve {isPermission ? 'Permission' : 'Leave'}</span>

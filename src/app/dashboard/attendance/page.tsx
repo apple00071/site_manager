@@ -288,14 +288,14 @@ export default function AttendancePage() {
                             const { newIn, newOut } = getRequestedTimes(row);
                             handleApproval(row.id, 'approved', newIn, newOut);
                         }}
-                        className="text-[10px] font-bold text-green-600 hover:text-green-700 flex items-center gap-0.5 transition-colors"
+                        className="h-7 px-2 border border-green-200 bg-green-50 rounded-lg text-[10px] font-bold text-green-600 hover:text-green-700 flex items-center justify-center gap-1 transition-colors"
                         title="Approve"
                     >
                         <FiCheck className="w-3 h-3" /> Approve
                     </button>
                     <button
                         onClick={() => handleApproval(row.id, 'rejected')}
-                        className="text-[10px] font-bold text-red-600 hover:text-red-700 flex items-center gap-0.5 transition-colors"
+                        className="h-7 px-2 border border-red-200 bg-red-50 rounded-lg text-[10px] font-bold text-red-600 hover:text-red-700 flex items-center justify-center gap-1 transition-colors"
                         title="Reject"
                     >
                         <FiX className="w-3 h-3" /> Reject
@@ -341,7 +341,7 @@ export default function AttendancePage() {
                                 href={`https://www.google.com/maps?q=${row.check_in_latitude},${row.check_in_longitude}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="p-1 text-gray-400 hover:text-blue-500 rounded-full hover:bg-blue-50 transition-colors"
+                                className="inline-flex items-center justify-center w-6 h-6 text-gray-400 hover:text-blue-500 rounded-full hover:bg-blue-50 transition-colors"
                                 title="View Check-in Location"
                             >
                                 <FiMapPin className="w-3.5 h-3.5" />
@@ -372,7 +372,7 @@ export default function AttendancePage() {
                                 href={`https://www.google.com/maps?q=${row.check_out_latitude},${row.check_out_longitude}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="p-1 text-gray-400 hover:text-orange-500 rounded-full hover:bg-orange-50 transition-colors"
+                                className="inline-flex items-center justify-center w-6 h-6 text-gray-400 hover:text-orange-500 rounded-full hover:bg-orange-50 transition-colors"
                                 title="View Check-out Location"
                             >
                                 <FiMapPin className="w-3.5 h-3.5" />
@@ -628,39 +628,45 @@ export default function AttendancePage() {
                                             <div className="flex flex-col">
                                                 <div className="flex items-center gap-1">
                                                     <span className="text-[10px] font-bold text-gray-400 uppercase">Punch In</span>
+                                                </div>
+                                                <div className="flex items-center min-h-[1.5rem] w-fit">
+                                                    <span className="text-sm font-bold text-blue-600">
+                                                        {formatTimeIST(log.check_in)}
+                                                    </span>
                                                     {isAdmin && log.check_in_latitude && log.check_in_longitude && (
                                                         <a
                                                             href={`https://www.google.com/maps?q=${log.check_in_latitude},${log.check_in_longitude}`}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="text-blue-500 hover:text-blue-600 transition-colors"
+                                                            className="inline-flex items-center justify-center w-4 h-4 ml-0.5 text-blue-500 hover:text-blue-600 transition-all active:scale-95"
+                                                            title="View Check-in Location"
                                                         >
-                                                            <FiMapPin className="w-2.5 h-2.5" />
+                                                            <FiMapPin className="w-3 h-3" />
                                                         </a>
                                                     )}
                                                 </div>
-                                                <span className="text-sm font-bold text-blue-600">
-                                                    {formatTimeIST(log.check_in)}
-                                                </span>
                                                 {renderAppealRemarksAndActions(log, 'in')}
                                             </div>
                                             <div className="flex flex-col text-right">
                                                 <div className="flex items-center justify-end gap-1">
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Punch Out</span>
+                                                </div>
+                                                <div className="flex items-center min-h-[1.5rem] w-fit ml-auto">
+                                                    <span className={`text-sm font-bold ${log.status === 'pending' ? 'text-yellow-600' : 'text-orange-600'}`}>
+                                                        {log.check_out ? formatTimeIST(log.check_out) : '—'}
+                                                    </span>
                                                     {isAdmin && log.check_out && log.check_out_latitude && log.check_out_longitude && (
                                                         <a
                                                             href={`https://www.google.com/maps?q=${log.check_out_latitude},${log.check_out_longitude}`}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="text-orange-500 hover:text-orange-600 transition-colors"
+                                                            className="inline-flex items-center justify-center w-4 h-4 ml-0.5 text-orange-500 hover:text-orange-600 transition-all active:scale-95"
+                                                            title="View Check-out Location"
                                                         >
-                                                            <FiMapPin className="w-2.5 h-2.5" />
+                                                            <FiMapPin className="w-3 h-3" />
                                                         </a>
                                                     )}
-                                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Punch Out</span>
                                                 </div>
-                                                <span className={`text-sm font-bold ${log.status === 'pending' ? 'text-yellow-600' : 'text-orange-600'}`}>
-                                                    {log.check_out ? formatTimeIST(log.check_out) : '—'}
-                                                </span>
                                                 {renderAppealRemarksAndActions(log, 'out')}
                                             </div>
                                         </div>

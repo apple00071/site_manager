@@ -375,7 +375,7 @@ export default function ProjectsPage() {
                   {isAdmin && (
                     <Link
                       href={`/dashboard/projects/${project.id}?share=1`}
-                      className="flex items-center justify-center w-10 h-10 text-yellow-600 hover:bg-yellow-100/50 rounded-xl transition-colors"
+                      className="flex items-center justify-center w-10 h-10 text-yellow-600 bg-yellow-50/50 hover:bg-yellow-100 rounded-xl transition-colors"
                       title="Share Live Link"
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -385,7 +385,7 @@ export default function ProjectsPage() {
                   {canEditProject && (
                     <Link
                       href={`/dashboard/projects/${project.id}/edit`}
-                      className="flex items-center justify-center w-10 h-10 text-yellow-600 hover:bg-yellow-100/50 rounded-xl transition-colors"
+                      className="flex items-center justify-center w-10 h-10 text-yellow-600 bg-yellow-50/50 hover:bg-yellow-100 rounded-xl transition-colors"
                       title="Edit project"
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -399,7 +399,7 @@ export default function ProjectsPage() {
                         e.stopPropagation();
                         handleDeleteProject(project.id);
                       }}
-                      className="flex items-center justify-center w-10 h-10 text-red-600 hover:bg-red-100/50 rounded-xl transition-colors"
+                      className="flex items-center justify-center w-10 h-10 text-red-600 bg-red-50/50 hover:bg-red-100 rounded-xl transition-colors"
                       title="Delete project"
                     >
                       <FiTrash2 className="h-4 w-4" />
