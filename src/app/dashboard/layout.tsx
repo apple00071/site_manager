@@ -148,7 +148,7 @@ function DashboardLayoutContent({
               <img
                 src="/sidebar-logo.png"
                 alt="Apple Interiors"
-                className="h-10 w-10 lg:h-11 lg:w-11 object-contain"
+                className="h-8 w-8 lg:h-9 lg:w-9 object-contain"
               />
             </Link>
           </div>
