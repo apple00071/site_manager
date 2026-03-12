@@ -142,14 +142,17 @@ function DashboardLayoutContent({
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Logo at top */}
-        <div className="p-2 lg:p-3">
-          <div className="flex items-center justify-start pl-3 lg:pl-1">
+        <div className="p-4 lg:p-3">
+          <div className="flex items-center justify-start lg:pl-1">
             <Link href="/dashboard" className="flex items-center gap-3">
               <img
                 src="/icon_1.png"
                 alt="Apple Interiors"
-                className="h-6 w-6 lg:h-7 lg:w-7"
+                className="h-8 w-8 lg:h-7 lg:w-7"
               />
+              <span className="text-sm font-bold text-gray-900 lg:hidden lg:group-hover:block whitespace-nowrap">
+                Apple Interiors
+              </span>
             </Link>
           </div>
         </div>
@@ -265,11 +268,16 @@ function DashboardLayoutContent({
               <button
                 onClick={() => setSidebarOpen(true)}
                 id="mobile-menu-button"
-                className="lg:hidden p-1.5 -ml-1.5 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"
+                className="lg:hidden p-1.5 -ml-1.5 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors shrink-0"
                 aria-label="Open navigation menu"
               >
                 <FiMenu className="h-6 w-6" />
               </button>
+
+              {/* Mobile Logo */}
+              <Link href="/dashboard" className="lg:hidden shrink-0">
+                <img src="/icon_1.png" alt="Logo" className="h-6 w-6" />
+              </Link>
 
               <div className="text-sm font-semibold text-gray-900 whitespace-nowrap truncate">{pageTitle}</div>
 
