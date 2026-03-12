@@ -211,7 +211,7 @@ export default function BasicDetailsTab() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-6 border-b pb-3">Company Logo</h3>
                 <div className="flex items-center gap-6">
                     <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
-                        <img src="/icon.png" alt="Logo" className="w-16 h-16" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                        <img src="/sidebar-logo.png" alt="Logo" className="w-16 h-16" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                     </div>
                     <div>
                         <button className="btn-secondary">

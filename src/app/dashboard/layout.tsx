@@ -146,7 +146,7 @@ function DashboardLayoutContent({
           <div className="flex items-center justify-center lg:justify-start lg:pl-1">
             <Link href="/dashboard" className="flex items-center">
               <img
-                src="/icon.png"
+                src="/sidebar-logo.png"
                 alt="Apple Interiors"
                 className="h-10 w-10 lg:h-11 lg:w-11 object-contain"
               />
