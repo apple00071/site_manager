@@ -146,7 +146,7 @@ function DashboardLayoutContent({
           <div className="flex items-center justify-start pl-3 lg:pl-1">
             <Link href="/dashboard" className="flex items-center gap-3">
               <img
-                src="/icon_1.png"
+                src="/icon.png"
                 alt="Apple Interiors"
                 className="h-6 w-6 lg:h-7 lg:w-7"
               />
@@ -273,7 +273,7 @@ function DashboardLayoutContent({
 
               {/* Mobile Logo */}
               <Link href="/dashboard" className="lg:hidden shrink-0">
-                <img src="/icon_1.png" alt="Logo" className="h-6 w-6" />
+                <img src="/icon.png" alt="Logo" className="h-6 w-6" />
               </Link>
 
               <div className="text-sm font-semibold text-gray-900 whitespace-nowrap truncate">{pageTitle}</div>
