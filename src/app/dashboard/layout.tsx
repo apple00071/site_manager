@@ -142,17 +142,14 @@ function DashboardLayoutContent({
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Logo at top */}
-        <div className="p-4 lg:p-3">
-          <div className="flex items-center justify-start lg:pl-1">
+        <div className="p-2 lg:p-3">
+          <div className="flex items-center justify-start pl-3 lg:pl-1">
             <Link href="/dashboard" className="flex items-center gap-3">
               <img
                 src="/icon_1.png"
                 alt="Apple Interiors"
-                className="h-8 w-8 lg:h-7 lg:w-7"
+                className="h-6 w-6 lg:h-7 lg:w-7"
               />
-              <span className="text-sm font-bold text-gray-900 lg:hidden lg:group-hover:block whitespace-nowrap">
-                Apple Interiors
-              </span>
             </Link>
           </div>
         </div>
