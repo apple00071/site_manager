@@ -271,10 +271,6 @@ function DashboardLayoutContent({
                 <FiMenu className="h-6 w-6" />
               </button>
 
-              {/* Mobile Logo */}
-              <Link href="/dashboard" className="lg:hidden shrink-0">
-                <img src="/icon.png" alt="Logo" className="h-8 w-8 object-contain" />
-              </Link>
 
               <div className="text-sm font-semibold text-gray-900 whitespace-nowrap truncate">{pageTitle}</div>
 
