@@ -54,7 +54,11 @@ export default function PayrollSection() {
             const res = await fetch(`/api/admin/payroll?userId=${user?.id}`);
             if (res.ok) {
                 const data = await res.json();
-                setPayrolls(data);
+                // Employees should only see processed or paid payrolls, not drafts
+                const finalizedPayrolls = Array.isArray(data) 
+                    ? data.filter((p: PayrollRecord) => p.status !== 'draft') 
+                    : [];
+                setPayrolls(finalizedPayrolls);
             }
         } catch (error) {
             console.error('Error fetching payrolls:', error);

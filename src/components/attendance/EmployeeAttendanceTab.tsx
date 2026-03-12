@@ -216,13 +216,89 @@ export default function EmployeeAttendanceTab() {
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-                <DataTable
-                    columns={columns}
-                    data={attendance}
-                    keyField="id"
-                    loading={loading}
-                    emptyMessage="No attendance records found."
-                />
+                {/* Desktop View */}
+                <div className="hidden md:block">
+                    <DataTable
+                        columns={columns}
+                        data={attendance}
+                        keyField="id"
+                        loading={loading}
+                        emptyMessage="No attendance records found."
+                    />
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden divide-y divide-gray-100">
+                    {loading ? (
+                        <div className="p-8 text-center text-gray-500">Loading history...</div>
+                    ) : attendance.length === 0 ? (
+                        <div className="p-8 text-center text-gray-500">No attendance records found.</div>
+                    ) : (
+                        attendance.map((row) => (
+                            <div key={row.id} className="p-4 space-y-4">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm font-bold text-gray-900">{formatDateIST(row.date)}</span>
+                                    {row.check_out ? (
+                                        <div className="flex flex-col items-end gap-1">
+                                            <StatusBadge
+                                                status={row.status.toUpperCase()}
+                                                variant={row.status === 'approved' ? 'success' : row.status === 'rejected' ? 'error' : 'warning'}
+                                            />
+                                            {row.status === 'rejected' && row.admin_comments && (
+                                                <p className="text-[10px] text-red-600 leading-tight text-right italic font-medium">Reason: {row.admin_comments}</p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <span className="text-xs text-gray-400 italic">In Progress</span>
+                                    )}
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100/50">
+                                        <span className="block text-[10px] uppercase tracking-wider text-blue-500 font-bold mb-1">Punch In</span>
+                                        <span className="text-sm font-bold text-blue-700">{formatTime(row.check_in)}</span>
+                                    </div>
+                                    <div className="bg-orange-50/50 p-3 rounded-xl border border-orange-100/50">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="block text-[10px] uppercase tracking-wider text-orange-500 font-bold">Punch Out</span>
+                                            {row.status === 'pending' && (
+                                                <span className="px-1 py-0.5 text-[8px] font-black bg-yellow-100 text-yellow-700 rounded uppercase tracking-tighter">Reviewing</span>
+                                            )}
+                                        </div>
+                                        <span className="text-sm font-bold text-orange-700">{formatTime(row.check_out)}</span>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between gap-3 pt-1">
+                                    <div className="flex-1">
+                                        {row.status === 'pending' && row.user_comments && (
+                                            <div className="flex items-center gap-1.5 text-yellow-600">
+                                                <FiClock className="w-3 h-3" />
+                                                <span className="text-[10px] font-bold italic">Appeal under review</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setAppealingRecord(row);
+                                            let existing = row.user_comments || '';
+                                            if (existing.startsWith('[Requested Time')) {
+                                                const parts = existing.split('\n');
+                                                existing = parts.slice(1).join('\n');
+                                            }
+                                            setUserComments(existing);
+                                            setRequestedCheckIn('');
+                                            setRequestedCheckOut('');
+                                        }}
+                                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 flex items-center gap-2"
+                                    >
+                                        Appeal
+                                    </button>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
             </div>
 
             {/* Appeal Modal */}

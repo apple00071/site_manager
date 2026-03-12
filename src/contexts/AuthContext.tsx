@@ -28,6 +28,7 @@ let lastRequestTime = 0;
 type UserWithRole = User & {
   role?: 'admin' | 'employee';
   full_name?: string;
+  designation?: string;
 };
 
 type AuthContextType = {
@@ -119,7 +120,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   id: data.user.id,
                   email: data.user.email,
                   role: data.user.user_metadata?.role || 'employee',
-                  full_name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'User'
+                  full_name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'User',
+                  designation: data.user.user_metadata?.designation || ''
                 } as UserWithRole);
                 setIsAdmin((data.user.user_metadata?.role || 'employee') === 'admin');
                 setIsLoading(false);
@@ -143,14 +145,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         debugLog('📋 User role fetch result:', {
           hasData: !!userData,
           role: (userData as any)?.role,
-          fullName: (userData as any)?.full_name
+          fullName: (userData as any)?.full_name,
+          designation: (userData as any)?.designation
         });
 
         if (userData) {
           const userWithRole = {
             ...currentSession.user,
             role: (userData as any).role as 'admin' | 'employee',
-            full_name: (userData as any).full_name
+            full_name: (userData as any).full_name,
+            designation: (userData as any).designation
           };
 
           setUser(userWithRole);
@@ -166,7 +170,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser({
             ...currentSession.user,
             role: 'employee',
-            full_name: currentSession.user.email?.split('@')[0] || 'User'
+            full_name: currentSession.user.email?.split('@')[0] || 'User',
+            designation: ''
           });
           setIsAdmin(false);
         }
@@ -213,7 +218,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const userWithRole = {
                   ...newSession.user,
                   role: (userData as any).role as 'admin' | 'employee',
-                  full_name: (userData as any).full_name
+                  full_name: (userData as any).full_name,
+                  designation: (userData as any).designation
                 };
 
                 setUser(userWithRole);
@@ -227,7 +233,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setUser({
                   ...newSession.user,
                   role: 'employee',
-                  full_name: newSession.user.email?.split('@')[0] || 'User'
+                  full_name: newSession.user.email?.split('@')[0] || 'User',
+                  designation: ''
                 });
                 setIsAdmin(false);
               }
@@ -236,7 +243,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setUser({
                 ...newSession.user,
                 role: 'employee',
-                full_name: newSession.user.email?.split('@')[0] || 'User'
+                full_name: newSession.user.email?.split('@')[0] || 'User',
+                designation: ''
               });
               setIsAdmin(false);
             }

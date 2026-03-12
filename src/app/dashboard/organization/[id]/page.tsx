@@ -159,18 +159,18 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
             {/* Tabbed Content Area */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 {/* Tab Navigation */}
-                <div className="flex border-b border-gray-100 overflow-x-auto no-scrollbar">
+                <div className="flex border-b border-gray-100 overflow-x-auto no-scrollbar scroll-smooth">
                     {tabs.map(tab => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center gap-2 px-6 py-4 text-sm font-semibold transition-all whitespace-nowrap border-b-2 ${activeTab === tab.id
+                            className={`flex items-center gap-2 px-6 py-4 text-sm font-semibold transition-all whitespace-nowrap border-b-2 flex-shrink-0 ${activeTab === tab.id
                                 ? 'text-yellow-600 border-yellow-500 bg-yellow-50/30'
                                 : 'text-gray-500 border-transparent hover:text-gray-700 hover:bg-gray-50'
                                 }`}
                         >
-                            {tab.icon}
-                            {tab.label}
+                            <span className="flex-shrink-0">{tab.icon}</span>
+                            <span className="flex-shrink-0">{tab.label}</span>
                         </button>
                     ))}
                 </div>
@@ -200,55 +200,158 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
                     )}
 
                     {activeTab === 'projects' && (
-                        <DataTable
-                            data={projects}
-                            keyField="id"
-                            columns={[
-                                { label: 'Project Title', key: 'title', render: (val) => <span className="font-semibold text-gray-900">{val}</span> },
-                                { label: 'Status', key: 'status', render: (val) => <StatusBadge status={val} variant={getStatusVariant(val)} /> },
-                                { label: 'Customer', key: 'customer_name' },
-                                { label: 'Start Date', key: 'start_date', render: (val) => formatDateIST(val).split(',')[0] },
-                            ]}
-                        />
+                        <>
+                            <div className="hidden md:block">
+                                <DataTable
+                                    data={projects}
+                                    keyField="id"
+                                    columns={[
+                                        { label: 'Project Title', key: 'title', render: (val) => <span className="font-semibold text-gray-900">{val}</span> },
+                                        { label: 'Status', key: 'status', render: (val) => <StatusBadge status={val} variant={getStatusVariant(val)} /> },
+                                        { label: 'Customer', key: 'customer_name' },
+                                        { label: 'Start Date', key: 'start_date', render: (val) => formatDateIST(val).split(',')[0] },
+                                    ]}
+                                />
+                            </div>
+                            <div className="md:hidden divide-y divide-gray-100">
+                                {projects.length === 0 ? (
+                                    <div className="p-8 text-center text-gray-500">No projects assigned.</div>
+                                ) : (
+                                    projects.map(proj => (
+                                        <div key={proj.id} className="p-4 space-y-3">
+                                            <div className="flex justify-between items-start">
+                                                <span className="font-bold text-gray-900 text-sm">{proj.title}</span>
+                                                <StatusBadge status={proj.status} variant={getStatusVariant(proj.status)} />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                                <span className="text-gray-500">Customer:</span>
+                                                <span className="text-right text-gray-700 font-medium">{proj.customer_name || 'N/A'}</span>
+                                                <span className="text-gray-500">Start Date:</span>
+                                                <span className="text-right text-gray-700 font-medium">{formatDateIST(proj.start_date).split(',')[0]}</span>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </>
                     )}
 
                     {activeTab === 'attendance' && (
-                        <DataTable
-                            data={attendance}
-                            keyField="id"
-                            columns={[
-                                { label: 'Date', key: 'date', render: (val) => formatDateIST(val).split(',')[0] },
-                                { label: 'Check In', key: 'check_in', render: (val) => formatDateIST(val).split(',')[1] },
-                                { label: 'Check Out', key: 'check_out', render: (val) => val ? formatDateIST(val).split(',')[1] : '-' },
-                                { label: 'Status', key: 'status', render: (_, row) => <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${row.check_out ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{row.check_out ? 'Completed' : 'Active'}</span> },
-                            ]}
-                        />
+                        <>
+                            <div className="hidden md:block">
+                                <DataTable
+                                    data={attendance}
+                                    keyField="id"
+                                    columns={[
+                                        { label: 'Date', key: 'date', render: (val) => formatDateIST(val).split(',')[0] },
+                                        { label: 'Check In', key: 'check_in', render: (val) => formatDateIST(val).split(',')[1] },
+                                        { label: 'Check Out', key: 'check_out', render: (val) => val ? formatDateIST(val).split(',')[1] : '-' },
+                                        { label: 'Status', key: 'status', render: (_, row) => <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${row.check_out ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{row.check_out ? 'Completed' : 'Active'}</span> },
+                                    ]}
+                                />
+                            </div>
+                            <div className="md:hidden divide-y divide-gray-100">
+                                {attendance.length === 0 ? (
+                                    <div className="p-8 text-center text-gray-500">No attendance records found.</div>
+                                ) : (
+                                    attendance.map(record => (
+                                        <div key={record.id} className="p-4 space-y-3">
+                                            <div className="flex justify-between items-center">
+                                                <span className="font-bold text-gray-900 text-sm">{formatDateIST(record.date).split(',')[0]}</span>
+                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${record.check_out ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'} uppercase`}>
+                                                    {record.check_out ? 'Completed' : 'Active'}
+                                                </span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3 text-xs">
+                                                <div className="bg-blue-50/50 p-2 rounded-lg border border-blue-100/50">
+                                                    <span className="block text-[9px] uppercase tracking-wider text-blue-500 font-bold mb-0.5">In</span>
+                                                    <span className="font-bold text-blue-700">{formatDateIST(record.check_in).split(',')[1]}</span>
+                                                </div>
+                                                <div className="bg-orange-50/50 p-2 rounded-lg border border-orange-100/50">
+                                                    <span className="block text-[9px] uppercase tracking-wider text-orange-500 font-bold mb-0.5">Out</span>
+                                                    <span className="font-bold text-orange-700">{record.check_out ? formatDateIST(record.check_out).split(',')[1] : '-'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </>
                     )}
 
                     {activeTab === 'leaves' && (
-                        <DataTable
-                            data={leaves}
-                            keyField="id"
-                            columns={[
-                                { label: 'Leave Type', key: 'leave_type', render: (val) => <span className="capitalize">{val.replace(/_/g, ' ')}</span> },
-                                { label: 'Duration', key: 'start_date', render: (_, row) => `${formatDateIST(row.start_date).split(',')[0]} to ${formatDateIST(row.end_date).split(',')[0]}` },
-                                { label: 'Status', key: 'status', render: (val) => <StatusBadge status={val} variant={getStatusVariant(val)} /> },
-                                { label: 'Reason', key: 'reason', render: (val) => <span className="text-gray-500 text-xs truncate max-w-[200px] inline-block">{val}</span> },
-                            ]}
-                        />
+                        <>
+                            <div className="hidden md:block">
+                                <DataTable
+                                    data={leaves}
+                                    keyField="id"
+                                    columns={[
+                                        { label: 'Leave Type', key: 'leave_type', render: (val) => <span className="capitalize">{val.replace(/_/g, ' ')}</span> },
+                                        { label: 'Duration', key: 'start_date', render: (_, row) => `${formatDateIST(row.start_date).split(',')[0]} to ${formatDateIST(row.end_date).split(',')[0]}` },
+                                        { label: 'Status', key: 'status', render: (val) => <StatusBadge status={val} variant={getStatusVariant(val)} /> },
+                                        { label: 'Reason', key: 'reason', render: (val) => <span className="text-gray-500 text-xs truncate max-w-[200px] inline-block">{val}</span> },
+                                    ]}
+                                />
+                            </div>
+                            <div className="md:hidden divide-y divide-gray-100">
+                                {leaves.length === 0 ? (
+                                    <div className="p-8 text-center text-gray-500">No leave requests found.</div>
+                                ) : (
+                                    leaves.map(l => (
+                                        <div key={l.id} className="p-4 space-y-3">
+                                            <div className="flex justify-between items-start">
+                                                <span className="font-bold text-gray-900 text-sm capitalize">{l.leave_type.replace(/_/g, ' ')}</span>
+                                                <StatusBadge status={l.status} variant={getStatusVariant(l.status)} />
+                                            </div>
+                                            <div className="flex flex-col gap-1 text-[11px] text-gray-600">
+                                                <div className="flex items-center gap-1">
+                                                    <FiCalendar className="text-gray-400" />
+                                                    {formatDateIST(l.start_date).split(',')[0]} to {formatDateIST(l.end_date).split(',')[0]}
+                                                </div>
+                                                {l.reason && (
+                                                    <p className="text-gray-500 mt-1 line-clamp-2 italic leading-tight">"{l.reason}"</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </>
                     )}
 
                     {activeTab === 'expenses' && (
-                        <DataTable
-                            data={expenses}
-                            keyField="id"
-                            columns={[
-                                { label: 'Date', key: 'expense_date', render: (val) => formatDateIST(val).split(',')[0] },
-                                { label: 'Description', key: 'description' },
-                                { label: 'Amount', key: 'amount', render: (val) => <span className="font-bold text-gray-900">₹{val}</span> },
-                                { label: 'Status', key: 'status', render: (val) => <StatusBadge status={val} variant={getStatusVariant(val)} /> },
-                            ]}
-                        />
+                        <>
+                            <div className="hidden md:block">
+                                <DataTable
+                                    data={expenses}
+                                    keyField="id"
+                                    columns={[
+                                        { label: 'Date', key: 'expense_date', render: (val) => formatDateIST(val).split(',')[0] },
+                                        { label: 'Description', key: 'description' },
+                                        { label: 'Amount', key: 'amount', render: (val) => <span className="font-bold text-gray-900">₹{val}</span> },
+                                        { label: 'Status', key: 'status', render: (val) => <StatusBadge status={val} variant={getStatusVariant(val)} /> },
+                                    ]}
+                                />
+                            </div>
+                            <div className="md:hidden divide-y divide-gray-100">
+                                {expenses.length === 0 ? (
+                                    <div className="p-8 text-center text-gray-500">No expense records found.</div>
+                                ) : (
+                                    expenses.map(exp => (
+                                        <div key={exp.id} className="p-4 space-y-3">
+                                            <div className="flex justify-between items-start">
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-gray-900 text-sm">₹{(Number(exp.amount) || 0).toLocaleString()}</span>
+                                                    <span className="text-[10px] text-gray-500">{formatDateIST(exp.expense_date).split(',')[0]}</span>
+                                                </div>
+                                                <StatusBadge status={exp.status} variant={getStatusVariant(exp.status)} />
+                                            </div>
+                                            <p className="text-xs text-gray-600 line-clamp-2">{exp.description || 'No description'}</p>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </>
                     )}
                 </div>
             </div>

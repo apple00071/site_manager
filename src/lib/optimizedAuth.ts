@@ -123,8 +123,9 @@ export async function getOptimizedUserRole(userId: string) {
       const role = session.user.user_metadata?.role || 'employee';
       const fullName = session.user.user_metadata?.full_name || 
                       session.user.email?.split('@')[0] || 'User';
+      const designation = session.user.user_metadata?.designation || '';
       
-      const userData = { role, full_name: fullName };
+      const userData = { role, full_name: fullName, designation };
       
       // Cache for 15 minutes
       userCache.set(cacheKey, userData, 15 * 60 * 1000);
@@ -137,20 +138,21 @@ export async function getOptimizedUserRole(userId: string) {
     const { data: { user }, error } = await supabase.auth.getUser();
     
     if (error || !user) {
-      return { role: 'employee', full_name: 'User' };
+      return { role: 'employee', full_name: 'User', designation: '' };
     }
 
     const role = user.user_metadata?.role || 'employee';
     const fullName = user.user_metadata?.full_name || 
                     user.email?.split('@')[0] || 'User';
+    const designation = user.user_metadata?.designation || '';
     
-    const userData = { role, full_name: fullName };
+    const userData = { role, full_name: fullName, designation };
     userCache.set(cacheKey, userData, 15 * 60 * 1000);
     
     return userData;
   } catch (error) {
     console.error('Error fetching user role:', error);
-    return { role: 'employee', full_name: 'User' };
+    return { role: 'employee', full_name: 'User', designation: '' };
   }
 }
 

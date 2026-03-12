@@ -223,10 +223,10 @@ export default function SettingsPage() {
 
             {/* Nav Tabs */}
             {!isAdmin && (
-              <div className="flex gap-4 border-b border-gray-200 mb-6">
+              <div className="flex gap-4 border-b border-gray-200 mb-6 overflow-x-auto no-scrollbar scroll-smooth">
                 <button
                   onClick={() => setActiveTab('profile')}
-                  className={`pb-4 text-sm font-bold transition-all border-b-2 ${activeTab === 'profile'
+                  className={`pb-4 text-sm font-bold transition-all border-b-2 flex-shrink-0 whitespace-nowrap ${activeTab === 'profile'
                     ? 'border-yellow-500 text-yellow-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                     }`}
@@ -235,7 +235,7 @@ export default function SettingsPage() {
                 </button>
                 <button
                   onClick={() => setActiveTab('leaves')}
-                  className={`pb-4 text-sm font-bold transition-all border-b-2 ${activeTab === 'leaves'
+                  className={`pb-4 text-sm font-bold transition-all border-b-2 flex-shrink-0 whitespace-nowrap ${activeTab === 'leaves'
                     ? 'border-yellow-500 text-yellow-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                     }`}
@@ -244,7 +244,7 @@ export default function SettingsPage() {
                 </button>
                 <button
                   onClick={() => setActiveTab('payroll')}
-                  className={`pb-4 text-sm font-bold transition-all border-b-2 ${activeTab === 'payroll'
+                  className={`pb-4 text-sm font-bold transition-all border-b-2 flex-shrink-0 whitespace-nowrap ${activeTab === 'payroll'
                     ? 'border-yellow-500 text-yellow-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                     }`}
@@ -253,7 +253,7 @@ export default function SettingsPage() {
                 </button>
                 <button
                   onClick={() => setActiveTab('attendance')}
-                  className={`pb-4 text-sm font-bold transition-all border-b-2 ${activeTab === 'attendance'
+                  className={`pb-4 text-sm font-bold transition-all border-b-2 flex-shrink-0 whitespace-nowrap ${activeTab === 'attendance'
                     ? 'border-yellow-500 text-yellow-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                     }`}
