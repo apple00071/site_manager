@@ -143,7 +143,7 @@ export async function PATCH(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { status, admin_comment } = body;
+        const { status, admin_comment, leave_type } = body;
 
         // Fetch existing leave to check permissions and get data for notification
         const { data: existing, error: fetchError } = await supabaseAdmin
@@ -174,6 +174,10 @@ export async function PATCH(request: NextRequest) {
             approved_by: user.id,
             approved_at: new Date().toISOString()
         };
+
+        if (leave_type) {
+            updateData.leave_type = leave_type;
+        }
 
         const { data: leave, error } = await supabaseAdmin
             .from('leaves')
