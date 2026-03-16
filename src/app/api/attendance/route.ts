@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, getAuthUser } from '@/lib/supabase-server';
-import { verifyPermission, PERMISSION_NODES } from '@/lib/rbac';
+import { verifyPermission } from '@/lib/rbac';
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
 import { getTodayDateString } from '@/lib/dateUtils';
 import { NotificationService } from '@/lib/notificationService';
 
@@ -24,8 +25,16 @@ export async function GET(request: NextRequest) {
         const { data: userData } = await supabaseAdmin.from('users').select('role').eq('id', userResult.user.id).single();
         const isAdmin = userData?.role === 'admin';
 
-        // Check permission: Admins can view anything, employees can view THEIR OWN logs
-        if (!isAdmin && userId && userId !== userResult.user.id) {
+        // RBAC: Check attendance.view_all permission
+        const viewAllCheck = await verifyPermission(userResult.user.id, PERMISSION_NODES.ATTENDANCE_VIEW_ALL);
+        const canViewAll = isAdmin || viewAllCheck.allowed;
+
+        // RBAC: Check attendance.view_appeals permission
+        const viewAppealsCheck = await verifyPermission(userResult.user.id, PERMISSION_NODES.ATTENDANCE_VIEW_APPEALS);
+        const canViewAppeals = isAdmin || viewAppealsCheck.allowed;
+
+        // Check permission: Admins/ViewAll can view anything, employees can view THEIR OWN logs
+        if (!canViewAll && userId && userId !== userResult.user.id) {
             const check = await verifyPermission(userResult.user.id, PERMISSION_NODES.ATTENDANCE_VIEW);
             if (!check.allowed) {
                 return NextResponse.json({ error: check.message }, { status: 403 });
@@ -37,8 +46,8 @@ export async function GET(request: NextRequest) {
             users (full_name, email)
         `);
 
-        // Filter by user_id if employee (or if specifically requested by admin)
-        if (!isAdmin) {
+        // Filter by user_id if employee (or if specifically requested by admin/view_all)
+        if (!canViewAll) {
             query = query.eq('user_id', userResult.user.id);
         } else if (userId) {
             query = query.eq('user_id', userId);
@@ -56,12 +65,20 @@ export async function GET(request: NextRequest) {
 
         const { data, error } = await query;
 
-        if (error) {
-            console.error('Error fetching attendance logs:', error);
-            return NextResponse.json({ error: error.message }, { status: 500 });
+        let responseData = data;
+
+        // If user lacks view_appeals permission, sensitive fields are removed for other users' records
+        if (!canViewAppeals && data) {
+            responseData = data.map((row: any) => {
+                if (row.user_id !== userResult.user.id) {
+                    const { user_comments, admin_comments, ...rest } = row;
+                    return rest;
+                }
+                return row;
+            });
         }
 
-        return NextResponse.json(data);
+        return NextResponse.json(responseData);
     } catch (error: any) {
         console.error('Unexpected error in GET /api/attendance:', error);
         return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
@@ -195,6 +212,30 @@ export async function POST(request: NextRequest) {
             if (error) {
                 console.error('Quick close error:', error);
                 return NextResponse.json({ error: error.message }, { status: 500 });
+            }
+
+            // Notify all admins that an employee forgot to punch out
+            try {
+                const { data: employeeData } = await supabaseAdmin
+                    .from('users')
+                    .select('full_name')
+                    .eq('id', userResult.user.id)
+                    .single();
+
+                const { data: admins } = await supabaseAdmin
+                    .from('users')
+                    .select('id')
+                    .eq('role', 'admin');
+
+                if (admins && employeeData) {
+                    await Promise.allSettled(
+                        admins.map((admin: { id: string }) =>
+                            NotificationService.notifyAttendanceAppealed(admin.id, employeeData.full_name, date)
+                        )
+                    );
+                }
+            } catch (notifyError) {
+                console.error('Failed to notify admins about Quick Close:', notifyError);
             }
 
             return NextResponse.json(data);

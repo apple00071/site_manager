@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
-import { NotificationService } from '@/lib/notificationService';
+import { supabaseAdmin, getAuthUser } from '@/lib/supabase-server';
 import { handleApiError, sanitizeErrorMessage } from '@/lib/errorHandler';
 import { verifyPermission } from '@/lib/rbac';
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
+import { NotificationService } from '@/lib/notificationService';
 
 export const dynamic = 'force-dynamic';
 

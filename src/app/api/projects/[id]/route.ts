@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 import { handleApiError, sanitizeErrorMessage } from '@/lib/errorHandler';
-import { createNoCacheResponse } from '@/lib/apiHelpers';
-import { verifyPermission, PERMISSION_NODES } from '@/lib/rbac';
+import { verifyPermission } from '@/lib/rbac';
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';

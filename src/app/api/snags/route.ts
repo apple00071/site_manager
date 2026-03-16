@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
-import { verifyPermission, hasAnyPermission, PERMISSION_NODES } from '@/lib/rbac';
+import { supabaseAdmin, getAuthUser } from '@/lib/supabase-server';
+import { verifyPermission, hasAnyPermission } from '@/lib/rbac';
+import { PERMISSION_NODES } from '../../../lib/rbac-constants';
 import { NotificationService } from '@/lib/notificationService';
 import { sendSnagWhatsAppNotification } from '@/lib/whatsapp';
 

@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { FiPlus, FiUser, FiClock, FiCalendar, FiClipboard, FiTrash2, FiMapPin, FiSearch, FiCheck, FiX } from 'react-icons/fi';
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
 import { useToast } from '@/components/ui/Toast';
 import LeaveRequestForm from '@/components/leaves/LeaveRequestForm';
 import LeaveApprovalModal from '@/components/leaves/LeaveApprovalModal';
@@ -159,12 +160,14 @@ export default function AttendancePage() {
         }
     };
 
+    const canViewAll = isAdmin || hasPermission(PERMISSION_NODES.ATTENDANCE_VIEW_ALL);
+
     const filteredAttendance = attendanceLogs.filter(log => {
-        // Date Filter (Day-wise for Admin)
-        if (isAdmin && filterDate && log.date !== filterDate) return false;
+        // Date Filter (Day-wise for Admin/HR)
+        if (canViewAll && filterDate && log.date !== filterDate) return false;
         
-        // Month Filter for employees
-        if (!isAdmin) {
+        // Month Filter for regular employees
+        if (!canViewAll) {
             const logDate = new Date(log.date);
             const matchesMonth = logDate.getMonth() === filterMonth;
             const matchesYear = logDate.getFullYear() === filterYear;
@@ -230,7 +233,7 @@ export default function AttendancePage() {
             if (modifier === 'AM' && h === 12) h = 0;
             
             // Use ISO format with IST offset for robust parsing
-            const isoString = `${dateStr}T${String(h).padStart(2, '0')}:${minutesStr.padStart(2, '0')}:00+05:30`;
+            const isoString = `${dateStr}T${String(h).padStart(2, '0')}:${minutesStr.padStart(2, '0')}:${String(new Date().getSeconds()).padStart(2, '0')}+05:30`;
             return new Date(isoString).toISOString();
         } catch (e) {
             console.error("Failed parsing time:", e);
@@ -260,33 +263,55 @@ export default function AttendancePage() {
     };
 
     const renderAppealRemarksAndActions = (row: AttendanceRecord, type: 'in' | 'out') => {
-        if (!isAdmin || row.status !== 'pending' || !row.user_comments) return null;
+        const canViewAppeals = isAdmin || hasPermission(PERMISSION_NODES.ATTENDANCE_VIEW_APPEALS);
+        if (!canViewAppeals || row.status !== 'pending') return null;
 
-        const isTimeAppeal = row.user_comments.startsWith('[Requested Time');
+        const isQuickClose = row.admin_comments?.includes('Quick Close');
         
-        if (isTimeAppeal) {
-            const hasIn = row.user_comments.includes('In:');
-            const hasOut = row.user_comments.includes('Out:');
+        // If it lacks user_comments BUT is Quick Close, we'll render it under Punch Out by default.
+        if (!row.user_comments && !isQuickClose) return null;
 
-            if (type === 'in' && !hasIn) return null;
-            if (type === 'out' && !hasOut) return null;
-        } else {
-            // General remarks (not time specific) - show under Punch Out by default
-            if (type === 'in') return null;
+        let showRemarks = false;
+        if (row.user_comments) {
+            const isTimeAppeal = row.user_comments.startsWith('[Requested Time');
+            if (isTimeAppeal) {
+                const hasIn = row.user_comments.includes('In:');
+                const hasOut = row.user_comments.includes('Out:');
+
+                if (type === 'in' && !hasIn) return null;
+                if (type === 'out' && !hasOut) return null;
+                showRemarks = true;
+            } else {
+                // General remarks (not time specific) - show under Punch Out by default
+                if (type === 'in') return null;
+                showRemarks = true;
+            }
+        } else if (isQuickClose) {
+            if (type === 'in') return null; // Show quick close actions under Punch Out
+            showRemarks = true;
         }
+        
+        if (!showRemarks) return null;
 
         return (
             <div className="mt-1 space-y-2">
-                <div className="bg-yellow-50 p-1.5 rounded border border-yellow-100 max-w-[200px]">
-                    <p className="text-[10px] font-semibold text-yellow-800 mb-0.5">Appeal Remarks:</p>
-                    <p className="text-[10px] text-yellow-700 leading-tight italic break-words">"{row.user_comments}"</p>
-                </div>
+                {row.user_comments && (
+                    <div className="bg-yellow-50 p-1.5 rounded border border-yellow-100 max-w-[200px]">
+                        <p className="text-[10px] font-semibold text-yellow-800 mb-0.5">Appeal Remarks:</p>
+                        <p className="text-[10px] text-yellow-700 leading-tight italic break-words">"{row.user_comments}"</p>
+                    </div>
+                )}
                 
                 <div className="flex gap-2">
                     <button
                         onClick={() => {
-                            const { newIn, newOut } = getRequestedTimes(row);
-                            handleApproval(row.id, 'approved', newIn, newOut);
+                            if (row.user_comments) {
+                                const { newIn, newOut } = getRequestedTimes(row);
+                                handleApproval(row.id, 'approved', newIn, newOut);
+                            } else {
+                                // For Quick Close, approve immediately with no time changes
+                                handleApproval(row.id, 'approved');
+                            }
                         }}
                         className="h-7 px-2 border border-green-200 bg-green-50 rounded-lg text-[10px] font-bold text-green-600 hover:text-green-700 flex items-center justify-center gap-1 transition-colors"
                         title="Approve"
@@ -307,7 +332,7 @@ export default function AttendancePage() {
 
     // Columns for Attendance Table
     const attendanceColumns: Column<AttendanceRecord>[] = [
-        ...(isAdmin ? [{
+        ...(canViewAll ? [{
             key: 'users.full_name',
             label: 'Employee',
             render: (_: any, row: AttendanceRecord) => (
@@ -362,7 +387,7 @@ export default function AttendancePage() {
                             {row.check_out ? formatTimeIST(row.check_out) : '—'}
                         </span>
                         {row.status === 'pending' && (
-                            <span className="px-1.5 py-0.5 text-[9px] font-bold bg-yellow-100 text-yellow-700 rounded uppercase tracking-wider">Pending</span>
+                            <span className="px-1.5 py-0.5 text-[9px] font-bold bg-yellow-100 text-yellow-700 rounded uppercase tracking-wider mb-1">Pending</span>
                         )}
                         {row.status === 'rejected' && (
                             <span className="px-1.5 py-0.5 text-[9px] font-bold bg-red-100 text-red-700 rounded uppercase tracking-wider">Rejected</span>
@@ -396,12 +421,25 @@ export default function AttendancePage() {
                 const mins = Math.round(diff % 60);
                 return <span className="text-sm font-bold text-gray-900">{hours}h {mins}m</span>;
             }
-        }
+        },
+        ...(canViewAll ? [{
+            key: 'admin_comments',
+            label: 'Admin Remarks',
+            render: (_: any, row: AttendanceRecord) => {
+                const canViewAppeals = isAdmin || hasPermission(PERMISSION_NODES.ATTENDANCE_VIEW_APPEALS);
+                if (!canViewAppeals) return null;
+                return row.admin_comments ? (
+                    <span className="text-xs text-gray-600 italic line-clamp-2" title={row.admin_comments}>
+                        {row.admin_comments}
+                    </span>
+                ) : <span className="text-gray-400">—</span>;
+            }
+        }] : [])
     ];
 
     // Columns for Leaves Table
     const leaveColumns: Column<Leave>[] = [
-        ...(isAdmin ? [{
+        ...(canViewAll ? [{
             key: 'user.full_name',
             label: 'Employee',
             render: (_: any, row: Leave) => (
@@ -464,7 +502,7 @@ export default function AttendancePage() {
             label: '',
             render: (_, row) => (
                 <div className="flex justify-end gap-2">
-                    {isAdmin && row.status === 'pending' && (
+                    {canViewAll && row.status === 'pending' && (
                         <button
                             onClick={() => setApprovingLeave(row)}
                             className="flex items-center justify-center p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -533,7 +571,7 @@ export default function AttendancePage() {
                     </div>
                     {activeTab === 'attendance' && (
                         <div className="flex gap-2 w-full sm:w-auto">
-                            {isAdmin ? (
+                            {canViewAll ? (
                                 <CustomDatePicker
                                     value={filterDate}
                                     onChange={(date) => setFilterDate(date)}
@@ -558,7 +596,7 @@ export default function AttendancePage() {
                     )}
                 </div>
 
-                {!isAdmin && (
+                {!canViewAll && (
                     <div className="flex justify-end gap-3 w-full sm:w-auto">
                         <button
                             onClick={() => openLeaveForm('Permission')}
@@ -594,13 +632,13 @@ export default function AttendancePage() {
                                     <div key={log.id} className="p-4 rounded-xl border border-gray-100 space-y-3">
                                         <div className="flex justify-between items-center">
                                             <div className="flex items-center gap-2">
-                                                {isAdmin && (
+                                                {canViewAll && (
                                                     <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
                                                         <FiUser className="w-4 h-4" />
                                                     </div>
                                                 )}
                                                 <div>
-                                                    {isAdmin && <h4 className="text-sm font-bold text-gray-900">{log.users?.full_name}</h4>}
+                                                    {canViewAll && <h4 className="text-sm font-bold text-gray-900">{log.users?.full_name}</h4>}
                                                     <div className="text-xs font-semibold text-gray-500">{formatDateIST(log.date)}</div>
                                                 </div>
                                             </div>

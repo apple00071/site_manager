@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
-import { PERMISSION_NODES, verifyPermission } from '@/lib/rbac';
+import { supabaseAdmin, getAuthUser } from '@/lib/supabase-server';
+import { verifyPermission } from '@/lib/rbac';
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
 import { NotificationService } from '@/lib/notificationService';
 
 export const dynamic = 'force-dynamic';

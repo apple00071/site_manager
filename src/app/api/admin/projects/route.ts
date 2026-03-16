@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
 import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
-import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { supabaseAdmin, getAuthUser } from '@/lib/supabase-server';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
-import { verifyPermission, PERMISSION_NODES } from '@/lib/rbac';
+import { verifyPermission } from '@/lib/rbac';
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
 
 // Optimize caching for projects API
 export const dynamic = 'force-dynamic';
@@ -102,7 +103,11 @@ export async function GET(request: NextRequest) {
     const isAdmin = userRole === 'admin';
     const targetUserId = searchParams.get('userId');
 
-    console.log(`Fetching projects for ${isAdmin ? 'admin' : 'user'}:`, user.email);
+    // RBAC: Check projects.view_all permission
+    const viewAllCheck = await verifyPermission(userId, PERMISSION_NODES.PROJECTS_VIEW_ALL);
+    const canViewAll = isAdmin || viewAllCheck.allowed;
+
+    console.log(`Fetching projects for ${isAdmin ? 'admin' : 'user'}:`, user.email, { canViewAll });
 
     let projectsQuery = supabaseAdmin
       .from('projects')
@@ -162,8 +167,8 @@ export async function GET(request: NextRequest) {
       projectsQuery = projectsQuery.eq('id', projectId);
     }
 
-    // If user is not admin, or if admin is filtering for a specific user
-    if (!isAdmin || (isAdmin && targetUserId)) {
+    // If user doesn't have view_all permission, or if admin is filtering for a specific user
+    if (!canViewAll || (canViewAll && targetUserId)) {
       const filterId = isAdmin ? targetUserId : userId;
 
       // Get project IDs the user is a member of via project_members table
@@ -242,7 +247,11 @@ export async function GET(request: NextRequest) {
 
     let responseData: any = projects;
 
-    if (!isAdmin && projects) {
+    // RBAC: Check projects.view_budget permission
+    const budgetCheck = await verifyPermission(userId, PERMISSION_NODES.PROJECTS_VIEW_BUDGET);
+    const canViewBudget = isAdmin || budgetCheck.allowed;
+
+    if (!canViewBudget && projects) {
       if (Array.isArray(projects)) {
         responseData = projects.map((p: any) => {
           const { project_budget, ...rest } = p;

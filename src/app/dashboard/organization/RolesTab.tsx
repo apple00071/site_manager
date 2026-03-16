@@ -32,15 +32,18 @@ interface PermissionLevel {
     label: string;
 }
 
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
+
 // Module permissions based on granular RBAC system
-// Permission IDs map to PERMISSION_NODES in src/lib/rbac.ts
+// Permission IDs map to PERMISSION_NODES in src/lib/rbac-constants.ts
 // NOTE: prefixes array includes both singular and plural forms to match DB permissions
 const MODULE_PERMISSIONS: ModulePermission[] = [
     {
         module: 'Project Management',
         icon: '📋',
         permissions: [
-            { id: 'project.view', label: 'View project details' },
+            { id: 'project.view', label: 'View projects' },
+            { id: 'project.view_all', label: 'View all projects (not just assigned)' },
             { id: 'project.view_budget', label: 'View project budget and financials' },
             { id: 'project.edit', label: 'Edit project details' },
             { id: 'project.create', label: 'Create new projects' },
@@ -235,7 +238,9 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         module: 'Attendance & Leaves',
         icon: '⏱️',
         permissions: [
-            { id: 'attendance.view', label: 'View attendance logs' },
+            { id: 'attendance.view', label: 'View own attendance logs' },
+            { id: 'attendance.view_all', label: 'View all employees attendance logs' },
+            { id: 'attendance.view_appeals', label: 'View attendance appeal remarks' },
             { id: 'attendance.log', label: 'Punch in/out' },
             { id: 'leaves.view', label: 'View leave requests' },
             { id: 'leaves.apply', label: 'Apply for leaves' },
