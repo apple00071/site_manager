@@ -749,7 +749,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
                     <div className="mx-2 md:mx-3 mt-3 p-2 bg-red-50 text-red-700 rounded-lg flex items-center gap-2">
                         <FiAlertCircle className="w-4 h-4 flex-shrink-0" />
                         <span className="text-sm flex-1">{error}</span>
-                        <button onClick={() => setError(null)} className="p-1 hover:bg-red-100 rounded">
+                        <button onClick={() => setError(null)} className="w-8 h-8 flex items-center justify-center hover:bg-red-100 rounded">
                             <FiX className="w-4 h-4" />
                         </button>
                     </div>

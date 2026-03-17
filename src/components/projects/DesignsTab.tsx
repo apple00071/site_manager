@@ -1129,7 +1129,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                                 });
                               }
                             }}
-                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                            className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
                           >
                             <FiMoreVertical className="w-5 h-5" />
                           </button>
@@ -1197,7 +1197,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                         </button>
                         <button
                           onClick={() => setMobileActionDesign(design)}
-                          className="p-1 -mr-2 -mt-1 text-gray-400 hover:bg-gray-100 rounded-full flex-shrink-0"
+                          className="w-6 h-6 flex items-center justify-center -mr-2 -mt-1 text-gray-400 hover:bg-gray-100 rounded-full flex-shrink-0"
                         >
                           <FiMoreVertical className="w-5 h-5" />
                         </button>

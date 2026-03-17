@@ -253,7 +253,7 @@ export default function ProjectDetailsPage() {
           {permIsAdmin && (
             <button
               onClick={() => setShowShareModal(true)}
-              className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
+              className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
               title="Share Live Link"
             >
               <FiSend className="w-3.5 h-3.5" />
@@ -656,7 +656,7 @@ export default function ProjectDetailsPage() {
                           {canEditProject && (
                             <button
                               onClick={() => setEditSection('info')}
-                              className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
+                              className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
                             >
                               <FiEdit2 className="w-4 h-4" />
                             </button>
@@ -734,7 +734,7 @@ export default function ProjectDetailsPage() {
                           {canEditProject && (
                             <button
                               onClick={() => setEditSection('customer')}
-                              className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
+                              className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
                             >
                               <FiEdit2 className="w-4 h-4" />
                             </button>
@@ -777,7 +777,7 @@ export default function ProjectDetailsPage() {
                           {canEditProject && (
                             <button
                               onClick={() => setEditSection('property')}
-                              className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
+                              className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
                             >
                               <FiEdit2 className="w-4 h-4" />
                             </button>
@@ -835,7 +835,7 @@ export default function ProjectDetailsPage() {
                         {canEditProject && (
                           <button
                             onClick={() => setEditSection('workers')}
-                            className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
+                            className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
                           >
                             <FiEdit2 className="w-4 h-4" />
                           </button>
@@ -862,14 +862,14 @@ export default function ProjectDetailsPage() {
                               <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
                                   onClick={() => handleEditWorker(worker)}
-                                  className="p-1 text-gray-400 hover:text-yellow-600 bg-white rounded shadow-sm hover:shadow"
+                                  className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-yellow-600 bg-white rounded shadow-sm hover:shadow"
                                   title="Edit"
                                 >
                                   <FiEdit2 className="w-3 h-3" />
                                 </button>
                                 <button
                                   onClick={() => handleDeleteWorker(worker)}
-                                  className="p-1 text-gray-400 hover:text-red-600 bg-white rounded shadow-sm hover:shadow"
+                                  className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-red-600 bg-white rounded shadow-sm hover:shadow"
                                   title="Remove"
                                 >
                                   <FiTrash2 className="w-3 h-3" />

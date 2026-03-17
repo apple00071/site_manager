@@ -232,9 +232,9 @@ export default function ProjectsPage() {
         {canCreateProject && (
           <Link
             href="/dashboard/projects/new"
-            className="btn-primary whitespace-nowrap flex-shrink-0"
+            className="w-10 h-10 flex items-center justify-center bg-yellow-500 text-white rounded-xl shadow-sm hover:bg-yellow-600 active:scale-95 transition-all flex-shrink-0"
           >
-            <FiPlus className="h-4 w-4" />
+            <FiPlus className="h-5 w-5" />
           </Link>
         )}
       </div>

@@ -186,7 +186,7 @@ export function InlineEditableField({
                 <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="p-1.5 text-green-600 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50"
+                    className="w-8 h-8 flex items-center justify-center text-green-600 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50"
                     title="Save"
                 >
                     {isSaving ? (
@@ -198,7 +198,7 @@ export function InlineEditableField({
                 <button
                     onClick={handleCancel}
                     disabled={isSaving}
-                    className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-md transition-colors disabled:opacity-50"
+                    className="w-8 h-8 flex items-center justify-center text-gray-400 hover:bg-gray-100 rounded-md transition-colors disabled:opacity-50"
                     title="Cancel"
                 >
                     <FiX className="w-4 h-4" />

@@ -244,13 +244,13 @@ export const CustomDatePicker = ({
             {isOpen && createPortal(
                 <div ref={dropdownRef} className="bg-white border border-gray-200 rounded-lg shadow-xl p-3" style={dropdownStyle}>
                     <div className="flex items-center justify-between mb-3 px-1">
-                        <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-gray-100 rounded transition-colors">
+                        <button type="button" onClick={handlePrevMonth} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded transition-colors">
                             <FiChevronLeft className="w-4 h-4 text-gray-600" />
                         </button>
                         <div className="font-semibold text-sm text-gray-900">
                             {format(viewDate, 'MMMM yyyy')}
                         </div>
-                        <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-gray-100 rounded transition-colors">
+                        <button type="button" onClick={handleNextMonth} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded transition-colors">
                             <FiChevronRight className="w-4 h-4 text-gray-600" />
                         </button>
                     </div>

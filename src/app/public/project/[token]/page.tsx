@@ -159,7 +159,7 @@ export default function PublicProjectPage() {
                                         <div className="text-[10px] text-gray-500">{project.assigned_employee.designation || 'Designer'}</div>
                                     </div>
                                     {project.assigned_employee.phone_number && (
-                                        <a href={`tel:${project.assigned_employee.phone_number}`} className="p-1.5 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors flex-shrink-0">
+                                        <a href={`tel:${project.assigned_employee.phone_number}`} className="w-9 h-9 flex items-center justify-center bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors flex-shrink-0">
                                             <FiPhone className="w-3.5 h-3.5" />
                                         </a>
                                     )}
@@ -182,7 +182,7 @@ export default function PublicProjectPage() {
                                         <div className="text-[10px] text-gray-500">{data.siteEngineer.designation || 'Site Engineer'}</div>
                                     </div>
                                     {data.siteEngineer.phone_number && (
-                                        <a href={`tel:${data.siteEngineer.phone_number}`} className="p-1.5 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors flex-shrink-0">
+                                        <a href={`tel:${data.siteEngineer.phone_number}`} className="w-9 h-9 flex items-center justify-center bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors flex-shrink-0">
                                             <FiPhone className="w-3.5 h-3.5" />
                                         </a>
                                     )}

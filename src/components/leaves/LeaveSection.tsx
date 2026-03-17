@@ -146,7 +146,7 @@ export default function LeaveSection() {
                     {isAdmin && row.status === 'pending' && (
                         <button
                             onClick={() => setApprovingLeave(row)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            className="w-8 h-8 flex items-center justify-center text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             title="Review"
                         >
                             <FiClipboard className="h-4 w-4" />
@@ -155,7 +155,7 @@ export default function LeaveSection() {
                     {user?.id === row.user_id && row.status === 'pending' && (
                         <button
                             onClick={() => handleDeleteLeave(row.id)}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="w-8 h-8 flex items-center justify-center text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             title="Cancel"
                         >
                             <FiTrash2 className="h-4 w-4" />

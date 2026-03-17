@@ -394,10 +394,10 @@ export default function SnagsPage() {
     const generateTimeline = (snag: Snag): TimelineItem[] => {
         const items: TimelineItem[] = [];
 
-        // Base Report
+        // Base Report - Don't repeat description here to avoid duplication with Header
         items.push({
             id: 'base', type: 'reported', author: snag.created_by_user?.full_name || 'Admin',
-            date: snag.created_at, note: snag.description
+            date: snag.created_at
         });
 
         // Merged History from Notifications
@@ -461,7 +461,10 @@ export default function SnagsPage() {
                             <h2 className="font-bold text-gray-900 flex items-center gap-2 uppercase tracking-tight text-sm">
                                 <FiLayers className="text-yellow-600" /> Issues List
                             </h2>
-                            <button onClick={() => setShowModal(true)} className="p-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 shadow-sm transition-all">
+                            <button 
+                                onClick={() => setShowModal(true)} 
+                                className="w-9 h-9 flex items-center justify-center bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 shadow-sm transition-all"
+                            >
                                 <FiPlus className="w-4 h-4" />
                             </button>
                         </div>
@@ -549,76 +552,81 @@ export default function SnagsPage() {
                 <div className={`flex-1 flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden transition-all duration-300 ${!selectedSnag ? 'hidden lg:flex' : 'flex h-full'}`}>
                     {selectedSnag ? (
                         <>
-                            {/* Detail Header */}
-                            <div className="p-6 border-b border-gray-100 flex justify-between items-start bg-gray-50/30">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-2">
+
+                            {/* Detail Body */}
+                            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 no-scrollbar pb-24 relative">
+                                {/* Single Line Header (Site Name + Metadata + Phone) */}
+                                <div className="flex flex-wrap items-center justify-between gap-4 py-1">
+                                    <div className="flex flex-wrap items-center gap-3">
                                         <button
                                             onClick={() => setSelectedSnag(null)}
-                                            className="lg:hidden p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                                            className="lg:hidden w-9 h-9 flex items-center justify-center bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 transition-colors"
                                         >
-                                            <FiArrowLeft className="w-5 h-5 text-gray-500" />
+                                            <FiArrowLeft className="w-4 h-4 text-gray-600" />
                                         </button>
-                                        <h2 className="text-xl font-bold text-gray-900">{selectedSnag.site_name || selectedSnag.project?.title || 'General Site Issue'}</h2>
-                                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${getStatusColor(selectedSnag.status)}`}>
-                                            {selectedSnag.status}
-                                        </span>
+                                        
+                                        <h2 className="text-lg font-bold text-gray-900 mr-2">{selectedSnag.site_name || selectedSnag.project?.title || 'General Site Issue'}</h2>
+                                        
+                                        <div className="flex flex-wrap gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest items-center">
+                                            <span className="flex items-center gap-1.5 bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-100">
+                                                <FiMapPin className="w-3 h-3 text-gray-400" /> 
+                                                {selectedSnag.location || 'Site Location'}
+                                            </span>
+                                            <span className="flex items-center gap-1.5 bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-100">
+                                                <FiUser className="w-3 h-3 text-yellow-600" /> 
+                                                Client: {selectedSnag.client_name || 'N/A'}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div className="flex flex-wrap gap-4 text-xs text-gray-500 font-medium">
-                                        <span className="flex items-center gap-1.5"><FiCalendar className="w-3.5 h-3.5 text-yellow-600" /> {new Date(selectedSnag.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                                        <span className="flex items-center gap-1.5"><FiMapPin className="w-3.5 h-3.5" /> {selectedSnag.location || 'Site Location'}</span>
-                                        <span className="flex items-center gap-1.5"><FiUser className="w-3.5 h-3.5 text-yellow-600" /> CLIENT: {selectedSnag.client_name || 'N/A'}</span>
-                                    </div>
-                                </div>
-                                <div className="flex gap-2">
+                                    
                                     {selectedSnag.customer_phone && (
-                                        <a href={`tel:${selectedSnag.customer_phone}`} className="p-2.5 bg-yellow-50 text-yellow-600 rounded-xl hover:bg-yellow-100 transition-colors border border-yellow-100 shadow-sm">
-                                            <FiPhone className="w-5 h-5" />
+                                        <a href={`tel:${selectedSnag.customer_phone}`} className="flex items-center gap-2 px-3 py-2 bg-yellow-50 text-yellow-600 rounded-lg border border-yellow-100 shadow-sm hover:bg-yellow-100 transition-colors text-[10px] font-bold uppercase tracking-wider">
+                                            <FiPhone className="w-3.5 h-3.5" />
+                                            <span>Call</span>
                                         </a>
                                     )}
                                 </div>
-                            </div>
 
-                            {/* Detail Body */}
-                            <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar">
                                 {/* Issue Description */}
                                 <section>
-                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Issue Description</h3>
-                                    <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100">
-                                        <p className="text-gray-700 leading-relaxed font-medium">
+                                    <div className="flex items-center justify-between mb-2.5">
+                                        <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Issue Description</h3>
+                                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase border ${getStatusColor(selectedSnag.status)}`}>
+                                            {selectedSnag.status}
+                                        </span>
+                                    </div>
+                                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                                        <p className="text-gray-700 text-sm leading-relaxed font-semibold">
                                             {selectedSnag.description}
                                         </p>
                                     </div>
                                 </section>
 
                                 {/* Photo Gallery */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <section>
-                                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Before Resolution</h3>
+                                        <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2.5">Before Resolution</h3>
                                         {selectedSnag.photos && selectedSnag.photos.length > 0 ? (
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-2 gap-2.5">
                                                 {selectedSnag.photos.map((url, idx) => (
                                                     <div
                                                         key={idx}
                                                         onClick={() => { setViewingImage(url); }}
-                                                        className="aspect-square rounded-xl overflow-hidden border border-gray-200 cursor-zoom-in group relative"
+                                                        className="aspect-square rounded-xl overflow-hidden border border-gray-200 cursor-zoom-in group relative shadow-sm"
                                                     >
-                                                        <Image src={url} alt="Before" fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
-                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                                                            <FiSearch className="text-white opacity-0 group-hover:opacity-100 w-6 h-6" />
-                                                        </div>
+                                                        <Image src={url} alt="Before" fill className="object-cover group-hover:scale-105 transition-transform duration-300" />
                                                     </div>
                                                 ))}
                                             </div>
                                         ) : (
-                                            <div className="aspect-[4/3] rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 bg-gray-50/50">
-                                                <FiCamera className="w-8 h-8 mb-2 opacity-20" />
-                                                <span className="text-xs font-bold uppercase tracking-wider">No photos attached</span>
+                                            <div className="h-24 rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 bg-gray-50/50">
+                                                <FiCamera className="w-5 h-5 mb-1 opacity-40" />
+                                                <span className="text-[10px] font-bold uppercase tracking-wider">No photos attached</span>
                                             </div>
                                         )}
                                     </section>
                                     <section>
-                                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Resolution Proof</h3>
+                                        <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2.5">Resolution Proof</h3>
                                         {selectedSnag.resolved_photos && selectedSnag.resolved_photos.length > 0 ? (
                                             <div className="grid grid-cols-2 gap-3">
                                                 {selectedSnag.resolved_photos.map((url, idx) => (
@@ -635,9 +643,9 @@ export default function SnagsPage() {
                                                 ))}
                                             </div>
                                         ) : (
-                                            <div className="aspect-[4/3] rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 bg-gray-50/50">
-                                                <FiCheckCircle className="w-8 h-8 mb-2 opacity-20" />
-                                                <span className="text-xs font-bold uppercase tracking-wider">Awaiting resolution</span>
+                                            <div className="h-24 rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 bg-gray-50/50">
+                                                <FiCheckCircle className="w-5 h-5 mb-1 opacity-40" />
+                                                <span className="text-[10px] font-bold uppercase tracking-wider">Awaiting resolution</span>
                                             </div>
                                         )}
                                     </section>

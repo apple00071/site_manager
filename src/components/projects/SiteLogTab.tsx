@@ -429,7 +429,7 @@ export const SiteLogTab = forwardRef<SiteLogTabHandle, SiteLogTabProps>(({ proje
                                             e.stopPropagation();
                                             setActiveMenuId(activeMenuId === log.id ? null : log.id);
                                         }}
-                                        className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                                        className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
                                     >
                                         <FiMoreVertical className="w-5 h-5" />
                                     </button>

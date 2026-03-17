@@ -170,7 +170,7 @@ export function BoqEditModal({ item, categories, isOpen, onClose, onSave }: BoqE
                     </h2>
                     <button
                         onClick={onClose}
-                        className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg"
+                        className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg"
                     >
                         <FiX className="w-5 h-5" />
                     </button>

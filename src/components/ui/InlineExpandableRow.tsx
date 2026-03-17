@@ -136,7 +136,7 @@ export function InlineExpandableRow({
                     <div className="flex justify-end mb-2">
                         <button
                             onClick={handleClose}
-                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-md transition-colors"
+                            className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-md transition-colors"
                             aria-label="Close"
                         >
                             <FiX className="w-4 h-4" />
@@ -227,7 +227,7 @@ export function ExpandableTableRow({
                                         e.stopPropagation();
                                         handleClose();
                                     }}
-                                    className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-md transition-colors"
+                                    className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-md transition-colors"
                                 >
                                     <FiX className="w-4 h-4" />
                                 </button>

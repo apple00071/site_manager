@@ -1045,7 +1045,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
               <h3 className="font-semibold text-gray-900">{viewingPDF.filename}</h3>
               <button
                 onClick={() => setViewingPDF(null)}
-                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                 aria-label="Close"
               >
                 <FiX className="w-6 h-6 text-gray-500" />

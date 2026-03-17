@@ -380,14 +380,14 @@ export function ReportGenerator({ projectId, onClose, onSuccess }: ReportGenerat
                                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
                                                             <button
                                                                 onClick={() => fileInputRefs.current[vp.id]?.click()}
-                                                                className="p-1.5 bg-white rounded-full hover:bg-gray-100"
+                                                                className="w-8 h-8 flex items-center justify-center bg-white rounded-full hover:bg-gray-100"
                                                                 title="Retake photo"
                                                             >
                                                                 <FiCamera className="w-3 h-3 text-gray-700" />
                                                             </button>
                                                             <button
                                                                 onClick={() => removeViewpointPhoto(vp.id)}
-                                                                className="p-1.5 bg-white rounded-full hover:bg-red-50"
+                                                                className="w-8 h-8 flex items-center justify-center bg-white rounded-full hover:bg-red-50"
                                                                 title="Remove photo"
                                                             >
                                                                 <FiX className="w-3 h-3 text-red-600" />

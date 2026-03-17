@@ -355,7 +355,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                                             <button
                                                 onClick={() => handleRemoveUser(user.id)}
                                                 disabled={isDeleting}
-                                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 flex-shrink-0"
+                                                className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 flex-shrink-0"
                                                 title="Remove user from project"
                                             >
                                                 <FiTrash2 className="w-4 h-4" />
@@ -387,7 +387,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                             </h3>
                             <button
                                 onClick={() => setShowAddModal(false)}
-                                className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+                                className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
                             >
                                 <FiX className="w-5 h-5" />
                             </button>
