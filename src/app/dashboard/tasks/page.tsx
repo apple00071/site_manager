@@ -604,15 +604,41 @@ const ViewTaskContent = ({
           )}
         </div>
         <div>
-          <p className="text-xs text-gray-500 mb-1">Priority</p>
-          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${viewTask.priority === 'high' ? 'bg-red-100 text-red-800' :
-            viewTask.priority === 'urgent' ? 'bg-red-100 text-red-800 font-bold' :
-              viewTask.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                'bg-blue-100 text-blue-800'
-            }`}>
-            {viewTask.priority.charAt(0).toUpperCase() + viewTask.priority.slice(1)}
-          </span>
+          <p className="text-xs text-gray-500 mb-1">Created By</p>
+          {viewTask.created_by ? (
+            (() => {
+              const creator = assignees.find(a => a.id === viewTask.created_by);
+              if (!creator) {
+                return (
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <FiUser className="h-4 w-4 flex-shrink-0" />
+                    <span>System / Unknown</span>
+                  </div>
+                );
+              }
+              return (
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-gray-100 text-gray-800 text-xs font-medium">
+                    {creator.name?.charAt(0).toUpperCase() || '?'}
+                  </span>
+                  <span className="text-gray-900">{creator.name}</span>
+                </div>
+              );
+            })()
+          ) : (
+            <span className="text-gray-500 italic">Unknown</span>
+          )}
         </div>
+      </div>
+      <div>
+        <p className="text-xs text-gray-500 mb-1">Priority</p>
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${viewTask.priority === 'high' ? 'bg-red-100 text-red-800' :
+          viewTask.priority === 'urgent' ? 'bg-red-100 text-red-800 font-bold' :
+            viewTask.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+              'bg-blue-100 text-blue-800'
+          }`}>
+          {viewTask.priority.charAt(0).toUpperCase() + viewTask.priority.slice(1)}
+        </span>
       </div>
       {viewTask.location && (
         <div>
@@ -623,7 +649,7 @@ const ViewTaskContent = ({
       {viewTask.meeting_link && (
         <div>
           <p className="text-xs text-gray-500 mb-1">Meeting Link</p>
-          <a href={viewTask.meeting_link} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800 underline break-all">
+          <a href={viewTask.meeting_link || undefined} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800 underline break-all">
             {viewTask.meeting_link}
           </a>
         </div>
@@ -633,9 +659,9 @@ const ViewTaskContent = ({
         <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-100">
           <p className="text-xs font-bold text-yellow-800 uppercase tracking-tighter mb-1">Outcome</p>
           <p className="text-sm text-gray-700 whitespace-pre-line">{viewTask.completion_description}</p>
-          {viewTask.completion_photos && viewTask.completion_photos.length > 0 && (
+          {(viewTask.completion_photos?.length ?? 0) > 0 && (
             <div className="flex gap-2 mt-3 overflow-x-auto pb-1 no-scrollbar">
-              {viewTask.completion_photos.map((url, i) => (
+              {viewTask.completion_photos?.map((url, i) => (
                 <div
                   key={i}
                   className="relative w-16 h-16 flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
@@ -685,7 +711,7 @@ const ViewTaskContent = ({
           </button>
           <div className="relative w-full max-w-4xl h-full max-h-[80vh] flex items-center justify-center">
             <img
-              src={viewingImage}
+              src={viewingImage || undefined}
               alt="Preview"
               className="max-w-full max-h-full object-contain"
             />

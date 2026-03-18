@@ -274,7 +274,7 @@ export default function ProjectDetailsPage() {
       if (activeSubTab === 'daily_logs' && hasPermission('site_logs.create')) {
         return [
           {
-            label: 'Add Daily Log',
+            label: 'Add Work Entry',
             onClick: () => siteLogRef.current?.openAddLog(),
             icon: <FiPlus className="w-4 h-4" />
           }
@@ -283,7 +283,7 @@ export default function ProjectDetailsPage() {
       if (activeSubTab === 'daily_logs' && hasPermission('site_logs.create')) {
         return [
           {
-            label: 'Add Daily Log',
+            label: 'Add Work Entry',
             onClick: () => siteLogRef.current?.openAddLog(),
             icon: <FiPlus className="w-4 h-4" />
           }

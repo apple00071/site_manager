@@ -904,7 +904,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                 : 'bg-yellow-500 text-white hover:bg-yellow-600 disabled:bg-gray-300 disabled:cursor-not-allowed'
                 }`}
             >
-              {saving ? 'Posting...' : 'Post Update'}
+              {saving ? 'Posting...' : 'Post to Timeline'}
             </button>
           </div>
 
@@ -975,7 +975,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         ) : updates.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-gray-400 text-4xl mb-4">📝</div>
-            <p className="text-gray-500">No updates yet. Add your first update!</p>
+            <p className="text-gray-500">No timeline updates yet. Add your first update!</p>
           </div>
         ) : (
           <>

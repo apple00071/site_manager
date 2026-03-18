@@ -433,7 +433,7 @@ export default function SnagsPage() {
     return (
         <div className="flex flex-col h-full lg:h-[calc(100vh-64px)] bg-gray-50 p-4 lg:p-6 gap-4 lg:gap-6 overflow-x-hidden overflow-y-auto lg:overflow-hidden">
             {/* Top Stats Bar: Clean & Minimal */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 flex-shrink-0">
+            <div className={`grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 flex-shrink-0 ${selectedSnag ? 'hidden lg:grid' : 'grid'}`}>
                 {[
                     { label: 'Active Issues', value: stats.total, icon: FiLayers, color: 'text-yellow-600', bg: 'bg-yellow-50' },
                     { label: 'High Priority', value: stats.high, icon: FiAlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' },
@@ -554,7 +554,7 @@ export default function SnagsPage() {
                         <>
 
                             {/* Detail Body */}
-                            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 no-scrollbar pb-24 relative">
+                            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6 no-scrollbar pb-10 md:pb-24 relative">
                                 {/* Single Line Header (Site Name + Metadata + Phone) */}
                                 <div className="flex flex-wrap items-center justify-between gap-4 py-1">
                                     <div className="flex flex-wrap items-center gap-3">
@@ -653,7 +653,7 @@ export default function SnagsPage() {
 
                                 {/* Timeline Section */}
                                 <section>
-                                    <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center justify-between mb-2">
                                         <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Site Progress Timeline</h3>
                                         <button
                                             onClick={() => setShowFollowUpModal(true)}

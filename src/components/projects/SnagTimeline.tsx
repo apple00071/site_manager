@@ -56,7 +56,7 @@ export function SnagTimeline({ items }: SnagTimelineProps) {
             <ul role="list" className="-mb-8">
                 {items.map((item, itemIdx) => (
                     <li key={item.id}>
-                        <div className="relative pb-8">
+                        <div className="relative pb-5 md:pb-8">
                             {itemIdx !== items.length - 1 ? (
                                 <span className="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
                             ) : null}
