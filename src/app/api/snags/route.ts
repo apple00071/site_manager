@@ -78,7 +78,9 @@ export async function GET(request: NextRequest) {
             query = query.or(`assigned_to_user_id.eq.${userIdFilter},created_by.eq.${userIdFilter}`);
         } else if (fetchAll) {
             // Fetch all accessible projects AND unassigned snags created by user?
-            if (role !== 'admin') {
+            const hasViewAll = await hasAnyPermission(user.id, [PERMISSION_NODES.SNAGS_VIEW_ALL]);
+            
+            if (role !== 'admin' && !hasViewAll) {
                 // Get projects user is a member of
                 const { data: members } = await supabaseAdmin
                     .from('project_members')
@@ -233,6 +235,17 @@ export async function PATCH(request: NextRequest) {
 
         if (!existing) {
             return NextResponse.json({ error: 'Snag not found' }, { status: 404 });
+        }
+
+        // RBAC: General update permission check (for any non-status action or if specific fields are updated)
+        // If action is null/undefined or if specific core fields are being updated, check SNAGS_EDIT
+        const isStatusTransition = ['resolve', 'verify', 'close', 'reopen', 'comment'].includes(action);
+        
+        if (!isStatusTransition || action === 'assign') {
+            const permResult = await verifyPermission(user.id, PERMISSION_NODES.SNAGS_UPDATE, existing.project_id || undefined);
+            if (!permResult.allowed) {
+                return NextResponse.json({ error: permResult.message }, { status: 403 });
+            }
         }
 
         let finalUpdates = { ...updates };

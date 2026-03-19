@@ -143,10 +143,12 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         module: 'Snag & Audit',
         icon: '🔍',
         permissions: [
-            { id: 'snag.view', label: 'View snags' },
-            { id: 'snag.create', label: 'Create snags' },
-            { id: 'snag.resolve', label: 'Resolve snags (without create)' },
-            { id: 'snag.verify', label: 'Verify resolved snags' }
+            { id: 'snags.view', label: 'View snags' },
+            { id: 'snags.view_all', label: 'View all snags' },
+            { id: 'snags.create', label: 'Create snags' },
+            { id: 'snags.update', label: 'Update snag' },
+            { id: 'snags.resolve', label: 'Resolve snags (without create)' },
+            { id: 'snags.verify', label: 'Verify resolved snags' }
         ],
         notifications: ['Snag created', 'Snag resolved', 'Snag verified']
     },

@@ -81,7 +81,9 @@ export const PERMISSION_NODES = {
 
     // Snag Permissions
     SNAGS_VIEW: 'snags.view',
+    SNAGS_VIEW_ALL: 'snags.view_all',
     SNAGS_CREATE: 'snags.create',
+    SNAGS_UPDATE: 'snags.update',
     SNAGS_RESOLVE: 'snags.resolve',
     SNAGS_VERIFY: 'snags.verify',
 

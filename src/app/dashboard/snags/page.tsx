@@ -56,6 +56,8 @@ export default function SnagsPage() {
     const canCreate = hasPermission('snags.create');
     const canResolve = hasPermission('snags.resolve');
     const canVerify = hasPermission('snags.verify');
+    const canViewAll = hasPermission('snags.view_all');
+    const canUpdate = hasPermission('snags.update');
 
     // Data State
     const [snags, setSnags] = useState<Snag[]>([]);
@@ -166,7 +168,7 @@ export default function SnagsPage() {
     const fetchGlobalSnags = async () => {
         try {
             setLoading(true);
-            const res = await fetch('/api/snags?all=true');
+            const res = await fetch(`/api/snags?all=true`);
             const data = await res.json();
             if (data.snags) {
                 setSnags(data.snags);

@@ -51,6 +51,7 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
     const canCreate = hasPermission('snags.create');
     const canResolve = hasPermission('snags.resolve');
     const canVerify = hasPermission('snags.verify');
+    const canUpdate = hasPermission('snags.update');
 
     const [snags, setSnags] = useState<Snag[]>([]);
     const [loading, setLoading] = useState(true);
@@ -462,7 +463,7 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
 
                             {/* Card Actions */}
                             <div className="p-3 bg-gray-50 border-t border-gray-100 flex justify-end gap-2">
-                                {snag.status === 'open' && (
+                                {snag.status === 'open' && canUpdate && (
                                     <button
                                         onClick={() => {
                                             setEditingSnag(snag);
