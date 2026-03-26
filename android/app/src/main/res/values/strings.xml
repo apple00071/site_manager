@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Apple Interior Manager</string>
+    <string name="title_activity_main">Apple Interior Manager</string>
+    <string name="package_name">com.appleinteriors.manager</string>
+    <string name="custom_url_scheme">com.appleinteriors.manager</string>
+</resources>

@@ -1,0 +1,13 @@
+import type { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  appId: 'com.appleinteriors.manager',
+  appName: 'Apple Interior Manager',
+  webDir: 'out',
+  server: {
+    url: 'https://app.appleinteriors.in',
+    cleartext: true
+  }
+};
+
+export default config;

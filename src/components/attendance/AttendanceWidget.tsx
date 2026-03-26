@@ -5,6 +5,7 @@ import { FiClock, FiLogIn, FiLogOut, FiCheckCircle } from 'react-icons/fi';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { getTodayDateString, formatTimeIST } from '@/lib/dateUtils';
+import { Capacitor } from '@capacitor/core';
 
 export default function AttendanceWidget({ variant = 'default' }: { variant?: 'default' | 'compact' }) {
     const { user } = useAuth();
@@ -100,40 +101,70 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
 
             // Capture Location - MANDATORY
             if (typeof window !== 'undefined') {
-                if (!window.isSecureContext) {
-                    showToast('error', 'Location tracking requires a secure (HTTPS) connection. Please use https://app.appleinteriors.in');
-                    setLoading(false);
-                    return;
-                }
-
-                if ('geolocation' in navigator) {
+                if (Capacitor.isNativePlatform()) {
                     try {
-                        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-                            navigator.geolocation.getCurrentPosition(resolve, reject, {
-                                enableHighAccuracy: true,
-                                timeout: 15000,
-                                maximumAge: 0
-                            });
+                        const { Geolocation } = await import('@capacitor/geolocation');
+                        
+                        // Check permissions first
+                        const permissions = await Geolocation.checkPermissions();
+                        if (permissions.location !== 'granted') {
+                            const request = await Geolocation.requestPermissions();
+                            if (request.location !== 'granted') {
+                                showToast('error', 'Location permission denied. Please enable GPS.');
+                                setLoading(false);
+                                return;
+                            }
+                        }
+
+                        const position = await Geolocation.getCurrentPosition({
+                            enableHighAccuracy: true,
+                            timeout: 15000,
+                            maximumAge: 0
                         });
                         latitude = position.coords.latitude;
                         longitude = position.coords.longitude;
                     } catch (posError: any) {
-                        console.error('Geolocation error details:', posError);
-                        let message = 'Could not capture location. Please ensure GPS is enabled.';
-                        if (posError.code === 1) {
-                            message = 'Location access denied. Please check your browser permission and Windows Location Settings.';
-                        } else if (posError.code === 3) {
-                            message = 'Location request timed out. Please try again (move near a window if indoors).';
-                        }
-
-                        showToast('error', message);
+                        console.error('Capacitor Geolocation error:', posError);
+                        showToast('error', 'Could not capture precise location via device GPS. Ensure location is enabled.');
                         setLoading(false);
                         return;
                     }
                 } else {
-                    showToast('error', 'Geolocation is not supported by your browser.');
-                    setLoading(false);
-                    return;
+                    if (!window.isSecureContext && window.location.hostname !== 'localhost') {
+                        showToast('error', 'Location tracking requires a secure (HTTPS) connection. Please use https://app.appleinteriors.in');
+                        setLoading(false);
+                        return;
+                    }
+
+                    if ('geolocation' in navigator) {
+                        try {
+                            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                                    enableHighAccuracy: true,
+                                    timeout: 15000,
+                                    maximumAge: 0
+                                });
+                            });
+                            latitude = position.coords.latitude;
+                            longitude = position.coords.longitude;
+                        } catch (posError: any) {
+                            console.error('Geolocation error details:', posError);
+                            let message = 'Could not capture location. Please ensure GPS is enabled.';
+                            if (posError.code === 1) {
+                                message = 'Location access denied. Please check your browser permission and Windows Location Settings.';
+                            } else if (posError.code === 3) {
+                                message = 'Location request timed out. Please try again (move near a window if indoors).';
+                            }
+
+                            showToast('error', message);
+                            setLoading(false);
+                            return;
+                        }
+                    } else {
+                        showToast('error', 'Geolocation is not supported by your browser.');
+                        setLoading(false);
+                        return;
+                    }
                 }
             }
 
