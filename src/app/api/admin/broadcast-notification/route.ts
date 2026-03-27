@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase-server';
+import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { verifyPermission } from '@/lib/rbac';
 import { sendPushNotificationToMultipleUsers } from '@/lib/onesignal';
 import { NotificationService } from '@/lib/notificationService';
 
@@ -15,18 +16,16 @@ export async function POST(req: NextRequest) {
         const adminUserId = searchParams.get('adminId');
 
         if (!isCronAuth) {
-            if (!adminUserId) {
-                return NextResponse.json({ error: 'Unauthorized: Missing credentials' }, { status: 401 });
+            const { user, role, error: authError } = await getAuthUser();
+            if (authError || !user) {
+                return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
             }
 
-            const { data: user, error: userError } = await supabaseAdmin
-                .from('users')
-                .select('role')
-                .eq('id', adminUserId)
-                .single();
+            const isAdmin = role === 'admin';
+            const permCheck = await verifyPermission(user.id, 'users.manage_roles');
 
-            if (userError || user?.role !== 'admin') {
-                return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+            if (!isAdmin && !permCheck.allowed) {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
             }
         }
 

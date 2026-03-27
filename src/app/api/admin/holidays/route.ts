@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { verifyPermission } from '@/lib/rbac';
 
 export async function GET() {
     try {
@@ -29,7 +30,10 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        if (role !== 'admin') {
+        const isAdmin = role === 'admin';
+        const permCheck = await verifyPermission(user.id, 'holidays.manage');
+
+        if (!isAdmin && !permCheck.allowed) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
@@ -66,7 +70,10 @@ export async function DELETE(req: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        if (role !== 'admin') {
+        const isAdmin = role === 'admin';
+        const permCheck = await verifyPermission(user.id, 'holidays.manage');
+
+        if (!isAdmin && !permCheck.allowed) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 

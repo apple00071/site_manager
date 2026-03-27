@@ -396,7 +396,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
                         {/* Mobile Add Category Button */}
                         <button
                             onClick={() => setShowAddCategory(true)}
-                            className="p-2 text-yellow-600 bg-yellow-50 rounded-lg border border-yellow-100"
+                            className="flex items-center justify-center w-[38px] h-[38px] shrink-0 text-yellow-600 bg-yellow-50 rounded-lg border border-yellow-100"
                         >
                             <FiPlus className="w-5 h-5" />
                         </button>

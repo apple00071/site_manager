@@ -89,6 +89,14 @@ export const PERMISSION_NODES = {
     SNAGS_RESOLVE: 'snags.resolve',
     SNAGS_VERIFY: 'snags.verify',
 
+    // Holiday Permissions
+    HOLIDAYS_VIEW: 'holidays.view',
+    HOLIDAYS_MANAGE: 'holidays.manage',
+
+    // Payroll Permissions
+    PAYROLL_VIEW: 'payroll.view',
+    PAYROLL_MANAGE: 'payroll.manage',
+
     // Finance Permissions
     FINANCE_VIEW: 'finance.view',
 
@@ -128,9 +136,6 @@ export const PERMISSION_NODES = {
     // Attendance Approval
     ATTENDANCE_APPROVE: 'attendance.approve',
 
-    // Payroll Permissions
-    PAYROLL_VIEW: 'payroll.view',
-    PAYROLL_MANAGE: 'payroll.manage',
     PAYROLL_CONFIG: 'payroll.config',
 } as const;
 

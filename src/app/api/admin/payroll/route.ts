@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { calculateWorkingDays } from '@/lib/payrollUtils';
+import { getAuthUser } from '@/lib/supabase-server';
+import { verifyPermission } from '@/lib/rbac';
 
 // Initialize a Supabase client with the service role key to bypass RLS for admin tasks
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -11,6 +13,19 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 // GET: Fetch all payrolls or a specific user's payrolls
 export async function GET(request: Request) {
     try {
+        const { user, role, error: authError } = await getAuthUser();
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const isAdmin = role === 'admin';
+        const permView = await verifyPermission(user.id, 'payroll.view');
+        const permManage = await verifyPermission(user.id, 'payroll.manage');
+
+        if (!isAdmin && !permView.allowed && !permManage.allowed) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
         const { searchParams } = new URL(request.url);
         const userId = searchParams.get('userId');
         const month = searchParams.get('month');
@@ -38,6 +53,18 @@ export async function GET(request: Request) {
 // POST: Generate a new payroll for a user for a specific month
 export async function POST(request: Request) {
     try {
+        const { user, role, error: authError } = await getAuthUser();
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const isAdmin = role === 'admin';
+        const permManage = await verifyPermission(user.id, 'payroll.manage');
+
+        if (!isAdmin && !permManage.allowed) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
         const body = await request.json();
         const { userId, month, year, adminId } = body;
 
@@ -157,6 +184,18 @@ export async function POST(request: Request) {
 // PATCH: Update the status of a payroll (e.g. Generated -> Paid)
 export async function PATCH(request: Request) {
     try {
+        const { user, role, error: authError } = await getAuthUser();
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const isAdmin = role === 'admin';
+        const permManage = await verifyPermission(user.id, 'payroll.manage');
+
+        if (!isAdmin && !permManage.allowed) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
         const { searchParams } = new URL(request.url);
         const urlId = searchParams.get('id');
 
@@ -191,6 +230,18 @@ export async function PATCH(request: Request) {
 // DELETE: Remove a generated payroll
 export async function DELETE(request: Request) {
     try {
+        const { user, role, error: authError } = await getAuthUser();
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const isAdmin = role === 'admin';
+        const permManage = await verifyPermission(user.id, 'payroll.manage');
+
+        if (!isAdmin && !permManage.allowed) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
 

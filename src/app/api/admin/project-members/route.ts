@@ -6,6 +6,8 @@ import { NotificationService } from '@/lib/notificationService';
 import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 
 import { createNoCacheResponse } from '@/lib/apiHelpers';
+import { verifyPermission } from '@/lib/rbac';
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
 
 // Force dynamic rendering - never cache project member data
 export const dynamic = 'force-dynamic';
@@ -40,7 +42,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (role !== 'admin') {
+    const isAdmin = role === 'admin';
+    const permCheck = await verifyPermission(user.id, 'projects.edit');
+    
+    if (!isAdmin && !permCheck.allowed) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -187,7 +192,11 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (role !== 'admin') {
+    const isAdmin = role === 'admin';
+    const permView = await verifyPermission(user.id, 'projects.view');
+    const permEdit = await verifyPermission(user.id, 'projects.edit');
+    
+    if (!isAdmin && !permView.allowed && !permEdit.allowed) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -256,7 +265,10 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (role !== 'admin') {
+    const isAdmin = role === 'admin';
+    const permCheck = await verifyPermission(user.id, 'projects.edit');
+    
+    if (!isAdmin && !permCheck.allowed) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
