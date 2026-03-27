@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { FiArrowLeft, FiSave } from 'react-icons/fi';
 import Link from 'next/link';
 import BackButton from '@/components/BackButton';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 interface Role {
   id: string;
@@ -39,6 +40,7 @@ type UserFormValues = z.infer<typeof userSchema>;
 
 export default function EditUserPage() {
   const { user: currentUser, isAdmin } = useAuth();
+  const { hasPermission } = useUserPermissions();
   const router = useRouter();
   const params = useParams();
   const userId = params.id as string;
@@ -83,7 +85,7 @@ export default function EditUserPage() {
   }, []);
 
   useEffect(() => {
-    if (!isAdmin) {
+    if (isAdmin === false && !hasPermission('users.edit')) {
       router.push('/dashboard');
       return;
     }
@@ -127,7 +129,7 @@ export default function EditUserPage() {
     if (userId && !loadingRoles) {
       fetchUser();
     }
-  }, [userId, isAdmin, router, reset, roles, loadingRoles]);
+  }, [userId, isAdmin, hasPermission, router, reset, roles, loadingRoles]);
 
   // Update role_id when roles are loaded and user data is available
   useEffect(() => {

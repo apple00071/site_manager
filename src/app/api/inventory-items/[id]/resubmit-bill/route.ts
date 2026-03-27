@@ -3,6 +3,8 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { NotificationService } from '@/lib/notificationService';
 import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 import { getAuthUser } from '@/lib/supabase-server';
+import { verifyPermission } from '@/lib/rbac';
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -53,8 +55,11 @@ export async function POST(
       return NextResponse.json({ error: 'Only rejected bills can be resubmitted' }, { status: 400 });
     }
 
-    // Check if user owns this item or is admin
-    if (item.created_by !== userId && userRole !== 'admin') {
+    const isAdmin = userRole === 'admin';
+    const permCheck = await verifyPermission(userId, PERMISSION_NODES.INVENTORY_EDIT);
+
+    // Check if user owns this item or is admin / has edit permission
+    if (item.created_by !== userId && !isAdmin && !permCheck.allowed) {
       return NextResponse.json({ error: 'Forbidden: You can only resubmit your own bills' }, { status: 403 });
     }
 

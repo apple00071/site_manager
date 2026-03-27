@@ -197,7 +197,8 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         permissions: [
             { id: 'inventory.view', label: 'View expenses' },
             { id: 'inventory.add', label: 'Add expense items' },
-            { id: 'inventory.remove', label: 'Remove/Adjust expenses' },
+            { id: 'inventory.edit', label: 'Edit expense items' },
+            { id: 'inventory.delete', label: 'Delete expense items' },
             { id: 'inventory.approve', label: 'Approve expense bills' }
         ],
         notifications: ['Expense added', 'Expense approved']

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { verifyPermission } from '@/lib/rbac';
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -35,8 +37,11 @@ export async function DELETE(
             return NextResponse.json({ error: 'Item not found' }, { status: 404 });
         }
 
-        // Only allow deletion if user is the creator or is an admin
-        if (existingItem.created_by !== userId && userRole !== 'admin') {
+        const isAdmin = userRole === 'admin';
+        const permCheck = await verifyPermission(userId, PERMISSION_NODES.INVENTORY_DELETE);
+
+        // Only allow deletion if user is the creator or is an admin/has permission
+        if (existingItem.created_by !== userId && !isAdmin && !permCheck.allowed) {
             return NextResponse.json({ error: 'Forbidden: You can only delete your own items' }, { status: 403 });
         }
 
@@ -90,8 +95,11 @@ export async function PATCH(
             return NextResponse.json({ error: 'Item not found' }, { status: 404 });
         }
 
-        // Only allow update if user is the creator or is an admin
-        if (existingItem.created_by !== userId && userRole !== 'admin') {
+        const isAdmin = userRole === 'admin';
+        const permCheck = await verifyPermission(userId, PERMISSION_NODES.INVENTORY_EDIT);
+
+        // Only allow update if user is the creator or is an admin/has permission
+        if (existingItem.created_by !== userId && !isAdmin && !permCheck.allowed) {
             return NextResponse.json({ error: 'Forbidden: You can only edit your own items' }, { status: 403 });
         }
 

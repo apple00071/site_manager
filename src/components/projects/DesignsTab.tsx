@@ -1394,7 +1394,7 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
 
                 <div className="border-t border-gray-100 my-1"></div>
 
-                {isAdmin && design.approval_status === 'pending' && (
+                {canApprove && design.approval_status === 'pending' && (
                   <>
                     <button
                       onClick={() => {

@@ -4,6 +4,8 @@ import crypto from 'crypto';
 import { NotificationService } from '@/lib/notificationService';
 import { getAuthUser, createAuthenticatedClient, supabaseAdmin } from '@/lib/supabase-server';
 import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
+import { verifyPermission } from '@/lib/rbac';
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
 
 // Force dynamic rendering - never cache user data
 export const dynamic = 'force-dynamic';
@@ -113,7 +115,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (userRole !== 'admin') {
+    const isAdmin = userRole === 'admin';
+    const permCheck = await verifyPermission(user.id, PERMISSION_NODES.USERS_CREATE);
+    
+    if (!isAdmin && !permCheck.allowed) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -277,7 +282,10 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (userRole !== 'admin') {
+    const isAdmin = userRole === 'admin';
+    const permCheck = await verifyPermission(user.id, PERMISSION_NODES.USERS_EDIT);
+    
+    if (!isAdmin && !permCheck.allowed) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -406,7 +414,9 @@ export async function DELETE(req: Request) {
     }
 
     const isAdmin = (user.app_metadata?.role || user.user_metadata?.role) === 'admin';
-    if (!isAdmin) {
+    const permCheck = await verifyPermission(user.id, PERMISSION_NODES.USERS_DELETE);
+    
+    if (!isAdmin && !permCheck.allowed) {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }

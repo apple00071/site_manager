@@ -64,6 +64,8 @@ export const PERMISSION_NODES = {
     // Inventory Permissions
     INVENTORY_VIEW: 'inventory.view',
     INVENTORY_ADD: 'inventory.add',
+    INVENTORY_EDIT: 'inventory.edit',
+    INVENTORY_DELETE: 'inventory.delete',
     INVENTORY_APPROVE: 'inventory.approve',
     INVENTORY_APPROVE_BILL: 'inventory.approve_bill',
     INVENTORY_REJECT_BILL: 'inventory.reject_bill',

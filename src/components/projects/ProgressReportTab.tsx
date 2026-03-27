@@ -29,7 +29,8 @@ export const ProgressReportTab = forwardRef(({ projectId }: ProgressReportTabPro
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isRetrying, setIsRetrying] = useState<string | null>(null);
     const { showToast } = useToast();
-    const { isAdmin } = useUserPermissions();
+    const { isAdmin, hasPermission } = useUserPermissions();
+    const canDelete = isAdmin || hasPermission('projects.edit');
 
     const generatorOverlayRef = useRef<HTMLDivElement>(null);
     const settingsOverlayRef = useRef<HTMLDivElement>(null);
@@ -231,7 +232,7 @@ export const ProgressReportTab = forwardRef(({ projectId }: ProgressReportTabPro
                                             {isRetrying === report.id ? 'Retrying...' : 'Retry Generation'}
                                         </button>
                                     )}
-                                    {isAdmin && (
+                                    {canDelete && (
                                         <button
                                             className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition-colors"
                                             onClick={() => handleDelete(report.id)}

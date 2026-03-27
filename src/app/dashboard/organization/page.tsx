@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import UsersTab from './UsersTab';
 import RolesTab from './RolesTab';
 import BasicDetailsTab from './BasicDetailsTab';
@@ -17,6 +18,7 @@ import { CustomDropdown } from '@/components/ui/CustomControls';
 
 export default function OrganizationPage() {
   const { isAdmin, isLoading } = useAuth();
+  const { hasAnyPermission } = useUserPermissions();
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') || 'users';
@@ -33,8 +35,12 @@ export default function OrganizationPage() {
     if (tab) setActiveTab(tab);
   }, [searchParams]);
 
+  const canAccessOrg = hasAnyPermission([
+    'users.view', 'users.create', 'users.edit', 'users.delete', 'role.manage', 'settings.edit'
+  ]);
+
   if (isLoading) return <div>Loading...</div>;
-  if (!isAdmin) {
+  if (isAdmin === false && !canAccessOrg) {
     router.push('/dashboard');
     return null;
   }

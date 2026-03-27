@@ -6,6 +6,7 @@ import { FiZoomIn, FiZoomOut, FiMaximize2, FiMessageCircle, FiX, FiCheck, FiDown
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import dynamic from 'next/dynamic';
 
 // Dynamically import PdfViewer (only on client side)
@@ -64,7 +65,8 @@ export function DesignViewer({
 }: DesignViewerProps) {
     const { user } = useAuth();
     const { showToast } = useToast();
-    const isAdmin = user?.role === 'admin';
+    const { hasPermission } = useUserPermissions();
+    const canApprove = hasPermission('designs.approve');
     const containerRef = useRef<HTMLDivElement>(null);
     const [isMobile, setIsMobile] = useState(false);
 
@@ -305,8 +307,8 @@ export function DesignViewer({
                 </div>
 
                 <div className="flex items-center gap-1 md:gap-2">
-                    {/* Approve/Reject buttons - Admin only, pending status */}
-                    {isAdmin && approvalStatus === 'pending' && onApprovalChange && (
+                    {/* Approve/Reject buttons - Admin/Approver only, pending status */}
+                    {canApprove && approvalStatus === 'pending' && onApprovalChange && (
                         <>
                             <button
                                 onClick={() => onApprovalChange('approved')}

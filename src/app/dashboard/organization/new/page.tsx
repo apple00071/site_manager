@@ -7,6 +7,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CustomDropdown } from '@/components/ui/CustomControls';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 interface Role {
   id: string;
@@ -34,6 +35,7 @@ type UserFormValues = z.infer<typeof userSchema>;
 
 export default function NewUserPage() {
   const { isAdmin } = useAuth();
+  const { hasPermission } = useUserPermissions();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -86,10 +88,10 @@ export default function NewUserPage() {
   }, [setValue]);
 
   useEffect(() => {
-    if (!isAdmin) {
+    if (isAdmin === false && !hasPermission('users.create')) {
       router.push('/dashboard');
     }
-  }, [isAdmin, router]);
+  }, [isAdmin, hasPermission, router]);
 
   const onSubmit = async (data: UserFormValues) => {
     setIsLoading(true);

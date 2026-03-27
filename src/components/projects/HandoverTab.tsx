@@ -23,8 +23,8 @@ interface ChecklistItem {
 
 export function HandoverTab({ projectId }: HandoverTabProps) {
     const { user } = useAuth();
-    const { isAdmin, hasPermission } = useUserPermissions();
-    const canEdit = isAdmin || hasPermission('projects.edit'); // Adjust permission as needed
+    const { hasPermission } = useUserPermissions();
+    const canEdit = hasPermission('projects.edit');
 
     const [items, setItems] = useState<ChecklistItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);

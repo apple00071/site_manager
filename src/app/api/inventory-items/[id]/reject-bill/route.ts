@@ -3,6 +3,8 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { NotificationService } from '@/lib/notificationService';
 import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 import { getAuthUser } from '@/lib/supabase-server';
+import { verifyPermission } from '@/lib/rbac';
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -23,9 +25,12 @@ export async function POST(
 
     const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
 
-    // Only admins can reject bills
-    if (userRole !== 'admin') {
-      return NextResponse.json({ error: 'Only admins can reject bills' }, { status: 403 });
+    const isAdmin = userRole === 'admin';
+    const permCheck = await verifyPermission(user.id, PERMISSION_NODES.INVENTORY_APPROVE);
+
+    // Only admins or authorized users can reject bills
+    if (!isAdmin && !permCheck.allowed) {
+      return NextResponse.json({ error: 'Only admins or authorized users can reject bills' }, { status: 403 });
     }
 
     const { id: itemId } = await params;

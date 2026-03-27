@@ -681,7 +681,7 @@ export default function SnagsPage() {
                                         </div>
                                     </div>
                                     <div className="flex gap-3">
-                                        {['open', 'assigned'].includes(selectedSnag.status) && canResolve && (user?.id === selectedSnag.assigned_to_user?.id || isAdmin) && (
+                                        {['open', 'assigned'].includes(selectedSnag.status) && canResolve && (
                                             <button
                                                 onClick={() => { setResolveData({ description: '', photos: [] }); setShowResolveModal(true); }}
                                                 className="px-6 py-2.5 bg-yellow-500 text-white rounded-xl font-bold text-sm shadow-sm hover:bg-yellow-600 transition-all flex items-center gap-2"

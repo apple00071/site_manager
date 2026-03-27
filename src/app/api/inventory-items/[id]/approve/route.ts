@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { verifyPermission } from '@/lib/rbac';
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
 
 export async function PATCH(
     request: NextRequest,
@@ -14,9 +16,12 @@ export async function PATCH(
 
         const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
 
-        // Only admins can approve/reject
-        if (userRole !== 'admin') {
-            return NextResponse.json({ error: 'Forbidden: Only admins can approve/reject items' }, { status: 403 });
+        const isAdmin = userRole === 'admin';
+        const permCheck = await verifyPermission(user.id, PERMISSION_NODES.INVENTORY_APPROVE);
+
+        // Only admins or authorized users can approve/reject
+        if (!isAdmin && !permCheck.allowed) {
+            return NextResponse.json({ error: 'Forbidden: You lack permission to approve/reject items' }, { status: 403 });
         }
 
         const { id } = params;

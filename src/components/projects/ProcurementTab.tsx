@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
     FiPlus, FiEdit2, FiTrash2, FiCheck, FiX, FiDownload, FiMail,
     FiFileText, FiAlertCircle, FiMoreVertical,
@@ -65,7 +66,7 @@ interface ProcurementTabProps {
 type TabType = 'proposals' | 'orders' | 'invoices' | 'payments';
 
 export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_scope' }: ProcurementTabProps) {
-    const { isAdmin } = useAuth();
+    const { hasPermission } = useUserPermissions();
 
     // Derived State from activeSubTab
     // 'my_scope' is exclusively for Vendor related items (Purchase Orders, Vendor Invoices, Vendor Payments)
@@ -581,17 +582,17 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                     </button>
 
                     <div className="ml-auto flex gap-2 flex-shrink-0">
-                        {internalTab === 'orders' && isAdmin && (
+                        {internalTab === 'orders' && hasPermission('orders.create') && (
                             <button onClick={() => setShowPoForm(true)} className="flex items-center gap-2 px-3 py-1.5 text-white bg-yellow-500 hover:bg-yellow-600 rounded-lg text-sm transition-colors">
                                 <FiPlus className="w-4 h-4" /> New PO
                             </button>
                         )}
-                        {internalTab === 'invoices' && isAdmin && (
+                        {internalTab === 'invoices' && hasPermission('invoices.create') && (
                             <button onClick={() => setShowInvoiceForm(true)} className="flex items-center gap-2 px-3 py-1.5 text-white bg-yellow-500 hover:bg-yellow-600 rounded-lg text-sm transition-colors">
                                 <FiPlus className="w-4 h-4" /> New Invoice
                             </button>
                         )}
-                        {internalTab === 'payments' && isAdmin && (
+                        {internalTab === 'payments' && hasPermission('payments.create') && (
                             <button onClick={() => setShowPaymentForm(true)} className="flex items-center gap-2 px-3 py-1.5 text-white bg-yellow-500 hover:bg-yellow-600 rounded-lg text-sm transition-colors">
                                 <FiPlus className="w-4 h-4" /> Record Payment
                             </button>
@@ -603,12 +604,12 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
             {/* Action Buttons for Single View Modes (Client) */}
             {!isVendorMode && (
                 <div className="flex justify-end mb-4">
-                    {internalTab === 'invoices' && isAdmin && (
+                    {internalTab === 'invoices' && hasPermission('invoices.create') && (
                         <button onClick={() => setShowInvoiceForm(true)} className="flex items-center gap-2 px-3 py-1.5 text-white bg-yellow-500 hover:bg-yellow-600 rounded-lg text-sm transition-colors">
                             <FiPlus className="w-4 h-4" /> New Invoice
                         </button>
                     )}
-                    {internalTab === 'payments' && isAdmin && (
+                    {internalTab === 'payments' && hasPermission('payments.create') && (
                         <button onClick={() => setShowPaymentForm(true)} className="flex items-center gap-2 px-3 py-1.5 text-white bg-yellow-500 hover:bg-yellow-600 rounded-lg text-sm transition-colors">
                             <FiPlus className="w-4 h-4" /> Record Payment
                         </button>
@@ -788,7 +789,7 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                                     <td className="px-4 py-3 text-sm text-right font-bold">{formatAmount(inv.total_amount)}</td>
                                     <td className="px-4 py-3 text-center">{getInvoiceStatusBadge(inv.status)}</td>
                                     <td className="px-4 py-3 text-right flex justify-end gap-2">
-                                        {isAdmin && inv.status === 'pending' && (
+                                        {hasPermission('invoices.approve') && inv.status === 'pending' && (
                                             <>
                                                 <button onClick={() => handleApproveInvoice(inv.id, true)} className="text-green-600 hover:text-green-800" title="Approve"><FiCheckCircle className="w-4 h-4" /></button>
                                                 <button onClick={() => handleApproveInvoice(inv.id, false)} className="text-red-600 hover:text-red-800" title="Reject"><FiX className="w-4 h-4" /></button>
@@ -811,7 +812,7 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                                     <span>{formatDate(inv.created_at)}</span>
                                     <span className="font-bold text-gray-900">{formatAmount(inv.total_amount)}</span>
                                 </div>
-                                {isAdmin && inv.status === 'pending' && (
+                                {hasPermission('invoices.approve') && inv.status === 'pending' && (
                                     <div className="flex gap-2 mt-2 pt-2 border-t border-gray-100">
                                         <button onClick={() => handleApproveInvoice(inv.id, true)} className="flex-1 py-1.5 bg-green-50 text-green-700 rounded text-xs font-medium">Approve</button>
                                         <button onClick={() => handleApproveInvoice(inv.id, false)} className="flex-1 py-1.5 bg-red-50 text-red-700 rounded text-xs font-medium">Reject</button>

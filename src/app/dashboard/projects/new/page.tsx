@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
@@ -90,6 +91,7 @@ type ProjectFormValues = z.infer<typeof projectSchema>;
 
 export default function NewProjectPage() {
   const { isAdmin, isLoading: authLoading, user } = useAuth();
+  const { hasPermission } = useUserPermissions();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -122,9 +124,9 @@ export default function NewProjectPage() {
 
     console.log('Auth state loaded. isAdmin:', isAdmin, 'User:', user?.email);
 
-    // If not an admin, redirect to dashboard
-    if (isAdmin === false) {
-      console.log('User is not an admin, redirecting to dashboard');
+    // If not an admin and doesn't have permission, redirect to dashboard
+    if (isAdmin === false && !hasPermission('projects.create')) {
+      console.log('User is not an admin and lacks permission, redirecting to dashboard');
       router.push('/dashboard');
       return;
     }
@@ -173,7 +175,7 @@ export default function NewProjectPage() {
     };
 
     fetchData();
-  }, [isAdmin, router, authLoading, isInitialized, user]);
+  }, [isAdmin, router, authLoading, isInitialized, user, hasPermission]);
 
   const handlePDFUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -317,7 +319,7 @@ export default function NewProjectPage() {
   };
 
   // Show loading state while checking auth or loading data
-  if (authLoading || (!isInitialized && isAdmin !== false)) {
+  if (authLoading || (!isInitialized && (isAdmin !== false || hasPermission('projects.create')))) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>

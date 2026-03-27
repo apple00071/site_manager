@@ -50,7 +50,7 @@ export interface BOQTabHandle {
 }
 
 export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref) => {
-    const { isAdmin } = useAuth();
+    useAuth();
     const { hasPermission } = useUserPermissions();
 
     // Permission checks

@@ -20,7 +20,7 @@ interface UseUserPermissionsReturn extends UserPermissions {
 // Cache for permissions to avoid refetching on every component mount
 let permissionsCache: { permissions: Record<string, boolean>; isAdmin: boolean } | null = null;
 let cacheTimestamp: number = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 30 * 1000; // 30 seconds
 
 /**
  * Hook to fetch and check user permissions in the frontend.
@@ -102,7 +102,16 @@ export function useUserPermissions(): UseUserPermissionsReturn {
      */
     const hasPermission = useCallback((code: string): boolean => {
         if (state.isAdmin || state.permissions['*']) return true;
-        return !!state.permissions[code];
+        if (state.permissions[code]) return true;
+
+        // Check for wildcard permissions (e.g. 'snags.*' matches 'snags.edit')
+        const parts = code.split('.');
+        if (parts.length > 1) {
+            const wildcardCode = `${parts[0]}.*`;
+            if (state.permissions[wildcardCode]) return true;
+        }
+
+        return false;
     }, [state.isAdmin, state.permissions]);
 
     /**
@@ -110,16 +119,16 @@ export function useUserPermissions(): UseUserPermissionsReturn {
      */
     const hasAnyPermission = useCallback((codes: string[]): boolean => {
         if (state.isAdmin || state.permissions['*']) return true;
-        return codes.some(code => !!state.permissions[code]);
-    }, [state.isAdmin, state.permissions]);
+        return codes.some(code => hasPermission(code));
+    }, [state.isAdmin, state.permissions, hasPermission]);
 
     /**
      * Check if user has ALL of the specified permissions.
      */
     const hasAllPermissions = useCallback((codes: string[]): boolean => {
         if (state.isAdmin || state.permissions['*']) return true;
-        return codes.every(code => !!state.permissions[code]);
-    }, [state.isAdmin, state.permissions]);
+        return codes.every(code => hasPermission(code));
+    }, [state.isAdmin, state.permissions, hasPermission]);
 
     return {
         ...state,

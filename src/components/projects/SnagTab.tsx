@@ -482,7 +482,7 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
                                         Assign / Edit
                                     </button>
                                 )}
-                                {['open', 'assigned'].includes(snag.status) && canResolve && (userId === snag.assigned_to_user?.id || userRole === 'admin') && (
+                                {['open', 'assigned'].includes(snag.status) && canResolve && (
                                     <button
                                         onClick={() => {
                                             setResolvingSnag(snag);
