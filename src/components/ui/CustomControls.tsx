@@ -29,7 +29,8 @@ export const CustomDropdown = ({
     placeholder = 'Select Option',
     emptyMessage = 'No options found',
     className = "",
-    disabled = false
+    disabled = false,
+    searchable = false
 }: {
     value: string,
     options: { id: string, title: string }[],
@@ -37,14 +38,31 @@ export const CustomDropdown = ({
     placeholder?: string,
     emptyMessage?: string,
     className?: string,
-    disabled?: boolean
+    disabled?: boolean,
+    searchable?: boolean
 }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
     const containerRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
     const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
+    const filteredOptions = useMemo(() => {
+        if (!searchable || !searchTerm) return options;
+        return options.filter(opt =>
+            opt.title.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [options, searchTerm, searchable]);
+
     const selectedOption = options.find(opt => opt.id === value);
+
+    useEffect(() => {
+        if (isOpen && searchable) {
+            setSearchTerm('');
+            setTimeout(() => inputRef.current?.focus(), 10);
+        }
+    }, [isOpen, searchable]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -95,9 +113,21 @@ export const CustomDropdown = ({
                 disabled={disabled}
                 className={`w-full flex items-center justify-between px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-yellow-500 overflow-hidden ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
             >
-                <span className={`truncate flex-1 text-left ${selectedOption ? 'text-gray-900' : 'text-gray-400'}`}>
-                    {selectedOption ? selectedOption.title : placeholder}
-                </span>
+                {isOpen && searchable ? (
+                    <input
+                        ref={inputRef}
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        placeholder="Search..."
+                        className="flex-1 bg-transparent border-none outline-none text-gray-900 p-0 text-sm focus:ring-0 w-full"
+                    />
+                ) : (
+                    <span className={`truncate flex-1 text-left ${selectedOption ? 'text-gray-900' : 'text-gray-400'}`}>
+                        {selectedOption ? selectedOption.title : placeholder}
+                    </span>
+                )}
                 <FiChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
@@ -107,8 +137,8 @@ export const CustomDropdown = ({
                     style={dropdownStyle}
                 >
                     <div className="max-h-60 overflow-y-auto no-scrollbar">
-                        {options.length > 0 ? (
-                            options.map(opt => (
+                        {filteredOptions.length > 0 ? (
+                            filteredOptions.map(opt => (
                                 <button
                                     key={opt.id}
                                     type="button"

@@ -276,51 +276,72 @@ const TaskFormContent = ({
   closeModal,
   partsToTimeString
 }: TaskFormContentProps) => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
-    <div className="sm:col-span-2">
-      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">Title *</label>
-      <input list="task-title-templates" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-yellow-500" aria-required="true" />
+  <div className="flex flex-col gap-y-3.5 pt-1">
+    {/* Title */}
+    <div className="w-full">
+      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 ml-0.5 font-bold">Title *</label>
+      <input 
+        list="task-title-templates" 
+        value={form.title} 
+        onChange={e => setForm({ ...form, title: e.target.value })} 
+        placeholder="What needs to be done?"
+        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-yellow-500 transition-shadow" 
+        aria-required="true" 
+      />
       <datalist id="task-title-templates">
         {titleSuggestions.map((s, i) => (
           <option key={i} value={s} />
         ))}
       </datalist>
     </div>
-    <div className="sm:col-span-2">
-      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">Description</label>
-      <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={1} className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-yellow-500 resize-none min-h-[38px]" />
-    </div>
-    <div className="min-w-0">
-      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">Project (optional)</label>
-      <CustomDropdown
-        value={form.project_id}
-        options={projects}
-        onChange={(id) => setForm({ ...form, project_id: id })}
-        placeholder="Select Project"
-        emptyMessage="No projects found"
-      />
-    </div>
-    <div className="min-w-0">
-      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">Assign to</label>
-      <CustomDropdown
-        value={form.assigned_to}
-        options={assignees.map(a => ({ id: a.id, title: a.name }))}
-        onChange={(id) => setForm({ ...form, assigned_to: id })}
-        placeholder="Select Assignee"
-        emptyMessage="No assignees found"
+
+    {/* Description */}
+    <div className="w-full">
+      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 ml-0.5 font-bold">Description</label>
+      <textarea 
+        value={form.description} 
+        onChange={e => setForm({ ...form, description: e.target.value })} 
+        rows={2} 
+        placeholder="Add more details..."
+        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-yellow-500 resize-none min-h-[60px] transition-shadow" 
       />
     </div>
 
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 gap-y-2 sm:col-span-2">
+    {/* Project & Assignee */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
       <div className="min-w-0">
-        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">Start Date</label>
+        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 ml-0.5 font-bold">Project (optional)</label>
+        <CustomDropdown
+          value={form.project_id}
+          options={projects}
+          onChange={(id) => setForm({ ...form, project_id: id })}
+          placeholder="Select Project"
+          emptyMessage="No projects found"
+          searchable={true}
+        />
+      </div>
+      <div className="min-w-0">
+        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 ml-0.5 font-bold">Assign to</label>
+        <CustomDropdown
+          value={form.assigned_to}
+          options={assignees.map(a => ({ id: a.id, title: a.name }))}
+          onChange={(id) => setForm({ ...form, assigned_to: id })}
+          placeholder="Select Assignee"
+          emptyMessage="No assignees found"
+          searchable={true}
+        />
+      </div>
+    </div>
+
+    {/* Start Time Section (Responsive) */}
+    <div className="w-full">
+      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 ml-0.5 font-bold">Schedule (Start Time)</label>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         <CustomDatePicker
           value={form.start_date_picker}
           onChange={(date: string) => setForm({ ...form, start_date_picker: date, end_date_picker: date })}
+          placeholder="Pick Date"
         />
-      </div>
-      <div>
-        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">Start Time</label>
         <TimeSelect
           hour={form.start_hour}
           minute={form.start_minute}
@@ -329,70 +350,56 @@ const TaskFormContent = ({
           onChange={(h, m, ap) => setForm({ ...form, start_hour: h, start_minute: m, start_ampm: ap })}
         />
       </div>
+    </div>
 
+    {/* Priority & Location */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
       <div className="min-w-0">
-        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">End Date</label>
-        <CustomDatePicker
-          value={form.end_date_picker}
-          onChange={(date: string) => setForm({ ...form, end_date_picker: date })}
+        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 ml-0.5 font-bold">Priority</label>
+        <CustomDropdown
+          value={form.priority}
+          options={[
+            { id: 'low', title: 'Low' },
+            { id: 'medium', title: 'Medium' },
+            { id: 'high', title: 'High' },
+            { id: 'urgent', title: 'Urgent' }
+          ]}
+          onChange={(val) => setForm({ ...form, priority: val as any })}
+          placeholder="Select Priority"
         />
       </div>
       <div>
-        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">End Time</label>
-        <TimeSelect
-          hour={form.end_hour}
-          minute={form.end_minute}
-          ampm={form.end_ampm}
-          options={(() => {
-            const startDate = toDDMMYYYYFromPicker(form.start_date_picker);
-            const endDate = toDDMMYYYYFromPicker(form.end_date_picker) || startDate;
-
-            if (startDate === endDate) {
-              const startTimeStr = partsToTimeString(form.start_hour, form.start_minute, form.start_ampm);
-              const startIso = parseISTToISO(startDate, startTimeStr);
-
-              if (startIso) {
-                const startTs = new Date(startIso).getTime();
-                return timeOptions.filter(opt => {
-                  const optIso = parseISTToISO(endDate, opt);
-                  return optIso && new Date(optIso).getTime() > startTs;
-                });
-              }
-            }
-            return timeOptions;
-          })()}
-          onChange={(h, m, ap) => setForm({ ...form, end_hour: h, end_minute: m, end_ampm: ap })}
+        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 ml-0.5 font-bold">Location (optional)</label>
+        <input 
+          type="text" 
+          value={form.location} 
+          onChange={e => setForm({ ...form, location: e.target.value })} 
+          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-yellow-500 transition-shadow" 
+          placeholder="Site address" 
         />
       </div>
     </div>
 
-    <div className="min-w-0">
-      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">Priority</label>
-      <CustomDropdown
-        value={form.priority}
-        options={[
-          { id: 'low', title: 'Low' },
-          { id: 'medium', title: 'Medium' },
-          { id: 'high', title: 'High' },
-          { id: 'urgent', title: 'Urgent' }
-        ]}
-        onChange={(val) => setForm({ ...form, priority: val as any })}
-        placeholder="Select Priority"
+    {/* Meeting Link */}
+    <div className="w-full">
+      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 ml-0.5 font-bold">Meeting Link (optional)</label>
+      <input 
+        type="url" 
+        value={form.meeting_link} 
+        onChange={e => setForm({ ...form, meeting_link: e.target.value })} 
+        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-yellow-500 transition-shadow" 
+        placeholder="https://zoom.us/j/..." 
       />
     </div>
 
-    <div>
-      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">Location (optional)</label>
-      <input type="text" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-yellow-500" placeholder="Site address or office location" />
-    </div>
-
-    <div className="sm:col-span-2">
-      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-0.5 ml-0.5">Meeting Link (optional)</label>
-      <input type="url" value={form.meeting_link} onChange={e => setForm({ ...form, meeting_link: e.target.value })} className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-yellow-500" placeholder="https://zoom.us/j/..." />
-    </div>
-    <div className="sm:col-span-2 flex justify-end gap-2 pt-2 mt-0.5 border-t border-gray-100">
-      <button onClick={closeModal} className="btn-secondary py-1.5">Cancel</button>
-      <button onClick={saveTask} className="btn-primary py-1.5 font-medium">{isEditing ? 'Save Changes' : 'Create Task'}</button>
+    {/* Footer Buttons */}
+    <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-4 mt-2 border-t border-gray-100">
+      <button onClick={closeModal} className="w-full sm:w-auto px-6 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-md transition-colors border border-gray-200">
+        Cancel
+      </button>
+      <button onClick={saveTask} className="w-full sm:w-auto px-6 py-2.5 text-sm font-bold text-white bg-yellow-500 hover:bg-yellow-600 rounded-md shadow-sm transition-all">
+        {isEditing ? 'Save Changes' : 'Create Task'}
+      </button>
     </div>
   </div>
 );
@@ -1469,13 +1476,16 @@ export default function TasksPage() {
     try {
       const dateForCalc = toDDMMYYYYFromPicker(form.start_date_picker);
       const startTimeForCalc = partsToTimeString(form.start_hour, form.start_minute, form.start_ampm);
-      const endDateForCalc = toDDMMYYYYFromPicker(form.end_date_picker) || dateForCalc;
-      const endTimeForCalc = partsToTimeString(form.end_hour, form.end_minute, form.end_ampm);
       const startIso = parseISTToISO(dateForCalc, startTimeForCalc);
-      const endIso = parseISTToISO(endDateForCalc, endTimeForCalc);
+      
+      if (!startIso) throw new Error('Invalid date or time');
+      
+      // Automatically calculate end_at as 1 hour after start_at
+      const startDate = new Date(startIso);
+      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); 
+      const endIso = endDate.toISOString();
+
       if (!form.title.trim()) throw new Error('Title is required');
-      if (!startIso || !endIso) throw new Error('Invalid date or time');
-      if (new Date(endIso).getTime() <= new Date(startIso).getTime()) throw new Error('End time must be after start time');
 
       const basePayload: any = {
         title: form.title,
