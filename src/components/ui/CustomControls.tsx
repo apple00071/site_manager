@@ -1,6 +1,4 @@
-'use client';
-
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
     FiChevronDown,
@@ -19,6 +17,73 @@ import {
     subMonths,
     isSameMonth
 } from 'date-fns';
+
+// --- Shared Positioning Hook ---
+
+const useDropdownPosition = (isOpen: boolean, optionsLength: number, extraDependency?: any) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+    const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+
+    const updatePosition = useCallback(() => {
+        if (!isOpen || !containerRef.current) return;
+
+        const rect = containerRef.current.getBoundingClientRect();
+        const windowHeight = window.innerHeight;
+        const windowWidth = window.innerWidth;
+        
+        // Use the actual dropdown height if available, otherwise estimate
+        const dropdownHeight = dropdownRef.current?.offsetHeight || 250;
+        const dropdownWidth = dropdownRef.current?.offsetWidth || rect.width;
+
+        let left = rect.left;
+        if (left + dropdownWidth > windowWidth - 16) {
+            left = windowWidth - dropdownWidth - 16;
+        }
+
+        const spaceBelow = windowHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        const shouldFlip = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
+
+        if (shouldFlip) {
+            setDropdownStyle({
+                position: 'fixed',
+                bottom: windowHeight - rect.top + 4,
+                left: left,
+                width: rect.width,
+                zIndex: 9999,
+            });
+        } else {
+            setDropdownStyle({
+                position: 'fixed',
+                top: rect.bottom + 4,
+                left: left,
+                width: rect.width,
+                zIndex: 9999,
+            });
+        }
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (isOpen) {
+            updatePosition();
+            // Create a small delay to handle menu content rendering
+            const timer = setTimeout(updatePosition, 10);
+            
+            window.addEventListener('resize', updatePosition);
+            // Use capture to catch scroll events on any parent
+            window.addEventListener('scroll', updatePosition, true);
+            
+            return () => {
+                clearTimeout(timer);
+                window.removeEventListener('resize', updatePosition);
+                window.removeEventListener('scroll', updatePosition, true);
+            };
+        }
+    }, [isOpen, updatePosition, optionsLength, extraDependency]);
+
+    return { containerRef, dropdownRef, dropdownStyle, updatePosition };
+};
 
 // --- Custom Dropdown ---
 
@@ -43,10 +108,7 @@ export const CustomDropdown = ({
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const containerRef = useRef<HTMLDivElement>(null);
-    const dropdownRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
-    const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
     const filteredOptions = useMemo(() => {
         if (!searchable || !searchTerm) return options;
@@ -54,6 +116,12 @@ export const CustomDropdown = ({
             opt.title.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [options, searchTerm, searchable]);
+
+    const { containerRef, dropdownRef, dropdownStyle } = useDropdownPosition(
+        isOpen, 
+        options.length, 
+        filteredOptions.length
+    );
 
     const selectedOption = options.find(opt => opt.id === value);
 
@@ -67,43 +135,14 @@ export const CustomDropdown = ({
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             const target = event.target as Node;
-            const insideContainer = containerRef.current?.contains(target);
-            const insideDropdown = dropdownRef.current?.contains(target);
-
-            if (!insideContainer && !insideDropdown) {
+            if (containerRef.current && !containerRef.current.contains(target) &&
+                dropdownRef.current && !dropdownRef.current.contains(target)) {
                 setIsOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    useEffect(() => {
-        if (isOpen && containerRef.current) {
-            const rect = containerRef.current.getBoundingClientRect();
-            const windowHeight = window.innerHeight;
-            const dropdownHeight = Math.min(60 * 4, options.length * 40 + 40); // Approximate
-
-            const top = rect.bottom + 4;
-            if (top + dropdownHeight > windowHeight - 20) {
-                setDropdownStyle({
-                    position: 'fixed',
-                    bottom: window.innerHeight - rect.top + 4,
-                    left: rect.left,
-                    width: rect.width,
-                    zIndex: 9999,
-                });
-            } else {
-                setDropdownStyle({
-                    position: 'fixed',
-                    top: top,
-                    left: rect.left,
-                    width: rect.width,
-                    zIndex: 9999,
-                });
-            }
-        }
-    }, [isOpen, options.length]);
+    }, [containerRef, dropdownRef]);
 
     return (
         <div className={`relative w-full min-w-0 ${className} ${disabled ? 'opacity-50' : ''}`} ref={containerRef}>
@@ -133,8 +172,8 @@ export const CustomDropdown = ({
 
             {isOpen && createPortal(
                 <div ref={dropdownRef}
-                    className="bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden"
-                    style={dropdownStyle}
+                    className="bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in duration-100"
+                    style={{ ...dropdownStyle, minWidth: dropdownStyle.width }}
                 >
                     <div className="max-h-60 overflow-y-auto no-scrollbar">
                         {filteredOptions.length > 0 ? (
@@ -180,13 +219,12 @@ export const CustomDatePicker = ({
     disabled?: boolean;
 }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const containerRef = useRef<HTMLDivElement>(null);
-    const dropdownRef = useRef<HTMLDivElement>(null);
-    const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
-
+    
     const [viewDate, setViewDate] = useState(() => {
         return value ? new Date(value) : new Date();
     });
+
+    const { containerRef, dropdownRef, dropdownStyle } = useDropdownPosition(isOpen, 42); // 42 is roughly the max days shown
 
     const selectedDate = useMemo(() => {
         if (!value) return null;
@@ -204,41 +242,7 @@ export const CustomDatePicker = ({
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    useEffect(() => {
-        if (isOpen && containerRef.current) {
-            const rect = containerRef.current.getBoundingClientRect();
-            const windowWidth = window.innerWidth;
-            const windowHeight = window.innerHeight;
-            const dropdownWidth = 280;
-            const dropdownHeight = 320;
-
-            let left = rect.left;
-            if (left + dropdownWidth > windowWidth - 20) {
-                left = windowWidth - dropdownWidth - 20;
-            }
-
-            const top = rect.bottom + 4;
-            if (top + dropdownHeight > windowHeight - 20) {
-                setDropdownStyle({
-                    position: 'fixed',
-                    bottom: window.innerHeight - rect.top + 4,
-                    left: left,
-                    width: dropdownWidth,
-                    zIndex: 9999,
-                });
-            } else {
-                setDropdownStyle({
-                    position: 'fixed',
-                    top: top,
-                    left: left,
-                    width: dropdownWidth,
-                    zIndex: 9999,
-                });
-            }
-        }
-    }, [isOpen]);
+    }, [containerRef, dropdownRef]);
 
     const days = useMemo(() => {
         const mStart = startOfMonth(viewDate);
@@ -272,7 +276,7 @@ export const CustomDatePicker = ({
             </button>
 
             {isOpen && createPortal(
-                <div ref={dropdownRef} className="bg-white border border-gray-200 rounded-lg shadow-xl p-3" style={dropdownStyle}>
+                <div ref={dropdownRef} className="bg-white border border-gray-200 rounded-lg shadow-xl p-3 animate-in fade-in zoom-in duration-100" style={{ ...dropdownStyle, width: 280 }}>
                     <div className="flex items-center justify-between mb-3 px-1">
                         <button type="button" onClick={handlePrevMonth} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded transition-colors">
                             <FiChevronLeft className="w-4 h-4 text-gray-600" />
@@ -371,46 +375,21 @@ export const TimeSelect = ({
     disabled?: boolean;
 }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const containerRef = useRef<HTMLDivElement>(null);
-    const dropdownRef = useRef<HTMLDivElement>(null);
-    const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
-
     const displayValue = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')} ${ampm}`;
+
+    const { containerRef, dropdownRef, dropdownStyle } = useDropdownPosition(isOpen, options.length);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             const target = event.target as Node;
-            const insideContainer = containerRef.current?.contains(target);
-            const insideDropdown = dropdownRef.current?.contains(target);
-
-            if (!insideContainer && !insideDropdown) {
+            if (containerRef.current && !containerRef.current.contains(target) &&
+                dropdownRef.current && !dropdownRef.current.contains(target)) {
                 setIsOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    useEffect(() => {
-        if (isOpen && containerRef.current) {
-            const rect = containerRef.current.getBoundingClientRect();
-            const windowHeight = window.innerHeight;
-            const dropdownHeight = 200; // max-h-48
-
-            let top = rect.bottom + 4;
-            if (top + dropdownHeight > windowHeight - 20) {
-                top = rect.top - dropdownHeight - 4;
-            }
-
-            setDropdownStyle({
-                position: 'fixed',
-                top: top,
-                left: rect.left,
-                width: rect.width,
-                zIndex: 9999,
-            });
-        }
-    }, [isOpen]);
+    }, [containerRef, dropdownRef]);
 
     return (
         <div className={`relative w-full ${className} ${disabled ? 'opacity-50' : ''}`} ref={containerRef}>
@@ -426,7 +405,7 @@ export const TimeSelect = ({
 
             {isOpen && createPortal(
                 <div ref={dropdownRef}
-                    className="bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden"
+                    className="bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in duration-100"
                     style={dropdownStyle}
                 >
                     <div className="max-h-48 overflow-y-auto no-scrollbar">
