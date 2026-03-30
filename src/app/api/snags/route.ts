@@ -239,9 +239,12 @@ export async function PATCH(request: NextRequest) {
 
         // RBAC: General update permission check (for any non-status action or if specific fields are updated)
         // If action is null/undefined or if specific core fields are being updated, check SNAGS_EDIT
+        // RBAC: General update permission check (for any non-status action or if specific fields are updated)
+        // If action is null/undefined or if specific core fields are being updated, check SNAGS_EDIT
         const isStatusTransition = ['resolve', 'verify', 'close', 'reopen', 'comment'].includes(action);
         
-        if (!isStatusTransition || action === 'assign') {
+        // Ensure action 'comment' also requires update permissions
+        if (!isStatusTransition || action === 'assign' || action === 'comment') {
             const permResult = await verifyPermission(user.id, PERMISSION_NODES.SNAGS_UPDATE, existing.project_id || undefined);
             if (!permResult.allowed) {
                 return NextResponse.json({ error: permResult.message }, { status: 403 });
@@ -291,15 +294,31 @@ export async function PATCH(request: NextRequest) {
             const { comment } = body;
             if (!comment) return NextResponse.json({ error: 'Comment is required' }, { status: 400 });
 
-            // Note: finalUpdates won't change, we just trigger notifications below
+            // CRITICAL FIX: 'comment' is NOT a column in 'snags' table. 
+            // We must remove it from finalUpdates to avoid DB error.
+            if ('comment' in finalUpdates) delete finalUpdates.comment;
         }
 
-        const { data, error } = await supabaseAdmin
-            .from('snags')
-            .update(finalUpdates)
-            .eq('id', id)
-            .select()
-            .single();
+        // Only call update if there are fields to update, otherwise just fetch
+        let data, error;
+        if (Object.keys(finalUpdates).length > 0) {
+            const result = await supabaseAdmin
+                .from('snags')
+                .update(finalUpdates)
+                .eq('id', id)
+                .select()
+                .single();
+            data = result.data;
+            error = result.error;
+        } else {
+            const result = await supabaseAdmin
+                .from('snags')
+                .select('*')
+                .eq('id', id)
+                .single();
+            data = result.data;
+            error = result.error;
+        }
 
         if (error) {
             console.error('Error updating snag:', error);
@@ -342,9 +361,19 @@ export async function PATCH(request: NextRequest) {
                 await NotificationService.notifySnagVerified(existing.assigned_to_user_id, description, contextName);
             } else if (action === 'comment') {
                 const { comment } = body;
+                
+                // Get the author's name from the profile for more reliable identification
+                const { data: author } = await supabaseAdmin
+                    .from('users')
+                    .select('full_name')
+                    .eq('id', user.id)
+                    .single();
+                
+                const authorName = author?.full_name || user.user_metadata?.full_name || 'Team member';
+
                 await NotificationService.notifyStakeholders(existing.project_id, user.id, {
                     title: 'New Progress Update',
-                    message: `Update on "${contextName}" by ${user.user_metadata?.full_name || 'Team member'}:\n\n"${comment}"`,
+                    message: `Update on "${contextName}" by ${authorName}:\n\n"${comment}"`,
                     type: 'snag_comment',
                     relatedId: id,
                     relatedType: 'snag'
