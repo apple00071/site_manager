@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { FiX, FiSave } from 'react-icons/fi';
+import { FiX, FiSave, FiUpload, FiFile, FiAlertCircle } from 'react-icons/fi';
 import { CustomDropdown, CustomDatePicker } from '@/components/ui/CustomControls';
+import { supabase } from '@/lib/supabase';
 
 type ModalSection = 'info' | 'customer' | 'property' | 'workers' | null;
 
@@ -18,6 +19,9 @@ interface EditProjectModalProps {
 export function EditProjectModal({ isOpen, onClose, onSave, section, initialData, isSaving, initialWorker }: EditProjectModalProps) {
     const [formData, setFormData] = useState<any>({});
     const [selectedWorker, setSelectedWorker] = useState<string>('carpenter');
+    const [pdfFile, setPdfFile] = useState<File | null>(null);
+    const [uploadingPDF, setUploadingPDF] = useState(false);
+    const [localError, setLocalError] = useState<string | null>(null);
 
     useEffect(() => {
         if (isOpen && initialWorker) {
@@ -28,10 +32,32 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
     useEffect(() => {
         if (isOpen && initialData) {
             setFormData(initialData);
+            setPdfFile(null);
+            setLocalError(null);
         }
     }, [isOpen, initialData]);
 
     const overlayRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            setLocalError('Please upload a PDF or image file (JPG, PNG, or WebP)');
+            return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) { // 10MB limit
+            setLocalError('File size must be less than 10MB');
+            return;
+        }
+
+        setPdfFile(file);
+        setLocalError(null);
+    };
 
     useEffect(() => {
         if (!isOpen) return;
@@ -82,9 +108,41 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
 
     if (!isOpen || !section) return null;
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        onSave(formData);
+        setLocalError(null);
+
+        let finalData = { ...formData };
+
+        if (pdfFile) {
+            try {
+                setUploadingPDF(true);
+                const fileExt = pdfFile.name.split('.').pop();
+                const fileName = `requirements-${Date.now()}.${fileExt}`;
+                const filePath = `requirements/${fileName}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('project-requirements')
+                    .upload(filePath, pdfFile);
+
+                if (uploadError) throw uploadError;
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('project-requirements')
+                    .getPublicUrl(filePath);
+
+                finalData.requirements_pdf_url = publicUrl;
+            } catch (err: any) {
+                console.error('PDF upload error:', err);
+                setLocalError('Failed to upload document: ' + err.message);
+                setUploadingPDF(false);
+                return;
+            } finally {
+                setUploadingPDF(false);
+            }
+        }
+
+        onSave(finalData);
     };
 
     const handleChange = (field: string, value: any) => {
@@ -128,6 +186,16 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                         {/* Project Info Fields */}
                         {section === 'info' && (
                             <>
+                                <div className="sm:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Project Title</label>
+                                    <input
+                                        type="text"
+                                        value={formData.title || ''}
+                                        onChange={(e) => handleChange('title', e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm font-medium"
+                                        placeholder="Enter project title"
+                                    />
+                                </div>
                                 <div className="sm:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                                     <textarea
@@ -189,8 +257,80 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                         value={formData.project_notes || ''}
                                         onChange={(e) => handleChange('project_notes', e.target.value)}
                                         rows={3}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm font-light text-gray-600"
                                     />
+                                </div>
+                                <div className="sm:col-span-2 pt-2">
+                                    <label className="block text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                                        <FiFile className="text-yellow-600" />
+                                        Requirements Document
+                                    </label>
+                                    <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 bg-gray-50/50 hover:bg-gray-50 hover:border-yellow-300/50 transition-all group">
+                                        <div className="flex flex-col items-center text-center">
+                                            {pdfFile ? (
+                                                <div className="flex items-center gap-3 text-sm text-green-600 font-medium bg-green-50 px-4 py-2 rounded-lg border border-green-100 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                                    <FiFile className="w-5 h-5" />
+                                                    <span className="truncate max-w-[200px]">{pdfFile.name}</span>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => setPdfFile(null)}
+                                                        className="p-1 hover:bg-green-100 rounded-full transition-colors"
+                                                    >
+                                                        <FiX className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
+                                                        <FiUpload className="w-6 h-6 text-gray-400 group-hover:text-yellow-600 transition-colors" />
+                                                    </div>
+                                                    {formData.requirements_pdf_url ? (
+                                                        <div className="space-y-2">
+                                                            <p className="text-sm text-gray-600">Document is already uploaded.</p>
+                                                            <button 
+                                                                type="button"
+                                                                onClick={() => fileInputRef.current?.click()}
+                                                                className="text-sm font-semibold text-yellow-600 hover:text-yellow-700 underline underline-offset-4"
+                                                            >
+                                                                Change Document
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="space-y-1">
+                                                            <p className="text-sm font-medium text-gray-700">Click to upload requirements</p>
+                                                            <p className="text-xs text-gray-500">PDF, JPG, PNG or WebP (max 10MB)</p>
+                                                            <button 
+                                                                type="button"
+                                                                onClick={() => fileInputRef.current?.click()}
+                                                                className="mt-3 inline-flex items-center px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:border-yellow-400 transition-all shadow-sm"
+                                                            >
+                                                                Select File
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                        <input 
+                                            ref={fileInputRef}
+                                            type="file" 
+                                            className="hidden" 
+                                            accept=".pdf,image/*"
+                                            onChange={handleFileChange}
+                                        />
+                                    </div>
+                                    {localError && (
+                                        <div className="mt-3 flex items-center gap-2 text-xs font-medium text-red-600 bg-red-50 p-3 rounded-lg border border-red-100">
+                                            <FiAlertCircle className="w-4 h-4" />
+                                            {localError}
+                                        </div>
+                                    )}
+                                    {uploadingPDF && (
+                                        <div className="mt-3 flex items-center gap-3 p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+                                            <div className="w-4 h-4 border-2 border-yellow-600 border-t-transparent rounded-full animate-spin" />
+                                            <span className="text-xs font-semibold text-yellow-800 animate-pulse">Uploading document to secure storage...</span>
+                                        </div>
+                                    )}
                                 </div>
                             </>
                         )}

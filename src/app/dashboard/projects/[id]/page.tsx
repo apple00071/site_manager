@@ -513,9 +513,14 @@ export default function ProjectDetailsPage() {
       setProject(updatedProject);
       setEditSection(null);
       setEditingWorker(undefined); // Reset editing worker
+      
+      // Refresh project to ensure all data (joins etc) is absolutely fresh
+      await fetchProject(true);
     } catch (err: any) {
       console.error('Error updating project:', err);
-      // alert(err.message);
+      // Try to get more details from error response if it exists
+      const errorMessage = typeof err === 'string' ? err : err.message || 'Failed to update project';
+      alert(errorMessage);
     } finally {
       setIsSaving(false);
     }

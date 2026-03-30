@@ -14,10 +14,11 @@ const isBuildContext = process.env.NEXT_PHASE === 'phase-production-build';
 
 const updateProjectSchema = z.object({
     // Project Info
+    title: z.string().min(2).optional(),
     description: z.string().nullable().optional(),
     status: z.string().optional(),
     workflow_stage: z.string().nullable().optional(),
-    project_budget: z.number().nullable().optional(),
+    project_budget: z.coerce.number().nullable().optional(),
     project_notes: z.string().nullable().optional(),
     start_date: z.string().nullable().optional(),
     estimated_completion_date: z.string().nullable().optional(),
@@ -35,7 +36,7 @@ const updateProjectSchema = z.object({
     block_number: z.string().nullable().optional(),
     flat_number: z.string().nullable().optional(),
     floor_number: z.string().nullable().optional(),
-    area_sqft: z.number().nullable().optional(),
+    area_sqft: z.coerce.number().nullable().optional(),
 
     // Worker Details
     carpenter_name: z.string().nullable().optional(),
@@ -50,6 +51,7 @@ const updateProjectSchema = z.object({
     granite_worker_phone: z.string().nullable().optional(),
     glass_worker_name: z.string().nullable().optional(),
     glass_worker_phone: z.string().nullable().optional(),
+    requirements_pdf_url: z.string().nullable().optional(),
 });
 
 export async function GET(
@@ -77,7 +79,21 @@ export async function GET(
 
         const { data: project, error } = await supabaseAdmin
             .from('projects')
-            .select('*')
+            .select(`
+                *,
+                assigned_employee:assigned_employee_id(
+                    id,
+                    email,
+                    name:full_name,
+                    designation
+                ),
+                creator:created_by(
+                    id,
+                    email,
+                    full_name,
+                    username
+                )
+            `)
             .eq('id', id)
             .single();
 
@@ -147,7 +163,21 @@ export async function PATCH(
             .from('projects')
             .update(parsed.data)
             .eq('id', projectId)
-            .select()
+            .select(`
+                *,
+                assigned_employee:assigned_employee_id(
+                    id,
+                    email,
+                    name:full_name,
+                    designation
+                ),
+                creator:created_by(
+                    id,
+                    email,
+                    full_name,
+                    username
+                )
+            `)
             .single();
 
         if (error) {
