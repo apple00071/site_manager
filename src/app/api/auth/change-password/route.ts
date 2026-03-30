@@ -32,20 +32,31 @@ export async function POST(request: Request) {
     });
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message || 'Failed to update password' }, { status: 400 });
+      console.error('Password update error (admin):', updateError);
+      return NextResponse.json({ 
+        error: updateError.message || 'Failed to update password',
+        details: 'The system could not update your password at this time.'
+      }, { status: 400 });
     }
 
     // Mark password as changed in the users table
-    await supabaseAdmin
+    const { error: dbError } = await supabaseAdmin
       .from('users')
       .update({ password_changed: true })
       .eq('id', user.id);
 
-    return NextResponse.json({ success: true }, { status: 200 });
+    if (dbError) {
+      console.error('Database update error after password change:', dbError);
+      // We don't fail here because the auth password was already updated,
+      // but we should log it. Actually, if it fails, the user will be asked again.
+    }
+
+    console.log('Password successfully updated for user:', user.id);
+    return NextResponse.json({ success: true, message: 'Password updated successfully' }, { status: 200 });
   } catch (err: any) {
     console.error('Error in change-password route:', err);
     return NextResponse.json(
-      { error: 'Unexpected error', details: err?.message || 'Unknown error' },
+      { error: 'An unexpected error occurred during password change', details: err?.message || 'Unknown error' },
       { status: 500 }
     );
   }

@@ -3,12 +3,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { FiAlertTriangle, FiLock, FiEye, FiEyeOff, FiCheck } from 'react-icons/fi';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 interface PasswordChangeModalProps {
     onSuccess: () => void;
 }
 
 export default function PasswordChangeModal({ onSuccess }: PasswordChangeModalProps) {
+    const { signOut } = useAuth();
+    const router = useRouter();
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showNew, setShowNew] = useState(false);
@@ -94,10 +98,13 @@ export default function PasswordChangeModal({ onSuccess }: PasswordChangeModalPr
                 throw new Error(data.error || 'Failed to update password');
             }
 
+            // Successful update - force fresh login
+            setLoading(true);
+            await signOut();
+            window.location.replace('/login');
             onSuccess();
         } catch (err: any) {
             setError(err.message || 'Something went wrong. Please try again.');
-        } finally {
             setLoading(false);
         }
     };

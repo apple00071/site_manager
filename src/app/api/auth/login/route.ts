@@ -43,10 +43,17 @@ export async function POST(request: Request) {
       }
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email: resolvedEmail as string, password });
+    const { data: authResult, error: signInError } = await supabase.auth.signInWithPassword({ 
+      email: resolvedEmail as string, 
+      password 
+    });
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 401 });
+    if (signInError) {
+      console.error('Supabase sign-in error:', signInError);
+      return NextResponse.json({ 
+        error: signInError.message || 'Invalid credentials',
+        details: signInError.status === 400 ? 'Please check your email and password' : signInError.message
+      }, { status: 401 });
     }
 
     // Get the session to ensure cookies are properly set
@@ -56,8 +63,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to establish session' }, { status: 500 });
     }
 
-    return NextResponse.json({ user: data.user }, { status: 200 });
+    return NextResponse.json({ 
+      user: authResult.user,
+      session: {
+        expires_at: session.expires_at,
+        refresh_token: !!session.refresh_token
+      }
+    }, { status: 200 });
   } catch (err: any) {
-    return NextResponse.json({ error: 'Unexpected error' }, { status: 500 });
+    console.error('Unexpected error in login route:', err);
+    return NextResponse.json({ 
+      error: 'Authentication process failed', 
+      details: err?.message || 'Unknown server error' 
+    }, { status: 500 });
   }
 }
