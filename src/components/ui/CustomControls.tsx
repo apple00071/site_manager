@@ -203,6 +203,148 @@ export const CustomDropdown = ({
     );
 };
 
+// --- Multi-Select Dropdown ---
+
+export const MultiSelectDropdown = ({
+    value = [],
+    options,
+    onChange,
+    placeholder = 'Select Options',
+    emptyMessage = 'No options found',
+    className = "",
+    disabled = false,
+    searchable = false
+}: {
+    value: string[],
+    options: { id: string, title: string }[],
+    onChange: (ids: string[]) => void,
+    placeholder?: string,
+    emptyMessage?: string,
+    className?: string,
+    disabled?: boolean,
+    searchable?: boolean
+}) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    const filteredOptions = useMemo(() => {
+        if (!searchable || !searchTerm) return options;
+        return options.filter(opt =>
+            opt.title.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [options, searchTerm, searchable]);
+
+    const { containerRef, dropdownRef, dropdownStyle } = useDropdownPosition(
+        isOpen, 
+        options.length, 
+        filteredOptions.length
+    );
+
+    const selectedOptions = options.filter(opt => value.includes(opt.id));
+
+    useEffect(() => {
+        if (isOpen && searchable) {
+            setSearchTerm('');
+            setTimeout(() => inputRef.current?.focus(), 10);
+        }
+    }, [isOpen, searchable]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Node;
+            if (containerRef.current && !containerRef.current.contains(target) &&
+                dropdownRef.current && !dropdownRef.current.contains(target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [containerRef, dropdownRef]);
+
+    const toggleOption = (id: string) => {
+        if (value.includes(id)) {
+            onChange(value.filter(v => v !== id));
+        } else {
+            onChange([...value, id]);
+        }
+    };
+
+    return (
+        <div className={`relative w-full min-w-0 ${className} ${disabled ? 'opacity-50' : ''}`} ref={containerRef}>
+            <button
+                type="button"
+                onClick={() => !disabled && setIsOpen(!isOpen)}
+                disabled={disabled}
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-yellow-500 overflow-hidden ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+                {isOpen && searchable ? (
+                    <input
+                        ref={inputRef}
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        placeholder="Search..."
+                        className="flex-1 bg-transparent border-none outline-none text-gray-900 p-0 text-sm focus:ring-0 w-full"
+                    />
+                ) : (
+                    <div className="flex-1 text-left truncate">
+                        {selectedOptions.length > 0 ? (
+                            <div className="flex gap-1 overflow-hidden">
+                                <span className="bg-yellow-100 text-yellow-800 text-xs px-1.5 py-0.5 rounded-md font-medium">
+                                    {selectedOptions[0].title}
+                                    {selectedOptions.length > 1 && ` +${selectedOptions.length - 1}`}
+                                </span>
+                            </div>
+                        ) : (
+                            <span className="text-gray-400">{placeholder}</span>
+                        )}
+                    </div>
+                )}
+                <FiChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isOpen && createPortal(
+                <div ref={dropdownRef}
+                    className="bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in duration-100"
+                    style={{ ...dropdownStyle, minWidth: dropdownStyle.width }}
+                >
+                    <div className="max-h-60 overflow-y-auto no-scrollbar">
+                        {filteredOptions.length > 0 ? (
+                            filteredOptions.map(opt => {
+                                const isSelected = value.includes(opt.id);
+                                return (
+                                    <button
+                                        key={opt.id}
+                                        type="button"
+                                        onClick={() => toggleOption(opt.id)}
+                                        className={`w-full text-left px-3 py-2 text-sm hover:bg-yellow-50 transition-colors flex items-center justify-between ${isSelected ? 'bg-yellow-50 text-yellow-800' : 'text-gray-700'}`}
+                                    >
+                                        <span className={`truncate ${isSelected ? 'font-medium' : ''}`}>{opt.title}</span>
+                                        {isSelected && (
+                                            <div className="w-4 h-4 bg-yellow-500 rounded flex items-center justify-center text-white">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="w-2.5 h-2.5">
+                                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                                </svg>
+                                            </div>
+                                        )}
+                                    </button>
+                                );
+                            })
+                        ) : (
+                            <div className="px-3 py-4 text-center text-xs text-gray-400">
+                                {emptyMessage}
+                            </div>
+                        )}
+                    </div>
+                </div>,
+                document.body
+            )}
+        </div>
+    );
+};
+
 // --- Custom Date Picker ---
 
 export const CustomDatePicker = ({

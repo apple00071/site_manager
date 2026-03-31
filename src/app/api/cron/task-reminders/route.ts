@@ -42,24 +42,32 @@ export async function GET(req: NextRequest) {
         if (upcomingTasks && upcomingTasks.length > 0) {
             console.log(`Found ${upcomingTasks.length} tasks for 1-hour reminder`);
             for (const task of upcomingTasks) {
-                if (task.assigned_to) {
+                const assignedIds = Array.isArray(task.assigned_to) 
+                    ? task.assigned_to 
+                    : (task.assigned_to ? [task.assigned_to] : []);
+                
+                if (assignedIds.length > 0) {
                     const projectName = (task.projects as any)?.title || 'Task';
+                    for (const assigneeId of assignedIds) {
+                        proactiveUpdates.push(
+                            NotificationService.createNotification({
+                                userId: assigneeId,
+                                title: 'Task Starting Soon',
+                                message: `Reminder: "${task.title}" in ${projectName} starts in 1 hour.`,
+                                type: 'task_assigned',
+                                relatedId: task.id,
+                                relatedType: 'task',
+                                skipInApp: false
+                            })
+                        );
+                    }
+                    
+                    // Mark as sent after queuing all notifications for this task
                     proactiveUpdates.push(
-                        NotificationService.createNotification({
-                            userId: task.assigned_to,
-                            title: 'Task Starting Soon',
-                            message: `Reminder: "${task.title}" in ${projectName} starts in 1 hour.`,
-                            type: 'task_assigned',
-                            relatedId: task.id,
-                            relatedType: 'task',
-                            skipInApp: false // Show in-app for immediate awareness
-                        }).then(async () => {
-                            // Mark as sent
-                            await supabaseAdmin
-                                .from('tasks')
-                                .update({ reminder_sent_at: nowIso })
-                                .eq('id', task.id);
-                        })
+                        supabaseAdmin
+                            .from('tasks')
+                            .update({ reminder_sent_at: nowIso })
+                            .eq('id', task.id)
                     );
                 }
             }
@@ -93,10 +101,14 @@ export async function GET(req: NextRequest) {
         // Process Calendar Tasks
         if (calendarTasks) {
             for (const task of calendarTasks) {
-                if (task.assigned_to) {
+                const assignedIds = Array.isArray(task.assigned_to) 
+                    ? task.assigned_to 
+                    : (task.assigned_to ? [task.assigned_to] : []);
+                
+                for (const assigneeId of assignedIds) {
                     summaryUpdates.push(
                         NotificationService.createNotification({
-                            userId: task.assigned_to,
+                            userId: assigneeId,
                             title: 'Task Due Tomorrow',
                             message: `Reminder: "${task.title}" is due tomorrow.`,
                             type: 'task_assigned',
@@ -112,11 +124,15 @@ export async function GET(req: NextRequest) {
         // Process Project Tasks
         if (projectTasks) {
             for (const task of projectTasks) {
-                if (task.assigned_to) {
-                    const projectName = (task.project_steps as any)?.projects?.title || 'Project';
+                const assignedIds = Array.isArray(task.assigned_to) 
+                    ? task.assigned_to 
+                    : (task.assigned_to ? [task.assigned_to] : []);
+                
+                const projectName = (task.project_steps as any)?.projects?.title || 'Project';
+                for (const assigneeId of assignedIds) {
                     summaryUpdates.push(
                         NotificationService.createNotification({
-                            userId: task.assigned_to,
+                            userId: assigneeId,
                             title: 'Project Task Due Tomorrow',
                             message: `Reminder: "${task.title}" in ${projectName} is due tomorrow.`,
                             type: 'task_assigned',

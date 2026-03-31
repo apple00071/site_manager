@@ -20,7 +20,7 @@ const createCalendarTaskSchema = z.object({
   }),
   status: z.enum(['todo', 'in_progress', 'blocked', 'done']).optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
-  assigned_to: z.string().uuid('Invalid user ID').nullable().optional(),
+  assigned_to: z.array(z.string().uuid()).nullable().optional(),
   project_id: z.string().uuid('Invalid project ID').nullable().optional(),
   location: z.string().optional().nullable(),
   meeting_link: z.string().optional().nullable(),
@@ -54,7 +54,7 @@ async function findConflictTask(assignedTo: string, startIso: string, endIso: st
   let query = supabaseAdmin
     .from('tasks')
     .select('id,title,start_at,end_at')
-    .eq('assigned_to', assignedTo)
+    .contains('assigned_to', [assignedTo])
     .gt('end_at', startIso)
     .lt('start_at', endIso)
     .limit(1);
@@ -99,9 +99,14 @@ export async function GET(request: NextRequest) {
       .order('start_at', { ascending: true });
 
     if (assignedFilter && assignedFilter !== 'all') {
-      query = query.eq('assigned_to', assignedFilter);
+      // Use contains operator for array column
+      query = query.contains('assigned_to', [assignedFilter]);
     } else if (userRole !== 'admin') {
-      query = query.or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`);
+      // In Supabase/PostgREST, there isn't a direct 'or' for 'contains' in the same way as EQ. 
+      // We might need to use a raw filter or stay with simple OR if we keep a single primary assigned_to_id.
+      // However, we've moved to arrays. The best way for 'assigned_to contains user.id OR created_by equals user.id'
+      // is to use a filter string.
+      query = query.or(`assigned_to.cs.{"${user.id}"},created_by.eq.${user.id}`);
     }
 
     const { data, error } = await query;
@@ -143,21 +148,27 @@ export async function POST(request: NextRequest) {
     const startIso = startDate.toISOString();
     const endIso = endDate.toISOString();
 
-    let assignedTo: string | null = null;
-    if (typeof data.assigned_to === 'string' && data.assigned_to.length > 0) {
+    let assignedTo: string[] = [];
+    if (Array.isArray(data.assigned_to)) {
       assignedTo = data.assigned_to;
     }
 
-    if (assignedTo) {
-      const conflict = await findConflictTask(assignedTo, startIso, endIso);
-      if (conflict) {
-        const conflictStart = new Date(conflict.start_at as string);
-        const conflictEnd = new Date(conflict.end_at as string);
-        const conflictWindow = `${conflictStart.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${conflictEnd.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
-        return NextResponse.json(
-          { error: `This user already has a task in that time slot (${conflictWindow}).` },
-          { status: 409 },
-        );
+    if (assignedTo.length > 0) {
+      for (const assigneeId of assignedTo) {
+        const conflict = await findConflictTask(assigneeId, startIso, endIso);
+        if (conflict) {
+          const conflictStart = new Date(conflict.start_at as string);
+          const conflictEnd = new Date(conflict.end_at as string);
+          const conflictWindow = `${conflictStart.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${conflictEnd.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+          
+          const { data: userData } = await supabaseAdmin.from('users').select('full_name').eq('id', assigneeId).single();
+          const userName = userData?.full_name || 'One of the assignees';
+
+          return NextResponse.json(
+            { error: `${userName} already has a task in that time slot (${conflictWindow}).` },
+            { status: 409 },
+          );
+        }
       }
     }
 
@@ -201,46 +212,48 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create task' }, { status: 500 });
     }
 
-    // WhatsApp notification to assigned user on calendar task creation
+    // WhatsApp notification to ALL assigned users on calendar task creation
     try {
-      if (assignedTo) {
-        const { data: assignedUser } = await supabaseAdmin
-          .from('users')
-          .select('phone_number, full_name')
-          .eq('id', assignedTo)
-          .single();
+      if (assignedTo.length > 0) {
+        const origin =
+          request.headers.get('origin') ||
+          process.env.NEXT_PUBLIC_SITE_URL ||
+          process.env.NEXT_PUBLIC_APP_URL ||
+          'http://localhost:3000';
 
-        if (assignedUser?.phone_number) {
-          const origin =
-            request.headers.get('origin') ||
-            process.env.NEXT_PUBLIC_SITE_URL ||
-            process.env.NEXT_PUBLIC_APP_URL ||
-            'http://localhost:3000';
+        const projectIdForLink = projectData?.id ?? null;
+        const link = projectIdForLink
+          ? `${origin}/dashboard/projects/${projectIdForLink}`
+          : `${origin}/dashboard/tasks`;
 
-          const projectIdForLink = projectData?.id ?? null;
-          const link = projectIdForLink
-            ? `${origin}/dashboard/projects/${projectIdForLink}`
-            : `${origin}/dashboard/tasks`;
+        for (const assigneeId of assignedTo) {
+          const { data: assignedUser } = await supabaseAdmin
+            .from('users')
+            .select('phone_number, full_name')
+            .eq('id', assigneeId)
+            .single();
 
-          await sendTaskWhatsAppNotification(
-            assignedUser.phone_number,
+          if (assignedUser?.phone_number) {
+            await sendTaskWhatsAppNotification(
+              assignedUser.phone_number,
+              (inserted.title as string) || data.title,
+              projectData?.title ?? undefined,
+              // For new assignments, status is always effectively TODO, so omit it from the message
+              undefined,
+              link,
+            );
+          }
+
+          console.log('🔔 DEBUG: About to call NotificationService for user:', assigneeId);
+          // Trigger OneSignal push notification via NotificationService
+          await NotificationService.notifyTaskAssigned(
+            assigneeId,
             (inserted.title as string) || data.title,
-            projectData?.title ?? undefined,
-            // For new assignments, status is always effectively TODO, so omit it from the message
-            undefined,
-            link,
+            projectData?.title || 'Apple Interior',
+            inserted.id
           );
+          console.log('✅ DEBUG: NotificationService call completed for user:', assigneeId);
         }
-
-        console.log('🔔 DEBUG: About to call NotificationService for user:', assignedTo);
-        // Trigger OneSignal push notification via NotificationService
-        await NotificationService.notifyTaskAssigned(
-          assignedTo as string,
-          (inserted.title as string) || data.title,
-          projectData?.title || 'Apple Interior',
-          inserted.id
-        );
-        console.log('✅ DEBUG: NotificationService call completed');
       }
     } catch (waError) {
       console.error('❌ DEBUG: Notification error in calendar-tasks:', waError);
@@ -298,13 +311,9 @@ export async function PATCH(request: NextRequest) {
     const startIso = updatedStart.toISOString();
     const endIso = updatedEnd.toISOString();
 
-    let assignedTo: string | null = existing.assigned_to as string | null;
+    let assignedTo: string[] = Array.isArray(existing.assigned_to) ? existing.assigned_to : (existing.assigned_to ? [existing.assigned_to] : []);
     if (Object.prototype.hasOwnProperty.call(data, 'assigned_to')) {
-      if (typeof data.assigned_to === 'string' && data.assigned_to.length > 0) {
-        assignedTo = data.assigned_to;
-      } else {
-        assignedTo = null;
-      }
+      assignedTo = Array.isArray(data.assigned_to) ? data.assigned_to : (data.assigned_to ? [data.assigned_to] : []);
     }
 
     let projectId: string | null = (existing.project_id as string | null) ?? null;
@@ -316,16 +325,22 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    if (assignedTo) {
-      const conflict = await findConflictTask(assignedTo, startIso, endIso, data.id);
-      if (conflict) {
-        const conflictStart = new Date(conflict.start_at as string);
-        const conflictEnd = new Date(conflict.end_at as string);
-        const conflictWindow = `${conflictStart.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${conflictEnd.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
-        return NextResponse.json(
-          { error: `This user already has a task in that time slot (${conflictWindow}).` },
-          { status: 409 },
-        );
+    if (assignedTo.length > 0) {
+      for (const assigneeId of assignedTo) {
+        const conflict = await findConflictTask(assigneeId, startIso, endIso, data.id);
+        if (conflict) {
+          const conflictStart = new Date(conflict.start_at as string);
+          const conflictEnd = new Date(conflict.end_at as string);
+          const conflictWindow = `${conflictStart.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${conflictEnd.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+          
+          const { data: userData } = await supabaseAdmin.from('users').select('full_name').eq('id', assigneeId).single();
+          const userName = userData?.full_name || 'One of the assignees';
+
+          return NextResponse.json(
+            { error: `${userName} already has a task in that time slot (${conflictWindow}).` },
+            { status: 409 },
+          );
+        }
       }
     }
 
@@ -359,8 +374,8 @@ export async function PATCH(request: NextRequest) {
 
     // WhatsApp notifications for calendar task updates
     try {
-      const prevAssigned = (existing.assigned_to as string | null) ?? null;
-      const newAssigned = (assignedTo as string | null) ?? null;
+      const prevAssigned = Array.isArray(existing.assigned_to) ? existing.assigned_to : (existing.assigned_to ? [existing.assigned_to] : []);
+      const newAssigned = assignedTo;
       const statusChanged = existing.status !== updated.status;
 
       let projectDataForUpdate: { id: string; title?: string | null } | null = null;
@@ -386,12 +401,13 @@ export async function PATCH(request: NextRequest) {
         ? `${origin}/dashboard/projects/${projectIdForLink}`
         : `${origin}/dashboard/tasks`;
 
-      // Notify on assignment change
-      if (newAssigned && newAssigned !== prevAssigned) {
+      // Notify newly added assignees
+      const newlyAdded = newAssigned.filter(id => !prevAssigned.includes(id));
+      for (const assigneeId of newlyAdded) {
         const { data: assignedUser } = await supabaseAdmin
           .from('users')
           .select('phone_number, full_name')
-          .eq('id', newAssigned)
+          .eq('id', assigneeId)
           .single();
 
         if (assignedUser?.phone_number) {
@@ -402,27 +418,29 @@ export async function PATCH(request: NextRequest) {
             assignedUser.phone_number,
             (updated.title as string) || (existing.title as string),
             projectDataForUpdate?.title ?? undefined,
-            // When simply assigning a task, it's usually TODO; omit status unless it's something else
             statusForMessage,
             link,
           );
         }
 
-        // Trigger OneSignal push notification for assignment change
         await NotificationService.notifyTaskAssigned(
-          newAssigned,
+          assigneeId,
           (updated.title as string) || (existing.title as string),
           projectDataForUpdate?.title || 'Apple Interior',
           updated.id
         );
-      } else if (statusChanged && (updated.assigned_to || prevAssigned)) {
-        // Notify assigned user on status change
-        const targetUserId = (updated.assigned_to || prevAssigned) as string | null;
-        if (targetUserId) {
+      }
+
+      // Notify all current assignees if status changed
+      if (statusChanged && newAssigned.length > 0) {
+        for (const assigneeId of newAssigned) {
+          // If we already notified them because they were newly added, skip
+          if (newlyAdded.includes(assigneeId)) continue;
+
           const { data: assignedUser } = await supabaseAdmin
             .from('users')
             .select('phone_number, full_name')
-            .eq('id', targetUserId)
+            .eq('id', assigneeId)
             .single();
 
           if (assignedUser?.phone_number) {
@@ -435,9 +453,8 @@ export async function PATCH(request: NextRequest) {
             );
           }
 
-          // Trigger OneSignal push notification for status change
           await NotificationService.createNotification({
-            userId: targetUserId,
+            userId: assigneeId,
             title: 'Task Status Updated',
             message: `Task "${(updated.title as string) || (existing.title as string)}" status changed to ${updated.status}`,
             type: 'project_update',
@@ -485,7 +502,8 @@ export async function DELETE(request: NextRequest) {
     const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
 
     if (userRole !== 'admin') {
-      if (existing.created_by !== user.id && existing.assigned_to !== user.id) {
+      const isAssigned = Array.isArray(existing.assigned_to) && existing.assigned_to.includes(user.id);
+      if (existing.created_by !== user.id && !isAssigned) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
     }

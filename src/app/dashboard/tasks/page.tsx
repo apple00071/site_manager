@@ -27,12 +27,13 @@ import {
   FiCheckCircle,
   FiXCircle,
   FiUserX,
-  FiCalendar
+  FiCalendar,
+  FiUsers
 } from 'react-icons/fi';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useToast } from '@/components/ui/Toast';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
-import { CustomDropdown, CustomDatePicker, TimeSelect } from '@/components/ui/CustomControls';
+import { CustomDropdown, MultiSelectDropdown, CustomDatePicker, TimeSelect } from '@/components/ui/CustomControls';
 
 type CalendarViewType = 'month' | 'week' | 'work_week' | 'day' | 'agenda';
 
@@ -44,7 +45,7 @@ type CalendarTask = {
   end_at: string;
   status: 'todo' | 'in_progress' | 'blocked' | 'done';
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  assigned_to?: string | null;
+  assigned_to?: string[] | null;
   assigned_to_id?: string | null;
   project_id?: string | null;
   location?: string | null;
@@ -322,11 +323,11 @@ const TaskFormContent = ({
       </div>
       <div className="min-w-0">
         <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 ml-0.5 font-bold">Assign to</label>
-        <CustomDropdown
+        <MultiSelectDropdown
           value={form.assigned_to}
           options={assignees.map(a => ({ id: a.id, title: a.name }))}
-          onChange={(id) => setForm({ ...form, assigned_to: id })}
-          placeholder="Select Assignee"
+          onChange={(ids) => setForm({ ...form, assigned_to: ids })}
+          placeholder="Select Assignees"
           emptyMessage="No assignees found"
           searchable={true}
         />
@@ -550,17 +551,11 @@ const ViewTaskContent = ({
           <p className="whitespace-pre-line">{viewTask.description}</p>
         </div>
       )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3">
         <div>
-          <p className="text-xs text-gray-500 mb-1">Start</p>
+          <p className="text-xs text-gray-500 mb-1">Scheduled Date & Time</p>
           <p className="text-gray-900">
             {formatISTDate(new Date(viewTask.start_at))}, {formatISTTime(new Date(viewTask.start_at))}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-500 mb-1">End</p>
-          <p className="text-gray-900">
-            {formatISTDate(new Date(viewTask.end_at))}, {formatISTTime(new Date(viewTask.end_at))}
           </p>
         </div>
       </div>
@@ -583,33 +578,24 @@ const ViewTaskContent = ({
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <p className="text-xs text-gray-500 mb-1">Assigned To</p>
-          {viewTask.assigned_to || viewTask.assigned_to_id ? (
-            (() => {
-              const assigneeId = viewTask.assigned_to || viewTask.assigned_to_id;
-              const assignee = assignees.find(a => a.id === assigneeId);
-              if (!assignee) {
+          {viewTask.assigned_to && viewTask.assigned_to.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {viewTask.assigned_to.map(assigneeId => {
+                const assignee = assignees.find(a => a.id === assigneeId);
+                if (!assignee) return null;
                 return (
-                  <div className="flex items-center gap-2 text-yellow-700">
-                    <FiUserX className="h-4 w-4 flex-shrink-0" />
-                    <span>User not found</span>
+                  <div key={assigneeId} className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
+                    <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-bold">
+                      {assignee.name?.charAt(0).toUpperCase() || '?'}
+                    </span>
+                    <span className="text-xs text-gray-900">{assignee.name}</span>
                   </div>
                 );
-              }
-              return (
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-indigo-100 text-indigo-800 text-xs font-medium">
-                    {assignee.name?.charAt(0).toUpperCase() || '?'}
-                  </span>
-                  <span className="text-gray-900">{assignee.name}</span>
-                </div>
-              );
-            })()
+              })}
+            </div>
           ) : (
             <span className="text-gray-500 italic">Unassigned</span>
           )}
-        </div>
         <div>
           <p className="text-xs text-gray-500 mb-1">Created By</p>
           {viewTask.created_by ? (
@@ -801,17 +787,25 @@ export default function TasksPage() {
       if (viewTask?.assigned_to && !allUsers.some(u => u.id === viewTask.assigned_to)) {
         console.log(`User ${viewTask.assigned_to} not found in initial fetch, trying direct fetch...`);
         const { data: missingUser, error: missingUserError } = await supabase
-          .from('users')
-          .select('id, full_name, email')
-          .eq('id', viewTask.assigned_to)
-          .single();
+      // Fetch missing users if any in assigned_to are not in allUsers
+      const taskAssignees = viewTask?.assigned_to || [];
+      for (const assigneeId of taskAssignees) {
+        if (!allUsers.some(u => u.id === assigneeId)) {
+          console.log(`User ${assigneeId} not found in initial fetch, trying direct fetch...`);
+          const { data: missingUser, error: missingUserError } = await supabase
+            .from('users')
+            .select('id, full_name, email')
+            .eq('id', assigneeId)
+            .single();
 
-        if (!missingUserError && missingUser) {
-          console.log('Found missing user via direct fetch:', missingUser);
-          allUsers.push(missingUser);
-        } else {
-          console.warn('Could not find assigned user:', missingUserError || 'User not found');
+          if (!missingUserError && missingUser) {
+            console.log('Found missing user via direct fetch:', missingUser);
+            allUsers.push(missingUser);
+          } else {
+            console.warn(`Could not find assigned user ${assigneeId}:`, missingUserError || 'User not found');
+          }
         }
+      }
       }
 
       if (error) {
@@ -910,7 +904,7 @@ export default function TasksPage() {
   // Category counts for sidebar
   const categoryCounts = useMemo(() => {
     return {
-      forMe: tasks.filter(t => t.assigned_to === user?.id || t.assigned_to_id === user?.id).length,
+      forMe: tasks.filter(t => t.assigned_to?.includes(user?.id || '')).length,
       byMe: tasks.filter(t => t.created_by === user?.id).length,
       all: tasks.length
     };
@@ -993,7 +987,7 @@ export default function TasksPage() {
   const filteredTasksByCategory = useMemo(() => {
     switch (activeCategory) {
       case 'for-me':
-        return tasks.filter(t => t.assigned_to === user?.id || t.assigned_to_id === user?.id);
+        return tasks.filter(t => t.assigned_to?.includes(user?.id || ''));
       case 'by-me':
         return tasks.filter(t => t.created_by === user?.id);
       case 'all':
@@ -1085,8 +1079,9 @@ export default function TasksPage() {
     const overdue = isOverdue(task);
     const highPriority = task.priority === 'high' || task.priority === 'urgent';
     const isMonthView = view === 'month';
-    const assignee = assignees.find(a => a.id === task.assigned_to);
-    const assigneeInitial = assignee?.name?.charAt(0).toUpperCase() || '?';
+    const assigneeNames = (task.assigned_to || [])
+      .map(id => assignees.find(a => a.id === id)?.name)
+      .filter(Boolean);
 
     // Priority colors mapping
     const priorityColors = {
@@ -1104,8 +1099,8 @@ export default function TasksPage() {
     if (task.priority) {
       tooltipParts.push(`Priority: ${task.priority}`);
     }
-    if (assignee) {
-      tooltipParts.push(`Assigned to: ${assignee.name}`);
+    if (assigneeNames.length > 0) {
+      tooltipParts.push(`Assigned to: ${assigneeNames.join(', ')}`);
     }
     tooltipParts.push(`Status: ${task.status}`);
     const tooltip = tooltipParts.join(' • ');
@@ -1130,25 +1125,40 @@ export default function TasksPage() {
                 {task.status === 'done' && <FiCheck className="h-2.5 w-2.5 text-green-600 flex-shrink-0" />}
                 {overdue && <FiAlertTriangle className="h-2.5 w-2.5 text-red-600 flex-shrink-0" />}
                 <span className="truncate text-xs font-medium">{task.title}</span>
-                {task.assigned_to && (
+                {task.assigned_to && task.assigned_to.length > 0 && (
                   <span
-                    className="flex-shrink-0 inline-flex items-center justify-center h-3 w-3 rounded-full bg-gray-200 text-gray-700 font-medium text-[8px]"
-                    title={`Assigned to: ${assignee?.name || 'Unknown'}`}
+                    className="flex-shrink-0 inline-flex items-center justify-center h-3.5 w-3.5 rounded-full bg-gray-200 text-gray-700 font-bold text-[8px] ml-auto"
+                    title={`Assigned to: ${assigneeNames.join(', ')}`}
                   >
-                    {assigneeInitial}
+                    {task.assigned_to.length > 1 ? (
+                      <FiUsers className="h-2 w-2" />
+                    ) : (
+                      assigneeNames[0]?.charAt(0).toUpperCase() || '?'
+                    )}
                   </span>
                 )}
               </>
             ) : (
               <div className="flex items-center w-full">
                 <span className="truncate text-xs flex-1">{task.title}</span>
-                {task.assigned_to && (
-                  <span
-                    className="flex-shrink-0 inline-flex items-center justify-center h-3 w-3 rounded-full bg-gray-200 text-gray-700 font-medium text-[8px] ml-1"
-                    title={`Assigned to: ${assignee?.name || 'Unknown'}`}
-                  >
-                    {assigneeInitial}
-                  </span>
+                {task.assigned_to && task.assigned_to.length > 0 && (
+                  <div className="flex items-center -space-x-1 flex-shrink-0 mr-1">
+                    {task.assigned_to.length > 1 ? (
+                      <div 
+                        className="flex-shrink-0 inline-flex items-center justify-center h-4 w-4 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[8px] border border-white"
+                        title={`Assigned to: ${assigneeNames.join(', ')}`}
+                      >
+                        <FiUsers className="h-2.5 w-2.5" />
+                      </div>
+                    ) : (
+                      <div 
+                        className="flex-shrink-0 inline-flex items-center justify-center h-4 w-4 rounded-full bg-gray-200 text-gray-700 font-bold text-[8px] border border-white"
+                        title={`Assigned to: ${assigneeNames[0] || 'Unknown'}`}
+                      >
+                        {assigneeNames[0]?.charAt(0).toUpperCase() || '?'}
+                      </div>
+                    )}
+                  </div>
                 )}
                 {task.status === 'done' && <FiCheck className="h-2.5 w-2.5 text-green-600 flex-shrink-0 ml-1" />}
                 {overdue && <FiAlertTriangle className="h-2.5 w-2.5 text-red-600 flex-shrink-0 ml-1" />}
@@ -1281,7 +1291,7 @@ export default function TasksPage() {
     end_minute: '00',
     end_ampm: 'AM',
     end_date_picker: '',
-    assigned_to: '' as string,
+    assigned_to: [] as string[],
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
     location: '',
     meeting_link: '',
@@ -1400,6 +1410,7 @@ export default function TasksPage() {
       title: '',
       description: '',
       project_id: '',
+      assigned_to: [],
       start_date_picker: format(new Date(), 'yyyy-MM-dd'),
       start_hour: '10',
       start_minute: '00',
@@ -1408,7 +1419,6 @@ export default function TasksPage() {
       end_minute: '00',
       end_ampm: 'AM',
       end_date_picker: format(new Date(), 'yyyy-MM-dd'),
-      assigned_to: '',
       priority: 'medium',
       location: '',
       meeting_link: '',
@@ -1462,7 +1472,7 @@ export default function TasksPage() {
       end_minute: format(end, 'mm'),
       end_ampm: format(end, 'a'),
       end_date_picker: format(end, 'yyyy-MM-dd'),
-      assigned_to: task.assigned_to || '',
+      assigned_to: Array.isArray(task.assigned_to) ? task.assigned_to : (task.assigned_to ? [task.assigned_to] : []),
       priority: task.priority || 'medium',
       location: task.location || '',
       meeting_link: task.meeting_link || '',
@@ -1492,8 +1502,7 @@ export default function TasksPage() {
         description: form.description || undefined,
         start_at: startIso,
         end_at: endIso,
-        assigned_to: form.assigned_to || null,
-        assigned_to_id: form.assigned_to || null,
+        assigned_to: form.assigned_to && form.assigned_to.length > 0 ? form.assigned_to : null,
         project_id: form.project_id || null,
         priority: form.priority,
         location: form.location || null,
@@ -1535,7 +1544,7 @@ export default function TasksPage() {
         end_minute: '00',
         end_ampm: 'AM',
         end_date_picker: '',
-        assigned_to: '',
+        assigned_to: [],
         priority: 'medium',
         location: '',
         meeting_link: '',

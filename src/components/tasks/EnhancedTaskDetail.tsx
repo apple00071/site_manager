@@ -16,8 +16,8 @@ type CalendarTask = {
     end_at: string;
     status: 'todo' | 'in_progress' | 'blocked' | 'done';
     priority: 'low' | 'medium' | 'high' | 'urgent';
-    assigned_to?: string | null;
-    assigned_to_id?: string | null;
+    assigned_to?: string[] | null;
+    assigned_to_id?: string | string[] | null;
     project_id?: string | null;
     created_at?: string;
     created_by?: string;
@@ -29,7 +29,8 @@ type CalendarTask = {
 type EnhancedTaskDetailProps = {
     task: CalendarTask;
     projectName?: string;
-    assigneeName?: string;
+    assigneeName?: string; // Kept for backward compatibility, but we prefer assigneeNames
+    assigneeNames?: string[];
     creatorName?: string;
     onClose?: () => void;
     onEdit?: () => void;
@@ -40,11 +41,17 @@ export function EnhancedTaskDetail({
     task,
     projectName,
     assigneeName,
+    assigneeNames = [],
     creatorName,
     onClose,
     onEdit,
     isMobile = false,
 }: EnhancedTaskDetailProps) {
+    // Combine assigneeName (singular) with assigneeNames (plural) for robust display
+    const allAssignees = [...assigneeNames];
+    if (assigneeName && !allAssignees.includes(assigneeName)) {
+        allAssignees.unshift(assigneeName);
+    }
     const [completionDescription, setCompletionDescription] = useState(task.completion_description || '');
     const [completionPhotos, setCompletionPhotos] = useState<string[]>(task.completion_photos || []);
     const [isUploading, setIsUploading] = useState(false);
@@ -230,12 +237,16 @@ export function EnhancedTaskDetail({
                             <FiUser className="w-3 h-3" />
                             Assigned To
                         </label>
-                        {assigneeName ? (
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full flex items-center justify-center text-xs font-bold text-gray-900 shadow-sm">
-                                    {getInitials(assigneeName)}
-                                </div>
-                                <span className="font-medium text-gray-900">{assigneeName}</span>
+                        {allAssignees.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                                {allAssignees.map((name, i) => (
+                                    <div key={i} className="flex items-center gap-2 bg-gray-50 pr-2 rounded-full border border-gray-100 shadow-sm">
+                                        <div className="w-7 h-7 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full flex items-center justify-center text-[10px] font-bold text-gray-900">
+                                            {getInitials(name)}
+                                        </div>
+                                        <span className="text-sm font-medium text-gray-900">{name}</span>
+                                    </div>
+                                ))}
                             </div>
                         ) : (
                             <div className="flex items-center gap-2 text-gray-500">
@@ -272,26 +283,15 @@ export function EnhancedTaskDetail({
                         )}
                     </div>
                 </div>
-
                 {/* Dates */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div className="mt-4">
                     <div>
                         <label className="flex items-center gap-1 text-xs font-medium text-gray-500 mb-2">
                             <FiCalendar className="w-3 h-3" />
-                            Start Date
+                            Scheduled Date & Time
                         </label>
                         <p className="text-sm font-medium text-gray-900">
                             {startDateTime.date} • {startDateTime.time}
-                        </p>
-                    </div>
-
-                    <div>
-                        <label className="flex items-center gap-1 text-xs font-medium text-gray-500 mb-2">
-                            <FiClock className="w-3 h-3" />
-                            Due Date
-                        </label>
-                        <p className={`text-sm font-medium ${isOverdue ? 'text-red-600' : 'text-gray-900'}`}>
-                            {endDateTime.date} • {endDateTime.time}
                         </p>
                     </div>
                 </div>

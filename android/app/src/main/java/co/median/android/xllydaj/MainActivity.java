@@ -1,4 +1,4 @@
-package com.appleinteriors.manager;
+package co.median.android.xllydaj;
 
 import com.getcapacitor.BridgeActivity;
 

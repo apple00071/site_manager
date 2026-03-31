@@ -17,6 +17,7 @@ const createTaskSchema = z.object({
   status: z.enum(['todo', 'in_progress', 'blocked', 'done']).default('todo'),
   completion_description: z.string().nullable().optional(),
   completion_photos: z.array(z.string()).nullable().optional(),
+  assigned_to: z.array(z.string().uuid()).nullable().optional(),
 });
 
 // Validation schema for task update
@@ -28,6 +29,7 @@ const updateTaskSchema = z.object({
   status: z.enum(['todo', 'in_progress', 'blocked', 'done']).optional(),
   completion_description: z.string().nullable().optional(),
   completion_photos: z.array(z.string()).nullable().optional(),
+  assigned_to: z.array(z.string().uuid()).nullable().optional(),
 });
 
 /**
@@ -62,7 +64,7 @@ async function checkProjectAccess(userId: string, stepId: string, userRole: stri
     return { hasAccess: false, error: 'Error checking project membership' };
   }
 
-  // Check if user is assigned to the project
+  // Check if user is assigned to the project or is in the assigned_to list of the project
   const { data: projectData } = await supabaseAdmin
     .from('projects')
     .select('assigned_employee_id')
@@ -200,6 +202,7 @@ export async function POST(request: NextRequest) {
         status: parsed.data.status,
         completion_description: parsed.data.completion_description || null,
         completion_photos: parsed.data.completion_photos || [],
+        assigned_to: parsed.data.assigned_to || [],
       })
       .select('*')
       .single();
@@ -340,6 +343,7 @@ export async function PATCH(request: NextRequest) {
     if (parsed.data.status !== undefined) updateData.status = parsed.data.status;
     if (parsed.data.completion_description !== undefined) updateData.completion_description = parsed.data.completion_description;
     if (parsed.data.completion_photos !== undefined) updateData.completion_photos = parsed.data.completion_photos;
+    if (parsed.data.assigned_to !== undefined) updateData.assigned_to = parsed.data.assigned_to || [];
     updateData.updated_at = new Date().toISOString();
 
     const { data: task, error: updateError } = await supabaseAdmin
@@ -415,46 +419,51 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    // WhatsApp to assigned user on status change
+    // WhatsApp to assigned users on status change
     try {
-      if (parsed.data.status && existingTask.assigned_to) {
-        const { data: assignedUser } = await supabaseAdmin
-          .from('users')
-          .select('phone_number')
-          .eq('id', existingTask.assigned_to)
+      const assignedIds = Array.isArray(task.assigned_to) ? task.assigned_to : (task.assigned_to ? [task.assigned_to] : []);
+      if (parsed.data.status && assignedIds.length > 0) {
+        const { data: stepData } = await supabaseAdmin
+          .from('project_steps')
+          .select('project_id, project:projects(id, title)')
+          .eq('id', task.step_id)
           .single();
-        if (assignedUser?.phone_number) {
-          const { data: stepData } = await supabaseAdmin
-            .from('project_steps')
-            .select('project_id, project:projects(id, title)')
-            .eq('id', existingTask.step_id)
-            .single();
-          const stepDataAny: any = stepData;
-          const projectObj = Array.isArray(stepDataAny?.project)
-            ? stepDataAny?.project?.[0]
-            : stepDataAny?.project;
-          const projectName = projectObj?.title;
-          const projectId = projectObj?.id || stepDataAny?.project_id;
-          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-          const link = projectId ? `${origin}/dashboard/projects/${projectId}` : `${origin}/dashboard/my-tasks`;
-          await sendTaskWhatsAppNotification(
-            assignedUser.phone_number,
-            task.title || existingTask.title,
-            projectName,
-            task.status,
-            link
-          );
-        }
+        const stepDataAny: any = stepData;
+        const projectObj = Array.isArray(stepDataAny?.project)
+          ? stepDataAny?.project?.[0]
+          : stepDataAny?.project;
+        const projectName = projectObj?.title;
+        const projectId = projectObj?.id || stepDataAny?.project_id;
+        const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const link = projectId ? `${origin}/dashboard/projects/${projectId}` : `${origin}/dashboard/my-tasks`;
 
-        // Trigger in-app/push notification for assigned user
-        await NotificationService.createNotification({
-          userId: existingTask.assigned_to,
-          title: 'Task Status Updated',
-          message: `Task "${task.title || existingTask.title}" status changed to ${task.status}`,
-          type: 'project_update',
-          relatedId: task.id,
-          relatedType: 'task'
-        });
+        for (const assigneeId of assignedIds) {
+          const { data: assignedUser } = await supabaseAdmin
+            .from('users')
+            .select('phone_number')
+            .eq('id', assigneeId)
+            .single();
+            
+          if (assignedUser?.phone_number) {
+            await sendTaskWhatsAppNotification(
+              assignedUser.phone_number,
+              task.title || existingTask.title,
+              projectName,
+              task.status,
+              link
+            );
+          }
+
+          // Trigger in-app/push notification for assigned user
+          await NotificationService.createNotification({
+            userId: assigneeId,
+            title: 'Task Status Updated',
+            message: `Task "${task.title || existingTask.title}" status changed to ${task.status}`,
+            type: 'project_update',
+            relatedId: task.id,
+            relatedType: 'task'
+          });
+        }
       }
     } catch (waError) {
       console.error('Failed to send WhatsApp on task status change:', waError);
