@@ -96,7 +96,7 @@ const customFormats = {
       ? (localizer?.format(end, 'dd/MM/yyyy') || format(end, 'dd/MM/yyyy'))
       : 'Invalid Date';
 
-    return `${safeStartStr} – ${safeEndStr}`;
+    return `${safeStartStr} â€“ ${safeEndStr}`;
   },
   // Short day names for mobile (S, M, T, W, T, F, S)
   dayFormat: (date: Date, culture?: string, localizer?: any) => {
@@ -732,7 +732,7 @@ export default function TasksPage() {
   const { setTitle, setSubtitle } = useHeaderTitle();
 
   // Sidebar category state
-  const [activeCategory, setActiveCategory] = useState<'for-me' | 'by-me' | 'all' | 'proposals'>('for-me');
+  const [activeCategory, setActiveCategory] = useState<'for-me' | 'by-me' | 'all'>('all');
   const [showSidebar, setShowSidebar] = useState(true);
 
   // Set header title
@@ -782,16 +782,13 @@ export default function TasksPage() {
 
       console.log(`Fetched ${allUsers.length} users from the database`);
 
-      // If we have a task with an assignee but that user isn't in our list,
-      // try to fetch that specific user
-      if (viewTask?.assigned_to && !allUsers.some(u => u.id === viewTask.assigned_to)) {
-        console.log(`User ${viewTask.assigned_to} not found in initial fetch, trying direct fetch...`);
-        const { data: missingUser, error: missingUserError } = await supabase
       // Fetch missing users if any in assigned_to are not in allUsers
-      const taskAssignees = viewTask?.assigned_to || [];
+      const taskAssignees = Array.isArray(viewTask?.assigned_to) 
+        ? viewTask.assigned_to 
+        : (viewTask?.assigned_to ? [viewTask.assigned_to as any] : []);
+
       for (const assigneeId of taskAssignees) {
         if (!allUsers.some(u => u.id === assigneeId)) {
-          console.log(`User ${assigneeId} not found in initial fetch, trying direct fetch...`);
           const { data: missingUser, error: missingUserError } = await supabase
             .from('users')
             .select('id, full_name, email')
@@ -799,13 +796,9 @@ export default function TasksPage() {
             .single();
 
           if (!missingUserError && missingUser) {
-            console.log('Found missing user via direct fetch:', missingUser);
             allUsers.push(missingUser);
-          } else {
-            console.warn(`Could not find assigned user ${assigneeId}:`, missingUserError || 'User not found');
           }
         }
-      }
       }
 
       if (error) {
@@ -815,13 +808,43 @@ export default function TasksPage() {
 
       if (allUsers.length > 0) {
         console.log(`Processing ${allUsers.length} users from the database`);
-        console.log('Fetched assignees:', allUsers);
-        const formattedAssignees = allUsers.map((user) => ({
+        
+        // Use a Map to deduplicate by ID and enforce strict role filtering
+        const staffMap = new Map();
+        
+        allUsers.forEach(user => {
+            if (!user.id) return;
+            
+            // Check legacy role field and new roles table name
+            const roleStr = (user.role || '').toLowerCase();
+            const roleName = (user.roles?.name || '').toLowerCase();
+            
+            // Explicitly include ONLY admins and employees
+            const isStaff = roleStr === 'admin' || roleStr === 'employee' || 
+                           roleName === 'admin' || roleName === 'employee';
+            
+            // Explicitly exclude any known client/customer roles to be safe
+            const isClient = roleStr.includes('client') || roleStr.includes('customer') ||
+                            roleName.includes('client') || roleName.includes('customer');
+
+            if (isStaff && !isClient) {
+                // If we have a duplicate ID, we favor the one with more data (e.g. full_name)
+                if (!staffMap.has(user.id) || (!staffMap.get(user.id).full_name && user.full_name)) {
+                    staffMap.set(user.id, user);
+                }
+            }
+        });
+
+        const staffUsers = Array.from(staffMap.values());
+        console.log(`Filtered down to ${staffUsers.length} unique staff members`);
+        
+        const formattedAssignees = staffUsers.map((user) => ({
           id: user.id,
           name: user.full_name || user.email?.split('@')[0] || 'User',
           email: user.email || ''
         }));
-        console.log('Setting assignees:', formattedAssignees);
+        
+        console.log('Setting unique filtered assignees:', formattedAssignees);
         setAssignees(formattedAssignees);
       } else {
         console.warn('No users found in the database');
@@ -869,8 +892,11 @@ export default function TasksPage() {
       const res = await fetch(`/api/calendar-tasks?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch tasks');
       const json = await res.json();
-      console.log('Fetched tasks:', json.tasks);
-      setTasks((json.tasks || []) as CalendarTask[]);
+      const normalized = (json.tasks || []).map((t: any) => ({
+        ...t,
+        assigned_to: Array.isArray(t.assigned_to) ? t.assigned_to : (t.assigned_to ? [t.assigned_to] : [])
+      }));
+      setTasks(normalized as CalendarTask[]);
     } catch (e: any) {
       setError(e.message || 'Failed to load tasks');
     } finally {
@@ -889,7 +915,7 @@ export default function TasksPage() {
     if (taskIdParam && tasks.length > 0) {
       const task = tasks.find(t => t.id === taskIdParam);
       if (task) {
-        console.log('🎯 Deep linking to task:', task.id);
+        console.log('ðŸŽ¯ Deep linking to task:', task.id);
         setViewTask(task);
         setViewModalOpen(true);
       }
@@ -904,84 +930,17 @@ export default function TasksPage() {
   // Category counts for sidebar
   const categoryCounts = useMemo(() => {
     return {
-      forMe: tasks.filter(t => t.assigned_to?.includes(user?.id || '')).length,
+      forMe: tasks.filter(t => {
+        const assignedToArray = Array.isArray(t.assigned_to) 
+          ? t.assigned_to 
+          : (t.assigned_to ? [t.assigned_to] : []);
+        return assignedToArray.includes(user?.id || '');
+      }).length,
       byMe: tasks.filter(t => t.created_by === user?.id).length,
       all: tasks.length
     };
   }, [tasks, user]);
 
-  // Proposals state
-  const [proposals, setProposals] = useState<any[]>([]);
-  const [loadingProposals, setLoadingProposals] = useState(false);
-
-  const fetchProposals = async () => {
-    try {
-      setLoadingProposals(true);
-      // Fetch all proposals (we'll filter to sent ones)
-      const res = await fetch('/api/proposals?all=true');
-      if (!res.ok) {
-        // If 403, user is not admin - just don't show proposals section
-        if (res.status === 403 || res.status === 401) {
-          setProposals([]);
-          return;
-        }
-        throw new Error('Failed to fetch proposals');
-      }
-      const data = await res.json();
-      // Filter to only pending/sent proposals
-      const pending = (data.proposals || []).filter((p: any) => p.status === 'sent');
-      setProposals(pending);
-    } catch (err) {
-      console.error('Failed to fetch proposals:', err);
-      setProposals([]);
-    } finally {
-      setLoadingProposals(false);
-    }
-  };
-
-  // Fetch proposals on mount and when category changes
-  useEffect(() => {
-    fetchProposals();
-  }, []);
-
-  useEffect(() => {
-    if (activeCategory === 'proposals') {
-      fetchProposals();
-    }
-  }, [activeCategory]);
-
-  const handleApproveProposal = async (proposalId: string) => {
-    try {
-      const res = await fetch('/api/proposals', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: proposalId, action: 'approve' }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      showToast('success', 'Proposal approved - items have been confirmed');
-      fetchProposals();
-    } catch (err) {
-      showToast('error', err instanceof Error ? err.message : 'Failed to approve');
-    }
-  };
-
-  const handleRejectProposal = async (proposalId: string) => {
-    const reason = prompt('Enter rejection reason (optional):');
-    try {
-      const res = await fetch('/api/proposals', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: proposalId, action: 'reject', reason }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      showToast('success', 'Proposal rejected - items reverted to draft');
-      fetchProposals();
-    } catch (err) {
-      showToast('error', err instanceof Error ? err.message : 'Failed to reject');
-    }
-  };
 
   // Filter tasks by active category
   const filteredTasksByCategory = useMemo(() => {
@@ -1079,7 +1038,11 @@ export default function TasksPage() {
     const overdue = isOverdue(task);
     const highPriority = task.priority === 'high' || task.priority === 'urgent';
     const isMonthView = view === 'month';
-    const assigneeNames = (task.assigned_to || [])
+    const assignedToArray = Array.isArray(task.assigned_to) 
+      ? task.assigned_to 
+      : (task.assigned_to ? [task.assigned_to as any] : []);
+
+    const assigneeNames = assignedToArray
       .map(id => assignees.find(a => a.id === id)?.name)
       .filter(Boolean);
 
@@ -1103,7 +1066,7 @@ export default function TasksPage() {
       tooltipParts.push(`Assigned to: ${assigneeNames.join(', ')}`);
     }
     tooltipParts.push(`Status: ${task.status}`);
-    const tooltip = tooltipParts.join(' • ');
+    const tooltip = tooltipParts.join(' â€¢ ');
 
     return (
       <div
@@ -1583,6 +1546,21 @@ export default function TasksPage() {
           <div className="bg-white border-b border-gray-200 px-4 sm:px-6 z-10 flex-shrink-0">
             <nav className="-mb-px flex space-x-8 overflow-x-auto no-scrollbar" aria-label="Tabs">
               <button
+                onClick={() => setActiveCategory('all')}
+                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${activeCategory === 'all'
+                  ? 'border-yellow-500 text-yellow-700'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+              >
+                <FiList className="w-4 h-4" />
+                All Tasks
+                <span className={`ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium ${activeCategory === 'all' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-900'
+                  }`}>
+                  {categoryCounts.all}
+                </span>
+              </button>
+
+              <button
                 onClick={() => setActiveCategory('for-me')}
                 className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${activeCategory === 'for-me'
                   ? 'border-yellow-500 text-yellow-700'
@@ -1611,38 +1589,6 @@ export default function TasksPage() {
                   {categoryCounts.byMe}
                 </span>
               </button>
-
-              <button
-                onClick={() => setActiveCategory('all')}
-                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${activeCategory === 'all'
-                  ? 'border-yellow-500 text-yellow-700'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-              >
-                <FiList className="w-4 h-4" />
-                All Tasks
-                <span className={`ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium ${activeCategory === 'all' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-900'
-                  }`}>
-                  {categoryCounts.all}
-                </span>
-              </button>
-
-              <button
-                onClick={() => setActiveCategory('proposals')}
-                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${activeCategory === 'proposals'
-                  ? 'border-yellow-500 text-yellow-700'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-              >
-                <FiFileText className="w-4 h-4" />
-                Proposals
-                {proposals.length > 0 && (
-                  <span className={`ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium ${activeCategory === 'proposals' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-900'
-                    }`}>
-                    {proposals.length}
-                  </span>
-                )}
-              </button>
             </nav>
           </div>
         )}
@@ -1650,110 +1596,7 @@ export default function TasksPage() {
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-auto">
           <div className="space-y-4 p-4 lg:p-6 w-full max-w-[1600px] mx-auto pb-24 lg:pb-6">
-            {activeCategory === 'proposals' ? (
-              <>
-                <div className="flex items-center justify-between">
-                  <h1 className="text-2xl font-bold text-gray-900">Pending Proposals</h1>
-                </div>
-
-                {loadingProposals ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500" />
-                  </div>
-                ) : proposals.length === 0 ? (
-                  <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-                    <FiFileText className="w-12 h-12 mx-auto text-gray-300 mb-4" />
-                    <p className="text-gray-500">No pending proposals</p>
-                    <p className="text-sm text-gray-400 mt-1">Proposals sent from BOQ will appear here for approval</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {proposals.map((proposal: any) => (
-                      <div key={proposal.id} className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-                        {/* Header */}
-                        <div className="p-4 border-b border-gray-100">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                {proposal.project?.title && (
-                                  <span className="text-xs font-medium px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded">
-                                    {proposal.project.title}
-                                  </span>
-                                )}
-                              </div>
-                              <h3 className="font-semibold text-gray-900 text-lg">{proposal.title}</h3>
-                              {proposal.description && (
-                                <p className="text-sm text-gray-500 mt-1">{proposal.description}</p>
-                              )}
-                              <div className="flex flex-wrap gap-3 mt-3 text-sm">
-                                <span className="text-gray-600">
-                                  <span className="font-medium">Sent by:</span> {proposal.created_by_user?.full_name || 'Unknown'}
-                                </span>
-                                <span className="text-gray-600">
-                                  <span className="font-medium">Date:</span> {new Date(proposal.sent_at || proposal.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex flex-col gap-2 ml-4">
-                              <button
-                                onClick={() => handleApproveProposal(proposal.id)}
-                                className="btn-base px-4 py-2 bg-green-600 text-white hover:bg-green-700 text-sm"
-                              >
-                                <FiCheckCircle className="w-4 h-4" />
-                                Approve
-                              </button>
-                              <button
-                                onClick={() => handleRejectProposal(proposal.id)}
-                                className="btn-base px-4 py-2 bg-red-100 text-red-700 hover:bg-red-200 text-sm"
-                              >
-                                <FiXCircle className="w-4 h-4" />
-                                Reject
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Item Details */}
-                        <div className="p-4 bg-gray-50">
-                          <h4 className="text-sm font-medium text-gray-700 mb-3">
-                            Items ({proposal.selected_items?.length || 0})
-                          </h4>
-                          {proposal.items && proposal.items.length > 0 ? (
-                            <div className="space-y-2">
-                              {proposal.items.map((item: any) => (
-                                <div key={item.id} className="flex justify-between items-center py-2 px-3 bg-white rounded border border-gray-100">
-                                  <div className="flex-1">
-                                    <p className="font-medium text-gray-900">{item.item_name}</p>
-                                    <p className="text-xs text-gray-500">
-                                      {item.quantity} × ₹{(item.rate || 0).toLocaleString('en-IN')}
-                                    </p>
-                                  </div>
-                                  <span className="font-medium text-gray-900">
-                                    ₹{(item.amount || 0).toLocaleString('en-IN')}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-sm text-gray-400 italic">Item details not loaded</p>
-                          )}
-
-                          {/* Total */}
-                          <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-200">
-                            <span className="font-semibold text-gray-700">Total Amount</span>
-                            <span className="text-xl font-bold text-yellow-700">
-                              ₹{(proposal.total_amount || 0).toLocaleString('en-IN')}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between">
                   <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
                   <div className="hidden sm:flex items-center gap-2">
                     <button
@@ -2028,6 +1871,18 @@ export default function TasksPage() {
                     <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-30">
                       <div className="flex justify-around">
                         <button
+                          onClick={() => setActiveCategory('all')}
+                          className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'all' ? 'text-yellow-600' : 'text-gray-600'}`}
+                        >
+                          <FiList className="w-5 h-5" />
+                          <span className="text-xs">All</span>
+                          {categoryCounts.all > 0 && (
+                            <span className="absolute top-1 right-1/4 bg-yellow-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                              {categoryCounts.all}
+                            </span>
+                          )}
+                        </button>
+                        <button
                           onClick={() => setActiveCategory('for-me')}
                           className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'for-me' ? 'text-yellow-600' : 'text-gray-600'}`}
                         >
@@ -2051,23 +1906,9 @@ export default function TasksPage() {
                             </span>
                           )}
                         </button>
-                        <button
-                          onClick={() => setActiveCategory('all')}
-                          className={`flex-1 py-3 flex flex-col items-center gap-1 relative ${activeCategory === 'all' ? 'text-yellow-600' : 'text-gray-600'}`}
-                        >
-                          <FiList className="w-5 h-5" />
-                          <span className="text-xs">All</span>
-                          {categoryCounts.all > 0 && (
-                            <span className="absolute top-1 right-1/4 bg-yellow-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                              {categoryCounts.all}
-                            </span>
-                          )}
-                        </button>
                       </div>
                     </div>
                   )}
-              </>
-            )}
           </div>
         </div>
       </div>

@@ -51,25 +51,26 @@ function parseAndValidateRange(startParam: string | null, endParam: string | nul
 }
 
 async function findConflictTask(assignedTo: string, startIso: string, endIso: string, excludeId?: string) {
-  let query = supabaseAdmin
+  // We use a broader query and filter in JS to be resilient to 
+  // whether the database column is a UUID or UUID[] during transition.
+  const { data, error } = await supabaseAdmin
     .from('tasks')
-    .select('id,title,start_at,end_at')
-    .contains('assigned_to', [assignedTo])
+    .select('id, title, start_at, end_at, assigned_to')
     .gt('end_at', startIso)
     .lt('start_at', endIso)
-    .limit(1);
+    .neq('id', excludeId || '00000000-0000-0000-0000-000000000000');
 
-  if (excludeId) {
-    query = query.neq('id', excludeId);
-  }
+  if (error) throw error;
 
-  const { data, error } = await query;
+  // Manually filter to handle both string and array formats safely
+  const conflict = (data || []).find((task: any) => {
+    const assignees = Array.isArray(task.assigned_to) 
+      ? task.assigned_to 
+      : (task.assigned_to ? [task.assigned_to] : []);
+    return assignees.includes(assignedTo);
+  });
 
-  if (error) {
-    throw error;
-  }
-
-  return data && data.length > 0 ? data[0] : null;
+  return conflict || null;
 }
 
 export async function GET(request: NextRequest) {
@@ -116,7 +117,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch tasks' }, { status: 500 });
     }
 
-    return NextResponse.json({ tasks: data || [] }, { status: 200 });
+    // Normalize results to ensure assigned_to is always an array,
+    // handling legacy string data gracefully.
+    const normalizedTasks = (data || []).map((task: any) => ({
+      ...task,
+      assigned_to: Array.isArray(task.assigned_to) 
+        ? task.assigned_to 
+        : (task.assigned_to ? [task.assigned_to] : [])
+    }));
+
+    return NextResponse.json({ tasks: normalizedTasks }, { status: 200 });
   } catch (error) {
     console.error('Unexpected error in GET /api/calendar-tasks:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -201,15 +211,31 @@ export async function POST(request: NextRequest) {
       meeting_link: data.meeting_link || null,
     };
 
-    const { data: inserted, error } = await supabaseAdmin
+    let { data: inserted, error } = await supabaseAdmin
       .from('tasks')
       .insert(insertData)
       .select('*')
       .single();
 
+    // Fallback: If DB is still single UUID (22P02), retry with first assignee as string
+    if (error?.code === '22P02' && Array.isArray(assignedTo)) {
+      console.log('🔄 DB is single UUID, retrying with first assignee...');
+      const fallbackData = { 
+        ...insertData, 
+        assigned_to: assignedTo.length > 0 ? assignedTo[0] : null 
+      };
+      const retry = await supabaseAdmin
+        .from('tasks')
+        .insert(fallbackData)
+        .select('*')
+        .single();
+      inserted = retry.data;
+      error = retry.error;
+    }
+
     if (error) {
       console.error('Error creating calendar task:', error);
-      return NextResponse.json({ error: 'Failed to create task' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to create task', details: error }, { status: 500 });
     }
 
     // WhatsApp notification to ALL assigned users on calendar task creation
@@ -296,7 +322,11 @@ export async function PATCH(request: NextRequest) {
     const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
 
     if (userRole !== 'admin') {
-      if (existing.created_by !== user.id && existing.assigned_to !== user.id) {
+      const isAssigned = Array.isArray(existing.assigned_to) 
+        ? (existing.assigned_to as string[]).includes(user.id)
+        : existing.assigned_to === user.id;
+
+      if (existing.created_by !== user.id && !isAssigned) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
     }
@@ -360,16 +390,33 @@ export async function PATCH(request: NextRequest) {
     updatePayload.project_id = projectId;
     updatePayload.updated_at = new Date().toISOString();
 
-    const { data: updated, error: updateError } = await supabaseAdmin
+    let { data: updated, error: updateError } = await supabaseAdmin
       .from('tasks')
       .update(updatePayload)
       .eq('id', data.id)
       .select('*')
       .single();
 
+    // Fallback: If DB is still single UUID (22P02), retry with first assignee as string
+    if (updateError?.code === '22P02' && Array.isArray(assignedTo)) {
+      console.log('🔄 DB is single UUID, retrying update with first assignee...');
+      const fallbackPayload = { 
+        ...updatePayload, 
+        assigned_to: assignedTo.length > 0 ? assignedTo[0] : null 
+      };
+      const retry = await supabaseAdmin
+        .from('tasks')
+        .update(fallbackPayload)
+        .eq('id', data.id)
+        .select('*')
+        .single();
+      updated = retry.data;
+      updateError = retry.error;
+    }
+
     if (updateError) {
       console.error('Error updating calendar task:', updateError);
-      return NextResponse.json({ error: 'Failed to update task' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to update task', details: updateError }, { status: 500 });
     }
 
     // WhatsApp notifications for calendar task updates
