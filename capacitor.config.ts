@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.appleinteriors.manager',
+  appId: 'co.median.android.xllydaj',
   appName: 'Apple Interior Manager',
   webDir: 'out',
   server: {
