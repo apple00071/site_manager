@@ -43,8 +43,15 @@ export default function LoginPage() {
         return;
       }
 
+      // Check role for redirection
+      const sessionRes = await fetch('/api/auth/session');
+      const sessionData = await sessionRes.json();
+      const user = sessionData.user;
+      const userRole = user?.user_metadata?.role || 'employee';
+
       // Hard redirect to ensure cookies are included in request
-      window.location.replace('/dashboard');
+      const target = userRole === 'client' ? '/portal' : '/dashboard';
+      window.location.replace(target);
     } catch (err) {
       setServerError('Unexpected error. Please try again.');
     } finally {

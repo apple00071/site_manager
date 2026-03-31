@@ -1004,6 +1004,7 @@ export default function ProjectDetailsPage() {
           <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <ShareLinkModal
               projectId={id as string}
+              customerName={project.customer_name}
               onClose={() => setShowShareModal(false)}
             />
           </div>

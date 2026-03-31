@@ -17,10 +17,45 @@ interface UseUserPermissionsReturn extends UserPermissions {
     refetch: () => Promise<void>;
 }
 
-// Cache for permissions to avoid refetching on every component mount
-let permissionsCache: { permissions: Record<string, boolean>; isAdmin: boolean } | null = null;
-let cacheTimestamp: number = 0;
-const CACHE_DURATION = 30 * 1000; // 30 seconds
+// Cache constants
+const CACHE_KEY = 'user_permissions_cache';
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Concurrency control: single promise for all in-flight permission requests
+let pendingPermissionsRequest: Promise<any> | null = null;
+
+/**
+ * Get permissions from sessionStorage
+ */
+function getCachedPermissions() {
+    if (typeof window === 'undefined') return null;
+    try {
+        const cached = sessionStorage.getItem(CACHE_KEY);
+        if (!cached) return null;
+
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp > CACHE_DURATION) {
+            sessionStorage.removeItem(CACHE_KEY);
+            return null;
+        }
+        return data;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Save permissions to sessionStorage
+ */
+function setCachedPermissions(data: any) {
+    if (typeof window === 'undefined') return;
+    try {
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+            data,
+            timestamp: Date.now()
+        }));
+    } catch { }
+}
 
 /**
  * Hook to fetch and check user permissions in the frontend.
@@ -28,14 +63,18 @@ const CACHE_DURATION = 30 * 1000; // 30 seconds
  */
 export function useUserPermissions(): UseUserPermissionsReturn {
     const { user, isAdmin: authIsAdmin } = useAuth();
+    
+    // Initialize state from cache if available for immediate UI response
+    const initialCache = getCachedPermissions();
+    
     const [state, setState] = useState<UserPermissions>({
-        permissions: permissionsCache?.permissions || {},
-        isAdmin: permissionsCache?.isAdmin || authIsAdmin || false,
-        isLoading: !permissionsCache,
+        permissions: initialCache?.permissions || {},
+        isAdmin: initialCache?.isAdmin || authIsAdmin || false,
+        isLoading: !initialCache && !!user,
         error: null,
     });
 
-    const fetchPermissions = useCallback(async () => {
+    const fetchPermissions = useCallback(async (forceRefresh = false) => {
         if (!user) {
             setState(prev => ({
                 ...prev,
@@ -46,35 +85,53 @@ export function useUserPermissions(): UseUserPermissionsReturn {
             return;
         }
 
-        // Check cache validity
-        const now = Date.now();
-        if (permissionsCache && (now - cacheTimestamp) < CACHE_DURATION) {
-            setState(prev => ({
-                ...prev,
-                permissions: permissionsCache!.permissions,
-                isAdmin: permissionsCache!.isAdmin,
-                isLoading: false,
-            }));
-            return;
+        // 1. Check cache first (unless forced)
+        if (!forceRefresh) {
+            const cached = getCachedPermissions();
+            if (cached) {
+                setState({
+                    permissions: cached.permissions,
+                    isAdmin: cached.isAdmin,
+                    isLoading: false,
+                    error: null
+                });
+                return;
+            }
+        }
+
+        // 2. Handle concurrent requests (batching)
+        if (pendingPermissionsRequest) {
+            try {
+                const data = await pendingPermissionsRequest;
+                setState({
+                    permissions: data.permissions || {},
+                    isAdmin: data.isAdmin || false,
+                    isLoading: false,
+                    error: null
+                });
+                return;
+            } catch (err) {
+                // If the shared request fails, we'll fall through to our own retry below
+            }
         }
 
         try {
             setState(prev => ({ ...prev, isLoading: true, error: null }));
 
-            const response = await fetch('/api/rbac/user-permissions');
+            // Create the shared promise
+            const fetchPromise = fetch('/api/rbac/user-permissions').then(async res => {
+                if (!res.ok) throw new Error('Failed to fetch permissions');
+                return res.json();
+            });
+            pendingPermissionsRequest = fetchPromise;
 
-            if (!response.ok) {
-                throw new Error('Failed to fetch permissions');
-            }
+            const data = await fetchPromise;
 
-            const data = await response.json();
-
-            // Update cache
-            permissionsCache = {
+            // 3. Update cache
+            setCachedPermissions({
                 permissions: data.permissions || {},
-                isAdmin: data.isAdmin || false,
-            };
-            cacheTimestamp = now;
+                isAdmin: data.isAdmin || false
+            });
 
             setState({
                 permissions: data.permissions || {},
@@ -89,6 +146,8 @@ export function useUserPermissions(): UseUserPermissionsReturn {
                 isLoading: false,
                 error: error.message || 'Failed to fetch permissions',
             }));
+        } finally {
+            pendingPermissionsRequest = null;
         }
     }, [user]);
 
@@ -144,6 +203,9 @@ export function useUserPermissions(): UseUserPermissionsReturn {
  * Call this when user logs out or role changes.
  */
 export function clearPermissionsCache() {
-    permissionsCache = null;
-    cacheTimestamp = 0;
+    if (typeof window !== 'undefined') {
+        try {
+            sessionStorage.removeItem(CACHE_KEY);
+        } catch { }
+    }
 }

@@ -28,6 +28,7 @@ type PdfViewerProps = {
     onPinClick?: (pin: { x: number; y: number; page: number }) => void;
     onCommentClick?: (commentId: string) => void;
     activeCommentId?: string | null;
+    commentIdToPinNumber?: Record<string, number>;
     currentPage: number;
     onPageChange: (page: number) => void;
 };
@@ -40,6 +41,7 @@ export function PdfViewer({
     onPinClick,
     onCommentClick,
     activeCommentId,
+    commentIdToPinNumber,
     currentPage,
     onPageChange,
 }: PdfViewerProps) {
@@ -109,11 +111,10 @@ export function PdfViewer({
 
     // Render pin markers for current page
     const renderPins = () => {
-        return pageComments.map((comment, index) => (
+        return pageComments.map((comment) => (
             <div
                 key={comment.id}
-                className={`absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-transform hover:scale-110 ${activeCommentId === comment.id ? 'z-30' : 'z-20'
-                    }`}
+                className={`absolute w-7 h-7 -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-transform hover:scale-110 z-[40] ${activeCommentId === comment.id ? 'scale-110' : ''}`}
                 style={{
                     left: `${comment.x_percent}%`,
                     top: `${comment.y_percent}%`,
@@ -123,13 +124,13 @@ export function PdfViewer({
                     onCommentClick?.(comment.id);
                 }}
             >
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shadow-md border-2 ${comment.is_resolved
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shadow-lg border-2 ${comment.is_resolved
                     ? 'bg-green-500 border-green-300 text-white'
                     : activeCommentId === comment.id
-                        ? 'bg-yellow-400 border-yellow-300 text-gray-900 ring-2 ring-yellow-200'
+                        ? 'bg-yellow-400 border-yellow-300 text-gray-900 ring-4 ring-yellow-200/50'
                         : 'bg-yellow-500 border-white text-gray-900'
                     }`}>
-                    {index + 1}
+                    {commentIdToPinNumber ? (commentIdToPinNumber[comment.id] || '?') : ''}
                 </div>
             </div>
         ));
@@ -140,14 +141,14 @@ export function PdfViewer({
         if (!pendingPin || pendingPin.page !== currentPage) return null;
         return (
             <div
-                className="absolute w-8 h-8 -translate-x-1/2 -translate-y-1/2 animate-pulse pointer-events-none z-30"
+                className="absolute w-9 h-9 -translate-x-1/2 -translate-y-1/2 animate-pulse z-[50]"
                 style={{
                     left: `${pendingPin.x}%`,
                     top: `${pendingPin.y}%`,
                 }}
             >
-                <div className="w-8 h-8 rounded-full bg-yellow-500 border-2 border-white shadow-lg flex items-center justify-center">
-                    <span className="text-gray-900 font-bold text-sm">+</span>
+                <div className="w-9 h-9 rounded-full bg-yellow-500 border-2 border-white shadow-[0_0_20px_rgba(234,179,8,0.5)] flex items-center justify-center">
+                    <span className="text-gray-900 font-black text-lg">+</span>
                 </div>
             </div>
         );
@@ -155,6 +156,20 @@ export function PdfViewer({
 
     return (
         <div className="flex flex-col h-full bg-gray-800">
+            {/* Kill react-pdf default borders/shadows */}
+            <style dangerouslySetInnerHTML={{ __html: `
+                .react-pdf__Page {
+                    border: none !important;
+                    box-shadow: none !important;
+                }
+                .react-pdf__Page canvas {
+                    border: none !important;
+                    outline: none !important;
+                }
+                .react-pdf__Document {
+                    border: none !important;
+                }
+            `}} />
             {/* PDF Controls */}
             <div className="flex items-center justify-between px-3 py-2 bg-gray-700 border-b border-gray-600 gap-2">
                 {/* Page Navigation */}
@@ -232,7 +247,7 @@ export function PdfViewer({
                         onLoadSuccess={onDocumentLoadSuccess}
                         onLoadError={onDocumentLoadError}
                         loading={null}
-                        className="shadow-lg max-w-full"
+                        className="max-w-full border-none shadow-sm"
                     >
                         <div
                             ref={pageRef}
@@ -246,14 +261,12 @@ export function PdfViewer({
                                 width={containerWidth > 0 ? Math.min(containerWidth, 800) : undefined}
                                 renderTextLayer={false}
                                 renderAnnotationLayer={true}
-                                className="max-w-full"
+                                className="max-w-full !border-none !shadow-none"
                             />
                             {/* Pin overlay - positioned relative to page */}
-                            <div className="absolute inset-0 pointer-events-none">
-                                <div className="pointer-events-auto">
-                                    {renderPins()}
-                                    {renderPendingPin()}
-                                </div>
+                            <div className="absolute inset-0 pointer-events-none z-[40]">
+                                {renderPins()}
+                                {renderPendingPin()}
                             </div>
                         </div>
                     </Document>

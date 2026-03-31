@@ -16,18 +16,19 @@ declare global {
 type ProjectUpdate = {
   id: string;
   project_id: string;
-  user_id: string;
+  user_id: string | null;
+  sender_name?: string | null;
   update_date: string;
   description: string;
   photos: string[];
   created_at: string;
   updated_at?: string;
   audio_url?: string | null;
-  user: {
+  user?: {
     id: string;
     full_name: string;
     email: string;
-  };
+  } | null;
 };
 
 type ProjectStage = {
@@ -990,11 +991,22 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                         className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
                       >
                         <div className="flex items-start gap-3 mb-3">
-                          <div className="w-10 h-10 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center text-sm font-bold flex-shrink-0">
-                            {update.user.full_name?.charAt(0).toUpperCase()}
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+                            update.sender_name && !update.user_id
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-gray-100 text-gray-700'
+                          }`}>
+                            {(update.sender_name || update.user?.full_name || '?').charAt(0).toUpperCase()}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-gray-900">{update.user.full_name}</h4>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-semibold text-gray-900">
+                                {update.sender_name && !update.user_id ? update.sender_name : update.user?.full_name || 'Team'}
+                              </h4>
+                              {update.sender_name && !update.user_id && (
+                                <span className="text-[9px] font-bold text-yellow-700 bg-yellow-100 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Client</span>
+                              )}
+                            </div>
                             <p className="text-sm text-gray-500">{formatDateTimeReadable(update.created_at)}</p>
                           </div>
                         </div>

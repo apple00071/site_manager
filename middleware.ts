@@ -132,9 +132,16 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // If the user is signed in and tries to access auth pages, redirect to dashboard
-    if (session && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup')) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
+    // If the user is signed in and tries to access auth pages or dashboard, check role
+    if (session) {
+      const userRole = session.user?.user_metadata?.role || 'employee';
+      const isAuthPage = request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup';
+      const isDashboardPage = request.nextUrl.pathname.startsWith('/dashboard') && !request.nextUrl.pathname.startsWith('/dashboard/admin');
+
+      if (isAuthPage || (userRole === 'client' && isDashboardPage)) {
+        const target = userRole === 'client' ? '/portal' : '/dashboard';
+        return NextResponse.redirect(new URL(target, request.url));
+      }
     }
 
     // For admin routes, check if the user is an admin using auth metadata

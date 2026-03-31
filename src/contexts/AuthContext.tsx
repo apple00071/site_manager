@@ -7,6 +7,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Session, User } from '@supabase/supabase-js';
 import { getOptimizedSession, getOptimizedUserRole, setupSmartTokenRefresh, clearAuthCache } from '@/lib/optimizedAuth';
+import { clearPermissionsCache } from '@/hooks/useUserPermissions';
 
 // Set to false to disable all debug logs
 const DEBUG_ENABLED = false;
@@ -486,6 +487,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         sessionStorage.clear();
       }
+
+      // Clear RBAC permissions cache
+      clearPermissionsCache();
 
       // Sign out on server (clears httpOnly cookies) first
       try {
