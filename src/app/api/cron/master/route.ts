@@ -7,239 +7,153 @@ import { supabaseAdmin } from '@/lib/supabase-server';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
+    const { searchParams } = new URL(req.url);
+    const manualJob = searchParams.get('job');
+    const isTest = searchParams.get('test') === 'true';
+    const queryKey = searchParams.get('key');
+    
+    // Authorization: Allow Browser Key (?key=...) OR Header
     const authHeader = req.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    const isValidHeader = authHeader === `Bearer ${process.env.CRON_SECRET}`;
+    const isValidQuery = queryKey === process.env.CRON_SECRET;
+
+    if (!isValidHeader && !isValidQuery) {
+        console.warn('❌ Cron Authorization Failed');
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const { searchParams } = new URL(req.url);
-    const manualJob = searchParams.get('job'); // Allow manual override for testing: ?job=daily-briefing
-    const isTest = searchParams.get('test') === 'true';
 
     const now = new Date();
     const utcHour = now.getUTCHours();
     const utcMin = now.getUTCMinutes();
 
-    console.log(`🤖 Master Cron triggered at UTC: ${utcHour}:${utcMin}, Manual Job: ${manualJob || 'none'}`);
+    console.log(`🤖 Master Cron starting at UTC: ${utcHour}:${utcMin}, Manual Job: ${manualJob || 'none'}`);
 
-    // Helper to check if a job should run (Once-per-day logic)
-    const shouldRunJob = async (jobName: string) => {
-        if (manualJob === jobName) return true;
-        if (manualJob) return false; // If another manual job requested, skip others
-
-        const { data, error } = await supabaseAdmin
-            .from('cron_job_logs')
-            .select('last_run_at')
-            .eq('job_name', jobName)
-            .maybeSingle();
-
-        if (error) {
-            console.error(`Error checking job log for ${jobName}:`, error);
-            return true; // Fallback to running if check fails
-        }
-
-        if (!data) return true;
-
-        const lastRun = new Date(data.last_run_at);
-        const isSameDay = lastRun.getUTCDate() === now.getUTCDate() &&
-            lastRun.getUTCMonth() === now.getUTCMonth() &&
-            lastRun.getUTCFullYear() === now.getUTCFullYear();
-
-        return !isSameDay;
+    // Results object to track every sub-job
+    const results: any = {
+        timestamp: now.toISOString(),
+        utcTime: `${utcHour}:${utcMin}`,
+        executed: [],
+        errors: {}
     };
 
-    const markJobCompleted = async (jobName: string) => {
-        if (isTest) return; // Don't log test runs
-        await supabaseAdmin
-            .from('cron_job_logs')
-            .upsert({
-                job_name: jobName,
-                last_run_at: now.toISOString(),
-                status: 'success'
-            });
+    // Helper: Mark job as completed
+    const safeMarkJobCompleted = async (jobName: string) => {
+        try {
+            if (isTest) return;
+            await supabaseAdmin
+                .from('cron_job_logs')
+                .upsert({
+                    job_name: jobName,
+                    last_run_at: now.toISOString(),
+                    status: 'success'
+                });
+        } catch (e: any) {
+            console.error(`⚠️ Failed to log completion for ${jobName}:`, e.message);
+        }
     };
 
-    // --- HOLIDAY / SILENT MODE CHECK ---
-    const isHoliday = async () => {
-        const istDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-        const dateString = istDate.toISOString().split('T')[0];
+    // Helper: Holiday Check with Safety Net
+    const checkSilentMode = async () => {
+        try {
+            const istDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+            const dateString = istDate.toISOString().split('T')[0];
+            const { data: holiday } = await supabaseAdmin
+                .from('holidays')
+                .select('name')
+                .eq('date', dateString)
+                .maybeSingle();
 
-        // Check Database for Festival Holidays
-        const { data: holiday } = await supabaseAdmin
-            .from('holidays')
-            .select('name')
-            .eq('date', dateString)
-            .maybeSingle();
-
-        if (holiday) return { status: true, reason: holiday.name };
-
-        return { status: false };
+            return holiday ? { status: true, reason: holiday.name } : { status: false };
+        } catch (e: any) {
+            console.error('⚠️ Holiday Check Failed (Safety Skip):', e.message);
+            return { status: false, error: e.message };
+        }
     };
 
-    try {
-        const silentMode = await isHoliday();
-
-        const results: any = {
-            timestamp: now.toISOString(),
-            executed: [],
-            silentMode: silentMode.status ? silentMode.reason : false
-        };
-
-        // 1. ALWAYS Run Immediate Task Reminders (For tasks starting in next 30 mins)
-        // This ensures high-precision notifications regardless of the daily reporting schedule.
-        // Task reminders are NOT silenced by holiday mode as they are project-critical.
-        if (!manualJob || manualJob === 'task-reminders' || manualJob === 'all') {
-            console.log('Running Task Reminders (High Precision)...');
-            results.taskReminders = await runTaskReminders();
-            results.executed.push('taskReminders');
+    // Helper: Job Runner with Safety Net
+    const runJobSafely = async (jobName: string, jobFn: () => Promise<any>) => {
+        try {
+            console.log(`🚀 Running Job: ${jobName}`);
+            const output = await jobFn();
+            results[jobName] = output;
+            results.executed.push(jobName);
+            await safeMarkJobCompleted(jobName);
+        } catch (e: any) {
+            console.error(`❌ Job Failed: ${jobName}:`, e.message);
+            results.errors[jobName] = e.message;
         }
+    };
 
-        // 2. Scheduled Status Reports - SILENCED ON HOLIDAYS
-        if (silentMode.status && !manualJob) {
-            console.log(`🔕 Silent Mode active: ${silentMode.reason}. Skipping status reports.`);
-            return NextResponse.json({
-                success: true,
-                message: `Silent Mode active: ${silentMode.reason}.`,
-                taskReminders: results.taskReminders
-            });
-        }
+    // 1. SILENT MODE CHECK
+    const silentMode = await checkSilentMode();
+    results.silentMode = silentMode.status ? silentMode.reason : false;
 
-        // A. Daily Briefing: 9:00 AM IST (3:30 AM UTC)
-        if (manualJob === 'daily-briefing' || (!manualJob && utcHour === 3 && utcMin >= 30)) {
-            if (await shouldRunJob('daily-briefing')) {
-                console.log('Running Daily Briefing (9 AM IST)...');
-                try {
-                    results.dailyBriefing = await runDailyBriefing();
-                    results.executed.push('dailyBriefing');
-                    await markJobCompleted('daily-briefing');
-                } catch (dbError: any) {
-                    console.error('❌ Daily Briefing Failed:', dbError);
-                    results.dailyBriefing = { error: dbError.message };
-                }
-            } else {
-                console.log('Daily Briefing skipped (already run today)');
-            }
-        }
-
-        // B. Admin Assign Reminder: 10:30 AM IST (5:00 AM UTC)
-        if (manualJob === 'admin-assign' || (!manualJob && utcHour === 5 && utcMin < 30)) {
-            if (await shouldRunJob('admin-assign')) {
-                try {
-                    const { runAdminAssignReminder } = await import('@/lib/cron-jobs/dailyStatusReminders');
-                    console.log('Running Admin Assign Reminder (10:30 AM IST)...');
-                    results.adminAssign = await runAdminAssignReminder();
-                    results.executed.push('adminAssign');
-                    await markJobCompleted('admin-assign');
-                } catch (aaError: any) {
-                    console.error('❌ Admin Assign Reminder Failed:', aaError);
-                    results.adminAssign = { error: aaError.message };
-                }
-            } else {
-                console.log('Admin Assign Reminder skipped (already run today)');
-            }
-        }
-
-        // F. Attendance Punch-In Reminder: 10:00 AM IST (4:30 AM UTC)
-        if (manualJob === 'attendance-in' || (!manualJob && utcHour === 4 && utcMin >= 30)) {
-            if (await shouldRunJob('attendance-in')) {
-                try {
-                    const { runPunchInReminder } = await import('@/lib/cron-jobs/attendanceReminders');
-                    console.log('Running Punch-In Reminder (10 AM IST)...');
-                    results.punchInReminder = await runPunchInReminder();
-                    results.executed.push('punchInReminder');
-                    await markJobCompleted('attendance-in');
-                } catch (piError: any) {
-                    console.error('❌ Punch-In Reminder Failed:', piError);
-                    results.punchInReminder = { error: piError.message };
-                }
-            } else {
-                console.log('Punch-In Reminder skipped (already run today)');
-            }
-        }
-
-        // C. Member Check-up: 1:00 PM IST (7:30 AM UTC)
-        if (manualJob === 'member-checkup' || (!manualJob && utcHour === 7 && utcMin >= 30)) {
-            if (await shouldRunJob('member-checkup')) {
-                try {
-                    const { runMemberCheckupReminder } = await import('@/lib/cron-jobs/dailyStatusReminders');
-                    console.log('Running Member Check-up (1 PM IST)...');
-                    results.memberCheckup = await runMemberCheckupReminder();
-                    results.executed.push('memberCheckup');
-                    await markJobCompleted('member-checkup');
-                } catch (mcError: any) {
-                    console.error('❌ Member Check-up Failed:', mcError);
-                    results.memberCheckup = { error: mcError.message };
-                }
-            } else {
-                console.log('Member Check-up skipped (already run today)');
-            }
-        }
-
-        // D. Site Log & DPR Reminder: 5:00 PM IST (11:30 AM UTC)
-        if (manualJob === 'site-log-reminder' || (!manualJob && utcHour === 11 && utcMin >= 30)) {
-            if (await shouldRunJob('site-log-reminder')) {
-                console.log('Running Site Log & DPR Reminder (5 PM IST)...');
-                try {
-                    results.siteLogs = await runSiteLogReminder();
-                    results.executed.push('siteLogs');
-                    await markJobCompleted('site-log-reminder');
-                } catch (slError: any) {
-                    console.error('❌ Site Log Reminder Failed:', slError);
-                    results.siteLogs = { error: slError.message };
-                }
-            } else {
-                console.log('Site Log Reminder skipped (already run today)');
-            }
-        }
-
-        // E. Admin Task Review: 5:30 PM IST (12:00 PM UTC)
-        if (manualJob === 'admin-check' || (!manualJob && utcHour === 12 && utcMin < 30)) {
-            if (await shouldRunJob('admin-check')) {
-                try {
-                    const { runAdminTaskCheckReminder } = await import('@/lib/cron-jobs/dailyStatusReminders');
-                    console.log('Running Admin Review (5:30 PM IST)...');
-                    results.adminCheck = await runAdminTaskCheckReminder();
-                    results.executed.push('adminCheck');
-                    await markJobCompleted('admin-check');
-                } catch (atxError: any) {
-                    console.error('❌ Admin Review Failed:', atxError);
-                    results.adminCheck = { error: atxError.message };
-                }
-            } else {
-                console.log('Admin Review skipped (already run today)');
-            }
-        }
-
-        // G. Attendance Punch-Out Reminder: 6:00 PM IST (12:30 PM UTC)
-        if (manualJob === 'attendance-out' || (!manualJob && utcHour === 12 && utcMin >= 30)) {
-            if (await shouldRunJob('attendance-out')) {
-                try {
-                    const { runPunchOutReminder } = await import('@/lib/cron-jobs/attendanceReminders');
-                    console.log('Running Punch-Out Reminder (6 PM IST)...');
-                    results.punchOutReminder = await runPunchOutReminder();
-                    results.executed.push('punchOutReminder');
-                    await markJobCompleted('attendance-out');
-                } catch (poError: any) {
-                    console.error('❌ Punch-Out Reminder Failed:', poError);
-                    results.punchOutReminder = { error: poError.message };
-                }
-            } else {
-                console.log('Punch-Out Reminder skipped (already run today)');
-            }
-        }
-
-        if (results.executed.length === 0) {
-            return NextResponse.json({
-                success: true,
-                message: `No major status reports scheduled for UTC ${utcHour}:${utcMin}.`,
-                taskReminders: results.taskReminders
-            });
-        }
-
-        return NextResponse.json({ success: true, ...results });
-
-    } catch (error: any) {
-        console.error('Master Cron Failed:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    // 2. IMMEDIATE CRITICAL JOBS (Regardless of holiday)
+    // Task Reminders - High Precision
+    if (!manualJob || manualJob === 'task-reminders' || manualJob === 'all') {
+        await runJobSafely('taskReminders', runTaskReminders);
     }
+
+    // 3. SCHEDULED STATUS REPORTS (Only if NOT silenced by holiday)
+    if (silentMode.status && !manualJob) {
+        console.log(`🔕 Silent Mode: ${silentMode.reason}. Skipping scheduled reports.`);
+        return NextResponse.json({ success: true, ...results });
+    }
+
+    // A. Daily Briefing: 9:00 AM IST (3:30 AM UTC)
+    if (manualJob === 'daily-briefing' || (!manualJob && utcHour === 3 && utcMin >= 30)) {
+        await runJobSafely('dailyBriefing', runDailyBriefing);
+    }
+
+    // B. Admin Assign Reminder: 10:30 AM IST (5:00 AM UTC)
+    if (manualJob === 'admin-assign' || (!manualJob && utcHour === 5 && utcMin < 30)) {
+        await runJobSafely('adminAssign', async () => {
+            const { runAdminAssignReminder } = await import('@/lib/cron-jobs/dailyStatusReminders');
+            return runAdminAssignReminder();
+        });
+    }
+
+    // F. Attendance Punch-In Reminder: 10:00 AM IST (4:30 AM UTC)
+    if (manualJob === 'attendance-in' || (!manualJob && utcHour === 4 && utcMin >= 30)) {
+        await runJobSafely('punchInReminder', async () => {
+            const { runPunchInReminder } = await import('@/lib/cron-jobs/attendanceReminders');
+            return runPunchInReminder();
+        });
+    }
+
+    // C. Member Check-up: 1:00 PM IST (7:30 AM UTC)
+    if (manualJob === 'member-checkup' || (!manualJob && utcHour === 7 && utcMin >= 30)) {
+        await runJobSafely('memberCheckup', async () => {
+            const { runMemberCheckupReminder } = await import('@/lib/cron-jobs/dailyStatusReminders');
+            return runMemberCheckupReminder();
+        });
+    }
+
+    // D. Site Log & DPR Reminder: 5:00 PM IST (11:30 AM UTC)
+    if (manualJob === 'site-log-reminder' || (!manualJob && utcHour === 11 && utcMin >= 30)) {
+        await runJobSafely('siteLogs', runSiteLogReminder);
+    }
+
+    // E. Admin Task Review: 5:30 PM IST (12:00 PM UTC)
+    if (manualJob === 'admin-check' || (!manualJob && utcHour === 12 && utcMin < 30)) {
+        await runJobSafely('adminCheck', async () => {
+            const { runAdminTaskCheckReminder } = await import('@/lib/cron-jobs/dailyStatusReminders');
+            return runAdminTaskCheckReminder();
+        });
+    }
+
+    // G. Attendance Punch-Out Reminder: 6:00 PM IST (12:30 PM UTC)
+    if (manualJob === 'attendance-out' || (!manualJob && utcHour === 12 && utcMin >= 30)) {
+        await runJobSafely('punchOutReminder', async () => {
+            const { runPunchOutReminder } = await import('@/lib/cron-jobs/attendanceReminders');
+            return runPunchOutReminder();
+        });
+    }
+
+    // Final Success Response (Even if some jobs had errors)
+    return NextResponse.json({
+        success: true,
+        message: results.executed.length > 0 ? "Processed scheduled jobs" : "No jobs scheduled to run",
+        ...results
+    }, { status: 200 });
 }

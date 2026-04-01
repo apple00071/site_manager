@@ -37,13 +37,19 @@ export async function runTaskReminders() {
                 for (const userId of assignees) {
                     console.log(`Sending immediate reminder for Task ${task.id} to User ${userId}`);
 
-                    // Format time for message (e.g. "10:30 AM")
-                    const startTime = new Date(task.start_at).toLocaleTimeString('en-IN', {
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        hour12: true,
-                        timeZone: 'Asia/Kolkata' // IST
-                    });
+                    // Safe Time Formatting (Fall back if timezone data is missing)
+                    let startTime = "";
+                    try {
+                        startTime = new Date(task.start_at).toLocaleTimeString('en-IN', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true,
+                            timeZone: 'Asia/Kolkata' // IST
+                        });
+                    } catch (e) {
+                        console.warn("⚠️ Timezone formatting failed, falling back to UTC");
+                        startTime = new Date(task.start_at).toISOString().split('T')[1].substring(0, 5) + " UTC";
+                    }
 
                     const projectTitle = Array.isArray(task.projects) ? task.projects[0]?.title : (task.projects as any)?.title;
                     
