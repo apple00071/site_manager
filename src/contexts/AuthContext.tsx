@@ -82,8 +82,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               if (data.authenticated && data.user) {
                 // Refresh client session if server has valid session
                 await supabase.auth.refreshSession();
-                const { data: { session: refreshedSession } } = await supabase.auth.getSession();
-                currentSession = refreshedSession;
+                const { data: { user: verifiedUser } } = await supabase.auth.getUser();
+                if (verifiedUser) {
+                  const { data: { session: refreshedSession } } = await supabase.auth.getSession();
+                  currentSession = refreshedSession;
+                }
               }
             }
           } catch (error) {

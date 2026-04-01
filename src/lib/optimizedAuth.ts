@@ -70,9 +70,10 @@ export async function getOptimizedSession() {
 
 async function performAuthCheck() {
   try {
-    console.log('🔐 Performing auth check...');
+    console.log('🔐 Performing secure auth check...');
     
-    const { data: { session }, error } = await supabase.auth.getSession();
+    // Use getUser() for server-verified authentication
+    const { data: { user }, error } = await supabase.auth.getUser();
     
     if (error) {
       console.error('Auth error:', error);
@@ -80,22 +81,27 @@ async function performAuthCheck() {
       return { session: null, user: null, error };
     }
 
+    // Since getUser() only returns the user, we also need the session
+    // if we want to maintain the full cache object. 
+    // getSession() is safe to call AFTER getUser() has verified the user.
+    const { data: { session } } = await supabase.auth.getSession();
+    
     // Cache the session
-    if (session) {
+    if (user && session) {
       sessionCache = {
         session,
-        user: session.user,
+        user,
         timestamp: Date.now(),
         ttl: SESSION_CACHE_TTL
       };
 
       // Also cache user data separately
-      userCache.set(`user_${session.user.id}`, session.user, 15 * 60 * 1000);
+      userCache.set(`user_${user.id}`, user, 15 * 60 * 1000);
     } else {
       sessionCache = null;
     }
 
-    return { session, user: session?.user || null, error: null };
+    return { session, user, error: null };
   } catch (error) {
     console.error('Auth check failed:', error);
     return { session: null, user: null, error };

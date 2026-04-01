@@ -21,8 +21,9 @@ export async function ensureValidSession(): Promise<boolean> {
   try {
     debugLog('🔄 Checking session validity...');
     
-    // First, try to get the current session
-    const { data: { session }, error } = await supabase.auth.getSession();
+    // First, try to get the current authenticated user
+    const { data: { user }, error } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
     
     if (error) {
       debugLog('❌ Session error:', error.message);

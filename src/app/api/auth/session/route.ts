@@ -10,13 +10,14 @@ export async function GET() {
   try {
     const supabase = await createAuthenticatedClient();
 
+    const { data: { user }, error } = await supabase.auth.getUser();
     const { data: { session } } = await supabase.auth.getSession();
 
-    if (!session) {
+    if (error || !user || !session) {
       return createNoCacheResponse({ authenticated: false }, { status: 200 });
     }
 
-    return createNoCacheResponse({ authenticated: true, user: session.user }, { status: 200 });
+    return createNoCacheResponse({ authenticated: true, user: user }, { status: 200 });
   } catch (err: any) {
     return createNoCacheResponse({ error: 'Unexpected error' }, { status: 500 });
   }
