@@ -8,8 +8,8 @@ const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
 const ONESIGNAL_API_URL = 'https://api.onesignal.com/notifications';
 
 interface SendNotificationParams {
-    userIds?: string[]; // OneSignal Player IDs (optional)
-    externalUserIds?: string[]; // Database user IDs (recommended for Median)
+    userIds?: string[]; // OneSignal IDs (V5 UUIDs)
+    externalUserIds?: string[]; // Database user IDs (e.g. user_UUID)
     title: string;
     message: string;
     data?: Record<string, unknown>; // Optional custom data

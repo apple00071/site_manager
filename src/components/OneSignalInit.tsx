@@ -48,43 +48,46 @@ export default function OneSignalInit() {
                 return;
             }
 
-            OneSignal.setAppId(appId);
+            // V5 Initialization
+            OneSignal.initialize(appId);
             
-            // Request Permission
-            OneSignal.promptForPushNotificationsWithUserResponse(function(accepted: any) {
-                if (DEBUG) console.log("User accepted notifications: " + accepted);
+            // V5 Request Permission
+            OneSignal.Notifications.requestPermission(true).then((success: boolean) => {
+                if (DEBUG) console.log("Notification permission result: " + success);
             });
             
-            // Login with external ID
+            // V5 Login with external ID
             const externalId = `user_${user.id}`;
             OneSignal.login(externalId);
             
+            // V5 User Email
             if (user.email) {
-                OneSignal.setEmail(user.email);
+                OneSignal.User.addEmail(user.email);
             }
             
-            // Handle Notification Opening (Deep Links)
-            OneSignal.setNotificationOpenedHandler(function(jsonData: any) {
-                console.log('notificationOpenedCallback: ' + JSON.stringify(jsonData));
-                const data = jsonData.notification.additionalData;
+            // V5 Handle Notification Opening (Deep Links)
+            OneSignal.Notifications.addEventListener('click', (event: any) => {
+                if (DEBUG) console.log('Notification clicked:', event);
+                const data = event.notification.additionalData;
                 const route = data?.route || data?.url || data?.path || data?.targetUrl;
                 if (route) {
                     router.push(route);
                 }
             });
 
-            // Link Device State backend for API delivery
-            const deviceState = await OneSignal.getDeviceState();
-            if (deviceState && deviceState.userId) {
+            // V5 Link Device State for API delivery
+            // getDeviceState() is removed in V5, use getOnesignalId() instead
+            const onesignalId = await OneSignal.User.getOnesignalId();
+            if (onesignalId) {
                 await fetch('/api/onesignal/link', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ oneSignalId: deviceState.userId }),
+                    body: JSON.stringify({ oneSignalId: onesignalId }),
                 });
             }
 
         } catch (error) {
-            console.error("Capacitor OneSignal Error:", error);
+            console.error("Capacitor OneSignal V5 Error:", error);
         }
     }
 
