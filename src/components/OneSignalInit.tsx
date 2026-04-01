@@ -43,7 +43,7 @@ export default function OneSignalInit() {
             // Dynamically import the native plugin to avoid SSR issues
             const OneSignal: any = (await import('onesignal-cordova-plugin')).default;
             
-            const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || "";
+            const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || "d800d582-08b8-431c-bb19-59a08f7f5379";
             if (!appId) {
                 console.warn("OneSignalInit: Missing NEXT_PUBLIC_ONESIGNAL_APP_ID in environment.");
                 if (DEBUG) alert("❌ Error: Missing OneSignal App ID");
