@@ -33,53 +33,80 @@ export async function GET(
             return NextResponse.json({ error: 'Forbidden. You do not have access to this project.' }, { status: 403 });
         }
 
-        // 2. Fetch Project Details with Site Engineer & Designer
-        const { data: project, error: projectError } = await supabaseAdmin
-            .from('projects')
-            .select(`
-                *,
-                designer:designer_id(id, full_name, role),
-                siteEngineer:assigned_employee_id(id, full_name, role)
-            `)
-            .eq('id', id)
-            .single();
+        // 2. Fetch Project, Updates, and Designs in Parallel
+        const [projectRes, updatesRes, designsRes] = await Promise.all([
+            // Main Project Data
+            supabaseAdmin
+                .from('projects')
+                .select(`
+                    id, 
+                    title, 
+                    description, 
+                    status, 
+                    start_date, 
+                    end_date, 
+                    location,
+                    client_name,
+                    total_budget,
+                    paid_amount,
+                    designer:designer_id(id, full_name, role),
+                    siteEngineer:assigned_employee_id(id, full_name, role)
+                `)
+                .eq('id', id)
+                .single(),
+
+            // Site Updates
+            supabaseAdmin
+                .from('project_updates')
+                .select(`
+                    id,
+                    project_id,
+                    update_text,
+                    update_date,
+                    photos,
+                    voice_note_url,
+                    author:user_id(full_name)
+                `)
+                .eq('project_id', id)
+                .order('update_date', { ascending: false }),
+
+            // Design Files
+            supabaseAdmin
+                .from('design_files')
+                .select(`
+                    id,
+                    project_id,
+                    file_name,
+                    file_url,
+                    version_number,
+                    status,
+                    created_at,
+                    uploaded_by,
+                    uploaded_by_user:uploaded_by(id, full_name, email),
+                    comments:design_comments(
+                        id,
+                        comment,
+                        x_percent,
+                        y_percent,
+                        linked_task_id,
+                        is_resolved,
+                        page_number,
+                        zoom_level,
+                        created_at,
+                        user:user_id(id, full_name, email)
+                    )
+                `)
+                .eq('project_id', id)
+                .order('created_at', { ascending: false })
+        ]);
+
+        const { data: project, error: projectError } = projectRes;
+        const { data: updates, error: updatesError } = updatesRes;
+        const { data: designs, error: designsError } = designsRes;
 
         if (projectError || !project) {
-            return NextResponse.json({ error: 'Project data issues' }, { status: 500 });
+            return NextResponse.json({ error: 'Project data issues or not found' }, { status: 500 });
         }
-
-        // 3. Fetch Site Updates with Employee Names
-        const { data: updates, error: updatesError } = await supabaseAdmin
-            .from('project_updates')
-            .select(`
-                *,
-                author:user_id(full_name)
-            `)
-            .eq('project_id', id)
-            .order('update_date', { ascending: false });
-
-        // 4. Fetch Design Files with comments and authors
-        const { data: designs, error: designsError } = await supabaseAdmin
-            .from('design_files')
-            .select(`
-                *,
-                uploaded_by,
-                uploaded_by_user:uploaded_by(id, full_name, email),
-                comments:design_comments(
-                    id,
-                    comment,
-                    x_percent,
-                    y_percent,
-                    linked_task_id,
-                    is_resolved,
-                    page_number,
-                    zoom_level,
-                    created_at,
-                    user:user_id(id, full_name, email)
-                )
-            `)
-            .eq('project_id', id)
-            .order('created_at', { ascending: false });
 
         return NextResponse.json({
             project,
