@@ -361,11 +361,11 @@ export default function SecureProjectPortal({ params }: { params: Promise<{ id: 
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-gray-50/50 border-b border-gray-100">
-                                        <th className="px-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Asset Name</th>
-                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Uploaded By</th>
-                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-center text-gray-400">Version</th>
-                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-center text-gray-400">Status</th>
-                                        <th className="px-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-right text-gray-400">Actions</th>
+                                        <th className="px-8 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">Asset Name</th>
+                                        <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">Uploaded By</th>
+                                        <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-center text-gray-400">Version</th>
+                                        <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-center text-gray-400">Status</th>
+                                        <th className="px-8 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-right text-gray-400">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
