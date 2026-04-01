@@ -1,10 +1,13 @@
-/**
- * Optimized Authentication System
- * Reduces auth requests by 90% through smart caching and batching
- */
-
 import { supabase } from './supabase';
 import { userCache } from './cache';
+
+const DEBUG_ENABLED = false;
+
+const debugLog = (...args: any[]) => {
+  if (DEBUG_ENABLED) {
+    console.log(...args);
+  }
+};
 
 // Session cache with longer TTL
 let sessionCache: {
@@ -76,9 +79,18 @@ async function performAuthCheck() {
     const { data: { user }, error } = await supabase.auth.getUser();
     
     if (error) {
-      console.error('Auth error:', error);
+      const isMissingSession = error.message?.includes('Auth session missing') || 
+                              error.name === 'AuthSessionMissingError' ||
+                              (error as any).status === 400;
+
+      if (!isMissingSession) {
+        console.error('🔴 Auth error:', error);
+      } else {
+        debugLog('ℹ️ No active session (user not logged in)');
+      }
+      
       sessionCache = null;
-      return { session: null, user: null, error };
+      return { session: null, user: null, error: isMissingSession ? null : error };
     }
 
     // Since getUser() only returns the user, we also need the session
