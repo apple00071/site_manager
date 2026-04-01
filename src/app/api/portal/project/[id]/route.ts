@@ -63,7 +63,8 @@ export async function GET(
             .from('design_files')
             .select(`
                 *,
-                uploaded_by_user:users!design_files_uploaded_by_fkey(id, full_name, email),
+                uploaded_by,
+                uploaded_by_user:uploaded_by(id, full_name, email),
                 comments:design_comments(
                     id,
                     comment,
@@ -74,7 +75,7 @@ export async function GET(
                     page_number,
                     zoom_level,
                     created_at,
-                    user:users!design_comments_user_id_fkey(id, full_name, email)
+                    user:user_id(id, full_name, email)
                 )
             `)
             .eq('project_id', id)
