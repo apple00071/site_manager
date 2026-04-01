@@ -43,6 +43,15 @@ function VoiceNotePlayer({ src }: { src: string }) {
   );
 }
 
+const formatDate = (date: string) => {
+  if (!date) return '-';
+  return new Date(date).toLocaleDateString('en-GB', { 
+    day: '2-digit', 
+    month: 'short', 
+    year: 'numeric' 
+  });
+};
+
 const getInitials = (name: string) => {
   if (!name) return 'U';
   return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
@@ -347,79 +356,100 @@ export default function SecureProjectPortal({ params }: { params: Promise<{ id: 
                             <div className="h-px flex-1 bg-gray-100" />
                         </div>
                         
-                        {/* Responsive Design Grid - Fixed for Mobile UI/UX */}
-                        <div className="grid grid-cols-1 gap-4">
-                            {/* Desktop Header Show Only on MD+ */}
-                            <div className="hidden md:grid md:grid-cols-[2fr,120px,180px,160px] gap-6 px-8 py-4 bg-gray-50/50 border-x border-t border-gray-100 rounded-t-xl text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                                <span>Asset Name</span>
-                                <span className="text-center">Version</span>
-                                <span className="text-center">Status</span>
-                                <span className="text-right">Actions</span>
-                            </div>
-                            
-                            <div className="grid grid-cols-1 md:divide-y md:divide-gray-50 border md:border-gray-200 bg-white rounded-xl md:rounded-t-none md:rounded-b-xl shadow-sm overflow-hidden">
-                                {items.map((d: any) => (
-                                    <div key={d.id} className="group flex flex-col md:grid md:grid-cols-[2fr,120px,180px,160px] md:items-center gap-4 md:gap-6 p-6 md:px-8 md:py-4 hover:bg-gray-50/50 transition-all border-b last:border-b-0 md:border-b-0 border-gray-100">
-                                        {/* Mobile view: Title first */}
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-3 mb-1 md:mb-0">
-                                                <div className="p-2 bg-yellow-50 rounded-lg text-yellow-600 md:hidden">
-                                                    <FiFileText size={18}/>
+                        {/* 🖥️ Desktop View: Boutique Strip-Table (MD+) */}
+                        <div className="hidden md:block overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-gray-50/50 border-b border-gray-100">
+                                        <th className="px-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Asset Name</th>
+                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Uploaded</th>
+                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-center text-gray-400">Version</th>
+                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-center text-gray-400">Status</th>
+                                        <th className="px-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-right text-gray-400">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {items.map((d: any) => (
+                                        <tr key={d.id} className="group hover:bg-gray-50/80 transition-colors">
+                                            <td className="px-8 py-5">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2 bg-yellow-50 rounded-lg text-yellow-600">
+                                                        <FiFileText size={18}/>
+                                                    </div>
+                                                    <span className="text-sm font-bold text-gray-800 line-clamp-1 truncate max-w-[300px]" title={d.file_name}>
+                                                        {d.file_name}
+                                                    </span>
                                                 </div>
-                                                <h4 className="text-sm font-bold text-gray-800 line-clamp-2 md:line-clamp-1 leading-snug" title={d.file_name}>
-                                                    {d.file_name}
-                                                </h4>
-                                            </div>
-                                        </div>
-                                        
-                                        {/* Version row (Mobile inline, Desktop center) */}
-                                        <div className="flex items-center justify-between md:justify-center">
-                                            <span className="text-[9px] font-black uppercase text-gray-300 tracking-widest md:hidden">Version</span>
-                                            <span className="text-xs font-black text-gray-400 bg-gray-50 px-2 py-0.5 rounded md:bg-transparent">V{d.version_number}</span>
-                                        </div>
-                                        
-                                        {/* Status row */}
-                                        <div className="flex items-center justify-between md:justify-center">
-                                            <span className="text-[9px] font-black uppercase text-gray-300 tracking-widest md:hidden">Status</span>
-                                            <div className="flex-shrink-0">
+                                            </td>
+                                            <td className="px-6 py-5 text-xs font-semibold text-gray-400">
+                                                {formatDate(d.created_at)}
+                                            </td>
+                                            <td className="px-6 py-5 text-center">
+                                                <span className="text-[10px] font-black text-gray-400 bg-gray-50 px-2 py-1 rounded">V{d.version_number}</span>
+                                            </td>
+                                            <td className="px-6 py-5 text-center">
                                                 {getStatusBadge(d.approval_status)}
-                                            </div>
+                                            </td>
+                                            <td className="px-8 py-5">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button onClick={() => setSelectedDesign(d)} className="p-2 text-gray-400 hover:text-yellow-600 hover:bg-white border border-transparent hover:border-gray-100 rounded-lg transition-all"><FiMaximize2 size={16}/></button>
+                                                    {d.file_url && <a href={d.file_url} target="_blank" download className="p-2 text-gray-400 hover:text-yellow-600 hover:bg-white border border-transparent hover:border-gray-100 rounded-lg transition-all"><FiDownload size={16}/></a>}
+                                                    {d.approval_status === 'pending' && <button onClick={()=>handleDesignAction(d.id, 'approved')} className="ml-2 px-4 py-1.5 bg-yellow-500 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-sm hover:bg-yellow-600 active:scale-95 transition-all">Approve</button>}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* 📱 Mobile View: Premium Card List (<MD) */}
+                        <div className="md:hidden space-y-4">
+                            {items.map((d: any) => (
+                                <div key={d.id} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-4">
+                                    <div className="flex items-start gap-4">
+                                        <div className="p-3 bg-yellow-50 rounded-xl text-yellow-600 flex-shrink-0">
+                                            <FiFileText size={20}/>
                                         </div>
-                                        
-                                        {/* Actions */}
-                                        <div className="flex items-center justify-end gap-3 pt-3 mt-1 md:pt-0 md:mt-0 border-t md:border-t-0 border-gray-50">
-                                            <button 
-                                                onClick={() => setSelectedDesign(d)} 
-                                                className="p-2.5 bg-white text-gray-400 hover:text-yellow-600 border border-gray-100 rounded-xl transition-all shadow-sm active:scale-95"
-                                                title="View Fullscreen"
-                                            >
-                                                <FiMaximize2 size={18}/>
-                                            </button>
-                                            
-                                            {d.file_url && (
-                                                <a 
-                                                    href={d.file_url} 
-                                                    target="_blank" 
-                                                    download 
-                                                    className="p-2.5 bg-white text-gray-400 hover:text-yellow-600 border border-gray-100 rounded-xl transition-all shadow-sm active:scale-95"
-                                                    title="Download Asset"
-                                                >
-                                                    <FiDownload size={18}/>
-                                                </a>
-                                            )}
-                                            
-                                            {d.approval_status === 'pending' && (
-                                                <button 
-                                                    onClick={() => handleDesignAction(d.id, 'approved')} 
-                                                    className="px-6 py-2 bg-yellow-500 text-white text-[10px] font-black uppercase tracking-[0.15em] rounded-xl shadow-md shadow-yellow-500/20 active:scale-95 transition-all"
-                                                >
-                                                  Approve
-                                                </button>
-                                            )}
+                                        <div className="min-w-0">
+                                            <h4 className="text-sm font-bold text-gray-800 line-clamp-2 leading-snug mb-1">{d.file_name}</h4>
+                                            <div className="flex items-center gap-2 text-[10px] font-bold text-gray-300 uppercase tracking-widest">
+                                                <FiClock size={10}/>
+                                                {formatDate(d.created_at)}
+                                            </div>
                                         </div>
                                     </div>
-                                ))}
-                            </div>
+                                    
+                                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-50">
+                                        <div className="space-y-1">
+                                            <div className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Version</div>
+                                            <div className="text-xs font-black text-gray-400">V{d.version_number}</div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <div className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Status</div>
+                                            <div>{getStatusBadge(d.approval_status)}</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 pt-2">
+                                        <button onClick={() => setSelectedDesign(d)} className="flex-1 flex items-center justify-center gap-2 py-3 bg-gray-50 text-gray-400 rounded-xl text-[10px] font-black uppercase tracking-widest active:bg-gray-100 transition-colors">
+                                            <FiMaximize2 size={14}/>
+                                            View
+                                        </button>
+                                        {d.file_url && (
+                                            <a href={d.file_url} target="_blank" download className="flex-1 flex items-center justify-center gap-2 py-3 bg-gray-50 text-gray-400 rounded-xl text-[10px] font-black uppercase tracking-widest active:bg-gray-100 transition-colors">
+                                                <FiDownload size={14}/>
+                                                Download
+                                            </a>
+                                        )}
+                                        {d.approval_status === 'pending' && (
+                                            <button onClick={()=>handleDesignAction(d.id, 'approved')} className="flex-[1.5] py-3 bg-yellow-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md shadow-yellow-500/20 active:scale-95 transition-all">
+                                                Approve
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                   ))}
