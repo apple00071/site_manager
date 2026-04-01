@@ -381,8 +381,11 @@ export default function SecureProjectPortal({ params }: { params: Promise<{ id: 
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-5 text-[11px] font-bold text-gray-500 uppercase tracking-tight">
-                                                {d.uploaded_by_user?.full_name || 'Team member'}
+                                            <td className="px-6 py-5 text-[11px] font-bold text-gray-400 uppercase tracking-tight">
+                                                {(() => {
+                                                    const uploader = Array.isArray(d.uploaded_by_user) ? d.uploaded_by_user[0] : d.uploaded_by_user;
+                                                    return uploader?.full_name || 'Team member';
+                                                })()}
                                             </td>
                                             <td className="px-6 py-5 text-center">
                                                 <span className="text-[10px] font-black text-gray-400 bg-gray-50 px-2 py-1 rounded">V{d.version_number}</span>
@@ -415,7 +418,10 @@ export default function SecureProjectPortal({ params }: { params: Promise<{ id: 
                                             <h4 className="text-sm font-bold text-gray-800 line-clamp-2 leading-snug mb-1">{d.file_name}</h4>
                                             <div className="flex items-center gap-2 text-[10px] font-bold text-gray-300 uppercase tracking-widest">
                                                 <FiUser size={10}/>
-                                                {d.uploaded_by_user?.full_name || 'Team member'}
+                                                {(() => {
+                                                    const uploader = Array.isArray(d.uploaded_by_user) ? d.uploaded_by_user[0] : d.uploaded_by_user;
+                                                    return uploader?.full_name || 'Team member';
+                                                })()}
                                             </div>
                                         </div>
                                     </div>
