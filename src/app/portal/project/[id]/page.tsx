@@ -350,16 +350,16 @@ export default function SecureProjectPortal({ params }: { params: Promise<{ id: 
                         {/* Responsive Design Grid - Fixed for Mobile UI/UX */}
                         <div className="grid grid-cols-1 gap-4">
                             {/* Desktop Header Show Only on MD+ */}
-                            <div className="hidden md:grid md:grid-cols-[1fr,100px,180px,140px] gap-6 px-8 py-4 bg-gray-50/50 border-x border-t border-gray-100 rounded-t-xl text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                            <div className="hidden md:grid md:grid-cols-[2fr,120px,180px,160px] gap-6 px-8 py-4 bg-gray-50/50 border-x border-t border-gray-100 rounded-t-xl text-[10px] font-bold uppercase tracking-widest text-gray-400">
                                 <span>Asset Name</span>
                                 <span className="text-center">Version</span>
-                                <span>Status</span>
+                                <span className="text-center">Status</span>
                                 <span className="text-right">Actions</span>
                             </div>
                             
                             <div className="grid grid-cols-1 md:divide-y md:divide-gray-50 border md:border-gray-200 bg-white rounded-xl md:rounded-t-none md:rounded-b-xl shadow-sm overflow-hidden">
                                 {items.map((d: any) => (
-                                    <div key={d.id} className="group flex flex-col md:grid md:grid-cols-[1fr,100px,180px,140px] md:items-center gap-4 md:gap-6 p-6 md:px-8 md:py-4 hover:bg-gray-50/50 transition-all border-b last:border-b-0 md:border-b-0 border-gray-100">
+                                    <div key={d.id} className="group flex flex-col md:grid md:grid-cols-[2fr,120px,180px,160px] md:items-center gap-4 md:gap-6 p-6 md:px-8 md:py-4 hover:bg-gray-50/50 transition-all border-b last:border-b-0 md:border-b-0 border-gray-100">
                                         {/* Mobile view: Title first */}
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-3 mb-1 md:mb-0">
@@ -379,7 +379,7 @@ export default function SecureProjectPortal({ params }: { params: Promise<{ id: 
                                         </div>
                                         
                                         {/* Status row */}
-                                        <div className="flex items-center justify-between md:justify-start">
+                                        <div className="flex items-center justify-between md:justify-center">
                                             <span className="text-[9px] font-black uppercase text-gray-300 tracking-widest md:hidden">Status</span>
                                             <div className="flex-shrink-0">
                                                 {getStatusBadge(d.approval_status)}
