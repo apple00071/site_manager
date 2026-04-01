@@ -78,7 +78,19 @@ export default function PortalLoginPage() {
       <div className="w-full max-w-md">
         <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
           <div className="px-10 pt-12 pb-8 text-center border-b border-gray-50">
-            <img src="/New-logo.png" alt="Logo" className="h-16 mx-auto mb-6" />
+            <div className="w-20 h-20 bg-white rounded-3xl shadow-lg border border-gray-50 flex items-center justify-center mx-auto mb-6 overflow-hidden">
+                <img 
+                    src="/New-logo.png" 
+                    alt="Logo" 
+                    className="h-16 w-auto object-contain"
+                    loading="eager"
+                    onError={(e) => {
+                        (e.target as HTMLImageElement).style.opacity = '0';
+                        (e.target as HTMLImageElement).parentElement!.classList.add('bg-yellow-500');
+                        (e.target as HTMLImageElement).parentElement!.innerHTML = '<span class="text-white font-black text-2xl">A</span>';
+                    }}
+                />
+            </div>
             <h1 className="text-3xl font-bold text-gray-900 tracking-tight mb-2">Client Portal</h1>
             <p className="text-sm text-gray-400 font-medium uppercase tracking-[0.2em]">Secure Access</p>
           </div>

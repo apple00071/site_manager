@@ -49,8 +49,18 @@ export default function PortalRedirector() {
     if (authLoading || (!error && user)) {
         return (
             <div className="min-h-screen bg-[#fafaf8] flex flex-col items-center justify-center p-6 text-center">
-                <div className="w-16 h-16 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-8 animate-bounce">
-                    <img src="/New-logo.png" alt="Logo" className="w-10 h-10 object-contain" />
+                <div className="w-16 h-16 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-8 animate-bounce overflow-hidden border border-gray-50">
+                    <img 
+                        src="/New-logo.png" 
+                        alt="Apple Interiors" 
+                        className="w-10 h-10 object-contain"
+                        loading="eager"
+                        onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            (e.target as HTMLImageElement).parentElement!.classList.add('bg-yellow-500');
+                            (e.target as HTMLImageElement).parentElement!.innerHTML = '<span class="text-white font-black text-xl">A</span>';
+                        }}
+                    />
                 </div>
                 <h1 className="text-xl font-bold text-gray-900 mb-2 tracking-tight">Accessing Portal</h1>
                 <p className="text-sm text-gray-500 mb-8 max-w-xs mx-auto">We're finding your project dashboard, just a moment...</p>
