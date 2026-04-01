@@ -58,18 +58,6 @@ export default function UsersTab() {
         }));
     };
 
-    const filteredUsers = users.filter((user: User) => {
-        // Filter out clients from the team list
-        const roleName = getRoleDisplay(user).toLowerCase();
-        if (roleName === 'client') return false;
-
-        return (
-            user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (user.designation?.toLowerCase() || '').includes(searchQuery.toLowerCase())
-        );
-    });
-
     const handleDeleteUser = async (userId: string) => {
         if (window.confirm('Are you sure you want to delete this user?')) {
             try {
@@ -95,6 +83,18 @@ export default function UsersTab() {
         if (user.roles) return user.roles.name;
         return user.role || 'No Role';
     };
+
+    const filteredUsers = users.filter((user: User) => {
+        // Filter out clients from the team list
+        const roleName = getRoleDisplay(user).toLowerCase();
+        if (roleName === 'client') return false;
+
+        return (
+            user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (user.designation?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+        );
+    });
 
     const getRoleColor = (user: User) => {
         const roleName = getRoleDisplay(user).toLowerCase();
