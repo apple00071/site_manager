@@ -37,6 +37,7 @@ export default function OneSignalInit() {
         if (!Capacitor.isNativePlatform()) return;
         
         try {
+            console.log("🚀 OneSignalInit: Initializing Native OneSignal");
             if (DEBUG) alert("🚀 Capacitor detected: Initializing Native OneSignal");
             
             // Dynamically import the native plugin to avoid SSR issues
@@ -45,29 +46,39 @@ export default function OneSignalInit() {
             const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || "";
             if (!appId) {
                 console.warn("OneSignalInit: Missing NEXT_PUBLIC_ONESIGNAL_APP_ID in environment.");
+                if (DEBUG) alert("❌ Error: Missing OneSignal App ID");
                 return;
             }
+
+            console.log("📲 OneSignal initializing with ID:", appId);
 
             // V5 Initialization
             OneSignal.initialize(appId);
             
-            // V5 Request Permission
-            OneSignal.Notifications.requestPermission(true).then((success: boolean) => {
-                if (DEBUG) console.log("Notification permission result: " + success);
-            });
+            // V5 Request Permission (Explicitly call this to show the prompt)
+            console.log("📲 Requesting push notification permission...");
+            try {
+                const permissionResult = await OneSignal.Notifications.requestPermission(true);
+                console.log("📲 Notification permission result:", permissionResult);
+                if (DEBUG) alert("Permission Result: " + permissionResult);
+            } catch (permError) {
+                console.error("📲 Permission request failed:", permError);
+            }
             
             // V5 Login with external ID
-            const externalId = `user_${user.id}`;
-            OneSignal.login(externalId);
-            
-            // V5 User Email
-            if (user.email) {
-                OneSignal.User.addEmail(user.email);
+            if (user?.id) {
+                const externalId = `user_${user.id}`;
+                console.log("📲 Logging in to OneSignal with ID:", externalId);
+                OneSignal.login(externalId);
+                
+                if (user.email) {
+                    OneSignal.User.addEmail(user.email);
+                }
             }
             
             // V5 Handle Notification Opening (Deep Links)
             OneSignal.Notifications.addEventListener('click', (event: any) => {
-                if (DEBUG) console.log('Notification clicked:', event);
+                console.log('📲 Notification clicked:', event);
                 const data = event.notification.additionalData;
                 const route = data?.route || data?.url || data?.path || data?.targetUrl;
                 if (route) {
@@ -75,19 +86,27 @@ export default function OneSignalInit() {
                 }
             });
 
-            // V5 Link Device State for API delivery
-            // getDeviceState() is removed in V5, use getOnesignalId() instead
-            const onesignalId = await OneSignal.User.getOnesignalId();
-            if (onesignalId) {
-                await fetch('/api/onesignal/link', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ oneSignalId: onesignalId }),
-                });
-            }
+            // V5 Refresh OneSignal ID link with Supabase
+            // Wait bit for registration
+            setTimeout(async () => {
+                try {
+                    const onesignalId = await OneSignal.User.getOnesignalId();
+                    if (onesignalId) {
+                        console.log('✅ OneSignal ID retrieved:', onesignalId);
+                        await fetch('/api/onesignal/link', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ oneSignalId: onesignalId }),
+                        });
+                    }
+                } catch (idErr) {
+                    console.warn("Could not retrieve onesignalId:", idErr);
+                }
+            }, 5000);
 
         } catch (error) {
-            console.error("Capacitor OneSignal V5 Error:", error);
+            console.error("❌ Capacitor OneSignal V5 Error:", error);
+            if (DEBUG) alert("OneSignal Error: " + JSON.stringify(error));
         }
     }
 
