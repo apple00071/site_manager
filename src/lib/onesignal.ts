@@ -1,8 +1,4 @@
-// OneSignal Push Notification Service
-// Handles sending push notifications via OneSignal REST API
-
-const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID || process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
-const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
+const DEBUG_ENABLED = process.env.NEXT_PUBLIC_DEBUG === 'true' || true;
 
 // Use new API endpoint per OneSignal migration guide
 const ONESIGNAL_API_URL = 'https://api.onesignal.com/notifications';
@@ -13,8 +9,8 @@ interface SendNotificationParams {
     title: string;
     message: string;
     data?: Record<string, unknown>; // Optional custom data
-    url?: string; // Launch URL (Caution: can trigger browser)
-    targetUrl?: string; // Median-specific internal navigation URL
+    url?: string; // Launch URL
+    targetUrl?: string; // App-specific internal navigation URL
 }
 
 /**
@@ -23,9 +19,27 @@ interface SendNotificationParams {
  */
 export async function sendPushNotification(params: SendNotificationParams): Promise<boolean> {
     try {
+        // Fetch credentials dynamically to avoid stale env variables in dev mode
+        const appId = process.env.ONESIGNAL_APP_ID || process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
+        const apiKey = process.env.ONESIGNAL_REST_API_KEY;
+
+        if (DEBUG_ENABLED) {
+            console.log('📲 OneSignal Config Check:', {
+                hasAppId: !!appId,
+                appIdPrefix: appId ? appId.substring(0, 5) + '...' : 'MISSING',
+                hasApiKey: !!apiKey
+            });
+        }
+
         // Skip if OneSignal is not configured
-        if (!ONESIGNAL_APP_ID || !ONESIGNAL_REST_API_KEY) {
-            console.warn('OneSignal not configured. Skipping push notification.');
+        if (!appId || !apiKey) {
+            console.warn('OneSignal not configured (Missing App ID or API Key). Skipping push notification.');
+            return false;
+        }
+        
+        // Defensive check for placeholders
+        if (appId.includes('your-onesignal-app-id')) {
+            console.error('❌ OneSignal Error: App ID is still a placeholder in .env');
             return false;
         }
 
@@ -36,19 +50,16 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
             return false;
         }
 
-        // For Median apps: DO NOT include url/launch_url - they force browser open
-        // Instead, use data payload and handle navigation in the app
         const targetUrl = params.targetUrl || params.url;
         const payload: any = {
-            app_id: ONESIGNAL_APP_ID,
+            app_id: appId,
             headings: { en: params.title },
             contents: { en: params.message },
             data: {
                 ...(params.data || {}),
-                route: targetUrl, // Use 'route' for Median internal navigation
-                url: targetUrl    // Fallback for Median
+                route: targetUrl,
+                url: targetUrl
             },
-            // DO NOT include url or launch_url for Median apps
             target_channel: "push"
         };
 
@@ -77,11 +88,11 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
         // os_v2_app_* or os_v2_org_* keys use Bearer auth
         // Legacy REST API keys use "key" prefix
         let authHeader: string;
-        if (ONESIGNAL_REST_API_KEY.startsWith('os_v2_')) {
-            authHeader = `Bearer ${ONESIGNAL_REST_API_KEY}`;
+        if (apiKey.startsWith('os_v2_')) {
+            authHeader = `Bearer ${apiKey}`;
             console.log('📲 Using V2 API key authentication (Bearer)');
         } else {
-            authHeader = `key ${ONESIGNAL_REST_API_KEY}`;
+            authHeader = `key ${apiKey}`;
             console.log('📲 Using Legacy API key authentication (key)');
         }
 

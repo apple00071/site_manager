@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 
-const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID || process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
-const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
+// OneSignal configuration is now handled dynamically inside the POST function
 
 /**
  * Link OneSignal subscription to user by setting External ID via API
@@ -22,18 +21,23 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'OneSignal ID is required' }, { status: 400 });
         }
 
-        if (!ONESIGNAL_APP_ID || !ONESIGNAL_REST_API_KEY) {
+        // Reactive config lookup
+        const appId = process.env.ONESIGNAL_APP_ID || process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
+        const apiKey = process.env.ONESIGNAL_REST_API_KEY;
+
+        if (!appId || !apiKey) {
+            console.error('OneSignal not configured in link API:', { hasAppId: !!appId, hasApiKey: !!apiKey });
             return NextResponse.json({ error: 'OneSignal not configured' }, { status: 500 });
         }
 
         // Use OneSignal API to add external_id alias to this subscription
         // API docs: https://documentation.onesignal.com/reference/create-aliases
-        const aliasUrl = `https://api.onesignal.com/apps/${ONESIGNAL_APP_ID}/users/by/onesignal_id/${oneSignalId}/identity`;
+        const aliasUrl = `https://api.onesignal.com/apps/${appId}/users/by/onesignal_id/${oneSignalId}/identity`;
 
         // Determine auth header - V2 keys use Bearer, Legacy use "key" prefix
-        const authHeader = ONESIGNAL_REST_API_KEY.startsWith('os_v2_')
-            ? `Bearer ${ONESIGNAL_REST_API_KEY}`
-            : `key ${ONESIGNAL_REST_API_KEY}`;
+        const authHeader = apiKey.startsWith('os_v2_')
+            ? `Bearer ${apiKey}`
+            : `key ${apiKey}`;
 
         const response = await fetch(aliasUrl, {
             method: 'PATCH',

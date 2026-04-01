@@ -87,6 +87,7 @@ export async function GET(request: NextRequest) {
     let query = supabaseAdmin
       .from('users')
       .select('*, roles(id, name)')
+      .neq('role', 'client') // Exclude legacy clients
       .order('created_at', { ascending: false });
 
     // Add role filter if provided

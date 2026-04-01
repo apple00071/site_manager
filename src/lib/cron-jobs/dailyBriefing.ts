@@ -43,8 +43,25 @@ export async function runDailyBriefing() {
         }
     };
 
-    calendarTasks?.forEach((t: any) => t.assigned_to && processTask(t.assigned_to, t.end_at));
-    projectTasks?.forEach((t: any) => t.assigned_to && processTask(t.assigned_to, t.estimated_completion_date));
+    calendarTasks?.forEach((t: any) => {
+        if (t.assigned_to) {
+            if (Array.isArray(t.assigned_to)) {
+                t.assigned_to.forEach((uid: string) => processTask(uid, t.end_at));
+            } else {
+                processTask(t.assigned_to, t.end_at);
+            }
+        }
+    });
+
+    projectTasks?.forEach((t: any) => {
+        if (t.assigned_to) {
+            if (Array.isArray(t.assigned_to)) {
+                t.assigned_to.forEach((uid: string) => processTask(uid, t.estimated_completion_date));
+            } else {
+                processTask(t.assigned_to, t.estimated_completion_date);
+            }
+        }
+    });
 
     // 4. Send Briefings to ALL users with a device token
     const { data: allUsers } = await supabaseAdmin

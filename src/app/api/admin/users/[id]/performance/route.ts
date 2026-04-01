@@ -55,7 +55,7 @@ export async function GET(
         const { data: tasks, error: taskError } = await supabaseAdmin
             .from('project_step_tasks')
             .select('status, estimated_completion_date, updated_at')
-            .eq('assigned_to', targetUserId)
+            .contains('assigned_to', [targetUserId])
             .eq('status', 'done')
             .gte('updated_at', ninetyDaysAgo);
 

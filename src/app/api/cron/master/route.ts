@@ -108,9 +108,14 @@ export async function GET(req: NextRequest) {
         if (manualJob === 'daily-briefing' || (!manualJob && utcHour === 3 && utcMin >= 30)) {
             if (await shouldRunJob('daily-briefing')) {
                 console.log('Running Daily Briefing (9 AM IST)...');
-                results.dailyBriefing = await runDailyBriefing();
-                results.executed.push('dailyBriefing');
-                await markJobCompleted('daily-briefing');
+                try {
+                    results.dailyBriefing = await runDailyBriefing();
+                    results.executed.push('dailyBriefing');
+                    await markJobCompleted('daily-briefing');
+                } catch (dbError: any) {
+                    console.error('❌ Daily Briefing Failed:', dbError);
+                    results.dailyBriefing = { error: dbError.message };
+                }
             } else {
                 console.log('Daily Briefing skipped (already run today)');
             }
@@ -119,11 +124,16 @@ export async function GET(req: NextRequest) {
         // B. Admin Assign Reminder: 10:30 AM IST (5:00 AM UTC)
         if (manualJob === 'admin-assign' || (!manualJob && utcHour === 5 && utcMin < 30)) {
             if (await shouldRunJob('admin-assign')) {
-                const { runAdminAssignReminder } = await import('@/lib/cron-jobs/dailyStatusReminders');
-                console.log('Running Admin Assign Reminder (10:30 AM IST)...');
-                results.adminAssign = await runAdminAssignReminder();
-                results.executed.push('adminAssign');
-                await markJobCompleted('admin-assign');
+                try {
+                    const { runAdminAssignReminder } = await import('@/lib/cron-jobs/dailyStatusReminders');
+                    console.log('Running Admin Assign Reminder (10:30 AM IST)...');
+                    results.adminAssign = await runAdminAssignReminder();
+                    results.executed.push('adminAssign');
+                    await markJobCompleted('admin-assign');
+                } catch (aaError: any) {
+                    console.error('❌ Admin Assign Reminder Failed:', aaError);
+                    results.adminAssign = { error: aaError.message };
+                }
             } else {
                 console.log('Admin Assign Reminder skipped (already run today)');
             }
@@ -132,11 +142,16 @@ export async function GET(req: NextRequest) {
         // F. Attendance Punch-In Reminder: 10:00 AM IST (4:30 AM UTC)
         if (manualJob === 'attendance-in' || (!manualJob && utcHour === 4 && utcMin >= 30)) {
             if (await shouldRunJob('attendance-in')) {
-                const { runPunchInReminder } = await import('@/lib/cron-jobs/attendanceReminders');
-                console.log('Running Punch-In Reminder (10 AM IST)...');
-                results.punchInReminder = await runPunchInReminder();
-                results.executed.push('punchInReminder');
-                await markJobCompleted('attendance-in');
+                try {
+                    const { runPunchInReminder } = await import('@/lib/cron-jobs/attendanceReminders');
+                    console.log('Running Punch-In Reminder (10 AM IST)...');
+                    results.punchInReminder = await runPunchInReminder();
+                    results.executed.push('punchInReminder');
+                    await markJobCompleted('attendance-in');
+                } catch (piError: any) {
+                    console.error('❌ Punch-In Reminder Failed:', piError);
+                    results.punchInReminder = { error: piError.message };
+                }
             } else {
                 console.log('Punch-In Reminder skipped (already run today)');
             }
@@ -145,11 +160,16 @@ export async function GET(req: NextRequest) {
         // C. Member Check-up: 1:00 PM IST (7:30 AM UTC)
         if (manualJob === 'member-checkup' || (!manualJob && utcHour === 7 && utcMin >= 30)) {
             if (await shouldRunJob('member-checkup')) {
-                const { runMemberCheckupReminder } = await import('@/lib/cron-jobs/dailyStatusReminders');
-                console.log('Running Member Check-up (1 PM IST)...');
-                results.memberCheckup = await runMemberCheckupReminder();
-                results.executed.push('memberCheckup');
-                await markJobCompleted('member-checkup');
+                try {
+                    const { runMemberCheckupReminder } = await import('@/lib/cron-jobs/dailyStatusReminders');
+                    console.log('Running Member Check-up (1 PM IST)...');
+                    results.memberCheckup = await runMemberCheckupReminder();
+                    results.executed.push('memberCheckup');
+                    await markJobCompleted('member-checkup');
+                } catch (mcError: any) {
+                    console.error('❌ Member Check-up Failed:', mcError);
+                    results.memberCheckup = { error: mcError.message };
+                }
             } else {
                 console.log('Member Check-up skipped (already run today)');
             }
@@ -159,9 +179,14 @@ export async function GET(req: NextRequest) {
         if (manualJob === 'site-log-reminder' || (!manualJob && utcHour === 11 && utcMin >= 30)) {
             if (await shouldRunJob('site-log-reminder')) {
                 console.log('Running Site Log & DPR Reminder (5 PM IST)...');
-                results.siteLogs = await runSiteLogReminder();
-                results.executed.push('siteLogs');
-                await markJobCompleted('site-log-reminder');
+                try {
+                    results.siteLogs = await runSiteLogReminder();
+                    results.executed.push('siteLogs');
+                    await markJobCompleted('site-log-reminder');
+                } catch (slError: any) {
+                    console.error('❌ Site Log Reminder Failed:', slError);
+                    results.siteLogs = { error: slError.message };
+                }
             } else {
                 console.log('Site Log Reminder skipped (already run today)');
             }
@@ -170,11 +195,16 @@ export async function GET(req: NextRequest) {
         // E. Admin Task Review: 5:30 PM IST (12:00 PM UTC)
         if (manualJob === 'admin-check' || (!manualJob && utcHour === 12 && utcMin < 30)) {
             if (await shouldRunJob('admin-check')) {
-                const { runAdminTaskCheckReminder } = await import('@/lib/cron-jobs/dailyStatusReminders');
-                console.log('Running Admin Review (5:30 PM IST)...');
-                results.adminCheck = await runAdminTaskCheckReminder();
-                results.executed.push('adminCheck');
-                await markJobCompleted('admin-check');
+                try {
+                    const { runAdminTaskCheckReminder } = await import('@/lib/cron-jobs/dailyStatusReminders');
+                    console.log('Running Admin Review (5:30 PM IST)...');
+                    results.adminCheck = await runAdminTaskCheckReminder();
+                    results.executed.push('adminCheck');
+                    await markJobCompleted('admin-check');
+                } catch (atxError: any) {
+                    console.error('❌ Admin Review Failed:', atxError);
+                    results.adminCheck = { error: atxError.message };
+                }
             } else {
                 console.log('Admin Review skipped (already run today)');
             }
@@ -183,11 +213,16 @@ export async function GET(req: NextRequest) {
         // G. Attendance Punch-Out Reminder: 6:00 PM IST (12:30 PM UTC)
         if (manualJob === 'attendance-out' || (!manualJob && utcHour === 12 && utcMin >= 30)) {
             if (await shouldRunJob('attendance-out')) {
-                const { runPunchOutReminder } = await import('@/lib/cron-jobs/attendanceReminders');
-                console.log('Running Punch-Out Reminder (6 PM IST)...');
-                results.punchOutReminder = await runPunchOutReminder();
-                results.executed.push('punchOutReminder');
-                await markJobCompleted('attendance-out');
+                try {
+                    const { runPunchOutReminder } = await import('@/lib/cron-jobs/attendanceReminders');
+                    console.log('Running Punch-Out Reminder (6 PM IST)...');
+                    results.punchOutReminder = await runPunchOutReminder();
+                    results.executed.push('punchOutReminder');
+                    await markJobCompleted('attendance-out');
+                } catch (poError: any) {
+                    console.error('❌ Punch-Out Reminder Failed:', poError);
+                    results.punchOutReminder = { error: poError.message };
+                }
             } else {
                 console.log('Punch-Out Reminder skipped (already run today)');
             }

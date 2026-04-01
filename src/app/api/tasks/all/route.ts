@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
               full_name
             )
           `)
-          .or(`step_id.in.(${stepIds.join(',')}),assigned_to.eq.${userId},created_by.eq.${userId}`)
+          .or(`step_id.in.(${stepIds.join(',')}),assigned_to.cs.{"${userId}"},created_by.eq.${userId}`)
           .order('created_at', { ascending: false });
       } else {
         // No accessible steps, but still fetch tasks assigned to or created by the user
@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
               full_name
             )
           `)
-          .or(`assigned_to.eq.${userId},created_by.eq.${userId}`)
+          .or(`assigned_to.cs.{"${userId}"},created_by.eq.${userId}`)
           .order('created_at', { ascending: false });
       }
     }
