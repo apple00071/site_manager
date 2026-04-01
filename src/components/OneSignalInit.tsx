@@ -14,7 +14,7 @@ declare global {
     }
 }
 
-const DEBUG = false; // Set to false after debugging
+const DEBUG = true; // Set to true after debugging
 
 export default function OneSignalInit() {
     const mounted = useRef(false);
