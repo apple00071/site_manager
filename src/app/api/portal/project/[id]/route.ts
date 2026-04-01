@@ -63,6 +63,7 @@ export async function GET(
             .from('design_files')
             .select(`
                 *,
+                uploaded_by_user:users!design_files_uploaded_by_fkey(id, full_name, email),
                 comments:design_comments(
                     id,
                     comment,

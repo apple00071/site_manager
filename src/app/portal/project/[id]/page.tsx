@@ -362,7 +362,7 @@ export default function SecureProjectPortal({ params }: { params: Promise<{ id: 
                                 <thead>
                                     <tr className="bg-gray-50/50 border-b border-gray-100">
                                         <th className="px-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Asset Name</th>
-                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Uploaded</th>
+                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Uploaded By</th>
                                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-center text-gray-400">Version</th>
                                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-center text-gray-400">Status</th>
                                         <th className="px-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-right text-gray-400">Actions</th>
@@ -381,8 +381,8 @@ export default function SecureProjectPortal({ params }: { params: Promise<{ id: 
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-5 text-xs font-semibold text-gray-400">
-                                                {formatDate(d.created_at)}
+                                            <td className="px-6 py-5 text-[11px] font-bold text-gray-500 uppercase tracking-tight">
+                                                {d.uploaded_by_user?.full_name || 'Team member'}
                                             </td>
                                             <td className="px-6 py-5 text-center">
                                                 <span className="text-[10px] font-black text-gray-400 bg-gray-50 px-2 py-1 rounded">V{d.version_number}</span>
@@ -414,8 +414,8 @@ export default function SecureProjectPortal({ params }: { params: Promise<{ id: 
                                         <div className="min-w-0">
                                             <h4 className="text-sm font-bold text-gray-800 line-clamp-2 leading-snug mb-1">{d.file_name}</h4>
                                             <div className="flex items-center gap-2 text-[10px] font-bold text-gray-300 uppercase tracking-widest">
-                                                <FiClock size={10}/>
-                                                {formatDate(d.created_at)}
+                                                <FiUser size={10}/>
+                                                {d.uploaded_by_user?.full_name || 'Team member'}
                                             </div>
                                         </div>
                                     </div>
