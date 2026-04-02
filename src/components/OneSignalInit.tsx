@@ -14,7 +14,7 @@ declare global {
     }
 }
 
-const DEBUG = false; // Set to false after debugging
+const DEBUG = true; // TEMP: Enable to debug push notification registration on devices
 
 export default function OneSignalInit() {
     const mounted = useRef(false);
@@ -40,8 +40,35 @@ export default function OneSignalInit() {
             console.log("🚀 OneSignalInit: Initializing Native OneSignal");
             if (DEBUG) alert("🚀 Capacitor detected: Initializing Native OneSignal");
             
-            // Dynamically import the native plugin to avoid SSR issues
-            const OneSignal: any = (await import('onesignal-cordova-plugin')).default;
+            // Try multiple ways to access the OneSignal native plugin
+            let OneSignal: any = null;
+            
+            // Method 1: Dynamic import (works when bundled with the app)
+            try {
+                OneSignal = (await import('onesignal-cordova-plugin')).default;
+                if (DEBUG) alert("✅ OneSignal loaded via dynamic import");
+            } catch (importErr) {
+                console.warn("OneSignal dynamic import failed, trying window fallbacks...", importErr);
+                if (DEBUG) alert("⚠️ Dynamic import failed: " + String(importErr));
+            }
+            
+            // Method 2: Cordova global (when plugin is loaded via native bridge)
+            if (!OneSignal && (window as any).plugins?.OneSignal) {
+                OneSignal = (window as any).plugins.OneSignal;
+                if (DEBUG) alert("✅ OneSignal loaded via window.plugins.OneSignal");
+            }
+            
+            // Method 3: Direct global (some versions expose it directly)
+            if (!OneSignal && (window as any).OneSignalCordovaPlugin) {
+                OneSignal = (window as any).OneSignalCordovaPlugin;
+                if (DEBUG) alert("✅ OneSignal loaded via window.OneSignalCordovaPlugin");
+            }
+
+            if (!OneSignal) {
+                console.error("❌ OneSignal plugin not available via any method");
+                if (DEBUG) alert("❌ OneSignal plugin not available. Push notifications will NOT work.");
+                return;
+            }
             
             const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
             
