@@ -55,7 +55,6 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
             android_visibility: 1,                 // Show on lock screen (1 = Public)
             android_led_color: "FF4F46E5",         // LED color (indigo, matches theme)
             android_sound: "default",              // Play default notification sound
-            android_channel_id: "high_importance_alerts", // Channel name for high importance
             android_group_alert_behavior: 1,       // Alert once for group
             ttl: 259200,                           // 3 days TTL
         };
