@@ -14,7 +14,7 @@ declare global {
     }
 }
 
-const DEBUG = true; // TEMP: Enable to debug push notification registration on devices
+const DEBUG = false; // Root cause found: missing NEXT_PUBLIC_ONESIGNAL_APP_ID in production
 
 export default function OneSignalInit() {
     const mounted = useRef(false);
@@ -70,7 +70,8 @@ export default function OneSignalInit() {
                 return;
             }
             
-            const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
+            // Fallback: env var may not be set in production Vercel build
+            const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || 'd800d582-08b8-431c-bb19-59a08f7f5379';
             
             if (!appId) {
                 console.warn("OneSignalInit: Missing NEXT_PUBLIC_ONESIGNAL_APP_ID in environment.");
