@@ -49,7 +49,12 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
                 url: targetUrl
             },
             target_channel: "push",
-            android_accent_color: "FFFFFF"
+            android_accent_color: "FFFFFF",
+            // Wake up device and show prominently
+            priority: 10,                          // High priority — wakes device
+            android_visibility: 1,                 // Show on lock screen
+            android_led_color: "FF4F46E5",         // LED color (indigo, matches theme)
+            android_sound: "default",              // Play default notification sound
         };
 
         // AUTHENTICATION HEADER
