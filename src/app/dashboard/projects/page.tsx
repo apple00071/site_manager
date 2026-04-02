@@ -244,26 +244,28 @@ export default function ProjectsPage() {
       {/* Tab Navigation Bar - with search & add on desktop */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
         <div className="flex items-center justify-between px-2">
-          {/* Tabs */}
-          <div className="flex overflow-x-auto no-scrollbar scroll-smooth">
-            {statusTabs.map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-3 sm:px-4 py-3.5 text-xs sm:text-sm font-medium whitespace-nowrap border-b-2 transition-all duration-200 ${activeTab === tab.key
-                  ? 'border-yellow-500 text-yellow-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-200'
-                  }`}
-              >
-                <span>{tab.label}</span>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold leading-tight transition-colors ${activeTab === tab.key
-                  ? 'bg-yellow-100 text-yellow-700'
-                  : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200'
-                  }`}>
-                  {tab.count}
-                </span>
-              </button>
-            ))}
+          {/* Tabs - Added flex-1 and min-w-0 for proper flex behavior */}
+          <div className="flex flex-1 min-w-0 overflow-x-auto no-scrollbar scroll-smooth">
+            <div className="flex flex-nowrap">
+              {statusTabs.map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex items-center gap-2 px-4 py-3.5 text-xs sm:text-sm font-medium whitespace-nowrap border-b-2 transition-all duration-200 flex-shrink-0 ${activeTab === tab.key
+                    ? 'border-yellow-500 text-yellow-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-200'
+                    }`}
+                >
+                  <span>{tab.label}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold leading-tight transition-colors ${activeTab === tab.key
+                    ? 'bg-yellow-100 text-yellow-700'
+                    : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200'
+                    }`}>
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Desktop Only: Search and Add in tab bar */}
