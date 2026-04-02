@@ -111,7 +111,21 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
             return false;
         }
 
-        console.log('✅ OneSignal Push Sent Successfully:', result);
+        // OneSignal returns 200 even when it can't deliver to some/all users.
+        // Check for invalid_aliases which means the user's device is NOT registered.
+        if (result.errors?.invalid_aliases) {
+            console.warn('⚠️ OneSignal: Some targets have NO linked device (invalid_aliases):', 
+                JSON.stringify(result.errors.invalid_aliases));
+            console.warn('⚠️ These users need to re-open the app so their device registers with OneSignal.');
+        }
+
+        const recipients = result.recipients || 0;
+        if (recipients === 0) {
+            console.warn('⚠️ OneSignal accepted the request but delivered to 0 devices. User(s) may not have push enabled or registered.');
+        } else {
+            console.log(`✅ OneSignal Push Sent Successfully to ${recipients} device(s):`, result.id);
+        }
+
         return true;
     } catch (error) {
         console.error('❌ Exception in sendPushNotification:', error);

@@ -90,10 +90,15 @@ export default function OneSignalInit() {
             if (user?.id) {
                 const externalId = `user_${user.id}`;
                 console.log("📲 Logging in to OneSignal with ID:", externalId);
-                OneSignal.login(externalId);
+                try {
+                    await OneSignal.login(externalId);
+                    console.log("✅ OneSignal login completed for:", externalId);
+                } catch (loginErr) {
+                    console.error("❌ OneSignal login failed:", loginErr);
+                }
                 
                 if (user.email) {
-                    OneSignal.User.addEmail(user.email);
+                    try { OneSignal.User.addEmail(user.email); } catch (e) {}
                 }
             }
             
@@ -108,20 +113,37 @@ export default function OneSignalInit() {
             });
 
             // V5 Refresh OneSignal ID link with Supabase
-            // Wait bit for registration
-            setTimeout(async () => {
+            // Retry multiple times because the SDK may take a while to register
+            const linkOneSignalId = async (attempt: number) => {
                 try {
                     const onesignalId = await OneSignal.User.getOnesignalId();
                     if (onesignalId) {
-                        console.log('✅ OneSignal ID retrieved:', onesignalId);
+                        console.log(`✅ OneSignal ID retrieved (attempt ${attempt}):`, onesignalId);
                         await fetch('/api/onesignal/link', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ oneSignalId: onesignalId }),
                         });
+                        return true;
                     }
+                    console.warn(`⚠️ OneSignal ID not available yet (attempt ${attempt})`);
+                    return false;
                 } catch (idErr) {
-                    console.warn("Could not retrieve onesignalId:", idErr);
+                    console.warn(`Could not retrieve onesignalId (attempt ${attempt}):`, idErr);
+                    return false;
+                }
+            };
+
+            // Try at 5s, then retry at 15s and 30s if still not linked
+            setTimeout(async () => {
+                const success = await linkOneSignalId(1);
+                if (!success) {
+                    setTimeout(async () => {
+                        const success2 = await linkOneSignalId(2);
+                        if (!success2) {
+                            setTimeout(() => linkOneSignalId(3), 15000);
+                        }
+                    }, 10000);
                 }
             }, 5000);
 
