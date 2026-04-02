@@ -18,6 +18,8 @@ const DEBUG = false; // Set to false after debugging
 
 export default function OneSignalInit() {
     const mounted = useRef(false);
+    const clickListenerAttached = useRef(false);
+    const pushObserverAttached = useRef(false);
     const router = useRouter();
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -79,32 +81,61 @@ export default function OneSignalInit() {
             }
             
             // V5 Handle Notification Opening (Deep Links)
-            OneSignal.Notifications.addEventListener('click', (event: any) => {
-                console.log('📲 Notification clicked:', event);
-                const data = event.notification.additionalData;
-                const route = data?.route || data?.url || data?.path || data?.targetUrl;
-                if (route) {
-                    router.push(route);
-                }
-            });
+            if (!clickListenerAttached.current) {
+                clickListenerAttached.current = true;
+                OneSignal.Notifications.addEventListener('click', (event: any) => {
+                    console.log('📲 Notification clicked:', event);
+                    const data = event.notification.additionalData;
+                    const route = data?.route || data?.url || data?.path || data?.targetUrl;
+                    if (route) {
+                        router.push(route);
+                    }
+                });
+            }
 
-            // V5 Refresh OneSignal ID link with Supabase
-            // Wait bit for registration
-            setTimeout(async () => {
+            const syncOneSignalState = async () => {
                 try {
-                    const onesignalId = await OneSignal.User.getOnesignalId();
-                    if (onesignalId) {
-                        console.log('✅ OneSignal ID retrieved:', onesignalId);
+                    const subscriptionId = await OneSignal.User.pushSubscription.getIdAsync();
+                    const optedIn = await OneSignal.User.pushSubscription.getOptedInAsync();
+                    const oneSignalId = await OneSignal.User.getOnesignalId();
+
+                    console.log('📲 OneSignal state:', {
+                        subscriptionId,
+                        optedIn,
+                        oneSignalId,
+                    });
+
+                    if (subscriptionId) {
+                        await fetch('/api/onesignal/subscribe', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ playerId: subscriptionId }),
+                        });
+                    }
+
+                    if (oneSignalId) {
                         await fetch('/api/onesignal/link', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ oneSignalId: onesignalId }),
+                            body: JSON.stringify({ oneSignalId }),
                         });
                     }
-                } catch (idErr) {
-                    console.warn("Could not retrieve onesignalId:", idErr);
+                } catch (syncError) {
+                    console.warn("Could not sync OneSignal state:", syncError);
                 }
-            }, 5000);
+            };
+
+            if (!pushObserverAttached.current) {
+                pushObserverAttached.current = true;
+                OneSignal.User.pushSubscription.addEventListener('change', () => {
+                    void syncOneSignalState();
+                });
+            }
+
+            // Give the SDK a moment to finish registration, then sync identifiers.
+            setTimeout(() => {
+                void syncOneSignalState();
+            }, 3000);
 
         } catch (error) {
             console.error("❌ Capacitor OneSignal V5 Error:", error);
