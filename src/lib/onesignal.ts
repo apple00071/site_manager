@@ -108,14 +108,25 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
         // STRATEGY: Try external_id first, fallback to subscription_id.
         // OneSignal does NOT support both in the same request.
 
+        const sendRequest = async (targetType: 'external_id' | 'subscription_id', targetIds: string[]) => {
+            // Deduplicate and clean IDs
+            const cleanIds = Array.from(new Set(targetIds.filter(id => id && typeof id === 'string' && id.trim().length > 0)));
+            if (cleanIds.length === 0) return { success: false, recipients: 0 };
+
+            const payload = {
+                ...basePayload,
+                ...(targetType === 'external_id' 
+                    ? { include_aliases: { external_id: cleanIds } } 
+                    : { include_subscription_ids: cleanIds }
+                )
+            };
+            return await fireRequest(payload, targetType);
+        };
+
         // Attempt 1: External User ID (modern V5 alias)
         if (params.externalUserIds && params.externalUserIds.length > 0) {
             console.log('🎯 Attempt 1: Targeting via external_id:', params.externalUserIds);
-            const aliasPayload = {
-                ...basePayload,
-                include_aliases: { external_id: params.externalUserIds },
-            };
-            const result = await fireRequest(aliasPayload, 'external_id');
+            const result = await sendRequest('external_id', params.externalUserIds);
             if (result.recipients > 0) {
                 return true; // Delivered successfully, no need to try subscription_id
             }
@@ -125,11 +136,7 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
         // Attempt 2: Subscription ID (classic player ID)
         if (params.userIds && params.userIds.length > 0) {
             console.log('🎯 Attempt 2: Targeting via subscription_id:', params.userIds);
-            const subPayload = {
-                ...basePayload,
-                include_subscription_ids: params.userIds,
-            };
-            const result = await fireRequest(subPayload, 'subscription_id');
+            const result = await sendRequest('subscription_id', params.userIds);
             if (result.recipients > 0) {
                 return true;
             }

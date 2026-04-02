@@ -14,8 +14,6 @@ declare global {
     }
 }
 
-const DEBUG = false; // Root cause found: missing NEXT_PUBLIC_ONESIGNAL_APP_ID in production
-
 export default function OneSignalInit() {
     const mounted = useRef(false);
     const router = useRouter();
@@ -30,154 +28,88 @@ export default function OneSignalInit() {
 
     const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
 
-    // ==========================================
-    // CAPACITOR NATIVE ONESIGNAL IMPLEMENTATION
-    // ==========================================
+    const DEBUG_ALERTS = false; // Set to true to show alerts on the phone for debugging
+
     async function initCapacitorOneSignal(user: any) {
         if (!Capacitor.isNativePlatform()) return;
         
         try {
             console.log("🚀 OneSignalInit: Initializing Native OneSignal");
-            if (DEBUG) alert("🚀 Capacitor detected: Initializing Native OneSignal");
+            if (DEBUG_ALERTS) alert("🚀 Initializing OneSignal...");
             
-            // Try multiple ways to access the OneSignal native plugin
-            let OneSignal: any = null;
+            // Access the OneSignal native plugin (Cordova plugin via global)
+            const OneSignal = (window as any).plugins?.OneSignal || (window as any).OneSignalCordovaPlugin;
             
-            // Method 1: Dynamic import (works when bundled with the app)
-            try {
-                OneSignal = (await import('onesignal-cordova-plugin')).default;
-                if (DEBUG) alert("✅ OneSignal loaded via dynamic import");
-            } catch (importErr) {
-                console.warn("OneSignal dynamic import failed, trying window fallbacks...", importErr);
-                if (DEBUG) alert("⚠️ Dynamic import failed: " + String(importErr));
-            }
-            
-            // Method 2: Cordova global (when plugin is loaded via native bridge)
-            if (!OneSignal && (window as any).plugins?.OneSignal) {
-                OneSignal = (window as any).plugins.OneSignal;
-                if (DEBUG) alert("✅ OneSignal loaded via window.plugins.OneSignal");
-            }
-            
-            // Method 3: Direct global (some versions expose it directly)
-            if (!OneSignal && (window as any).OneSignalCordovaPlugin) {
-                OneSignal = (window as any).OneSignalCordovaPlugin;
-                if (DEBUG) alert("✅ OneSignal loaded via window.OneSignalCordovaPlugin");
-            }
-
             if (!OneSignal) {
-                console.error("❌ OneSignal plugin not available via any method");
-                if (DEBUG) alert("❌ OneSignal plugin not available. Push notifications will NOT work.");
+                console.error("❌ OneSignal plugin not available on window.plugins or window");
+                if (DEBUG_ALERTS) alert("❌ Error: OneSignal Plugin Missing");
                 return;
             }
             
-            // Fallback: env var may not be set in production Vercel build
             const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || 'd800d582-08b8-431c-bb19-59a08f7f5379';
-            
-            if (!appId) {
-                console.warn("OneSignalInit: Missing NEXT_PUBLIC_ONESIGNAL_APP_ID in environment.");
-                if (DEBUG) alert("❌ Error: Missing OneSignal App ID");
-                return;
-            }
+            console.log("📲 OneSignal App ID:", appId);
 
-            console.log("📲 OneSignal initializing with ID:", appId);
-            if (DEBUG) alert("📲 OneSignal ID: " + appId);
-
-            // V5 Initialization
+            // 1. Initialize
             OneSignal.initialize(appId);
             
-            // V5 Request Permission (Explicitly call this to show the prompt)
-            console.log("📲 Requesting push notification permission...");
-            try {
-                const permissionResult = await OneSignal.Notifications.requestPermission(true);
-                console.log("📲 Notification permission result:", permissionResult);
-                if (DEBUG) alert("Permission Result: " + permissionResult);
-                
-                // If permission is false, the OS might be blocking the prompt because it was previously denied.
-                // We prompt the user with a standard web confirm dialog advising how to fix it.
-                if (!permissionResult) {
-                     const hasPrompted = localStorage.getItem('push_permission_prompted');
-                     // Only prompt them once so it doesn't get annoying on every app launch
-                     if (!hasPrompted) {
-                         setTimeout(() => {
-                             alert(
-                                 "Notifications are currently disabled.\n\n" +
-                                 "To receive important project updates, please go to your device Settings -> Apps -> Apple Interior -> Permissions and allow Notifications."
-                             );
-                             localStorage.setItem('push_permission_prompted', 'true');
-                         }, 1000);
-                     }
-                } else {
-                     // If they granted it after previously rejecting (maybe via settings), reset the flag
-                     localStorage.removeItem('push_permission_prompted');
-                }
-            } catch (permError) {
-                console.error("📲 Permission request failed:", permError);
-            }
-            
-            // V5 Login with external ID
+            // 2. Clear badge
+            try { OneSignal.Notifications.clearAll(); } catch (e) {}
+
+            // 3. User Login & Linking
             if (user?.id) {
                 const externalId = `user_${user.id}`;
-                console.log("📲 Logging in to OneSignal with ID:", externalId);
+                console.log("📲 Attempting OneSignal Login:", externalId);
+                
+                // Use a promise-based delay to ensure SDK is ready
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
                 try {
                     await OneSignal.login(externalId);
-                    console.log("✅ OneSignal login completed for:", externalId);
+                    console.log("✅ OneSignal login result success");
+                    if (DEBUG_ALERTS) alert(`✅ Logged in as: ${externalId}`);
                 } catch (loginErr) {
-                    console.error("❌ OneSignal login failed:", loginErr);
+                    console.error("❌ OneSignal login error:", loginErr);
                 }
-                
-                if (user.email) {
-                    try { OneSignal.User.addEmail(user.email); } catch (e) {}
+
+                // 4. Force Retrieval and Linking of OneSignal ID
+                const syncSubscription = async (attempt: number) => {
+                    try {
+                        const onesignalId = await OneSignal.User.getOnesignalId();
+                        if (onesignalId) {
+                            console.log(`✅ OneSignal ID sync (attempt ${attempt}):`, onesignalId);
+                            if (DEBUG_ALERTS) alert(`✅ ID Synced: ${onesignalId}`);
+                            
+                            await fetch('/api/onesignal/link', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ oneSignalId: onesignalId }),
+                            });
+                            return true;
+                        }
+                        return false;
+                    } catch (e) {
+                        return false;
+                    }
+                };
+
+                // Retry logic for obtaining the OneSignal ID
+                for (let i = 1; i <= 3; i++) {
+                    const success = await syncSubscription(i);
+                    if (success) break;
+                    await new Promise(r => setTimeout(r, 7000 * i));
                 }
             }
             
-            // V5 Handle Notification Opening (Deep Links)
+            // 5. Handle Clicks
             OneSignal.Notifications.addEventListener('click', (event: any) => {
-                console.log('📲 Notification clicked:', event);
                 const data = event.notification.additionalData;
-                const route = data?.route || data?.url || data?.path || data?.targetUrl;
-                if (route) {
-                    router.push(route);
-                }
+                const route = data?.route || data?.url;
+                if (route) router.push(route);
             });
-
-            // V5 Refresh OneSignal ID link with Supabase
-            // Retry multiple times because the SDK may take a while to register
-            const linkOneSignalId = async (attempt: number) => {
-                try {
-                    const onesignalId = await OneSignal.User.getOnesignalId();
-                    if (onesignalId) {
-                        console.log(`✅ OneSignal ID retrieved (attempt ${attempt}):`, onesignalId);
-                        await fetch('/api/onesignal/link', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ oneSignalId: onesignalId }),
-                        });
-                        return true;
-                    }
-                    console.warn(`⚠️ OneSignal ID not available yet (attempt ${attempt})`);
-                    return false;
-                } catch (idErr) {
-                    console.warn(`Could not retrieve onesignalId (attempt ${attempt}):`, idErr);
-                    return false;
-                }
-            };
-
-            // Try at 5s, then retry at 15s and 30s if still not linked
-            setTimeout(async () => {
-                const success = await linkOneSignalId(1);
-                if (!success) {
-                    setTimeout(async () => {
-                        const success2 = await linkOneSignalId(2);
-                        if (!success2) {
-                            setTimeout(() => linkOneSignalId(3), 15000);
-                        }
-                    }, 10000);
-                }
-            }, 5000);
 
         } catch (error) {
             console.error("❌ Capacitor OneSignal V5 Error:", error);
-            if (DEBUG) alert("OneSignal Error: " + JSON.stringify(error));
+            if (DEBUG_ALERTS) alert("Fatal Error: " + JSON.stringify(error));
         }
     }
 
