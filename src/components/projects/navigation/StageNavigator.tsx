@@ -249,10 +249,20 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
                         {/* 1. Floating Action Button (Mobile Only) */}
                         <div className="fixed bottom-6 right-6 z-40 md:hidden">
                             <button
-                                onClick={() => setMobileMenuOpen(true)}
+                                onClick={() => {
+                                    if (actions.length === 1) {
+                                        actions[0].onClick();
+                                    } else {
+                                        setMobileMenuOpen(true);
+                                    }
+                                }}
                                 className="w-14 h-14 bg-yellow-400 text-yellow-900 rounded-full shadow-lg flex items-center justify-center hover:bg-yellow-500 active:scale-95 transition-all duration-200"
                             >
-                                <FiPlus className="w-6 h-6" />
+                                {actions.length === 1 && actions[0].icon ? (
+                                    <span className="text-2xl">{actions[0].icon}</span>
+                                ) : (
+                                    <FiPlus className="w-6 h-6" />
+                                )}
                             </button>
                         </div>
 

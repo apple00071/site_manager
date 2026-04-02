@@ -343,7 +343,7 @@ export default function ProjectDetailsPage() {
       ];
     }
     if (activeStage === 'finance') {
-      if (activeSubTab === 'inventory' && hasPermission('inventory.add')) {
+      if (activeSubTab === 'expenses' && hasPermission('inventory.add')) {
         return [
           {
             label: 'Add Expense',
