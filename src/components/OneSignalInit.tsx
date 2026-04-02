@@ -63,6 +63,25 @@ export default function OneSignalInit() {
                 const permissionResult = await OneSignal.Notifications.requestPermission(true);
                 console.log("📲 Notification permission result:", permissionResult);
                 if (DEBUG) alert("Permission Result: " + permissionResult);
+                
+                // If permission is false, the OS might be blocking the prompt because it was previously denied.
+                // We prompt the user with a standard web confirm dialog advising how to fix it.
+                if (!permissionResult) {
+                     const hasPrompted = localStorage.getItem('push_permission_prompted');
+                     // Only prompt them once so it doesn't get annoying on every app launch
+                     if (!hasPrompted) {
+                         setTimeout(() => {
+                             alert(
+                                 "Notifications are currently disabled.\n\n" +
+                                 "To receive important project updates, please go to your device Settings -> Apps -> Apple Interior -> Permissions and allow Notifications."
+                             );
+                             localStorage.setItem('push_permission_prompted', 'true');
+                         }, 1000);
+                     }
+                } else {
+                     // If they granted it after previously rejecting (maybe via settings), reset the flag
+                     localStorage.removeItem('push_permission_prompted');
+                }
             } catch (permError) {
                 console.error("📲 Permission request failed:", permError);
             }
