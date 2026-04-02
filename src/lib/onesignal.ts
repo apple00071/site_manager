@@ -39,7 +39,7 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
         }
 
         const targetUrl = params.targetUrl || params.url;
-        const payload: any = {
+        const basePayload: any = {
             app_id: appId,
             headings: { en: params.title },
             contents: { en: params.message },
@@ -49,84 +49,92 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
                 url: targetUrl
             },
             target_channel: "push",
-            // Branding Icons - Disabled as files are missing in android/app/src/main/res/drawable
-            // small_icon: "ic_stat_onesignal_default",
-            // large_icon: "ic_onesignal_large_icon_default",
-            android_accent_color: "FFFFFF" // White accent for the small icon
+            android_accent_color: "FFFFFF"
         };
 
-        // TARGETING LOGIC
-        // We can include both aliases and specific subscription IDs for maximum reach
-        let hasTargeting = false;
-
-        // External User IDs (Mapped via login('user_' + id))
-        if (params.externalUserIds && params.externalUserIds.length > 0) {
-            payload.include_aliases = {
-                external_id: params.externalUserIds
-            };
-            console.log('🎯 Targeting via external_id:', params.externalUserIds);
-            hasTargeting = true;
-        } 
-
-        // Subscription IDs (Classic Player IDs / Device Tokens)
-        if (params.userIds && params.userIds.length > 0) {
-            payload.include_subscription_ids = params.userIds;
-            console.log('🎯 Targeting via subscription_ids:', params.userIds);
-            hasTargeting = true;
-        } 
-
-        if (!hasTargeting) {
-            console.warn('⚠️ No targeting provided. Skipping push notification.');
-            return false;
-        }
-
         // AUTHENTICATION HEADER
-        // os_v2_app_* or os_v2_org_* keys use Bearer auth
-        // Legacy REST API keys use Basic auth
         const authHeader = apiKey.startsWith('os_v2_')
             ? `Bearer ${apiKey}`
             : `Basic ${apiKey}`;
 
-        if (DEBUG_ENABLED) {
-            console.log('📲 OneSignal Payload:', JSON.stringify(payload, null, 2));
-        }
+        // Helper to fire a single OneSignal request
+        const fireRequest = async (payload: any, label: string): Promise<{ success: boolean; recipients: number }> => {
+            if (DEBUG_ENABLED) {
+                console.log(`📲 OneSignal Payload (${label}):`, JSON.stringify(payload, null, 2));
+            }
 
-        const response = await fetch(ONESIGNAL_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': authHeader,
-            },
-            body: JSON.stringify(payload),
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            console.error('❌ OneSignal API Error:', {
-                status: response.status,
-                statusText: response.statusText,
-                data: result
+            const response = await fetch(ONESIGNAL_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': authHeader,
+                },
+                body: JSON.stringify(payload),
             });
-            return false;
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error(`❌ OneSignal API Error (${label}):`, {
+                    status: response.status,
+                    statusText: response.statusText,
+                    data: result
+                });
+                return { success: false, recipients: 0 };
+            }
+
+            if (result.errors?.invalid_aliases) {
+                console.warn(`⚠️ OneSignal (${label}): invalid_aliases — device not registered:`,
+                    JSON.stringify(result.errors.invalid_aliases));
+            }
+
+            const recipients = result.recipients || 0;
+            if (recipients > 0) {
+                console.log(`✅ OneSignal Push Sent (${label}) to ${recipients} device(s):`, result.id);
+            } else {
+                console.warn(`⚠️ OneSignal (${label}): 0 recipients.`);
+            }
+
+            return { success: true, recipients };
+        };
+
+        // STRATEGY: Try external_id first, fallback to subscription_id.
+        // OneSignal does NOT support both in the same request.
+
+        // Attempt 1: External User ID (modern V5 alias)
+        if (params.externalUserIds && params.externalUserIds.length > 0) {
+            console.log('🎯 Attempt 1: Targeting via external_id:', params.externalUserIds);
+            const aliasPayload = {
+                ...basePayload,
+                include_aliases: { external_id: params.externalUserIds },
+            };
+            const result = await fireRequest(aliasPayload, 'external_id');
+            if (result.recipients > 0) {
+                return true; // Delivered successfully, no need to try subscription_id
+            }
+            console.warn('⚠️ external_id delivery failed, trying subscription_id fallback...');
         }
 
-        // OneSignal returns 200 even when it can't deliver to some/all users.
-        // Check for invalid_aliases which means the user's device is NOT registered.
-        if (result.errors?.invalid_aliases) {
-            console.warn('⚠️ OneSignal: Some targets have NO linked device (invalid_aliases):', 
-                JSON.stringify(result.errors.invalid_aliases));
-            console.warn('⚠️ These users need to re-open the app so their device registers with OneSignal.');
+        // Attempt 2: Subscription ID (classic player ID)
+        if (params.userIds && params.userIds.length > 0) {
+            console.log('🎯 Attempt 2: Targeting via subscription_id:', params.userIds);
+            const subPayload = {
+                ...basePayload,
+                include_subscription_ids: params.userIds,
+            };
+            const result = await fireRequest(subPayload, 'subscription_id');
+            if (result.recipients > 0) {
+                return true;
+            }
         }
 
-        const recipients = result.recipients || 0;
-        if (recipients === 0) {
-            console.warn('⚠️ OneSignal accepted the request but delivered to 0 devices. User(s) may not have push enabled or registered.');
+        // If we get here, neither method delivered
+        if (!params.externalUserIds?.length && !params.userIds?.length) {
+            console.warn('⚠️ No targeting provided. Skipping push notification.');
         } else {
-            console.log(`✅ OneSignal Push Sent Successfully to ${recipients} device(s):`, result.id);
+            console.warn('⚠️ Push notification could not be delivered via any method. User may need to re-open the app.');
         }
-
-        return true;
+        return false;
     } catch (error) {
         console.error('❌ Exception in sendPushNotification:', error);
         return false;
