@@ -15,38 +15,26 @@ interface SendNotificationParams {
 
 /**
  * Send push notification to specific users via OneSignal
- * Supports both Player IDs and External User IDs (database user IDs)
+ * Supports both Player IDs (Subscription IDs) and External User IDs
  */
 export async function sendPushNotification(params: SendNotificationParams): Promise<boolean> {
     try {
-        // Fetch credentials dynamically to avoid stale env variables in dev mode
         const appId = process.env.ONESIGNAL_APP_ID || process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
         const apiKey = process.env.ONESIGNAL_REST_API_KEY;
 
         if (DEBUG_ENABLED) {
-            console.log('📲 OneSignal Config Check:', {
+            console.log('📲 OneSignal Debug Start:', {
                 hasAppId: !!appId,
-                appIdPrefix: appId ? appId.substring(0, 5) + '...' : 'MISSING',
-                hasApiKey: !!apiKey
+                hasApiKey: !!apiKey,
+                targets: {
+                    externalUserIds: params.externalUserIds?.length || 0,
+                    subscriptionIds: params.userIds?.length || 0
+                }
             });
         }
 
-        // Skip if OneSignal is not configured
         if (!appId || !apiKey) {
-            console.warn('OneSignal not configured (Missing App ID or API Key). Skipping push notification.');
-            return false;
-        }
-        
-        // Defensive check for placeholders
-        if (appId.includes('your-onesignal-app-id')) {
-            console.error('❌ OneSignal Error: App ID is still a placeholder in .env');
-            return false;
-        }
-
-        // Need either userIds or externalUserIds
-        if ((!params.userIds || params.userIds.length === 0) &&
-            (!params.externalUserIds || params.externalUserIds.length === 0)) {
-            console.warn('No user IDs or external user IDs provided. Skipping push notification.');
+            console.warn('OneSignal not configured. Skipping push.');
             return false;
         }
 
@@ -60,40 +48,47 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
                 route: targetUrl,
                 url: targetUrl
             },
-            target_channel: "push"
+            target_channel: "push",
+            // Branding Icons
+            small_icon: "ic_notification",
+            large_icon: "https://appleinteriors.in/wp-content/uploads/2023/06/Logo-1.png",
+            android_accent_color: "FFFFFF" // White accent for the small icon
         };
 
-        // Modern OneSignal V2 targeting via Aliases
-        const aliases: any = {};
+        // TARGETING LOGIC
+        // We can include both aliases and specific subscription IDs for maximum reach
+        let hasTargeting = false;
 
+        // External User IDs (Mapped via login('user_' + id))
         if (params.externalUserIds && params.externalUserIds.length > 0) {
-            aliases.external_id = params.externalUserIds;
-            console.log('📲 Targeting via external_id:', params.externalUserIds);
-        }
+            payload.include_aliases = {
+                external_id: params.externalUserIds
+            };
+            console.log('🎯 Targeting via external_id:', params.externalUserIds);
+            hasTargeting = true;
+        } 
 
+        // Subscription IDs (Classic Player IDs / Device Tokens)
         if (params.userIds && params.userIds.length > 0) {
-            // onesignal_id is their internal UUID
-            aliases.onesignal_id = params.userIds;
-            console.log('📲 Targeting via onesignal_id:', params.userIds);
-        }
+            payload.include_subscription_ids = params.userIds;
+            console.log('🎯 Targeting via subscription_ids:', params.userIds);
+            hasTargeting = true;
+        } 
 
-        if (Object.keys(aliases).length > 0) {
-            payload.include_aliases = aliases;
-        } else {
-            console.warn('⚠️ No targeting aliases found');
+        if (!hasTargeting) {
+            console.warn('⚠️ No targeting provided. Skipping push notification.');
             return false;
         }
 
-        // Determine auth header format based on key type
+        // AUTHENTICATION HEADER
         // os_v2_app_* or os_v2_org_* keys use Bearer auth
-        // Legacy REST API keys use "key" prefix
-        let authHeader: string;
-        if (apiKey.startsWith('os_v2_')) {
-            authHeader = `Bearer ${apiKey}`;
-            console.log('📲 Using V2 API key authentication (Bearer)');
-        } else {
-            authHeader = `key ${apiKey}`;
-            console.log('📲 Using Legacy API key authentication (key)');
+        // Legacy REST API keys use Basic auth
+        const authHeader = apiKey.startsWith('os_v2_')
+            ? `Bearer ${apiKey}`
+            : `Basic ${apiKey}`;
+
+        if (DEBUG_ENABLED) {
+            console.log('📲 OneSignal Payload:', JSON.stringify(payload, null, 2));
         }
 
         const response = await fetch(ONESIGNAL_API_URL, {
@@ -105,17 +100,21 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
             body: JSON.stringify(payload),
         });
 
+        const result = await response.json();
+
         if (!response.ok) {
-            const errorData = await response.json();
-            console.error('OneSignal API error:', errorData);
+            console.error('❌ OneSignal API Error:', {
+                status: response.status,
+                statusText: response.statusText,
+                data: result
+            });
             return false;
         }
 
-        const result = await response.json();
-        console.log('✅ OneSignal push notification sent:', result);
+        console.log('✅ OneSignal Push Sent Successfully:', result);
         return true;
     } catch (error) {
-        console.error('Error sending OneSignal push notification:', error);
+        console.error('❌ Exception in sendPushNotification:', error);
         return false;
     }
 }
