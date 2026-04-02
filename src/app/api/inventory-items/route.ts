@@ -21,6 +21,8 @@ const createInventoryItemSchema = z.object({
   bill_urls: z.array(z.string().url('Invalid bill URL')).optional().default([]),
   total_cost: z.number().min(0, 'Total cost must be positive').optional(),
   po_id: z.string().uuid().optional(), // Added po_id
+  expense_type: z.string().optional(),
+  is_expense: z.boolean().optional(),
 });
 
 const updateInventoryItemSchema = z.object({
@@ -158,9 +160,15 @@ export async function POST(request: NextRequest) {
         .single();
 
       const quantityText = quantity ? ` (${quantity})` : '';
+      const isExpense = parsed.data.is_expense || !!parsed.data.expense_type;
+      
+      const notificationTitle = isExpense ? 'New Project Expense Added' : 'New Inventory Item Added';
+      const actionText = isExpense ? 'added an expense' : 'added';
+      const itemText = isExpense ? `"${item_name}"` : `"${item_name}"${quantityText}`;
+
       await NotificationService.notifyStakeholders(project_id, userId, {
-        title: 'New Inventory Item Added',
-        message: `${userFullName} added "${item_name}"${quantityText} to project "${projectData?.title || 'Project'}"`,
+        title: notificationTitle,
+        message: `${userFullName} ${actionText} ${itemText} to project "${projectData?.title || 'Project'}"`,
         type: 'inventory_added',
         relatedId: project_id,
         relatedType: 'project'

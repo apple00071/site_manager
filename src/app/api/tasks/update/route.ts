@@ -108,26 +108,32 @@ export async function PATCH(request: NextRequest) {
 
     // Notifications
     try {
-      const prevAssigned = currentTask.assigned_to as string | null;
-      const newAssigned = updateData.assigned_to as string | null;
+      const prevAssigned = Array.isArray(currentTask.assigned_to) ? currentTask.assigned_to : (currentTask.assigned_to ? [currentTask.assigned_to] : []);
+      const newAssigned = Array.isArray(updateData.assigned_to) ? updateData.assigned_to : (updateData.assigned_to ? [updateData.assigned_to] : []);
       const statusChanged = (currentTask.status !== updatedTask.status);
 
       // 1. Notify on assignment change using helper
-      if (newAssigned && newAssigned !== prevAssigned) {
+      // 1. Notify on assignment change (newly added users)
+      const newlyAssigned = newAssigned.filter((id: string) => !prevAssigned.includes(id));
+      for (const assigneeId of newlyAssigned) {
         await NotificationService.notifyTaskAssigned(
-          newAssigned,
+          assigneeId,
           updatedTask.title || currentTask.title,
           updatedTask.step?.project?.title || 'Apple Interior',
           updatedTask.id
         );
+        console.log('Task assignment notification sent to:', assigneeId);
       }
 
       // 2. Notify on status change (unless it's a new assignment already handled above)
-      if (statusChanged && !(newAssigned && newAssigned !== prevAssigned)) {
-        const targetUserId = (updatedTask.assigned_to || prevAssigned) as string | null;
-        if (targetUserId) {
+      // 2. Notify on status change (to all currently assigned users)
+      if (statusChanged) {
+        for (const assigneeId of newAssigned) {
+          // If they were just notified about a new assignment, we can skip the status update for them
+          if (newlyAssigned.includes(assigneeId)) continue;
+          
           await NotificationService.createNotification({
-            userId: targetUserId,
+            userId: assigneeId,
             title: 'Task Status Updated',
             message: `Task "${updatedTask.title || currentTask.title}" changed to ${updatedTask.status}`,
             type: 'project_update',

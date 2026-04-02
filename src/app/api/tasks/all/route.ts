@@ -179,7 +179,7 @@ export async function GET(request: NextRequest) {
         .order('start_at', { ascending: false });
 
       if (userRole !== 'admin') {
-        calendarQuery = calendarQuery.or(`created_by.eq.${userId},assigned_to.eq.${userId}`);
+        calendarQuery = calendarQuery.or(`created_by.eq.${userId},assigned_to.cs.{"${userId}"}`);
       }
 
       const { data: calendarData, error: calendarError } = await calendarQuery;

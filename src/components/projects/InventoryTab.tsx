@@ -326,8 +326,8 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const [mobileActionItem, setMobileActionItem] = useState<InventoryItem | null>(null);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [viewingPDF, setViewingPDF] = useState<{ url: string; filename: string } | null>(null);
+  const [selectedBills, setSelectedBills] = useState<string[]>([]);
+  const [billViewerIndex, setBillViewerIndex] = useState(0);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -496,6 +496,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
           date_purchased: form.date_purchased || undefined,
           bill_urls: form.bill_urls || [],
           po_id: form.po_id || undefined,
+          is_expense: true, // Mark this as an expense for notification purposes
         }),
       });
 
@@ -672,23 +673,23 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
       >
         {mobileActionItem && (
           <div className="space-y-1">
-            {mobileActionItem.bill_url && (
+            {((mobileActionItem.bill_urls && mobileActionItem.bill_urls.length > 0) || mobileActionItem.bill_url) && (
               <button
                 onClick={() => {
-                  const isPDF = mobileActionItem.bill_url!.toLowerCase().endsWith('.pdf');
-                  if (isPDF) {
-                    setViewingPDF({
-                      url: mobileActionItem.bill_url!,
-                      filename: `${mobileActionItem.item_name} - Bill`
-                    });
-                  } else {
-                    setSelectedImage(mobileActionItem.bill_url!);
+                  const bills = [
+                    ...(mobileActionItem.bill_urls || []),
+                    ...(mobileActionItem.bill_url ? [mobileActionItem.bill_url] : [])
+                  ].filter((url, index, self) => self.indexOf(url) === index);
+
+                  if (bills.length > 0) {
+                    setSelectedBills(bills);
+                    setBillViewerIndex(0);
                   }
                   setMobileActionItem(null);
                 }}
                 className="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
               >
-                <FiEye className="w-5 h-5 text-gray-500" /> View Bill
+                <FiEye className="w-5 h-5 text-gray-500" /> View Bills
               </button>
             )}
 
@@ -919,26 +920,30 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
                         style={{ top: menuPosition.top, left: menuPosition.left }}
                       >
                         <div className="py-1" role="menu">
-                          {filteredItems.find(i => i.id === openMenuId)?.bill_url && (
+                          {(() => {
+                            const item = filteredItems.find(i => i.id === openMenuId);
+                            return item && ((item.bill_urls && item.bill_urls.length > 0) || item.bill_url);
+                          })() && (
                             <button
                               onClick={() => {
                                 const item = filteredItems.find(i => i.id === openMenuId);
-                                if (!item?.bill_url) return;
-                                const isPDF = item.bill_url.toLowerCase().endsWith('.pdf');
-                                if (isPDF) {
-                                  setViewingPDF({
-                                    url: item.bill_url,
-                                    filename: `${item.item_name} - Bill`
-                                  });
-                                } else {
-                                  setSelectedImage(item.bill_url);
+                                if (!item) return;
+
+                                const bills = [
+                                  ...(item.bill_urls || []),
+                                  ...(item.bill_url ? [item.bill_url] : [])
+                                ].filter((url, index, self) => self.indexOf(url) === index);
+
+                                if (bills.length > 0) {
+                                  setSelectedBills(bills);
+                                  setBillViewerIndex(0);
                                 }
                                 setOpenMenuId(null);
                                 setMenuPosition(null);
                               }}
                               className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
                             >
-                              <FiEye className="w-4 h-4" /> View Bill
+                              <FiEye className="w-4 h-4" /> View Bills
                             </button>
                           )}
                           <button
@@ -1028,40 +1033,12 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
       }
 
       <ImageModal
-        isOpen={!!selectedImage}
-        onClose={() => setSelectedImage(null)}
-        images={selectedImage ? [selectedImage] : []}
-        currentIndex={0}
+        isOpen={selectedBills.length > 0}
+        onClose={() => setSelectedBills([])}
+        images={selectedBills}
+        currentIndex={billViewerIndex}
+        onNavigate={(index) => setBillViewerIndex(index)}
       />
-
-      {viewingPDF && createPortal(
-        <div
-          className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm"
-          onTouchStart={(e) => e.stopPropagation()}
-          onTouchMove={(e) => e.stopPropagation()}
-        >
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-semibold text-gray-900">{viewingPDF.filename}</h3>
-              <button
-                onClick={() => setViewingPDF(null)}
-                className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
-                aria-label="Close"
-              >
-                <FiX className="w-6 h-6 text-gray-500" />
-              </button>
-            </div>
-            <div className="flex-1 bg-gray-100 p-0 overflow-hidden">
-              <iframe
-                src={viewingPDF.url}
-                className="w-full h-full border-none"
-                title="PDF Viewer"
-              />
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
     </div >
   );
 });

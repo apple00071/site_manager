@@ -15,7 +15,7 @@ const createStandaloneTaskSchema = z.object({
   task_description: z.string().optional(),
   start_date: z.string().nullable().optional(),
   estimated_completion_date: z.string().nullable().optional(),
-  assigned_to: z.union([z.string().uuid(), z.literal(''), z.null()]).optional(),
+  assigned_to: z.array(z.string().uuid()).nullable().optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
 });
 
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     // Convert empty strings to null for proper handling
     const projectId = parsed.data.project_id === '' ? null : parsed.data.project_id;
-    const assignedTo = parsed.data.assigned_to === '' ? null : parsed.data.assigned_to;
+    const assignedTo = (parsed.data.assigned_to && parsed.data.assigned_to.length > 0) ? parsed.data.assigned_to : null;
 
     // Handle step creation only if project_id is provided
     let stepId: string | null = null;
@@ -155,14 +155,19 @@ export async function POST(request: NextRequest) {
         projectData = data;
       }
 
-      // Notify assigned user if different from creator
-      if (assignedTo && typeof assignedTo === 'string' && assignedTo !== userId) {
-        await NotificationService.notifyTaskAssigned(
-          assignedTo,
-          parsed.data.task_title,
-          projectData?.title || 'Standalone',
-          task.id
-        );
+      // Notify all assigned users
+      if (assignedTo && Array.isArray(assignedTo)) {
+        for (const assigneeId of assignedTo) {
+          if (assigneeId !== userId) {
+            await NotificationService.notifyTaskAssigned(
+              assigneeId,
+              parsed.data.task_title,
+              projectData?.title || 'Standalone',
+              task.id
+            );
+            console.log('Task assignment notification sent to:', assigneeId);
+          }
+        }
       }
 
       // Notify project admin if user is not admin
