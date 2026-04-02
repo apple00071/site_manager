@@ -245,20 +245,20 @@ export default function ProjectsPage() {
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
         <div className="flex items-center justify-between px-2">
           {/* Tabs */}
-          <div className="flex overflow-x-auto">
+          <div className="flex overflow-x-auto no-scrollbar scroll-smooth">
             {statusTabs.map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${activeTab === tab.key
+                className={`flex items-center gap-2 px-3 sm:px-4 py-3.5 text-xs sm:text-sm font-medium whitespace-nowrap border-b-2 transition-all duration-200 ${activeTab === tab.key
                   ? 'border-yellow-500 text-yellow-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                  : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-200'
                   }`}
               >
-                {tab.label}
-                <span className={`ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 rounded-full text-xs font-bold ${activeTab === tab.key
+                <span>{tab.label}</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold leading-tight transition-colors ${activeTab === tab.key
                   ? 'bg-yellow-100 text-yellow-700'
-                  : 'bg-gray-100 text-gray-600'
+                  : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200'
                   }`}>
                   {tab.count}
                 </span>
