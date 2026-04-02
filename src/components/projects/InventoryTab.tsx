@@ -1008,8 +1008,10 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
                       <div>
                         <h4 className="text-sm font-medium text-gray-900">{item.item_name}</h4>
                         <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                          <span>{item.quantity} units</span>
-                          <span>•</span>
+                          {item.total_cost ? (
+                            <span className="font-semibold text-gray-800">₹{item.total_cost.toLocaleString()}</span>
+                          ) : null}
+                          {item.total_cost && <span>•</span>}
                           <span>{item.date_purchased ? formatDateIST(item.date_purchased) : '-'}</span>
                         </div>
                       </div>
