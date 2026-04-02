@@ -1,30 +1,18 @@
 'use client';
 
-// Force dynamic rendering to avoid build-time context issues
-export const dynamic = 'force-dynamic';
-
 import { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Session, User } from '@supabase/supabase-js';
-import { getOptimizedSession, getOptimizedUserRole, setupSmartTokenRefresh, clearAuthCache } from '@/lib/optimizedAuth';
+import { supabase } from '@/lib/supabase';
+import { clearAuthCache, getOptimizedSession, getOptimizedUserRole } from '@/lib/optimizedAuth';
 import { clearPermissionsCache } from '@/hooks/useUserPermissions';
 
-// Set to false to disable all debug logs
 const DEBUG_ENABLED = false;
 
-// Debug logger that only logs when enabled
 const debugLog = (...args: any[]) => {
   if (DEBUG_ENABLED) {
     console.log(...args);
   }
 };
-
-// Cache for session and user data to prevent excessive API calls
-let sessionCache: { session: Session | null; timestamp: number } | null = null;
-let userRoleCache: Map<string, { role: string; full_name: string; timestamp: number }> = new Map();
-const CACHE_DURATION = 60000; // 1 minute cache
-const MIN_REQUEST_INTERVAL = 1000; // Minimum 1 second between requests
-let lastRequestTime = 0;
 
 type UserWithRole = User & {
   role?: 'admin' | 'employee';
@@ -53,34 +41,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Use optimized user role fetching
   const fetchUserRole = getOptimizedUserRole;
 
   useEffect(() => {
     const initializeAuth = async () => {
-      debugLog('🚀 Initializing optimized authentication...');
-
       try {
         setIsLoading(true);
 
-        // Use optimized session fetching
-        let { session: currentSession, user: currentUser, error: sessionError } = await getOptimizedSession();
+        let { session: currentSession, error: sessionError } = await getOptimizedSession();
 
-        // Only check server-side if client-side session is missing but we might be authenticated
         if (!currentSession && !sessionError) {
           try {
             const response = await fetch('/api/auth/session', {
               cache: 'no-cache',
               headers: {
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
-              }
+              },
             });
+
             if (response.ok) {
               const data = await response.json();
-              debugLog('📋 Server session fallback check:', data);
-
               if (data.authenticated && data.user) {
-                // Refresh client session if server has valid session
                 await supabase.auth.refreshSession();
                 const { data: { user: verifiedUser } } = await supabase.auth.getUser();
                 if (verifiedUser) {
@@ -90,42 +71,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
             }
           } catch (error) {
-            debugLog('⚠️ Error checking server session:', error);
+            debugLog('Error checking server session:', error);
           }
         }
 
-        debugLog('📋 Initial session check:', {
-          hasSession: !!currentSession,
-          hasError: !!sessionError,
-          sessionUser: currentSession?.user?.email,
-          errorMessage: sessionError?.message
-        });
-
-        if (sessionError) {
-          debugLog('❌ Session error detected, but continuing...');
-          // Don't immediately fail - middleware handles authentication
-        }
-
-        debugLog('✅ Session retrieved:', currentSession ? 'Active' : 'None');
         setSession(currentSession);
 
-        // If no session but middleware let us through, try to get user metadata from server
         if (!currentSession?.user) {
-          debugLog('ℹ️ No client-side session found, but middleware authenticated us');
-
-          // Try to get user from server-side session API
           try {
             const response = await fetch('/api/auth/session');
             if (response.ok) {
               const data = await response.json();
               if (data.authenticated && data.user) {
-                // Create a basic user object from server data
                 setUser({
                   id: data.user.id,
                   email: data.user.email,
                   role: data.user.user_metadata?.role || 'employee',
                   full_name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'User',
-                  designation: data.user.user_metadata?.designation || ''
+                  designation: data.user.user_metadata?.designation || '',
                 } as UserWithRole);
                 setIsAdmin((data.user.user_metadata?.role || 'employee') === 'admin');
                 setIsLoading(false);
@@ -133,89 +96,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
             }
           } catch (error) {
-            debugLog('⚠️ Could not get server session data:', error);
+            debugLog('Could not get server session data:', error);
           }
 
-          debugLog('ℹ️ No user session found');
           setUser(null);
           setIsAdmin(false);
           return;
         }
 
-        debugLog('👤 User found, fetching role...');
-        // Fetch user role using optimized function
         const userData = await fetchUserRole(currentSession.user.id);
-
-        debugLog('📋 User role fetch result:', {
-          hasData: !!userData,
-          role: (userData as any)?.role,
-          fullName: (userData as any)?.full_name,
-          designation: (userData as any)?.designation
-        });
 
         if (userData) {
           const userWithRole = {
             ...currentSession.user,
             role: (userData as any).role as 'admin' | 'employee',
             full_name: (userData as any).full_name,
-            designation: (userData as any).designation
+            designation: (userData as any).designation,
           };
 
           setUser(userWithRole);
           setIsAdmin(userWithRole.role === 'admin');
-          debugLog('✅ User initialized:', {
-            email: userWithRole.email,
-            role: userWithRole.role,
-            isAdmin: userWithRole.role === 'admin'
-          });
         } else {
-          // If we can't fetch the role, set default values
-          if (DEBUG_ENABLED) console.warn('⚠️ Could not fetch user role, using default values');
           setUser({
             ...currentSession.user,
             role: 'employee',
             full_name: currentSession.user.email?.split('@')[0] || 'User',
-            designation: ''
+            designation: '',
           });
           setIsAdmin(false);
         }
       } catch (error) {
-        debugLog('💥 Error initializing auth:', error);
-        // Clear any corrupted state on error
+        debugLog('Error initializing auth:', error);
         setSession(null);
         setUser(null);
         setIsAdmin(false);
 
-        // Clear storage on error
         if (typeof window !== 'undefined') {
           try {
             localStorage.removeItem('sb:apple-interior-manager:auth-token');
             sessionStorage.clear();
           } catch (clearError) {
-            debugLog('⚠️ Error clearing storage after auth error:', clearError);
+            debugLog('Error clearing storage after auth error:', clearError);
           }
         }
       } finally {
-        debugLog('🏁 Authentication initialization completed');
         setIsLoading(false);
       }
     };
-    initializeAuth();
 
-    // Set up auth state change listener
+    void initializeAuth();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event: string, newSession: Session | null) => {
-        debugLog('🔄 Auth state changed:', event);
-        debugLog('📋 New session:', {
-          hasSession: !!newSession,
-          sessionUser: newSession?.user?.email
-        });
-
+      async (_event: string, newSession: Session | null) => {
         try {
           if (newSession?.user) {
-            debugLog('👤 User signed in, fetching role...');
             try {
-              // Use optimized fetchUserRole function
               const userData = await fetchUserRole(newSession.user.id);
 
               if (userData) {
@@ -223,56 +158,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   ...newSession.user,
                   role: (userData as any).role as 'admin' | 'employee',
                   full_name: (userData as any).full_name,
-                  designation: (userData as any).designation
+                  designation: (userData as any).designation,
                 };
 
                 setUser(userWithRole);
                 setIsAdmin(userWithRole.role === 'admin');
-                debugLog('✅ User updated on auth change:', {
-                  email: userWithRole.email,
-                  role: userWithRole.role
-                });
               } else {
-                // If we can't fetch the role, set default values
                 setUser({
                   ...newSession.user,
                   role: 'employee',
                   full_name: newSession.user.email?.split('@')[0] || 'User',
-                  designation: ''
+                  designation: '',
                 });
                 setIsAdmin(false);
               }
             } catch (error) {
-              debugLog('💥 Error handling auth state change:', error);
+              debugLog('Error handling auth state change:', error);
               setUser({
                 ...newSession.user,
                 role: 'employee',
                 full_name: newSession.user.email?.split('@')[0] || 'User',
-                designation: ''
+                designation: '',
               });
               setIsAdmin(false);
             }
           } else {
-            debugLog('🚪 User signed out');
             setUser(null);
             setIsAdmin(false);
           }
 
           setSession(newSession);
         } catch (error) {
-          debugLog('💥 Error in auth state change handler:', error);
-          // Clear state on any error
+          debugLog('Error in auth state change handler:', error);
           setSession(null);
           setUser(null);
           setIsAdmin(false);
 
-          // Clear storage on error
           if (typeof window !== 'undefined') {
             try {
               localStorage.removeItem('sb:apple-interior-manager:auth-token');
               sessionStorage.clear();
             } catch (clearError) {
-              debugLog('⚠️ Error clearing storage after auth state error:', clearError);
+              debugLog('Error clearing storage after auth state error:', clearError);
             }
           }
         }
@@ -290,7 +217,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     let failedAttempts = 0;
+
     const checkSession = async () => {
+      if (typeof document !== 'undefined' && document.hidden) {
+        return;
+      }
+
       try {
         const response = await fetch('/api/auth/session', {
           cache: 'no-cache',
@@ -302,7 +234,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!response.ok) {
           failedAttempts++;
           if (failedAttempts >= 3) {
-            debugLog('🚫 Background session check failed repeatedly, logging out...');
             await signOut();
             if (typeof window !== 'undefined') {
               window.location.replace('/login');
@@ -314,11 +245,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const data = await response.json();
 
         if (data.authenticated && data.user && data.user.id === user.id) {
-          failedAttempts = 0; // Reset on success
+          failedAttempts = 0;
         } else {
           failedAttempts++;
           if (failedAttempts >= 3) {
-            debugLog('🚫 Session mismatch or unauthenticated in background check, logging out...');
             await signOut();
             if (typeof window !== 'undefined') {
               window.location.replace('/login');
@@ -326,67 +256,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } catch (error) {
-        debugLog('⚠️ Background session check error:', error);
-        // Don't count network errors as failures for logout
+        debugLog('Background session check error:', error);
       }
     };
 
-    const intervalId = setInterval(checkSession, 60000);
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        void checkSession();
+      }
+    };
+
+    window.addEventListener('focus', checkSession);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    const intervalId = setInterval(checkSession, 5 * 60 * 1000);
 
     return () => {
       clearInterval(intervalId);
+      window.removeEventListener('focus', checkSession);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [user]);
 
   const signIn = async (email: string, password: string) => {
-    debugLog('🔐 AuthContext signIn called');
-    debugLog('Email:', email);
-
     try {
-      // Add rate limiting check
-      const sessionStorage = globalThis?.sessionStorage;
+      const sessionStorageRef = globalThis?.sessionStorage;
       const now = Date.now();
-      const lastAttempt = sessionStorage?.getItem('lastLoginAttempt');
-      const attemptCount = parseInt(sessionStorage?.getItem('loginAttemptCount') || '0');
+      const lastAttempt = sessionStorageRef?.getItem('lastLoginAttempt');
+      const attemptCount = parseInt(sessionStorageRef?.getItem('loginAttemptCount') || '0', 10);
 
-      debugLog('Rate limiting check:', { attemptCount, lastAttempt, now });
-
-      if (lastAttempt && attemptCount >= 5 && now - parseInt(lastAttempt) < 300000) {
-        debugLog('🚫 Rate limit exceeded');
+      if (lastAttempt && attemptCount >= 5 && now - parseInt(lastAttempt, 10) < 300000) {
         return {
           data: null,
-          error: { message: 'Too many login attempts. Please try again later.' }
+          error: { message: 'Too many login attempts. Please try again later.' },
         };
       }
 
-      // Update attempt tracking
-      sessionStorage?.setItem('lastLoginAttempt', now.toString());
-      sessionStorage?.setItem('loginAttemptCount', (attemptCount + 1).toString());
+      sessionStorageRef?.setItem('lastLoginAttempt', now.toString());
+      sessionStorageRef?.setItem('loginAttemptCount', (attemptCount + 1).toString());
 
-      debugLog('📡 Calling Supabase signInWithPassword...');
-      // Sign in with email and password
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      debugLog('📋 Supabase response:', {
-        hasData: !!data,
-        hasUser: !!data?.user,
-        hasSession: !!data?.session,
-        hasError: !!error,
-        errorMessage: error?.message
-      });
-
       if (error) {
-        if (DEBUG_ENABLED) console.error('❌ Supabase login failed:', error);
-        debugLog('Error details:', {
-          message: error.message,
-          code: error.code,
-          status: error.status
-        });
-
-        // Ensure we return a proper error object with a message
         const errorMessage = error.message || 'Login failed. Please check your credentials and try again.';
 
         return {
@@ -394,55 +308,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           error: {
             message: errorMessage,
             code: error.code,
-            status: error.status
-          }
+            status: error.status,
+          },
         };
       }
 
-      debugLog('✅ Supabase login successful');
+      const currentSession = data.session;
 
-      // Session is already in the data response, no need to fetch again
-      const session = data.session;
-
-      debugLog('📋 Post-login session check:', {
-        hasSession: !!session,
-        sessionUser: session?.user?.email
-      });
-
-      if (!session) {
-        if (DEBUG_ENABLED) console.error('❌ No session after successful login');
+      if (!currentSession) {
         return {
           data: null,
-          error: { message: 'Authentication failed. No session established.' }
+          error: { message: 'Authentication failed. No session established.' },
         };
       }
 
-      debugLog('✅ Session established, resetting rate limit');
-      // Reset attempt count on successful login
-      sessionStorage?.setItem('loginAttemptCount', '0');
+      sessionStorageRef?.setItem('loginAttemptCount', '0');
 
-      // Force a page reload to ensure all auth state is properly set
-      // This helps with Next.js static optimization and ensures middleware runs
       if (typeof window !== 'undefined') {
-        debugLog('🔄 Triggering visibility change event');
         window.dispatchEvent(new Event('visibilitychange'));
       }
 
-      debugLog('✅ SignIn completed successfully');
       return {
         data,
-        error: null
+        error: null,
       };
     } catch (error: any) {
-      if (DEBUG_ENABLED) console.error('💥 AuthContext signIn error:', error);
-      debugLog('Error details:', {
-        message: error?.message,
-        code: error?.code,
-        status: error?.status,
-        stack: error?.stack
-      });
-
-      // Provide a meaningful error message
       let errorMessage = 'Authentication failed. Please try again.';
 
       if (error?.message) {
@@ -460,24 +350,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         error: {
           message: errorMessage,
           code: error?.code,
-          status: error?.status
-        }
+          status: error?.status,
+        },
       };
     }
   };
 
   const signOut = async () => {
     try {
-      // Clear any local storage/session data if needed
       if (typeof window !== 'undefined') {
-        // Save persistent values we don't want to clear
         const tourCompleted = localStorage.getItem('apple_admin_tour_completed');
         const pendingPush = localStorage.getItem('pending_push_route');
         const womensDayDismissed = localStorage.getItem('womens_day_2026_dismissed');
 
         localStorage.clear();
 
-        // Restore persistent values
         if (tourCompleted) {
           localStorage.setItem('apple_admin_tour_completed', tourCompleted);
         }
@@ -491,47 +378,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         sessionStorage.clear();
       }
 
-      // Clear RBAC permissions cache
       clearPermissionsCache();
+      clearAuthCache();
 
-      // Sign out on server (clears httpOnly cookies) first
       try {
         await Promise.all([
           fetch('/api/auth/logout', { method: 'POST' }),
-          fetch('/api/onesignal/subscribe', { method: 'DELETE' }).catch(() => { })
+          fetch('/api/onesignal/subscribe', { method: 'DELETE' }).catch(() => {}),
         ]);
       } catch (_) {
-        // ignore
+        // Ignore logout cleanup errors.
       }
 
-      // Sign out from Supabase as a fallback
       const { error } = await supabase.auth.signOut();
 
-      if (error) {
-        if (DEBUG_ENABLED) console.error('Error signing out:', error);
-        // Don't throw error, continue with logout process
+      if (error && DEBUG_ENABLED) {
+        console.error('Error signing out:', error);
       }
 
-      // Reset all auth state
       setUser(null);
       setSession(null);
       setIsAdmin(false);
 
-      // Best-effort: unregister service workers and clear caches to avoid SW intercept issues
       if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
         try {
           const regs = await navigator.serviceWorker.getRegistrations();
-          await Promise.all(regs.map(r => r.unregister()));
+          await Promise.all(regs.map((r) => r.unregister()));
           if (window.caches) {
             const names = await caches.keys();
-            await Promise.all(names.map(name => caches.delete(name)));
+            await Promise.all(names.map((name) => caches.delete(name)));
           }
-        } catch (_) { }
+        } catch (_) {
+          // Ignore service worker cleanup errors.
+        }
+      }
+    } catch (error) {
+      if (DEBUG_ENABLED) {
+        console.error('Error during sign out:', error);
       }
 
-    } catch (error) {
-      if (DEBUG_ENABLED) console.error('Error during sign out:', error);
-      // Reset auth state even if there's an error
       setUser(null);
       setSession(null);
       setIsAdmin(false);
@@ -553,17 +438,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const value = {
-    user,
-    session,
-    isLoading,
-    signIn,
-    signOut,
-    isAdmin,
-    updateUserEmail,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        session,
+        isLoading,
+        signIn,
+        signOut,
+        isAdmin,
+        updateUserEmail,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

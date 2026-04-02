@@ -1,12 +1,20 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { FiBell, FiCheckCircle, FiClipboard, FiFolder, FiInfo, FiMessageSquare, FiPackage, FiXCircle } from 'react-icons/fi';
 import { useAuth } from '@/contexts/AuthContext';
 import { getRelativeTime } from '@/lib/dateUtils';
-import { notificationCache, cacheInvalidation } from '@/lib/cache';
+import { cacheInvalidation, notificationCache } from '@/lib/cache';
 import { supabase } from '@/lib/supabase-client-helper';
-import { FiClipboard, FiCheckCircle, FiXCircle, FiFolder, FiMic, FiPackage, FiMessageSquare, FiBell, FiInfo } from 'react-icons/fi';
-import { useRouter } from 'next/navigation';
+
+const DEBUG_NOTIFICATIONS = false;
+
+const debugLog = (...args: unknown[]) => {
+  if (DEBUG_NOTIFICATIONS) {
+    console.log(...args);
+  }
+};
 
 const getNotificationUrl = (type: string, relatedId?: string | null, relatedType?: string | null) => {
   const baseUrl = '/dashboard';
@@ -46,14 +54,22 @@ const getNotificationUrl = (type: string, relatedId?: string | null, relatedType
 
 const getNotificationIcon = (type: string) => {
   switch (type) {
-    case 'task_assigned': return <FiClipboard className="w-6 h-6 text-blue-500" />;
-    case 'design_approved': return <FiCheckCircle className="w-6 h-6 text-green-500" />;
-    case 'design_rejected': return <FiXCircle className="w-6 h-6 text-red-500" />;
-    case 'design_uploaded': return <FiFolder className="w-6 h-6 text-yellow-500" />;
-    case 'project_update': return <FiInfo className="w-6 h-6 text-indigo-500" />;
-    case 'inventory_added': return <FiPackage className="w-6 h-6 text-purple-500" />;
-    case 'comment_added': return <FiMessageSquare className="w-6 h-6 text-gray-500" />;
-    default: return <FiBell className="w-6 h-6 text-gray-400" />;
+    case 'task_assigned':
+      return <FiClipboard className="w-6 h-6 text-blue-500" />;
+    case 'design_approved':
+      return <FiCheckCircle className="w-6 h-6 text-green-500" />;
+    case 'design_rejected':
+      return <FiXCircle className="w-6 h-6 text-red-500" />;
+    case 'design_uploaded':
+      return <FiFolder className="w-6 h-6 text-yellow-500" />;
+    case 'project_update':
+      return <FiInfo className="w-6 h-6 text-indigo-500" />;
+    case 'inventory_added':
+      return <FiPackage className="w-6 h-6 text-purple-500" />;
+    case 'comment_added':
+      return <FiMessageSquare className="w-6 h-6 text-gray-500" />;
+    default:
+      return <FiBell className="w-6 h-6 text-gray-400" />;
   }
 };
 
@@ -86,264 +102,8 @@ export function OptimizedNotificationBell() {
   const lastNotificationCount = useRef(0);
   const isActiveTab = useRef(true);
   const lastFetchTime = useRef(0);
-
-  // Early return AFTER all hooks
-  if (!user) return null;
-
-  // Smart fetch with caching and activity detection
-  const fetchNotifications = async (forceRefresh = false) => {
-    if (!user) return;
-
-    const now = Date.now();
-    const cacheKey = `notifications_${user.id}`;
-
-    // Rate limiting - don't fetch more than once per 30 seconds unless forced
-    if (!forceRefresh && (now - lastFetchTime.current) < 30000) {
-      console.log('⏭️ Notification fetch rate limited');
-      return;
-    }
-
-    try {
-      setError(null);
-
-      // Try cache first (unless forced refresh)
-      if (!forceRefresh) {
-        const cached = notificationCache.get<Notification[]>(cacheKey);
-        if (cached) {
-          console.log('✅ Using cached notifications');
-          setNotifications(cached);
-          setUnreadCount(cached.filter(n => !n.is_read).length);
-          return;
-        }
-      }
-
-      console.log('🔔 Fetching notifications from API...');
-      setIsLoading(true);
-      lastFetchTime.current = now;
-
-      console.log('Initiating fetch for notifications...');
-      const response = await fetch('/api/notifications?limit=20', {
-        headers: {
-          'Cache-Control': 'no-cache'
-        }
-      });
-      console.log('Fetch response received:', response.status, response.ok);
-
-      if (response.ok) {
-        const data: Notification[] = await response.json();
-
-        // Cache for 2 minutes
-        notificationCache.set(cacheKey, data, 2 * 60 * 1000);
-
-        // Detect new notifications for sound
-        const newCount = data.filter(n => !n.is_read).length;
-        const hasNewNotifications = newCount > lastNotificationCount.current;
-
-        setNotifications(data);
-        setUnreadCount(newCount);
-
-        // Play sound for new notifications (only if tab is active)
-        if (hasNewNotifications && mounted && isActiveTab.current) {
-          console.log(`🔔 ${newCount - lastNotificationCount.current} new notification(s)`);
-          playNotificationSound();
-        }
-
-        lastNotificationCount.current = newCount;
-
-        console.log(`✅ Fetched ${data.length} notifications (${newCount} unread)`);
-      } else if (response.status === 401) {
-        console.error('❌ Unauthorized - session expired');
-        setError('Session expired. Please refresh the page.');
-        setNotifications([]);
-        setUnreadCount(0);
-      } else {
-        console.error('❌ Failed to fetch notifications:', response.status);
-        setError('Failed to load notifications');
-      }
-    } catch (error) {
-      console.error('💥 Error fetching notifications:', error);
-      setError('Network error. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Tab visibility detection disabled to prevent UI refresh on tab switch.
-  // The real-time subscription and polling will still keep notifications updated.
-  // useEffect(() => {
-  //   const handleVisibilityChange = () => {
-  //     console.log('handleVisibilityChange triggered. document.hidden:', document.hidden);
-  //     isActiveTab.current = !document.hidden;
-  //
-  //     if (isActiveTab.current) {
-  //       console.log('👁️ Tab became active - refreshing notifications');
-  //       fetchNotifications(true);
-  //     } else {
-  //       console.log('👁️ Tab became inactive - pausing polling');
-  //     }
-  //   };
-  //
-  //   document.addEventListener('visibilitychange', handleVisibilityChange);
-  //   return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  // }, []);
-
-  useEffect(() => {
-    setMounted(true);
-
-    // Initialize audio context
-    const initAudioContext = () => {
-      if (!audioContextRef.current) {
-        try {
-          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-          audioContextRef.current = new AudioContextClass();
-        } catch (error) {
-          console.error('❌ Failed to initialize audio context:', error);
-        }
-      }
-    };
-
-    document.addEventListener('click', initAudioContext, { once: true });
-    return () => {
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
-    };
-  }, []);
-
-  // Optimized notification system with smart polling
-  useEffect(() => {
-    if (!user) return;
-
-    console.log('🔌 Setting up optimized notification system. User ID:', user.id);
-
-    // Initial fetch
-    fetchNotifications(true);
-
-    // Setup real-time subscription (if available)
-    const setupRealtime = async () => {
-      try {
-        const channel = supabase
-          .channel('notifications-optimized')
-          .on(
-            'postgres_changes',
-            {
-              event: 'INSERT',
-              schema: 'public',
-              table: 'notifications',
-              filter: `user_id=eq.${user.id}`
-            },
-            (payload: { new: Notification; old: Notification | null }) => {
-              console.log('🔔 Real-time notification received');
-              const newNotification = payload.new as Notification;
-
-              // Update local state immediately
-              setNotifications(prev => [newNotification, ...prev]);
-              setUnreadCount(prev => prev + 1);
-
-              // Invalidate cache
-              cacheInvalidation.invalidateNotifications();
-
-              // Play sound
-              if (mounted && isActiveTab.current) {
-                playNotificationSound();
-              }
-            }
-          )
-          .on(
-            'postgres_changes',
-            {
-              event: 'UPDATE',
-              schema: 'public',
-              table: 'notifications',
-              filter: `user_id=eq.${user.id}`
-            },
-            (payload: { new: Notification; old: Notification | null }) => {
-              console.log('🔄 Notification updated via real-time');
-              const updatedNotification = payload.new as Notification;
-
-              setNotifications(prev =>
-                prev.map(n => n.id === updatedNotification.id ? updatedNotification : n)
-              );
-
-              // Recalculate unread count
-              setNotifications(prev => {
-                const newUnreadCount = prev.filter(n => !n.is_read).length;
-                setUnreadCount(newUnreadCount);
-                return prev;
-              });
-
-              // Invalidate cache
-              cacheInvalidation.invalidateNotifications();
-            }
-          )
-          .subscribe((status: string) => {
-            console.log('📡 Realtime status:', status);
-
-            if (status === 'SUBSCRIBED') {
-              console.log('✅ Real-time notifications active');
-              // Reduce polling frequency since real-time is working
-              setupSmartPolling(5 * 60 * 1000); // 5 minutes
-            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-              console.warn('⚠️ Real-time failed, using frequent polling');
-              // Increase polling frequency as fallback
-              setupSmartPolling(2 * 60 * 1000); // 2 minutes
-            }
-          });
-
-        realtimeChannelRef.current = channel;
-      } catch (error) {
-        console.error('💥 Real-time setup failed:', error);
-        // Fallback to polling
-        setupSmartPolling(2 * 60 * 1000);
-      }
-    };
-
-    // Smart polling function
-    const setupSmartPolling = (interval: number) => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
-
-      pollIntervalRef.current = setInterval(() => {
-        // Only poll if tab is active
-        if (isActiveTab.current) {
-          console.log('🔄 Smart polling for notifications...');
-          fetchNotifications();
-        } else {
-          console.log('⏭️ Skipping poll - tab inactive');
-        }
-      }, interval);
-    };
-
-    setupRealtime();
-
-    return () => {
-      console.log('🧹 Cleaning up notification system...');
-
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
-
-      if (realtimeChannelRef.current) {
-        supabase.removeChannel(realtimeChannelRef.current);
-      }
-    };
-  }, [user]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen]);
+  const userId = user?.id;
+  const router = useRouter();
 
   const playNotificationSound = async () => {
     try {
@@ -359,7 +119,6 @@ export function OptimizedNotificationBell() {
         await audioContext.resume();
       }
 
-      // Create pleasant notification sound
       const createBeep = (frequency: number, startTime: number, duration: number) => {
         const oscillator = audioContext!.createOscillator();
         const gainNode = audioContext!.createGain();
@@ -381,11 +140,213 @@ export function OptimizedNotificationBell() {
       const now = audioContext.currentTime;
       createBeep(800, now, 0.15);
       createBeep(600, now + 0.2, 0.15);
-
-    } catch (error) {
-      console.error('❌ Error playing notification sound:', error);
+    } catch (audioError) {
+      console.error('Error playing notification sound:', audioError);
     }
   };
+
+  const fetchNotifications = async (forceRefresh = false) => {
+    if (!userId) {
+      return;
+    }
+
+    const now = Date.now();
+    const cacheKey = `notifications_${userId}`;
+
+    if (!forceRefresh && now - lastFetchTime.current < 30000) {
+      debugLog('Notification fetch rate limited');
+      return;
+    }
+
+    try {
+      setError(null);
+
+      if (!forceRefresh) {
+        const cached = notificationCache.get<Notification[]>(cacheKey);
+        if (cached) {
+          setNotifications(cached);
+          setUnreadCount(cached.filter((n) => !n.is_read).length);
+          return;
+        }
+      }
+
+      setIsLoading(true);
+      lastFetchTime.current = now;
+
+      const response = await fetch('/api/notifications?limit=20', {
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
+
+      if (response.ok) {
+        const data: Notification[] = await response.json();
+        notificationCache.set(cacheKey, data, 2 * 60 * 1000);
+
+        const newCount = data.filter((n) => !n.is_read).length;
+        const hasNewNotifications = newCount > lastNotificationCount.current;
+
+        setNotifications(data);
+        setUnreadCount(newCount);
+
+        if (hasNewNotifications && mounted && isActiveTab.current) {
+          playNotificationSound();
+        }
+
+        lastNotificationCount.current = newCount;
+      } else if (response.status === 401) {
+        setError('Session expired. Please refresh the page.');
+        setNotifications([]);
+        setUnreadCount(0);
+      } else {
+        setError('Failed to load notifications');
+      }
+    } catch (fetchError) {
+      console.error('Error fetching notifications:', fetchError);
+      setError('Network error. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    setMounted(true);
+
+    const handleVisibilityChange = () => {
+      isActiveTab.current = !document.hidden;
+    };
+
+    const initAudioContext = () => {
+      if (!audioContextRef.current) {
+        try {
+          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+          audioContextRef.current = new AudioContextClass();
+        } catch (audioError) {
+          console.error('Failed to initialize audio context:', audioError);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('click', initAudioContext, { once: true });
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (audioContextRef.current) {
+        void audioContextRef.current.close();
+      }
+    };
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    void fetchNotifications(true);
+
+    const setupSmartPolling = (interval: number) => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+
+      pollIntervalRef.current = setInterval(() => {
+        if (isActiveTab.current) {
+          void fetchNotifications();
+        }
+      }, interval);
+    };
+
+    try {
+      const channel = supabase
+        .channel(`notifications-optimized-${userId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${userId}`,
+          },
+          (payload: { new: Notification }) => {
+            const newNotification = payload.new;
+            setNotifications((prev) => [newNotification, ...prev]);
+            setUnreadCount((prev) => prev + 1);
+            cacheInvalidation.invalidateNotifications();
+
+            if (mounted && isActiveTab.current) {
+              playNotificationSound();
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${userId}`,
+          },
+          (payload: { new: Notification }) => {
+            const updatedNotification = payload.new;
+
+            setNotifications((prev) => {
+              const nextNotifications = prev.map((notification) =>
+                notification.id === updatedNotification.id ? updatedNotification : notification
+              );
+              setUnreadCount(nextNotifications.filter((notification) => !notification.is_read).length);
+              return nextNotifications;
+            });
+
+            cacheInvalidation.invalidateNotifications();
+          }
+        )
+        .subscribe((status: string) => {
+          debugLog('Realtime status:', status);
+
+          if (status === 'SUBSCRIBED') {
+            setupSmartPolling(5 * 60 * 1000);
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            setupSmartPolling(2 * 60 * 1000);
+          }
+        });
+
+      realtimeChannelRef.current = channel;
+    } catch (realtimeError) {
+      console.error('Realtime setup failed:', realtimeError);
+      setupSmartPolling(2 * 60 * 1000);
+    }
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
+      }
+    };
+  }, [mounted, userId]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
 
   const markAsRead = async (notificationId: string) => {
     try {
@@ -396,17 +357,16 @@ export function OptimizedNotificationBell() {
       });
 
       if (response.ok) {
-        // Update local state immediately
-        setNotifications(prev =>
-          prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
+        setNotifications((prev) =>
+          prev.map((notification) =>
+            notification.id === notificationId ? { ...notification, is_read: true } : notification
+          )
         );
-        setUnreadCount(prev => Math.max(0, prev - 1));
-
-        // Invalidate cache
+        setUnreadCount((prev) => Math.max(0, prev - 1));
         cacheInvalidation.invalidateNotifications();
       }
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
+    } catch (markError) {
+      console.error('Error marking notification as read:', markError);
     }
   };
 
@@ -420,33 +380,27 @@ export function OptimizedNotificationBell() {
       });
 
       if (response.ok) {
-        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        setNotifications((prev) => prev.map((notification) => ({ ...notification, is_read: true })));
         setUnreadCount(0);
         cacheInvalidation.invalidateNotifications();
       }
-    } catch (error) {
-      console.error('Error marking all as read:', error);
+    } catch (markAllError) {
+      console.error('Error marking all as read:', markAllError);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const router = useRouter();
-
   const handleNotificationClick = async (notification: Notification) => {
-    // Mark as read
     if (!notification.is_read) {
       await markAsRead(notification.id);
     }
 
-    // Navigate to URL
     const url = getNotificationUrl(notification.type, notification.related_id, notification.related_type);
     if (url) {
-      console.log('🚀 Navigating to:', url);
       router.push(url);
     }
 
-    // Close dropdown
     setIsOpen(false);
   };
 
@@ -457,21 +411,24 @@ export function OptimizedNotificationBell() {
       });
 
       if (response.ok) {
-        setNotifications(prev => prev.filter(n => n.id !== notificationId));
-        setUnreadCount(prev => {
-          const notification = notifications.find(n => n.id === notificationId);
+        setNotifications((prev) => prev.filter((notification) => notification.id !== notificationId));
+        setUnreadCount((prev) => {
+          const notification = notifications.find((item) => item.id === notificationId);
           return notification && !notification.is_read ? Math.max(0, prev - 1) : prev;
         });
         cacheInvalidation.invalidateNotifications();
       }
-    } catch (error) {
-      console.error('Error deleting notification:', error);
+    } catch (deleteError) {
+      console.error('Error deleting notification:', deleteError);
     }
   };
 
+  if (!userId) {
+    return null;
+  }
+
   return (
     <div className="relative inline-flex" ref={dropdownRef}>
-      {/* Bell Icon Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="relative flex items-center justify-center w-10 h-10 text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500 rounded-full transition-colors"
@@ -486,7 +443,6 @@ export function OptimizedNotificationBell() {
           />
         </svg>
 
-        {/* Unread Count Badge */}
         {unreadCount > 0 && (
           <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-red-600 rounded-full border-2 border-white">
             {unreadCount > 99 ? '99+' : unreadCount}
@@ -494,16 +450,13 @@ export function OptimizedNotificationBell() {
         )}
       </button>
 
-      {/* Dropdown */}
       {isOpen && (
         <>
-          {/* Mobile backdrop */}
           <div
             className="fixed inset-0 bg-black/20 z-40 sm:hidden"
             onClick={() => setIsOpen(false)}
           />
           <div className="fixed left-4 right-4 top-16 bottom-auto sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 w-auto sm:w-96 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-[70vh] sm:max-h-[80vh] overflow-hidden flex flex-col">
-            {/* Header */}
             <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center bg-gray-50">
               <h3 className="text-sm font-semibold text-gray-900">
                 Notifications {!isActiveTab.current && '(Paused)'}
@@ -514,7 +467,7 @@ export function OptimizedNotificationBell() {
                   className="text-xs text-blue-600 hover:text-blue-700 font-medium"
                   disabled={isLoading}
                 >
-                  🔄 Refresh
+                  Refresh
                 </button>
                 {unreadCount > 0 && (
                   <button
@@ -528,7 +481,6 @@ export function OptimizedNotificationBell() {
               </div>
             </div>
 
-            {/* Error Message */}
             {error && (
               <div className="px-4 py-3 bg-red-50 border-b border-red-100">
                 <div className="flex items-start gap-2">
@@ -540,7 +492,7 @@ export function OptimizedNotificationBell() {
                     <button
                       onClick={() => {
                         setError(null);
-                        fetchNotifications(true);
+                        void fetchNotifications(true);
                       }}
                       className="text-xs text-red-600 hover:text-red-700 font-medium mt-1"
                     >
@@ -551,7 +503,6 @@ export function OptimizedNotificationBell() {
               </div>
             )}
 
-            {/* Notifications List */}
             <div className="overflow-y-auto flex-1">
               {isLoading && notifications.length === 0 ? (
                 <div className="px-4 py-8 text-center">
@@ -564,12 +515,11 @@ export function OptimizedNotificationBell() {
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
-                  {notifications.map(notification => (
+                  {notifications.map((notification) => (
                     <div
                       key={notification.id}
                       onClick={() => handleNotificationClick(notification)}
-                      className={`px-4 py-3 hover:bg-gray-50 transition-colors pointer-cursor ${!notification.is_read ? 'bg-yellow-50' : ''
-                        }`}
+                      className={`px-4 py-3 hover:bg-gray-50 transition-colors pointer-cursor ${!notification.is_read ? 'bg-yellow-50' : ''}`}
                     >
                       <div className="flex items-start gap-3">
                         <span className="text-2xl flex-shrink-0">
@@ -581,9 +531,9 @@ export function OptimizedNotificationBell() {
                               {notification.title}
                             </p>
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteNotification(notification.id);
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void deleteNotification(notification.id);
                               }}
                               className="text-gray-400 hover:text-red-600 flex-shrink-0"
                               aria-label="Delete notification"
@@ -603,7 +553,10 @@ export function OptimizedNotificationBell() {
                           </p>
                           {!notification.is_read && (
                             <button
-                              onClick={() => markAsRead(notification.id)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void markAsRead(notification.id);
+                              }}
                               className="text-xs text-yellow-600 hover:text-yellow-700 font-medium mt-1"
                             >
                               Mark as read

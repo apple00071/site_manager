@@ -1,90 +1,75 @@
 'use client';
 
-// Force dynamic rendering to avoid build-time context issues
-export const dynamic = 'force-dynamic';
-
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { AuthProvider } from '@/contexts/AuthContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { ToastProvider } from '@/components/ui/Toast';
 import WomensDayPopup from '@/components/WomensDayPopup';
-
 
 export default function ClientLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [isMounted, setIsMounted] = useState(false);
-  const [hydrationComplete, setHydrationComplete] = useState(false);
-
   useEffect(() => {
-    setIsMounted(true);
-
-    // Add a small delay to ensure hydration is complete
-    const timer = setTimeout(() => {
-      setHydrationComplete(true);
-    }, 100);
-
-    // Register service worker for PWA with update handling
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js')
-        .then((registration) => {
-          console.log('[App] Service Worker registered successfully');
-
-          // Check for updates every hour
-          setInterval(() => {
-            registration.update();
-          }, 60 * 60 * 1000);
-
-          // Listen for updates
-          registration.addEventListener('updatefound', () => {
-            const newWorker = registration.installing;
-            if (newWorker) {
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  // New service worker available, update silently and reload
-                  console.log('[App] New version detected, updating automatically...');
-
-                  // Tell the new worker to skip waiting and activate immediately
-                  newWorker.postMessage('SKIP_WAITING');
-                }
-              });
-            }
-          });
-
-          // Reload ONLY when the new worker has actually taken control
-          let refreshing = false;
-          navigator.serviceWorker.addEventListener('controllerchange', () => {
-            if (!refreshing) {
-              refreshing = true;
-              console.log('[App] Service worker controller changed, reloading page...');
-              window.location.reload();
-            }
-          });
-        })
-        .catch((registrationError) => {
-          console.error('[App] Service Worker registration failed:', registrationError);
-        });
+    if (process.env.NODE_ENV !== 'production' || !('serviceWorker' in navigator)) {
+      return;
     }
 
-    return () => clearTimeout(timer);
-  }, []);
+    let refreshInterval: ReturnType<typeof setInterval> | null = null;
+    let refreshing = false;
 
-  // Don't render anything until client-side hydration is complete
-  if (!isMounted || !hydrationComplete) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500"></div>
-      </div>
-    );
-  }
+    const handleControllerChange = () => {
+      if (refreshing) {
+        return;
+      }
+
+      refreshing = true;
+      console.log('[App] Service worker controller changed, reloading page...');
+      window.location.reload();
+    };
+
+    navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
+
+    navigator.serviceWorker.register('/sw.js')
+      .then((registration) => {
+        console.log('[App] Service Worker registered successfully');
+
+        refreshInterval = setInterval(() => {
+          registration.update();
+        }, 60 * 60 * 1000);
+
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (!newWorker) {
+            return;
+          }
+
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              console.log('[App] New version detected, updating automatically...');
+              newWorker.postMessage('SKIP_WAITING');
+            }
+          });
+        });
+      })
+      .catch((registrationError) => {
+        console.error('[App] Service Worker registration failed:', registrationError);
+      });
+
+    return () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+
+      navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
+    };
+  }, []);
 
   return (
     <ErrorBoundary>
       <ToastProvider>
         <AuthProvider>
-
           <WomensDayPopup />
           {children}
         </AuthProvider>

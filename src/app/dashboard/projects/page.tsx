@@ -123,6 +123,7 @@ export default function ProjectsPage() {
       { key: 'in_progress', label: 'Execution Phase', count: projects.filter(p => p.status === 'in_progress').length },
       { key: 'on_hold', label: 'On Hold', count: projects.filter(p => p.status === 'on_hold').length },
       { key: 'completed', label: 'Completed', count: projects.filter(p => p.status === 'completed').length },
+      { key: 'handover', label: 'Handover Phase', count: projects.filter(p => p.status === 'handover').length },
       { key: 'cancelled', label: 'Cancelled', count: projects.filter(p => p.status === 'cancelled').length },
     ];
     return tabs.filter(tab => tab.count > 0 || tab.key === 'all');
@@ -187,6 +188,7 @@ export default function ProjectsPage() {
       'in_progress': { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Execution Phase' },
       'on_hold': { bg: 'bg-orange-100', text: 'text-orange-700', label: 'On Hold' },
       'completed': { bg: 'bg-green-100', text: 'text-green-700', label: 'Completed' },
+      'handover': { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Handover Phase' },
       'cancelled': { bg: 'bg-red-100', text: 'text-red-700', label: 'Cancelled' },
     };
 
