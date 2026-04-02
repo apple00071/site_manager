@@ -49,9 +49,9 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
                 url: targetUrl
             },
             target_channel: "push",
-            // Branding Icons
-            small_icon: "ic_stat_onesignal_default",
-            large_icon: "ic_onesignal_large_icon_default",
+            // Branding Icons - Disabled as files are missing in android/app/src/main/res/drawable
+            // small_icon: "ic_stat_onesignal_default",
+            // large_icon: "ic_onesignal_large_icon_default",
             android_accent_color: "FFFFFF" // White accent for the small icon
         };
 

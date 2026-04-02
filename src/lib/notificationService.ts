@@ -157,8 +157,13 @@ export class NotificationService {
       if (user?.phone_number) {
         try {
           const waMessage = `*${params.title}*\n\n${params.message}${deepLinkRoute ? `\n\nOpen: ${process.env.NEXT_PUBLIC_APP_URL || ''}${deepLinkRoute}` : ''}`;
-          await sendCustomWhatsAppNotification(user.phone_number, waMessage);
-          console.log('✅ WhatsApp sent to:', user.phone_number);
+          const waResult = await sendCustomWhatsAppNotification(user.phone_number, waMessage);
+          
+          if (waResult) {
+            console.log('✅ WhatsApp sent to:', user.phone_number);
+          } else {
+            console.error('❌ WhatsApp failed to send to:', user.phone_number);
+          }
         } catch (waError) {
           console.error('❌ WhatsApp failed:', waError);
         }
