@@ -75,7 +75,7 @@ type Project = {
 
 
 const UpdatesTab = dynamic(() => import('@/components/projects/UpdatesTab').then(m => m.UpdatesTab), { ssr: false });
-const InventoryTab = dynamic(() => import('@/components/projects/InventoryTab').then(m => m.InventoryTab), { ssr: false }) as any;
+const ExpensesTab = dynamic(() => import('@/components/projects/ExpensesTab').then(m => m.ExpensesTab), { ssr: false }) as any;
 const DesignsTab = dynamic(() => import('@/components/projects/DesignsTab').then(m => m.DesignsTab), { ssr: false });
 const BOQTab = dynamic(() => import('@/components/projects/BOQTab').then(m => m.BOQTab), { ssr: false });
 const ProcurementTab = dynamic(() => import('@/components/projects/ProcurementTab').then(m => m.ProcurementTab), { ssr: false });
@@ -112,7 +112,7 @@ export default function ProjectDetailsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const boqRef = useRef<BOQTabHandle>(null);
-  const inventoryRef = useRef<any>(null);
+  const expensesRef = useRef<any>(null);
   const siteLogRef = useRef<any>(null);
   const snagRef = useRef<SnagTabHandle>(null);
   const reportRef = useRef<any>(null);
@@ -347,7 +347,7 @@ export default function ProjectDetailsPage() {
         return [
           {
             label: 'Add Expense',
-            onClick: () => inventoryRef.current?.openAddItem(),
+            onClick: () => expensesRef.current?.openAddItem(),
             icon: <FiPlus className="w-4 h-4" />
           }
         ];
@@ -951,7 +951,7 @@ export default function ProjectDetailsPage() {
           {/* STAGE: FINANCE */}
           {activeStage === 'finance' && (
             <>
-              {activeSubTab === 'inventory' && <InventoryTab projectId={project.id} ref={inventoryRef} />}
+              {activeSubTab === 'expenses' && <ExpensesTab projectId={project.id} ref={expensesRef} />}
               {activeSubTab === 'finance_overview' && (
                 <div className="flex flex-col items-center justify-center h-64 text-gray-500">
                   <FiLayers className="w-12 h-12 mb-2 text-gray-300" />

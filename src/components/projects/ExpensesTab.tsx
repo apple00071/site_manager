@@ -15,7 +15,7 @@ import {
   FiEdit2, FiTrash2, FiEye, FiPlus, FiMoreVertical, FiCheck, FiX, FiUpload, FiPackage, FiSearch, FiChevronDown
 } from 'react-icons/fi';
 
-type InventoryItem = {
+type ExpenseItem = {
   id: string;
   project_id: string;
   item_name: string;
@@ -39,7 +39,7 @@ type InventoryItem = {
 
 
 
-interface InventoryItemFormProps {
+interface ExpenseItemFormProps {
   form: {
     item_name: string;
     expense_type: string;
@@ -69,9 +69,9 @@ interface InventoryItemFormProps {
   projectId: string; // Added prop
 }
 
-const InventoryItemForm = ({
+const ExpenseItemForm = ({
   form, setForm, onClose, onSubmit, onBillUpload, onRemoveBill, saving, uploadingBill, isEditing, projectId
-}: InventoryItemFormProps) => {
+}: ExpenseItemFormProps) => {
   const [usePO, setUsePO] = useState(false);
   const [pos, setPos] = useState<any[]>([]);
   const [selectedPO, setSelectedPO] = useState<string>('');
@@ -300,15 +300,15 @@ const InventoryItemForm = ({
   );
 };
 
-export interface InventoryTabHandle {
+export interface ExpensesTabHandle {
   openAddItem: () => void;
 }
 
-type InventoryTabProps = {
+type ExpensesTabProps = {
   projectId: string;
 };
 
-export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({ projectId }, ref) => {
+export const ExpensesTab = forwardRef<ExpensesTabHandle, ExpensesTabProps>(({ projectId }, ref) => {
   const { user } = useAuth();
   const { hasPermission } = useUserPermissions();
 
@@ -317,7 +317,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
   const canApprove = hasPermission('inventory.approve');
 
   const { showToast } = useToast();
-  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [items, setItems] = useState<ExpenseItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   // UI state
@@ -325,10 +325,10 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
   const [isMobile, setIsMobile] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
-  const [mobileActionItem, setMobileActionItem] = useState<InventoryItem | null>(null);
+  const [mobileActionItem, setMobileActionItem] = useState<ExpenseItem | null>(null);
   const [selectedBills, setSelectedBills] = useState<string[]>([]);
   const [billViewerIndex, setBillViewerIndex] = useState(0);
-  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [editingItem, setEditingItem] = useState<ExpenseItem | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Filter state
@@ -536,7 +536,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
     }
   };
 
-  const handleEdit = (item: InventoryItem) => {
+  const handleEdit = (item: ExpenseItem) => {
     setEditingItem(item);
     setForm({
       item_name: item.item_name,
@@ -631,7 +631,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
         onClose={() => { setIsAddingNew(false); resetForm(); }}
         title={editingItem ? 'Edit Expense' : 'Add Expense'}
       >
-        <InventoryItemForm
+        <ExpenseItemForm
           form={form}
           setForm={setForm}
           onClose={() => { setIsAddingNew(false); resetForm(); }}
@@ -651,7 +651,7 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
         onClose={() => { setIsAddingNew(false); resetForm(); }}
         title={editingItem ? 'Edit Expense' : 'Add Expense'}
       >
-        <InventoryItemForm
+        <ExpenseItemForm
           form={form}
           setForm={setForm}
           onClose={() => { setIsAddingNew(false); resetForm(); }}
@@ -1045,4 +1045,4 @@ export const InventoryTab = forwardRef<InventoryTabHandle, InventoryTabProps>(({
   );
 });
 
-InventoryTab.displayName = 'InventoryTab';
+ExpensesTab.displayName = 'ExpensesTab';
