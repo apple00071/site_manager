@@ -50,8 +50,8 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
             },
             target_channel: "push",
             // Branding Icons
-            small_icon: "ic_notification",
-            large_icon: "https://appleinteriors.in/wp-content/uploads/2023/06/Logo-1.png",
+            small_icon: "ic_stat_onesignal_default",
+            large_icon: "ic_onesignal_large_icon_default",
             android_accent_color: "FFFFFF" // White accent for the small icon
         };
 

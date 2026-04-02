@@ -156,7 +156,7 @@ export class NotificationService {
       // 3. WhatsApp Notification
       if (user?.phone_number) {
         try {
-          const waMessage = `🔔 *${params.title}*\n\n${params.message}${deepLinkRoute ? `\n\nOpen: ${process.env.NEXT_PUBLIC_APP_URL || ''}${deepLinkRoute}` : ''}`;
+          const waMessage = `*${params.title}*\n\n${params.message}${deepLinkRoute ? `\n\nOpen: ${process.env.NEXT_PUBLIC_APP_URL || ''}${deepLinkRoute}` : ''}`;
           await sendCustomWhatsAppNotification(user.phone_number, waMessage);
           console.log('✅ WhatsApp sent to:', user.phone_number);
         } catch (waError) {
