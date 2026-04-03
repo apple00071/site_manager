@@ -49,12 +49,13 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
                 url: targetUrl
             },
             target_channel: "push",
-            android_accent_color: "FFFFFF",
+            android_accent_color: "EAB308",        // Branding color (Yellow)
             // Wake up device and show prominently
             priority: 10,                          // High priority — wakes device
             android_visibility: 1,                 // Show on lock screen (1 = Public)
-            android_led_color: "FF4F46E5",         // LED color (indigo, matches theme)
+            android_led_color: "FFEAB308",         // LED color (Yellow)
             android_sound: "default",              // Play default notification sound
+            android_vibration: true,               // Enable vibration to help wake device
             android_group_alert_behavior: 1,       // Alert once for group
             ttl: 259200,                           // 3 days TTL
         };
