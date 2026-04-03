@@ -38,11 +38,12 @@ export default function OneSignalInit() {
             if (DEBUG_ALERTS) alert("🚀 Initializing OneSignal...");
             
             // Access the OneSignal native plugin (Cordova plugin via global)
-            const OneSignal = (window as any).plugins?.OneSignal || (window as any).OneSignalCordovaPlugin;
+            const OneSignal = (window as any).plugins?.OneSignal 
+                           || (window as any).OneSignalCordovaPlugin 
+                           || (window as any).OneSignal;
             
             if (!OneSignal) {
-                console.error("❌ OneSignal plugin not available on window.plugins or window");
-                if (DEBUG_ALERTS) alert("❌ Error: OneSignal Plugin Missing");
+                console.error("❌ OneSignalInit: Plugin not available");
                 return;
             }
             
@@ -50,44 +51,63 @@ export default function OneSignalInit() {
             console.log("📲 OneSignal App ID:", appId);
 
             // 1. Initialize
+            console.log("📲 OneSignalInit: Initializing with App ID:", appId);
             OneSignal.initialize(appId);
             
-            // 2. Clear badge
+            // 2. Request Permission (Required for Android 13+ and iOS)
+            try {
+                console.log("📲 OneSignalInit: Requesting push permission");
+                const permission = await OneSignal.Notifications.requestPermission(true);
+                console.log("📲 OneSignalInit: Permission result:", permission);
+            } catch (permErr) {
+                console.warn("⚠️ OneSignalInit: Permission request error:", permErr);
+            }
+
+            // 3. Clear badge
             try { OneSignal.Notifications.clearAll(); } catch (e) {}
 
-            // 3. User Login & Linking
+            // 4. User Login & Linking
             if (user?.id) {
                 const externalId = `user_${user.id}`;
-                console.log("📲 Attempting OneSignal Login:", externalId);
+                console.log("📲 OneSignalInit: Attempting Login:", externalId);
                 
-                // Use a promise-based delay to ensure SDK is ready
-                await new Promise(resolve => setTimeout(resolve, 3000));
+                // Reduced delay but ensured SDK has a moment to register the permission state
+                await new Promise(resolve => setTimeout(resolve, 2000));
                 
                 try {
                     await OneSignal.login(externalId);
-                    console.log("✅ OneSignal login result success");
-                    if (DEBUG_ALERTS) alert(`✅ Logged in as: ${externalId}`);
+                    console.log("✅ OneSignalInit: Login success");
                 } catch (loginErr) {
-                    console.error("❌ OneSignal login error:", loginErr);
+                    console.error("❌ OneSignalInit: Login error:", loginErr);
                 }
 
-                // 4. Force Retrieval and Linking of OneSignal ID
+                // 5. Force Retrieval and Linking of OneSignal ID
                 const syncSubscription = async (attempt: number) => {
                     try {
+                        console.log(`📲 OneSignalInit: Sync attempt ${attempt}...`);
                         const onesignalId = await OneSignal.User.getOnesignalId();
+                        
                         if (onesignalId) {
-                            console.log(`✅ OneSignal ID sync (attempt ${attempt}):`, onesignalId);
-                            if (DEBUG_ALERTS) alert(`✅ ID Synced: ${onesignalId}`);
+                            console.log(`✅ OneSignalInit: ID found:`, onesignalId);
                             
-                            await fetch('/api/onesignal/link', {
+                            const response = await fetch('/api/onesignal/link', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ oneSignalId: onesignalId }),
                             });
-                            return true;
+                            
+                            if (response.ok) {
+                                console.log("✅ OneSignalInit: Backend Link Success");
+                                return true;
+                            } else {
+                                console.error("❌ OneSignalInit: Backend Link Failed");
+                            }
+                        } else {
+                            console.warn(`⚠️ OneSignalInit: No ID returned in attempt ${attempt}`);
                         }
                         return false;
                     } catch (e) {
+                        console.error(`❌ OneSignalInit: Sync Error (attempt ${attempt}):`, e);
                         return false;
                     }
                 };
@@ -96,11 +116,12 @@ export default function OneSignalInit() {
                 for (let i = 1; i <= 3; i++) {
                     const success = await syncSubscription(i);
                     if (success) break;
-                    await new Promise(r => setTimeout(r, 7000 * i));
+                    // Exponential backoff
+                    await new Promise(r => setTimeout(r, 5000 * i));
                 }
             }
             
-            // 5. Handle Clicks
+            // 6. Handle Clicks
             OneSignal.Notifications.addEventListener('click', (event: any) => {
                 const data = event.notification.additionalData;
                 const route = data?.route || data?.url;
@@ -218,8 +239,9 @@ export default function OneSignalInit() {
         if (mounted.current) return;
         mounted.current = true;
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (authEvent: AuthChangeEvent, session: Session | null) => {
-            
+        const handleAuthChange = async (authEvent: AuthChangeEvent, session: Session | null) => {
+            console.log("🔐 OneSignalInit: Auth state change:", authEvent, session?.user?.id);
+
             // --- DEEP LINK HANDLING ---
             const pendingRoute = localStorage.getItem('pending_push_route');
             if (pendingRoute) {
@@ -250,7 +272,19 @@ export default function OneSignalInit() {
                     try { await fetch('/api/onesignal/subscribe', { method: 'DELETE' }); } catch (e) {}
                 }
             }
-        });
+        };
+
+        // 1. Listen for changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthChange);
+
+        // 2. Immediate check for existing session
+        const runImmediateCheck = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                handleAuthChange("INITIAL_SESSION" as AuthChangeEvent, session);
+            }
+        };
+        runImmediateCheck();
 
         return () => {
             subscription.unsubscribe();
