@@ -14,6 +14,7 @@ import { DesignViewer } from '@/components/projects/DesignViewer';
 import {
   FiEdit2, FiTrash2, FiEye, FiPlus, FiMoreVertical, FiCheck, FiX, FiUpload, FiPackage, FiSearch, FiChevronDown
 } from 'react-icons/fi';
+import { CustomDropdown, CustomDatePicker } from '@/components/ui/CustomControls';
 
 type ExpenseItem = {
   id: string;
@@ -150,33 +151,30 @@ const ExpenseItemForm = ({
                 <>
                   <div>
                     <label className="block text-xs font-medium text-blue-800 mb-1">Select PO</label>
-                    <select
-                      className="w-full text-sm border-blue-200 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    <CustomDropdown
                       value={selectedPO}
-                      onChange={(e) => handlePOSelect(e.target.value)}
-                    >
-                      <option value="">-- Choose PO --</option>
-                      {pos.map(po => (
-                        <option key={po.id} value={po.id}>
-                          {po.po_number} - {po.supplier?.name} ({new Date(po.created_at).toLocaleDateString()})
-                        </option>
-                      ))}
-                    </select>
+                      options={pos.map(po => ({
+                        id: po.id,
+                        title: `${po.po_number} - ${po.supplier?.name} (${new Date(po.created_at).toLocaleDateString()})`
+                      }))}
+                      onChange={(id) => handlePOSelect(id)}
+                      placeholder="-- Choose PO --"
+                      className="bg-white"
+                    />
                   </div>
                   {selectedPO && (
                     <div>
                       <label className="block text-xs font-medium text-blue-800 mb-1">Select Item</label>
-                      <select
-                        className="w-full text-sm border-blue-200 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white"
-                        onChange={(e) => handleLineItemSelect(selectedPO, parseInt(e.target.value))}
-                      >
-                        <option value="">-- Choose Item --</option>
-                        {pos.find(p => p.id === selectedPO)?.line_items?.map((item: any, idx: number) => (
-                          <option key={idx} value={idx}>
-                            {item.description} (Qty: {item.quantity} {item.unit})
-                          </option>
-                        ))}
-                      </select>
+                      <CustomDropdown
+                        options={pos.find(p => p.id === selectedPO)?.line_items?.map((item: any, idx: number) => ({
+                          id: idx.toString(),
+                          title: `${item.description} (Qty: ${item.quantity} ${item.unit})`
+                        })) || []}
+                        value=""
+                        onChange={(val) => handleLineItemSelect(selectedPO, parseInt(val))}
+                        placeholder="-- Choose Item --"
+                        className="bg-white"
+                      />
                     </div>
                   )}
                 </>
@@ -198,20 +196,20 @@ const ExpenseItemForm = ({
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Expense Type</label>
-        <select
+        <CustomDropdown
           value={form.expense_type}
-          onChange={(e) => setForm(prev => ({ ...prev, expense_type: e.target.value }))}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-        >
-          <option value="">Select type</option>
-          <option value="materials">Materials</option>
-          <option value="labor">Labor</option>
-          <option value="transport">Transport</option>
-          <option value="equipment">Equipment Rental</option>
-          <option value="utilities">Utilities</option>
-          <option value="contractor">Contractor Payment</option>
-          <option value="miscellaneous">Miscellaneous</option>
-        </select>
+          options={[
+            { id: 'materials', title: 'Materials' },
+            { id: 'labor', title: 'Labor' },
+            { id: 'transport', title: 'Transport' },
+            { id: 'equipment', title: 'Equipment Rental' },
+            { id: 'utilities', title: 'Utilities' },
+            { id: 'contractor', title: 'Contractor Payment' },
+            { id: 'miscellaneous', title: 'Miscellaneous' },
+          ]}
+          onChange={(val) => setForm(prev => ({ ...prev, expense_type: val }))}
+          placeholder="Select type"
+        />
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
@@ -235,11 +233,10 @@ const ExpenseItemForm = ({
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Date Purchased</label>
-        <input
-          type="date"
+        <CustomDatePicker
           value={form.date_purchased}
-          onChange={(e) => setForm(prev => ({ ...prev, date_purchased: e.target.value }))}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
+          onChange={(date) => setForm(prev => ({ ...prev, date_purchased: date }))}
+          placeholder="Pick Date"
         />
       </div>
       <div>
@@ -803,23 +800,21 @@ export const ExpensesTab = forwardRef<ExpensesTabHandle, ExpensesTabProps>(({ pr
                     </td>
                     <td className="px-3 py-2">
                       <div className="relative w-full">
-                        <select
+                        <CustomDropdown
                           value={filters.expenseType || ''}
-                          onChange={(e) => setFilters(prev => ({ ...prev, expenseType: e.target.value }))}
-                          className="w-full px-2 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white appearance-none"
-                        >
-                          <option value="">All Types</option>
-                          <option value="materials">Materials</option>
-                          <option value="labor">Labor</option>
-                          <option value="transport">Transport</option>
-                          <option value="equipment">Equipment</option>
-                          <option value="utilities">Utilities</option>
-                          <option value="contractor">Contractor</option>
-                          <option value="miscellaneous">Misc</option>
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                          <FiChevronDown className="w-3 h-3" />
-                        </div>
+                          options={[
+                            { id: 'materials', title: 'Materials' },
+                            { id: 'labor', title: 'Labor' },
+                            { id: 'transport', title: 'Transport' },
+                            { id: 'equipment', title: 'Equipment' },
+                            { id: 'utilities', title: 'Utilities' },
+                            { id: 'contractor', title: 'Contractor' },
+                            { id: 'miscellaneous', title: 'Misc' },
+                          ]}
+                          onChange={(val) => setFilters(prev => ({ ...prev, expenseType: val }))}
+                          placeholder="All Types"
+                          className="bg-white min-w-[120px]"
+                        />
                       </div>
                     </td>
                     <td className="px-3 py-2">
@@ -846,19 +841,17 @@ export const ExpensesTab = forwardRef<ExpensesTabHandle, ExpensesTabProps>(({ pr
                     </td>
                     <td className="px-3 py-2">
                       <div className="relative w-full">
-                        <select
+                        <CustomDropdown
                           value={filters.status}
-                          onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                          className="w-full px-2 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white appearance-none"
-                        >
-                          <option value="">Status</option>
-                          <option value="pending">Pending</option>
-                          <option value="approved">Approved</option>
-                          <option value="rejected">Rejected</option>
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                          <FiChevronDown className="w-3 h-3" />
-                        </div>
+                          options={[
+                            { id: 'pending', title: 'Pending' },
+                            { id: 'approved', title: 'Approved' },
+                            { id: 'rejected', title: 'Rejected' },
+                          ]}
+                          onChange={(val) => setFilters(prev => ({ ...prev, status: val }))}
+                          placeholder="Status"
+                          className="bg-white min-w-[120px]"
+                        />
                       </div>
                     </td>
                     <td className="px-3 py-2"></td>

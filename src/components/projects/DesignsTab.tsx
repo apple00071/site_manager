@@ -15,6 +15,7 @@ import {
   FiMoreVertical, FiEdit, FiTrash2, FiDownload, FiCheck, FiX, FiClock, FiAlertCircle, FiLock, FiUnlock,
   FiMessageCircle, FiMapPin, FiSearch, FiChevronDown
 } from 'react-icons/fi';
+import { CustomDropdown } from '@/components/ui/CustomControls';
 
 type DesignFile = {
   id: string;
@@ -879,20 +880,15 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                 {/* Category Tabs */}
                 {/* Mobile dropdown */}
                 <div className="md:hidden flex-1 mr-2">
-                  <select
+                  <CustomDropdown
                     value={selectedCategory || ''}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-full px-4 py-2 bg-white border-b-2 border-transparent text-sm font-medium focus:outline-none text-gray-500"
-                  >
-                    {categories.map((category) => {
-                      const count = groupedDesigns[category]?.length || 0;
-                      return (
-                        <option key={category} value={category}>
-                          {category} ({count})
-                        </option>
-                      );
-                    })}
-                  </select>
+                    options={categories.map(category => ({
+                      id: category,
+                      title: `${category} (${groupedDesigns[category]?.length || 0})`
+                    }))}
+                    onChange={setSelectedCategory}
+                    className="w-full"
+                  />
                 </div>
 
                 {/* Desktop tabs */}
@@ -978,21 +974,17 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                         </div>
                       </td>
                       <td className="px-3 py-2">
-                        <div className="relative w-full">
-                          <select
-                            value={filters.type}
-                            onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
-                            className="w-full pl-2 pr-6 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white appearance-none"
-                          >
-                            <option value="">Select</option>
-                            <option value="image">Image</option>
-                            <option value="pdf">PDF</option>
-                            <option value="other">Other</option>
-                          </select>
-                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                            <FiChevronDown className="w-3 h-3" />
-                          </div>
-                        </div>
+                        <CustomDropdown
+                          value={filters.type}
+                          options={[
+                            { id: '', title: 'Select' },
+                            { id: 'image', title: 'Image' },
+                            { id: 'pdf', title: 'PDF' },
+                            { id: 'other', title: 'Other' }
+                          ]}
+                          onChange={(val) => setFilters(prev => ({ ...prev, type: val }))}
+                          className="w-full"
+                        />
                       </td>
                       <td className="px-3 py-2">
                         <div className="relative w-full">
@@ -1020,22 +1012,18 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
                         </div>
                       </td>
                       <td className="px-3 py-2">
-                        <div className="relative w-full">
-                          <select
-                            value={filters.status}
-                            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                            className="w-full pl-2 pr-6 py-1.5 text-xs bg-gray-50 border border-gray-100 rounded-lg text-gray-600 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:bg-white appearance-none"
-                          >
-                            <option value="">Status</option>
-                            <option value="pending">Pending</option>
-                            <option value="approved">Approved</option>
-                            <option value="rejected">Rejected</option>
-                            <option value="needs_changes">Changes</option>
-                          </select>
-                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                            <FiChevronDown className="w-3 h-3" />
-                          </div>
-                        </div>
+                        <CustomDropdown
+                          value={filters.status}
+                          options={[
+                            { id: '', title: 'Status' },
+                            { id: 'pending', title: 'Pending' },
+                            { id: 'approved', title: 'Approved' },
+                            { id: 'rejected', title: 'Rejected' },
+                            { id: 'needs_changes', title: 'Changes' }
+                          ]}
+                          onChange={(val) => setFilters(prev => ({ ...prev, status: val }))}
+                          className="w-full"
+                        />
                       </td>
                       <td className="px-3 py-2"></td>
                     </tr>

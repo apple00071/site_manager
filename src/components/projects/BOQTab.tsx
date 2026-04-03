@@ -13,6 +13,7 @@ import { BoqImport } from '@/components/boq/BoqImport';
 import { ProposalBuilder } from '@/components/boq/ProposalBuilder';
 import { BoqEditModal } from '@/components/boq/BoqEditModal';
 import { CompareBoqOrderModal } from '@/components/boq/CompareBoqOrderModal';
+import { CustomDropdown } from '@/components/ui/CustomControls';
 
 interface BOQItem {
     id: string;
@@ -371,26 +372,20 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
                 {/* Categories (Tabs / Dropdown) */}
                 <div className="flex-1 min-w-0">
                     {/* Mobile Dropdown */}
-                    <div className="md:hidden flex items-center gap-2 py-2">
-                        <div className="relative flex-1">
-                            <select
+                    <div className="md:hidden flex items-center gap-2 py-2 w-full">
+                        <div className="flex-1">
+                            <CustomDropdown
                                 value={activeCategory === null ? 'all' : activeCategory}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    setActiveCategory(val === 'all' ? null : val);
-                                }}
-                                className="w-full pl-3 pr-10 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 appearance-none"
-                            >
-                                <option value="all">All Items ({items.length})</option>
-                                {categories.map(cat => (
-                                    <option key={cat} value={cat}>
-                                        {cat} {sectionTotals[cat] ? `(${sectionTotals[cat].count})` : ''}
-                                    </option>
-                                ))}
-                            </select>
-                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-                                <FiChevronDown className="w-4 h-4" />
-                            </div>
+                                options={[
+                                    { id: 'all', title: `All Items (${items.length})` },
+                                    ...categories.map(cat => ({ 
+                                        id: cat, 
+                                        title: `${cat} ${sectionTotals[cat] ? `(${sectionTotals[cat].count})` : ''}` 
+                                    }))
+                                ]}
+                                onChange={(val) => setActiveCategory(val === 'all' ? null : val)}
+                                placeholder="Select Category"
+                            />
                         </div>
 
                         {/* Mobile Add Category Button */}
@@ -498,16 +493,15 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
                         </button>
                     </div>
 
-                    <select
+                    <CustomDropdown
                         value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
-                        className="text-sm border-none bg-transparent font-medium text-gray-600 focus:ring-0 cursor-pointer"
-                    >
-                        <option value="all">All Status</option>
-                        {STATUSES.map(s => (
-                            <option key={s} value={s}>{s}</option>
-                        ))}
-                    </select>
+                        options={[
+                            { id: 'all', title: 'All Status' },
+                            ...STATUSES.map(s => ({ id: s, title: s.charAt(0).toUpperCase() + s.slice(1) }))
+                        ]}
+                        onChange={setFilterStatus}
+                        className="w-32"
+                    />
                 </div>
             </div>
 

@@ -16,7 +16,7 @@ const projectSchema = z.object({
   // Basic Information
   title: z.string().min(2, 'Title is required'),
   description: z.string().optional().nullable(),
-  status: z.enum(['pending', 'in_progress', 'on_hold', 'completed', 'cancelled']),
+  status: z.enum(['pending', 'in_progress', 'handover', 'on_hold', 'completed']),
 
   // Customer Details
   customer_name: z.string().min(2, 'Customer name is required'),
@@ -101,14 +101,17 @@ export default function EditProjectPage() {
 
     const fetchData = async () => {
       try {
-        // Fetch project
-        const { data: projectData, error: projectError } = await supabase
-          .from('projects')
-          .select('*')
-          .eq('id', projectId)
-          .single();
-
-        if (projectError) throw projectError;
+        // Fetch project using API route for consistency with Details page and to handle RBAC/RLS correctly
+        const projectRes = await fetch(`/api/admin/projects?id=${projectId}`, { cache: 'no-store' });
+        if (!projectRes.ok) {
+          const errData = await projectRes.json().catch(() => ({}));
+          throw new Error(errData.error?.message || errData.error || 'Failed to fetch project');
+        }
+        
+        const projectsData = await projectRes.json();
+        const projectData = Array.isArray(projectsData) ? projectsData[0] : projectsData;
+        
+        if (!projectData) throw new Error('Project not found');
         setProject(projectData);
 
         // Fetch all users (for designer selection) using API route
@@ -157,8 +160,10 @@ export default function EditProjectPage() {
           project_notes: projectData.project_notes || '',
         });
 
-      } catch (error) {
-        console.error('Error fetching data:', error);
+      } catch (error: any) {
+        const errorMsg = error?.message || error?.code || JSON.stringify(error) || 'Unknown error';
+        console.error('Error fetching data details:', errorMsg, error);
+        alert(`Failed to load project: ${errorMsg}`);
         router.push('/dashboard/projects');
       } finally {
         setLoading(false);
@@ -388,11 +393,11 @@ export default function EditProjectPage() {
                           value={field.value}
                           onChange={field.onChange}
                           options={[
-                            { id: 'pending', title: 'Pending' },
-                            { id: 'in_progress', title: 'In Progress' },
+                            { id: 'pending', title: 'Design Phase' },
+                            { id: 'in_progress', title: 'Execution Phase' },
+                            { id: 'handover', title: 'Handover Phase' },
                             { id: 'on_hold', title: 'On Hold' },
-                            { id: 'completed', title: 'Completed' },
-                            { id: 'cancelled', title: 'Cancelled' }
+                            { id: 'completed', title: 'Completed' }
                           ]}
                           placeholder="Select Status"
                         />

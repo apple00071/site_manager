@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { FiCheck, FiX } from 'react-icons/fi';
+import { CustomDatePicker, TimeSelect } from '@/components/ui/CustomControls';
 
 interface LeaveRequestFormProps {
     leave?: any;
@@ -11,6 +12,33 @@ interface LeaveRequestFormProps {
     onSuccess: () => void;
     onCancel: () => void;
 }
+
+const TIME_OPTIONS = Array.from({ length: 24 * 2 }, (_, i) => {
+    const h = Math.floor(i / 2);
+    const m = i % 2 === 0 ? '00' : '30';
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    return `${h12.toString().padStart(2, '0')}:${m} ${ampm}`;
+});
+
+const timeToParts = (time24: string) => {
+    if (!time24) return { hour: '09', minute: '00', ampm: 'AM' };
+    const [h24, m] = time24.split(':').map(Number);
+    const ampm = h24 >= 12 ? 'PM' : 'AM';
+    const h12 = h24 % 12 || 12;
+    return {
+        hour: h12.toString().padStart(2, '0'),
+        minute: (m || 0).toString().padStart(2, '0'),
+        ampm
+    };
+};
+
+const partsToTime = (h12: string, m: string, ampm: string) => {
+    let h24 = parseInt(h12);
+    if (ampm === 'PM' && h24 < 12) h24 += 12;
+    if (ampm === 'AM' && h24 === 12) h24 = 0;
+    return `${h24.toString().padStart(2, '0')}:${m.padStart(2, '0')}`;
+};
 
 export default function LeaveRequestForm({ leave, defaultType, onSuccess, onCancel }: LeaveRequestFormProps) {
     const { user } = useAuth();
@@ -99,12 +127,10 @@ export default function LeaveRequestForm({ leave, defaultType, onSuccess, onCanc
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                         {isPermission ? 'Date *' : 'Start Date *'}
                     </label>
-                    <input
-                        type="date"
+                    <CustomDatePicker
                         value={formData.start_date}
-                        onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
-                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
-                        required
+                        onChange={(val) => setFormData(prev => ({ ...prev, start_date: val }))}
+                        placeholder="Select Start Date"
                     />
                 </div>
                 {!isPermission && (
@@ -112,12 +138,10 @@ export default function LeaveRequestForm({ leave, defaultType, onSuccess, onCanc
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             End Date *
                         </label>
-                        <input
-                            type="date"
+                        <CustomDatePicker
                             value={formData.end_date}
-                            onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
-                            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
-                            required
+                            onChange={(val) => setFormData(prev => ({ ...prev, end_date: val }))}
+                            placeholder="Select End Date"
                         />
                     </div>
                 )}
@@ -129,24 +153,20 @@ export default function LeaveRequestForm({ leave, defaultType, onSuccess, onCanc
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             Start Time *
                         </label>
-                        <input
-                            type="time"
-                            value={formData.start_time}
-                            onChange={(e) => setFormData(prev => ({ ...prev, start_time: e.target.value }))}
-                            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
-                            required
+                        <TimeSelect
+                            {...timeToParts(formData.start_time)}
+                            options={TIME_OPTIONS}
+                            onChange={(h, m, ap) => setFormData(prev => ({ ...prev, start_time: partsToTime(h, m, ap) }))}
                         />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             End Time *
                         </label>
-                        <input
-                            type="time"
-                            value={formData.end_time}
-                            onChange={(e) => setFormData(prev => ({ ...prev, end_time: e.target.value }))}
-                            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
-                            required
+                        <TimeSelect
+                            {...timeToParts(formData.end_time)}
+                            options={TIME_OPTIONS}
+                            onChange={(h, m, ap) => setFormData(prev => ({ ...prev, end_time: partsToTime(h, m, ap) }))}
                         />
                     </div>
                 </div>

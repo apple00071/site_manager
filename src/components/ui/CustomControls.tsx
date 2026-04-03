@@ -20,69 +20,105 @@ import {
 
 // --- Shared Positioning Hook ---
 
-const useDropdownPosition = (isOpen: boolean, optionsLength: number, extraDependency?: any) => {
+export const useDropdownPosition = (isOpen: boolean, optionsLength?: number, extraDependency?: any, expectedWidth?: number | string) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+    const [isReady, setIsReady] = useState(false);
+    const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({
+        position: 'fixed',
+        top: -9999,
+        left: -9999,
+        visibility: 'hidden',
+        opacity: 0,
+        pointerEvents: 'none',
+        transition: 'none',
+    });
 
-    const updatePosition = useCallback(() => {
-        if (!isOpen || !containerRef.current) return;
+    const computePosition = useCallback(() => {
+        if (!containerRef.current || !dropdownRef.current) return;
 
         const rect = containerRef.current.getBoundingClientRect();
         const windowHeight = window.innerHeight;
         const windowWidth = window.innerWidth;
-        
-        // Use the actual dropdown height if available, otherwise estimate
-        const dropdownHeight = dropdownRef.current?.offsetHeight || 250;
-        const dropdownWidth = dropdownRef.current?.offsetWidth || rect.width;
 
+        // Force width constraint first
+        const assumedWidth = typeof expectedWidth === 'number' ? expectedWidth : Math.max(rect.width, 160);
+        const widthVal = expectedWidth !== undefined ? expectedWidth : rect.width;
+        
+        dropdownRef.current.style.width = typeof widthVal === 'number' ? `${widthVal}px` : widthVal;
+        dropdownRef.current.style.minWidth = `${assumedWidth}px`;
+
+        // Only read height from DOM since vertical wrap is dynamic
+        const dropdownHeight = dropdownRef.current.offsetHeight;
+
+        // Mathematically deterministic left boundary – utterly divorce from dynamic DOM width
         let left = rect.left;
-        if (left + dropdownWidth > windowWidth - 16) {
-            left = windowWidth - dropdownWidth - 16;
+        if (left + assumedWidth > windowWidth - 16) {
+            left = Math.max(16, windowWidth - assumedWidth - 16);
         }
 
         const spaceBelow = windowHeight - rect.bottom;
         const spaceAbove = rect.top;
-        const shouldFlip = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
+        const shouldFlip = dropdownHeight > 0 && spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
+
+        const newStyle: React.CSSProperties = {
+            position: 'fixed',
+            left,
+            width: widthVal,
+            minWidth: assumedWidth,
+            zIndex: 9999,
+            visibility: 'visible',
+            opacity: 1,
+            pointerEvents: 'auto',
+            transition: 'none',
+        };
 
         if (shouldFlip) {
-            setDropdownStyle({
-                position: 'fixed',
-                bottom: windowHeight - rect.top + 4,
-                left: left,
-                width: rect.width,
-                zIndex: 9999,
-            });
+            newStyle.bottom = windowHeight - rect.top + 4;
+            newStyle.top = 'auto';
         } else {
+            newStyle.top = rect.bottom + 4;
+            newStyle.bottom = 'auto';
+        }
+
+        setDropdownStyle(newStyle);
+        setIsReady(true);
+    }, [expectedWidth]);
+
+    const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? React.useLayoutEffect : React.useEffect;
+
+    useIsomorphicLayoutEffect(() => {
+        if (!isOpen) {
+            setIsReady(false);
             setDropdownStyle({
                 position: 'fixed',
-                top: rect.bottom + 4,
-                left: left,
-                width: rect.width,
-                zIndex: 9999,
+                top: -9999,
+                left: -9999,
+                visibility: 'hidden',
+                opacity: 0,
+                pointerEvents: 'none',
+                transition: 'none',
             });
+            return;
         }
-    }, [isOpen]);
 
-    useEffect(() => {
-        if (isOpen) {
-            updatePosition();
-            // Create a small delay to handle menu content rendering
-            const timer = setTimeout(updatePosition, 10);
-            
-            window.addEventListener('resize', updatePosition);
-            // Use capture to catch scroll events on any parent
-            window.addEventListener('scroll', updatePosition, true);
-            
-            return () => {
-                clearTimeout(timer);
-                window.removeEventListener('resize', updatePosition);
-                window.removeEventListener('scroll', updatePosition, true);
-            };
-        }
-    }, [isOpen, updatePosition, optionsLength, extraDependency]);
+        // Frame 1: dropdown is already in DOM (always mounted), read its true size
+        // and compute position, then make it visible — no jump at all.
+        const rafId = requestAnimationFrame(() => {
+            computePosition();
+        });
 
-    return { containerRef, dropdownRef, dropdownStyle, updatePosition };
+        window.addEventListener('resize', computePosition);
+        window.addEventListener('scroll', computePosition, true);
+
+        return () => {
+            cancelAnimationFrame(rafId);
+            window.removeEventListener('resize', computePosition);
+            window.removeEventListener('scroll', computePosition, true);
+        };
+    }, [isOpen, computePosition, optionsLength, extraDependency]);
+
+    return { containerRef, dropdownRef, dropdownStyle, updatePosition: computePosition, isReady };
 };
 
 // --- Custom Dropdown ---
@@ -117,7 +153,7 @@ export const CustomDropdown = ({
         );
     }, [options, searchTerm, searchable]);
 
-    const { containerRef, dropdownRef, dropdownStyle } = useDropdownPosition(
+    const { containerRef, dropdownRef, dropdownStyle, isReady } = useDropdownPosition(
         isOpen, 
         options.length, 
         filteredOptions.length
@@ -170,32 +206,34 @@ export const CustomDropdown = ({
                 <FiChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            {isOpen && createPortal(
+            {createPortal(
                 <div ref={dropdownRef}
-                    className="bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in duration-100"
+                    className={`bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden ${isOpen && isReady ? 'animate-in fade-in zoom-in duration-100' : ''}`}
                     style={{ ...dropdownStyle, minWidth: dropdownStyle.width }}
                 >
-                    <div className="max-h-60 overflow-y-auto no-scrollbar">
-                        {filteredOptions.length > 0 ? (
-                            filteredOptions.map(opt => (
-                                <button
-                                    key={opt.id}
-                                    type="button"
-                                    onClick={() => {
-                                        onChange(opt.id);
-                                        setIsOpen(false);
-                                    }}
-                                    className={`w-full text-left px-3 py-2 text-sm hover:bg-yellow-50 transition-colors ${value === opt.id ? 'bg-yellow-100 text-yellow-800 font-medium' : 'text-gray-700'}`}
-                                >
-                                    <p className="truncate">{opt.title}</p>
-                                </button>
-                            ))
-                        ) : (
-                            <div className="px-3 py-4 text-center text-xs text-gray-400">
-                                {emptyMessage}
-                            </div>
-                        )}
-                    </div>
+                    {isOpen && (
+                        <div className="max-h-60 overflow-y-auto no-scrollbar">
+                            {filteredOptions.length > 0 ? (
+                                filteredOptions.map(opt => (
+                                    <button
+                                        key={opt.id}
+                                        type="button"
+                                        onClick={() => {
+                                            onChange(opt.id);
+                                            setIsOpen(false);
+                                        }}
+                                        className={`w-full text-left px-3 py-2 text-sm hover:bg-yellow-50 transition-colors ${value === opt.id ? 'bg-yellow-100 text-yellow-800 font-medium' : 'text-gray-700'}`}
+                                    >
+                                        <p className="truncate">{opt.title}</p>
+                                    </button>
+                                ))
+                            ) : (
+                                <div className="px-3 py-4 text-center text-xs text-gray-400">
+                                    {emptyMessage}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>,
                 document.body
             )}
@@ -235,7 +273,7 @@ export const MultiSelectDropdown = ({
         );
     }, [options, searchTerm, searchable]);
 
-    const { containerRef, dropdownRef, dropdownStyle } = useDropdownPosition(
+    const { containerRef, dropdownRef, dropdownStyle, isReady } = useDropdownPosition(
         isOpen, 
         options.length, 
         filteredOptions.length
@@ -305,39 +343,41 @@ export const MultiSelectDropdown = ({
                 <FiChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            {isOpen && createPortal(
+            {createPortal(
                 <div ref={dropdownRef}
-                    className="bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in duration-100"
+                    className={`bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden ${isOpen && isReady ? 'animate-in fade-in zoom-in duration-100' : ''}`}
                     style={{ ...dropdownStyle, minWidth: dropdownStyle.width }}
                 >
-                    <div className="max-h-60 overflow-y-auto no-scrollbar">
-                        {filteredOptions.length > 0 ? (
-                            filteredOptions.map(opt => {
-                                const isSelected = value.includes(opt.id);
-                                return (
-                                    <button
-                                        key={opt.id}
-                                        type="button"
-                                        onClick={() => toggleOption(opt.id)}
-                                        className={`w-full text-left px-3 py-2 text-sm hover:bg-yellow-50 transition-colors flex items-center justify-between ${isSelected ? 'bg-yellow-50 text-yellow-800' : 'text-gray-700'}`}
-                                    >
-                                        <span className={`truncate ${isSelected ? 'font-medium' : ''}`}>{opt.title}</span>
-                                        {isSelected && (
-                                            <div className="w-4 h-4 bg-yellow-500 rounded flex items-center justify-center text-white">
-                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="w-2.5 h-2.5">
-                                                    <polyline points="20 6 9 17 4 12"></polyline>
-                                                </svg>
-                                            </div>
-                                        )}
-                                    </button>
-                                );
-                            })
-                        ) : (
-                            <div className="px-3 py-4 text-center text-xs text-gray-400">
-                                {emptyMessage}
-                            </div>
-                        )}
-                    </div>
+                    {isOpen && (
+                        <div className="max-h-60 overflow-y-auto no-scrollbar">
+                            {filteredOptions.length > 0 ? (
+                                filteredOptions.map(opt => {
+                                    const isSelected = value.includes(opt.id);
+                                    return (
+                                        <button
+                                            key={opt.id}
+                                            type="button"
+                                            onClick={() => toggleOption(opt.id)}
+                                            className={`w-full text-left px-3 py-2 text-sm hover:bg-yellow-50 transition-colors flex items-center justify-between ${isSelected ? 'bg-yellow-50 text-yellow-800' : 'text-gray-700'}`}
+                                        >
+                                            <span className={`truncate ${isSelected ? 'font-medium' : ''}`}>{opt.title}</span>
+                                            {isSelected && (
+                                                <div className="w-4 h-4 bg-yellow-500 rounded flex items-center justify-center text-white">
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="w-2.5 h-2.5">
+                                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                                    </svg>
+                                                </div>
+                                            )}
+                                        </button>
+                                    );
+                                })
+                            ) : (
+                                <div className="px-3 py-4 text-center text-xs text-gray-400">
+                                    {emptyMessage}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>,
                 document.body
             )}
@@ -366,7 +406,7 @@ export const CustomDatePicker = ({
         return value ? new Date(value) : new Date();
     });
 
-    const { containerRef, dropdownRef, dropdownStyle } = useDropdownPosition(isOpen, 42); // 42 is roughly the max days shown
+    const { containerRef, dropdownRef, dropdownStyle, isReady } = useDropdownPosition(isOpen, 42, undefined, 280);
 
     const selectedDate = useMemo(() => {
         if (!value) return null;
@@ -417,79 +457,83 @@ export const CustomDatePicker = ({
                 <FiCalendar className="w-4 h-4 text-gray-400" />
             </button>
 
-            {isOpen && createPortal(
-                <div ref={dropdownRef} className="bg-white border border-gray-200 rounded-lg shadow-xl p-3 animate-in fade-in zoom-in duration-100" style={{ ...dropdownStyle, width: 280 }}>
-                    <div className="flex items-center justify-between mb-3 px-1">
-                        <button type="button" onClick={handlePrevMonth} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded transition-colors">
-                            <FiChevronLeft className="w-4 h-4 text-gray-600" />
-                        </button>
-                        <div className="font-semibold text-sm text-gray-900">
-                            {format(viewDate, 'MMMM yyyy')}
-                        </div>
-                        <button type="button" onClick={handleNextMonth} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded transition-colors">
-                            <FiChevronRight className="w-4 h-4 text-gray-600" />
-                        </button>
-                    </div>
-
-                    <div className="grid grid-cols-7 gap-1 mb-1">
-                        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
-                            <div key={d} className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider py-1">
-                                {d}
+            {createPortal(
+                <div ref={dropdownRef} className={`bg-white border border-gray-200 rounded-lg shadow-xl p-3 ${isOpen && isReady ? 'animate-in fade-in zoom-in duration-100' : ''}`} style={{ ...dropdownStyle, width: 280 }}>
+                    {isOpen && (
+                        <>
+                            <div className="flex items-center justify-between mb-3 px-1">
+                                <button type="button" onClick={handlePrevMonth} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded transition-colors">
+                                    <FiChevronLeft className="w-4 h-4 text-gray-600" />
+                                </button>
+                                <div className="font-semibold text-sm text-gray-900">
+                                    {format(viewDate, 'MMMM yyyy')}
+                                </div>
+                                <button type="button" onClick={handleNextMonth} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded transition-colors">
+                                    <FiChevronRight className="w-4 h-4 text-gray-600" />
+                                </button>
                             </div>
-                        ))}
-                    </div>
 
-                    <div className="grid grid-cols-7 gap-1">
-                        {days.map(day => {
-                            const isSelected = selectedDate && format(day, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
-                            const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-                            const isCurrentMonth = isSameMonth(day, viewDate);
+                            <div className="grid grid-cols-7 gap-1 mb-1">
+                                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+                                    <div key={d} className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider py-1">
+                                        {d}
+                                    </div>
+                                ))}
+                            </div>
 
-                            return (
+                            <div className="grid grid-cols-7 gap-1">
+                                {days.map(day => {
+                                    const isSelected = selectedDate && format(day, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
+                                    const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+                                    const isCurrentMonth = isSameMonth(day, viewDate);
+
+                                    return (
+                                        <button
+                                            key={day.toString()}
+                                            type="button"
+                                            onClick={() => {
+                                                onChange(format(day, 'yyyy-MM-dd'));
+                                                setIsOpen(false);
+                                            }}
+                                            className={`
+                                                h-8 w-8 flex items-center justify-center text-xs rounded-full transition-all
+                                                ${isSelected ? 'bg-yellow-400 text-yellow-900 font-bold shadow-sm' : 'hover:bg-yellow-50'}
+                                                ${!isSelected && isToday ? 'border border-yellow-400 text-yellow-600' : ''}
+                                                ${!isCurrentMonth ? 'text-gray-300' : (isSelected ? '' : 'text-gray-700')}
+                                            `}
+                                        >
+                                            {format(day, 'd')}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="mt-3 pt-2 border-t border-gray-100 flex justify-between px-1">
                                 <button
-                                    key={day.toString()}
                                     type="button"
                                     onClick={() => {
-                                        onChange(format(day, 'yyyy-MM-dd'));
+                                        onChange('');
                                         setIsOpen(false);
                                     }}
-                                    className={`
-                    h-8 w-8 flex items-center justify-center text-xs rounded-full transition-all
-                    ${isSelected ? 'bg-yellow-400 text-yellow-900 font-bold shadow-sm' : 'hover:bg-yellow-50'}
-                    ${!isSelected && isToday ? 'border border-yellow-400 text-yellow-600' : ''}
-                    ${!isCurrentMonth ? 'text-gray-300' : (isSelected ? '' : 'text-gray-700')}
-                  `}
+                                    className="text-[10px] font-medium text-gray-500 hover:text-red-500 transition-colors"
                                 >
-                                    {format(day, 'd')}
+                                    CLEAR
                                 </button>
-                            );
-                        })}
-                    </div>
-
-                    <div className="mt-3 pt-2 border-t border-gray-100 flex justify-between px-1">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                onChange('');
-                                setIsOpen(false);
-                            }}
-                            className="text-[10px] font-medium text-gray-500 hover:text-red-500 transition-colors"
-                        >
-                            CLEAR
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const today = format(new Date(), 'yyyy-MM-dd');
-                                onChange(today);
-                                setViewDate(new Date());
-                                setIsOpen(false);
-                            }}
-                            className="text-[10px] font-bold text-yellow-600 hover:text-yellow-700 transition-colors"
-                        >
-                            TODAY
-                        </button>
-                    </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const today = format(new Date(), 'yyyy-MM-dd');
+                                        onChange(today);
+                                        setViewDate(new Date());
+                                        setIsOpen(false);
+                                    }}
+                                    className="text-[10px] font-bold text-yellow-600 hover:text-yellow-700 transition-colors"
+                                >
+                                    TODAY
+                                </button>
+                            </div>
+                        </>
+                    )}
                 </div>,
                 document.body
             )}
@@ -519,7 +563,7 @@ export const TimeSelect = ({
     const [isOpen, setIsOpen] = useState(false);
     const displayValue = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')} ${ampm}`;
 
-    const { containerRef, dropdownRef, dropdownStyle } = useDropdownPosition(isOpen, options.length);
+    const { containerRef, dropdownRef, dropdownStyle, isReady } = useDropdownPosition(isOpen, options.length);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -545,28 +589,30 @@ export const TimeSelect = ({
                 <FiChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            {isOpen && createPortal(
+            {createPortal(
                 <div ref={dropdownRef}
-                    className="bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in duration-100"
+                    className={`bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden ${isOpen && isReady ? 'animate-in fade-in zoom-in duration-100' : ''}`}
                     style={dropdownStyle}
                 >
-                    <div className="max-h-48 overflow-y-auto no-scrollbar">
-                        {options.map(opt => (
-                            <button
-                                key={opt}
-                                type="button"
-                                onClick={() => {
-                                    const [time, ap] = opt.split(' ');
-                                    const [h, m] = time.split(':');
-                                    onChange(h, m, ap);
-                                    setIsOpen(false);
-                                }}
-                                className={`w-full text-left px-3 py-2 text-sm hover:bg-yellow-50 transition-colors ${displayValue === opt ? 'bg-yellow-100 text-yellow-800 font-medium' : 'text-gray-700'}`}
-                            >
-                                {opt}
-                            </button>
-                        ))}
-                    </div>
+                    {isOpen && (
+                        <div className="max-h-48 overflow-y-auto no-scrollbar">
+                            {options.map(opt => (
+                                <button
+                                    key={opt}
+                                    type="button"
+                                    onClick={() => {
+                                        const [time, ap] = opt.split(' ');
+                                        const [h, m] = time.split(':');
+                                        onChange(h, m, ap);
+                                        setIsOpen(false);
+                                    }}
+                                    className={`w-full text-left px-3 py-2 text-sm hover:bg-yellow-50 transition-colors ${displayValue === opt ? 'bg-yellow-100 text-yellow-800 font-medium' : 'text-gray-700'}`}
+                                >
+                                    {opt}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>,
                 document.body
             )}

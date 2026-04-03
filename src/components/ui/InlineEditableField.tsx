@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, ReactNode } from 'react';
 import { FiCheck, FiX, FiEdit2 } from 'react-icons/fi';
+import { CustomDropdown, CustomDatePicker } from './CustomControls';
 
 type FieldType = 'text' | 'number' | 'date' | 'select' | 'textarea';
 
@@ -153,21 +154,22 @@ export function InlineEditableField({
                             }`}
                     />
                 ) : type === 'select' ? (
-                    <select
-                        ref={inputRef as React.RefObject<HTMLSelectElement>}
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        disabled={isSaving}
-                        className={`flex-1 px-2 py-1 text-sm border rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 ${error ? 'border-red-300' : 'border-gray-300'
-                            }`}
-                    >
-                        {options.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                            </option>
-                        ))}
-                    </select>
+                    <div className="flex-1">
+                        <CustomDropdown
+                            value={editValue}
+                            options={options.map(opt => ({ id: opt.value, title: opt.label }))}
+                            onChange={(val) => setEditValue(val)}
+                            className="w-full"
+                        />
+                    </div>
+                ) : type === 'date' ? (
+                    <div className="flex-1">
+                        <CustomDatePicker
+                            value={editValue}
+                            onChange={(val) => setEditValue(val)}
+                            placeholder={placeholder}
+                        />
+                    </div>
                 ) : (
                     <input
                         ref={inputRef as React.RefObject<HTMLInputElement>}

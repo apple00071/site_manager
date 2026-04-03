@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import dynamic from 'next/dynamic';
+import { CustomDropdown, CustomDatePicker } from '@/components/ui/CustomControls';
 
 // Dynamically import PdfViewer (only on client side)
 const PdfViewer = dynamic(() => import('./PdfViewer').then(mod => mod.PdfViewer), {
@@ -565,18 +566,14 @@ export function DesignViewer({
                                             <label className="block text-xs font-medium text-gray-700 mb-1">
                                                 Assignee
                                             </label>
-                                            <select
+                                            <CustomDropdown
                                                 value={taskAssignee}
-                                                onChange={(e) => setTaskAssignee(e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent bg-white"
-                                            >
-                                                <option value="">Select User</option>
-                                                {users.map((u) => (
-                                                    <option key={u.id} value={u.id}>
-                                                        {u.full_name}
-                                                    </option>
-                                                ))}
-                                            </select>
+                                                options={[
+                                                    { id: '', title: 'Select User' },
+                                                    ...users.map(u => ({ id: u.id, title: u.full_name }))
+                                                ]}
+                                                onChange={setTaskAssignee}
+                                            />
                                         </div>
 
                                         {/* Due date picker */}
@@ -584,11 +581,10 @@ export function DesignViewer({
                                             <label className="block text-xs font-medium text-gray-700 mb-1">
                                                 Due Date
                                             </label>
-                                            <input
-                                                type="date"
+                                            <CustomDatePicker
                                                 value={taskDueDate}
-                                                onChange={(e) => setTaskDueDate(e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                                                onChange={setTaskDueDate}
+                                                placeholder="Select Due Date"
                                             />
                                         </div>
                                     </div>

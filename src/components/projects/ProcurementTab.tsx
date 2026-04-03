@@ -12,6 +12,7 @@ import {
 import { TbCurrencyRupee } from 'react-icons/tb';
 import { POViewModal } from './POViewModal';
 import { ProposalViewModal } from './ProposalViewModal';
+import { CustomDropdown, CustomDatePicker } from '@/components/ui/CustomControls';
 
 interface Supplier {
     id: string;
@@ -873,15 +874,20 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                         <form onSubmit={handleCreatePO} className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Supplier</label>
-                                    <select value={poForm.supplier_id} onChange={e => setPoForm({ ...poForm, supplier_id: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all" required>
-                                        <option value="">Select</option>
-                                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                    </select>
+                                    <label className="block text-sm font-medium mb-1 text-gray-700">Supplier</label>
+                                    <CustomDropdown
+                                        value={poForm.supplier_id}
+                                        options={suppliers.map(s => ({ id: s.id, title: s.name }))}
+                                        onChange={val => setPoForm({ ...poForm, supplier_id: val })}
+                                        placeholder="Select Supplier"
+                                    />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Delivery Date</label>
-                                    <input type="date" value={poForm.delivery_date} onChange={e => setPoForm({ ...poForm, delivery_date: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all" />
+                                    <label className="block text-sm font-medium mb-1 text-gray-700">Delivery Date</label>
+                                    <CustomDatePicker
+                                        value={poForm.delivery_date}
+                                        onChange={val => setPoForm({ ...poForm, delivery_date: val })}
+                                    />
                                 </div>
                             </div>
 
@@ -890,16 +896,14 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                                 <div className="space-y-2">
                                     {poForm.line_items.map((item, idx) => (
                                         <div key={idx} className="flex gap-2 items-center">
-                                            <select
+                                            <CustomDropdown
                                                 value={item.boq_item_id}
-                                                onChange={e => updateLineItem(idx, 'boq_item_id', e.target.value)}
-                                                className="flex-1 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all text-sm"
-                                            >
-                                                <option value="">Select BOQ Item</option>
-                                                {boqItems.map(b => (
-                                                    <option key={b.id} value={b.id}>{b.item_name} (Qty: {b.quantity})</option>
-                                                ))}
-                                            </select>
+                                                options={boqItems.map(b => ({ id: b.id, title: `${b.item_name} (Qty: ${b.quantity})` }))}
+                                                onChange={val => updateLineItem(idx, 'boq_item_id', val)}
+                                                placeholder="Select BOQ Item"
+                                                className="flex-1"
+                                                searchable
+                                            />
                                             <input type="number" placeholder="Qty" value={item.quantity} onChange={e => updateLineItem(idx, 'quantity', parseFloat(e.target.value))} className="w-20 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all text-sm" />
                                             <input type="number" placeholder="Rate" value={item.rate} onChange={e => updateLineItem(idx, 'rate', parseFloat(e.target.value))} className="w-24 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all text-sm" />
                                             <button
@@ -938,11 +942,13 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                         <form onSubmit={viewMode === 'client' ? handleCreateClientInvoice : handleCreateInvoice} className="space-y-4">
                             {!viewMode && (
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Supplier</label>
-                                    <select value={invoiceForm.supplier_id} onChange={e => setInvoiceForm({ ...invoiceForm, supplier_id: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all" required>
-                                        <option value="">Select Supplier</option>
-                                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                    </select>
+                                    <label className="block text-sm font-medium mb-1 text-gray-700">Supplier</label>
+                                    <CustomDropdown
+                                        value={invoiceForm.supplier_id}
+                                        options={suppliers.map(s => ({ id: s.id, title: s.name }))}
+                                        onChange={val => setInvoiceForm({ ...invoiceForm, supplier_id: val })}
+                                        placeholder="Select Supplier"
+                                    />
                                 </div>
                             )}
                             <div>
@@ -979,17 +985,24 @@ export function ProcurementTab({ projectId, projectAddress, activeSubTab = 'my_s
                                 <input type="number" value={paymentForm.amount} onChange={e => setPaymentForm({ ...paymentForm, amount: parseFloat(e.target.value) })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all" required />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Date</label>
-                                <input type="date" value={paymentForm.payment_date} onChange={e => setPaymentForm({ ...paymentForm, payment_date: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all" required />
+                                <label className="block text-sm font-medium mb-1 text-gray-700">Date</label>
+                                <CustomDatePicker
+                                    value={paymentForm.payment_date}
+                                    onChange={val => setPaymentForm({ ...paymentForm, payment_date: val })}
+                                />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Method</label>
-                                <select value={paymentForm.payment_method} onChange={e => setPaymentForm({ ...paymentForm, payment_method: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all">
-                                    <option value="bank_transfer">Bank Transfer</option>
-                                    <option value="cheque">Cheque</option>
-                                    <option value="cash">Cash</option>
-                                    <option value="upi">UPI</option>
-                                </select>
+                                <label className="block text-sm font-medium mb-1 text-gray-700">Method</label>
+                                <CustomDropdown
+                                    value={paymentForm.payment_method}
+                                    options={[
+                                        { id: 'bank_transfer', title: 'Bank Transfer' },
+                                        { id: 'cheque', title: 'Cheque' },
+                                        { id: 'cash', title: 'Cash' },
+                                        { id: 'upi', title: 'UPI' }
+                                    ]}
+                                    onChange={val => setPaymentForm({ ...paymentForm, payment_method: val })}
+                                />
                             </div>
                             <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
                                 <button type="button" onClick={() => setShowPaymentForm(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>

@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { formatDateReadable, formatDateTimeReadable, formatTimeIST, getTodayDateString } from '@/lib/dateUtils';
 import { ImageModal } from '@/components/ui/ImageModal';
 import { MentionTextarea } from '@/components/ui/MentionTextarea';
+import { CustomDropdown } from '@/components/ui/CustomControls';
 
 declare global {
   interface Window {
@@ -801,18 +802,14 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             {/* Stage selector */}
             <div className="flex-1 sm:flex-none sm:w-48">
-              <select
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+              <CustomDropdown
                 value={selectedStageId}
-                onChange={(e) => setSelectedStageId(e.target.value)}
-              >
-                <option value="all">All stages</option>
-                {stages.map((stage) => (
-                  <option key={stage.id} value={stage.id}>
-                    {stage.title}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { id: 'all', title: 'All stages' },
+                  ...stages.map(stage => ({ id: stage.id, title: stage.title }))
+                ]}
+                onChange={setSelectedStageId}
+              />
             </div>
           </div>
 

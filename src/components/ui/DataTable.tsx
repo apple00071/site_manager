@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { FiSearch, FiChevronDown, FiX } from 'react-icons/fi';
+import { CustomDropdown } from '@/components/ui/CustomControls';
 
 // ============================================================================
 // Types
@@ -214,16 +215,15 @@ export function DataTable<T extends Record<string, any>>({
                                     {col.filterable !== false ? (
                                         col.filterOptions ? (
                                             // Dropdown select for predefined options
-                                            <select
+                                            <CustomDropdown
                                                 value={filters[col.key] || ''}
-                                                onChange={(e) => setFilters({ ...filters, [col.key]: e.target.value })}
-                                                className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-yellow-400"
-                                            >
-                                                <option value="">All</option>
-                                                {col.filterOptions.map((opt) => (
-                                                    <option key={opt} value={opt}>{opt}</option>
-                                                ))}
-                                            </select>
+                                                options={[
+                                                    { id: '', title: 'All' },
+                                                    ...col.filterOptions.map(opt => ({ id: opt, title: opt }))
+                                                ]}
+                                                onChange={(val) => setFilters({ ...filters, [col.key]: val })}
+                                                className="w-full"
+                                            />
                                         ) : (
                                             // Text search input
                                             <div className="relative">

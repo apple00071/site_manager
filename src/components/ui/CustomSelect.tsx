@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { FiChevronDown } from 'react-icons/fi';
+import { useDropdownPosition } from './CustomControls';
 
 interface CustomSelectProps {
     value: string;
@@ -21,38 +22,8 @@ export function CustomSelect({
     placeholder = 'Select...',
     className = ''
 }: CustomSelectProps) {
-    const [isOpen, setIsOpen] = useState(true); // Start open for immediate editing
-    const containerRef = useRef<HTMLDivElement>(null);
-    const buttonRef = useRef<HTMLButtonElement>(null);
-    const dropdownRef = useRef<HTMLDivElement>(null);
-    const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
-
-    // Calculate dropdown position when opened
-    useEffect(() => {
-        if (isOpen && buttonRef.current) {
-            const rect = buttonRef.current.getBoundingClientRect();
-            const windowHeight = window.innerHeight;
-            const dropdownHeight = 200; // max-h-48 approximation
-
-            if (rect.bottom + dropdownHeight > windowHeight - 20) {
-                setDropdownStyle({
-                    position: 'fixed',
-                    bottom: windowHeight - rect.top + 2,
-                    left: rect.left,
-                    minWidth: rect.width,
-                    zIndex: 9999
-                });
-            } else {
-                setDropdownStyle({
-                    position: 'fixed',
-                    top: rect.bottom + 2,
-                    left: rect.left,
-                    minWidth: rect.width,
-                    zIndex: 9999
-                });
-            }
-        }
-    }, [isOpen]);
+    const [isOpen, setIsOpen] = useState(false);
+    const { containerRef, dropdownRef, dropdownStyle } = useDropdownPosition(isOpen, options.length);
 
     // Close on click outside - check both container AND dropdown portal
     useEffect(() => {
@@ -108,7 +79,6 @@ export function CustomSelect({
         <>
             <div ref={containerRef} className={`relative ${className}`}>
                 <button
-                    ref={buttonRef}
                     type="button"
                     onClick={() => setIsOpen(!isOpen)}
                     className="w-full px-2 py-1 text-sm bg-gray-50 rounded text-left flex items-center justify-between gap-1 hover:bg-gray-100"

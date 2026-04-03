@@ -10,6 +10,7 @@ import { formatDateReadable, getTodayDateString, formatDateTimeIST } from '@/lib
 import { FiPlus, FiCalendar, FiUsers, FiUser, FiPhone, FiImage, FiMoreVertical, FiEdit2, FiTrash2, FiCheckCircle, FiX, FiCheckSquare, FiLoader } from 'react-icons/fi';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { uploadFiles } from '@/lib/uploadUtils';
+import { CustomDropdown, CustomDatePicker } from '@/components/ui/CustomControls';
 
 interface SiteLog {
     id: string;
@@ -248,14 +249,14 @@ export const SiteLogTab = forwardRef<SiteLogTabHandle, SiteLogTabProps>(({ proje
         <div className="space-y-6 pb-20 md:pb-0">
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select
+                <CustomDropdown
                     value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                    className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 outline-none"
-                >
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                </select>
+                    options={[
+                        { id: 'in_progress', title: 'In Progress' },
+                        { id: 'completed', title: 'Completed' }
+                    ]}
+                    onChange={(val) => setFormData({ ...formData, status: val as any })}
+                />
             </div>
 
             {formData.status === 'completed' && (
@@ -263,11 +264,9 @@ export const SiteLogTab = forwardRef<SiteLogTabHandle, SiteLogTabProps>(({ proje
                     <label className="block text-sm font-medium text-green-800 mb-1 flex items-center gap-2">
                         <FiCheckSquare /> Actual Completion Date
                     </label>
-                    <input
-                        type="date"
+                    <CustomDatePicker
                         value={formData.actual_completion_date}
-                        onChange={(e) => setFormData({ ...formData, actual_completion_date: e.target.value })}
-                        className="w-full border border-green-200 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none bg-white"
+                        onChange={(val) => setFormData({ ...formData, actual_completion_date: val })}
                     />
                 </div>
             )}
@@ -286,20 +285,16 @@ export const SiteLogTab = forwardRef<SiteLogTabHandle, SiteLogTabProps>(({ proje
             <div className="grid grid-cols-2 gap-4">
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Work Start Date</label>
-                    <input
-                        type="date"
+                    <CustomDatePicker
                         value={formData.work_start_date}
-                        onChange={(e) => setFormData({ ...formData, work_start_date: e.target.value })}
-                        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 outline-none"
+                        onChange={(val) => setFormData({ ...formData, work_start_date: val })}
                     />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Est. Completion</label>
-                    <input
-                        type="date"
+                    <CustomDatePicker
                         value={formData.estimated_completion_date}
-                        onChange={(e) => setFormData({ ...formData, estimated_completion_date: e.target.value })}
-                        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-yellow-500 outline-none"
+                        onChange={(val) => setFormData({ ...formData, estimated_completion_date: val })}
                     />
                 </div>
             </div>
