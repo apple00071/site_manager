@@ -425,8 +425,8 @@ function DashboardLayoutContent({
         </header>
 
 
-        {/* Portal Target for Project Navigation */}
-        <div id="project-navigation-portal" className="sticky top-[50px] z-20 bg-white w-full shadow-sm" />
+        {/* Portal Target for Project Navigation - Min-height reserved to prevent CLS */}
+        <div id="project-navigation-portal" className="sticky top-[50px] z-20 bg-white w-full shadow-sm min-h-[96px] sm:min-h-[105px]" />
 
 
         {/* Main content area with minimal padding - wrapped in PullToRefresh for mobile */}

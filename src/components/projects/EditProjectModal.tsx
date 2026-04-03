@@ -22,7 +22,6 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
     const [pdfFile, setPdfFile] = useState<File | null>(null);
     const [uploadingPDF, setUploadingPDF] = useState(false);
     const [localError, setLocalError] = useState<string | null>(null);
-    const [clients, setClients] = useState<any[]>([]);
 
     useEffect(() => {
         if (isOpen && initialWorker) {
@@ -35,24 +34,10 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
             setFormData(initialData);
             setPdfFile(null);
             setLocalError(null);
-            fetchClients();
         }
     }, [isOpen, initialData]);
 
-    const fetchClients = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('users')
-                .select('id, full_name, email')
-                .eq('role', 'client')
-                .order('full_name');
-            
-            if (error) throw error;
-            setClients(data || []);
-        } catch (err) {
-            console.error('Error fetching clients:', err);
-        }
-    };
+
 
     const overlayRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -391,19 +376,7 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
                                     />
                                 </div>
-                                <div className="sm:col-span-2 pt-2">
-                                    <label className="block text-sm font-semibold text-gray-800 mb-1">Secure Portal Access</label>
-                                    <p className="text-xs text-gray-500 mb-3">Link a client account to grant secure, password-protected access to this project.</p>
-                                    <CustomDropdown
-                                        value={formData.portal_user_id || ''}
-                                        onChange={(val) => handleChange('portal_user_id', val)}
-                                        options={[
-                                            { id: '', title: 'None (Public Links Only)' },
-                                            ...clients.map(c => ({ id: c.id, title: `${c.full_name} (${c.email})` }))
-                                        ]}
-                                        placeholder="Select a client user"
-                                    />
-                                </div>
+
                             </>
                         )}
 

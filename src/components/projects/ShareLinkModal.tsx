@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FiCopy, FiCheck, FiRefreshCw, FiToggleLeft, FiToggleRight, FiShield, FiUserPlus, FiKey, FiUser, FiArrowRight } from 'react-icons/fi';
+import { FiCopy, FiCheck, FiRefreshCw, FiToggleLeft, FiToggleRight, FiShield, FiUserPlus, FiKey, FiUser, FiArrowRight, FiX } from 'react-icons/fi';
 import { useToast } from '@/components/ui/Toast';
 
 interface LinkedUser {
@@ -127,7 +127,14 @@ export const ShareLinkModal = ({ projectId, customerName, onClose }: ShareLinkMo
     };
 
     return (
-        <div className="p-6">
+        <div className="p-6 relative">
+            <button 
+                onClick={onClose}
+                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all"
+                title="Close"
+            >
+                <FiX size={18} />
+            </button>
             <h2 className="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
                 <FiShield className="text-yellow-500 shrink-0" size={24} /> <span>Client Portal Access</span>
             </h2>
@@ -208,7 +215,7 @@ export const ShareLinkModal = ({ projectId, customerName, onClose }: ShareLinkMo
                         <div className="text-[10px] text-gray-300 font-bold uppercase tracking-widest">
                             Secure Portal Access
                         </div>
-                        <button onClick={onClose} className="bg-gray-900 text-white py-2 px-8 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-gray-200">Close</button>
+                        <button onClick={onClose} className="bg-gray-900 text-white py-2.5 px-8 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-gray-200">Done</button>
                     </div>
                 </div>
             ) : (

@@ -26,7 +26,7 @@ const nextConfig = {
 
   // Image Configuration
   images: {
-    unoptimized: true,
+    // Enabled native optimization for better LCP
     remotePatterns: [
       {
         protocol: 'https',
