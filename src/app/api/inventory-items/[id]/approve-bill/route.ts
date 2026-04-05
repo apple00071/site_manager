@@ -71,8 +71,9 @@ export async function POST(
           item.created_by_user.id,
           item.item_name,
           item.project.title,
-          item.total_price || 0,
-          itemId
+          item.total_cost || 0,
+          itemId,
+          item.project.id
         );
       } catch (notificationError) {
         console.error('Failed to create notification:', notificationError);

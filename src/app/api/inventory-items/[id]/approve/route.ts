@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { NotificationService } from '@/lib/notificationService';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 import { verifyPermission } from '@/lib/rbac';
 import { PERMISSION_NODES } from '@/lib/rbac-constants';
@@ -50,6 +51,36 @@ export async function PATCH(
         if (error) {
             console.error('Error updating approval status:', error);
             return NextResponse.json({ error: 'Failed to update approval status' }, { status: 500 });
+        }
+
+        // Notify creator of the bill
+        try {
+            const { data: project } = await supabaseAdmin
+                .from('projects')
+                .select('title')
+                .eq('id', (item as any).project_id)
+                .single();
+
+            if (action === 'approve') {
+                await NotificationService.notifyBillApproved(
+                    (item as any).created_by,
+                    (item as any).item_name,
+                    project?.title || 'Project',
+                    (item as any).total_cost || 0,
+                    item.id,
+                    (item as any).project_id
+                );
+            } else {
+                await NotificationService.notifyBillRejected(
+                    (item as any).created_by,
+                    (item as any).item_name,
+                    project?.title || 'Project',
+                    item.id,
+                    (item as any).project_id
+                );
+            }
+        } catch (notifErr) {
+            console.error('Approval notification failed:', notifErr);
         }
 
         return NextResponse.json({ item });

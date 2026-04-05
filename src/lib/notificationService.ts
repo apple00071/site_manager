@@ -46,11 +46,12 @@ export interface CreateNotificationParams {
   type: NotificationType;
   relatedId?: string;
   relatedType?: string;
+  metadata?: Record<string, any>;
   skipInApp?: boolean;
 }
 
 export class NotificationService {
-  static getNotificationUrl(type: NotificationType, relatedId?: string, relatedType?: string): string | undefined {
+  static getNotificationUrl(type: NotificationType, relatedId?: string, relatedType?: string, metadata?: Record<string, any>): string | undefined {
     // Base dashboard URL (Relative paths for Median internal navigation)
     const baseUrl = '/dashboard';
 
@@ -62,7 +63,8 @@ export class NotificationService {
       case 'snag_resolved':
       case 'snag_verified':
         if (relatedType === 'project' && relatedId) {
-          return `${baseUrl}/projects/${relatedId}?stage=snag`;
+          const snagId = metadata?.snagId;
+          return `${baseUrl}/projects/${relatedId}?stage=snag${snagId ? `&snagId=${snagId}` : ''}`;
         }
         return relatedId ? `${baseUrl}/snags?snagId=${relatedId}` : `${baseUrl}/snags`;
       case 'design_approved':
@@ -76,7 +78,9 @@ export class NotificationService {
       case 'inventory_added':
       case 'bill_approved':
       case 'bill_rejected':
-        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=inventory` : undefined;
+      case 'bill_resubmitted':
+        const expenseId = metadata?.expenseId || metadata?.itemId;
+        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=finance&tab=expenses${expenseId ? `&expenseId=${expenseId}` : ''}` : undefined;
       case 'invoice_created':
       case 'invoice_approved':
       case 'invoice_rejected':
@@ -88,7 +92,8 @@ export class NotificationService {
       case 'expense_created':
       case 'expense_approved':
       case 'expense_rejected':
-        return `${baseUrl}/office-expenses`;
+        const oId = metadata?.expenseId || metadata?.itemId;
+        return oId ? `${baseUrl}/office-expenses?expenseId=${oId}` : `${baseUrl}/office-expenses`;
       case 'leave_created':
       case 'leave_approved':
       case 'leave_rejected':
@@ -151,7 +156,7 @@ export class NotificationService {
         console.error('User lookup error:', userError);
       }
 
-      const deepLinkRoute = this.getNotificationUrl(params.type, params.relatedId, params.relatedType);
+      const deepLinkRoute = this.getNotificationUrl(params.type, params.relatedId, params.relatedType, params.metadata);
 
       // 3. WhatsApp Notification
       if (user?.phone_number) {
@@ -344,36 +349,39 @@ export class NotificationService {
     });
   }
 
-  static async notifyBillResubmitted(userId: string, itemName: string, projectName: string, authorName: string, itemId: string) {
+  static async notifyBillResubmitted(userId: string, itemName: string, projectName: string, authorName: string, itemId: string, projectId: string) {
     return this.createNotification({
       userId,
       title: 'Bill Resubmitted for Review',
       message: `*Bill Resubmitted for Review*\n\nProject: ${projectName}\n${authorName} has resubmitted the bill for "${itemName}". Please review it at your convenience.`,
       type: 'bill_resubmitted',
-      relatedId: itemId,
-      relatedType: 'inventory_item'
+      relatedId: projectId,
+      relatedType: 'project',
+      metadata: { expenseId: itemId }
     });
   }
 
-  static async notifyBillApproved(userId: string, itemName: string, projectName: string, amount: number, itemId: string) {
+  static async notifyBillApproved(userId: string, itemName: string, projectName: string, amount: number, itemId: string, projectId: string) {
     return this.createNotification({
       userId,
       title: 'Bill Approval Confirmation',
       message: `*Bill Approval Confirmation*\n\nProject: ${projectName}\nAmount: ₹${amount}\n\nThe bill for ${itemName} has been approved and is being processed for payment.`,
       type: 'bill_approved',
-      relatedId: itemId,
-      relatedType: 'inventory_item'
+      relatedId: projectId,
+      relatedType: 'project',
+      metadata: { expenseId: itemId }
     });
   }
 
-  static async notifyBillRejected(userId: string, itemName: string, projectName: string, itemId: string) {
+  static async notifyBillRejected(userId: string, itemName: string, projectName: string, itemId: string, projectId: string) {
     return this.createNotification({
       userId,
       title: 'Bill Review Feedback',
       message: `*Bill Review Feedback*\n\nProject: ${projectName}\nItem: ${itemName}\n\nYour submitted bill requires some corrections. Please check the feedback and resubmit when ready.`,
       type: 'bill_rejected',
-      relatedId: itemId,
-      relatedType: 'inventory_item'
+      relatedId: projectId,
+      relatedType: 'project',
+      metadata: { expenseId: itemId }
     });
   }
 
@@ -389,30 +397,33 @@ export class NotificationService {
     });
   }
 
-  static async notifyExpenseCreated(userId: string, description: string, amount: number, requesterName: string) {
+  static async notifyExpenseCreated(userId: string, description: string, amount: number, requesterName: string, expenseId?: string) {
     return this.createNotification({
       userId,
       title: 'New Office Expense Request',
       message: `Requester: ${requesterName}\nAmount: ₹${amount}\nPurpose: ${description}\n\nPlease take a look and approve this request at your convenience.`,
       type: 'expense_created',
+      relatedId: expenseId
     });
   }
 
-  static async notifyExpenseApproved(userId: string, description: string, amount: number) {
+  static async notifyExpenseApproved(userId: string, description: string, amount: number, expenseId?: string) {
     return this.createNotification({
       userId,
       title: 'Office Expense Approved',
       message: `Your request for ₹${amount} (${description}) has been approved. Thank you!`,
       type: 'expense_approved',
+      relatedId: expenseId
     });
   }
 
-  static async notifyExpenseRejected(userId: string, description: string, amount: number) {
+  static async notifyExpenseRejected(userId: string, description: string, amount: number, expenseId?: string) {
     return this.createNotification({
       userId,
       title: 'Office Expense Review',
       message: `Your request for ₹${amount} (${description}) could not be approved at this time. Please check the feedback.`,
       type: 'expense_rejected',
+      relatedId: expenseId
     });
   }
 

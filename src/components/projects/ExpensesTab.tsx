@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -377,9 +378,23 @@ export const ExpensesTab = forwardRef<ExpensesTabHandle, ExpensesTabProps>(({ pr
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const searchParams = useSearchParams();
+  const expenseIdParam = searchParams?.get('expenseId');
+
   useEffect(() => {
     fetchItems();
   }, [projectId]);
+
+  // Handle auto-opening specific expense from deeplink
+  useEffect(() => {
+    if (expenseIdParam && items.length > 0) {
+      const item = items.find(i => i.id === expenseIdParam);
+      if (item) {
+        // Auto-open modal or mobile sheet
+        handleEdit(item);
+      }
+    }
+  }, [expenseIdParam, items]);
 
   const fetchItems = async () => {
     try {

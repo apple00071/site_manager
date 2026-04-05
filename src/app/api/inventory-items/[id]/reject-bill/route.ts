@@ -76,7 +76,8 @@ export async function POST(
           item.created_by_user.id,
           item.item_name,
           item.project.title,
-          itemId
+          itemId,
+          item.project.id
         );
       } catch (notificationError) {
         console.error('Failed to create notification:', notificationError);

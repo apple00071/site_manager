@@ -171,7 +171,8 @@ export async function POST(request: NextRequest) {
         message: `${userFullName} ${actionText} ${itemText} to project "${projectData?.title || 'Project'}"`,
         type: 'inventory_added',
         relatedId: project_id,
-        relatedType: 'project'
+        relatedType: 'project',
+        metadata: { expenseId: item.id }
       });
     } catch (notificationError) {
       console.error('Failed to send inventory notification:', notificationError);
@@ -194,6 +195,12 @@ export async function PATCH(request: NextRequest) {
 
     const userId = user.id;
     const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
+
+    const userFullName =
+      user.user_metadata?.full_name ||
+      user.app_metadata?.full_name ||
+      user.email?.split('@')[0] ||
+      'User';
 
     const body = await request.json();
     const parsed = updateInventoryItemSchema.safeParse(body);
@@ -237,6 +244,7 @@ export async function PATCH(request: NextRequest) {
       .eq('id', id)
       .select(`
         *,
+        project:projects(title),
         created_by_user:users!inventory_items_created_by_fkey(id, full_name, email)
       `)
       .single();
@@ -244,6 +252,31 @@ export async function PATCH(request: NextRequest) {
     if (error) {
       console.error('Error updating inventory item:', error);
       return NextResponse.json({ error: 'Failed to update inventory item' }, { status: 500 });
+    }
+
+    // If it's an update where bill_urls are provided and it was rejected, mark as resubmited and notify
+    if (updates.bill_urls && existingItem.created_by === userId) {
+      try {
+        await supabaseAdmin
+          .from('inventory_items')
+          .update({ is_bill_resubmission: true, bill_approval_status: 'pending' })
+          .eq('id', id);
+        
+        // Notify admins/stakeholders of resubmission
+        const admins = await NotificationService.getProjectStakeholders(item.project_id);
+        await Promise.all(admins.map(adminId => 
+          NotificationService.notifyBillResubmitted(
+            adminId, 
+            item.item_name, 
+            (item as any).project?.title || 'Project', 
+            userFullName, 
+            item.id, 
+            item.project_id
+          )
+        ));
+      } catch (notifErr) {
+        console.error('Resubmission notification failed:', notifErr);
+      }
     }
 
     return NextResponse.json({ item });
