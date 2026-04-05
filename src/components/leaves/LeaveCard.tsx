@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { FiUser, FiCalendar, FiClock, FiClipboard, FiTrash2 } from 'react-icons/fi';
-import { formatDateIST } from '@/lib/dateUtils';
+import { FiUser, FiCalendar, FiClock, FiClipboard, FiTrash2, FiInfo } from 'react-icons/fi';
+import { formatDateIST, formatTimeIST } from '@/lib/dateUtils';
 import { StatusBadge } from '@/components/ui/DataTable';
 
 interface Leave {
@@ -40,16 +40,6 @@ export const LeaveCard: React.FC<LeaveCardProps> = ({
 }) => {
     const isPermission = leave.leave_type === 'Permission';
 
-    const formatTime = (time: string) => {
-        try {
-            const [hours, minutes] = time.split(':');
-            const date = new Date();
-            date.setHours(parseInt(hours), parseInt(minutes));
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-        } catch (e) {
-            return time;
-        }
-    };
 
     return (
         <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-3">
@@ -85,7 +75,7 @@ export const LeaveCard: React.FC<LeaveCardProps> = ({
                     <div className="flex items-center gap-2 text-xs font-bold text-blue-600">
                         <FiClock className="w-3.5 h-3.5" />
                         <span>
-                            {leave.start_time ? formatTime(leave.start_time) : ''} - {leave.end_time ? formatTime(leave.end_time) : ''}
+                            {leave.start_time ? formatTimeIST(leave.start_time) : ''} - {leave.end_time ? formatTimeIST(leave.end_time) : ''}
                         </span>
                     </div>
                 )}
@@ -97,13 +87,14 @@ export const LeaveCard: React.FC<LeaveCardProps> = ({
             </div>
 
             <div className="flex justify-end gap-2 pt-1">
-                {isAdmin && leave.status === 'pending' && (
+                {isAdmin && (
                     <button
                         onClick={() => onReview?.(leave)}
-                        className="flex items-center justify-center gap-1.5 h-9 px-4 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                        className={`flex items-center justify-center gap-1.5 h-9 px-4 text-xs font-bold rounded-lg transition-colors ${leave.status === 'pending' ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' : 'text-gray-500 bg-gray-50 hover:bg-gray-100'
+                            }`}
                     >
-                        <FiClipboard className="h-3.5 w-3.5" />
-                        Review
+                        {leave.status === 'pending' ? <FiClipboard className="h-3.5 w-3.5" /> : <FiInfo className="h-3.5 w-3.5" />}
+                        {leave.status === 'pending' ? 'Review' : 'View Details'}
                     </button>
                 )}
                 {currentUserId === leave.user_id && leave.status === 'pending' && (

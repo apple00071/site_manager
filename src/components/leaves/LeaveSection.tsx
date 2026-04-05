@@ -9,7 +9,7 @@ import LeaveApprovalModal from '@/components/leaves/LeaveApprovalModal';
 import { LeaveCard } from '@/components/leaves/LeaveCard';
 import { Modal } from '@/components/ui/Modal';
 import { SidePanel } from '@/components/ui/SidePanel';
-import { formatDateIST } from '@/lib/dateUtils';
+import { formatDateIST, formatTimeIST } from '@/lib/dateUtils';
 import { DataTable, StatusBadge, Column } from '@/components/ui/DataTable';
 
 interface Leave {
@@ -80,16 +80,6 @@ export default function LeaveSection() {
         }
     };
 
-    const formatTime = (time: string) => {
-        try {
-            const [hours, minutes] = time.split(':');
-            const date = new Date();
-            date.setHours(parseInt(hours), parseInt(minutes));
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-        } catch (e) {
-            return time;
-        }
-    };
 
     const leaveColumns: Column<Leave>[] = [
         {
@@ -111,7 +101,7 @@ export default function LeaveSection() {
                         <div className="flex flex-col">
                             <span className="whitespace-nowrap">{formatDateIST(row.start_date)}</span>
                             <span className="text-blue-600 text-[9px] sm:text-[10px] whitespace-nowrap">
-                                {row.start_time ? formatTime(row.start_time) : ''} - {row.end_time ? formatTime(row.end_time) : ''}
+                                {row.start_time ? formatTimeIST(row.start_time) : ''} - {row.end_time ? formatTimeIST(row.end_time) : ''}
                             </span>
                         </div>
                     ) : (
@@ -143,13 +133,14 @@ export default function LeaveSection() {
             label: '',
             render: (_, row) => (
                 <div className="flex justify-end gap-2">
-                    {isAdmin && row.status === 'pending' && (
+                    {isAdmin && (
                         <button
                             onClick={() => setApprovingLeave(row)}
-                            className="w-8 h-8 flex items-center justify-center text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Review"
+                            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${row.status === 'pending' ? 'text-blue-600 hover:bg-blue-50' : 'text-gray-400 hover:bg-gray-100'
+                                }`}
+                            title={row.status === 'pending' ? "Review" : "View Details"}
                         >
-                            <FiClipboard className="h-4 w-4" />
+                            {row.status === 'pending' ? <FiClipboard className="h-4 w-4" /> : <FiInfo className="h-4 w-4" />}
                         </button>
                     )}
                     {user?.id === row.user_id && row.status === 'pending' && (

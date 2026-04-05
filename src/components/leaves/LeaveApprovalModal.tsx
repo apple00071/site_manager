@@ -17,11 +17,12 @@ export default function LeaveApprovalModal({ leave, onSuccess, onClose }: LeaveA
     const { user } = useAuth();
     const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
-    const [remarks, setRemarks] = useState('');
-    const [approvedLeaveType, setApprovedLeaveType] = useState('Paid Leave');
+    const [remarks, setRemarks] = useState(leave.admin_comment || '');
+    const [approvedLeaveType, setApprovedLeaveType] = useState(leave.leave_type || 'Paid Leave');
 
     if (!leave) return null;
 
+    const isPending = leave.status === 'pending';
     const isPermission = leave.leave_type === 'Permission';
 
     const handleAction = async (status: 'approved' | 'rejected') => {
@@ -65,67 +66,73 @@ export default function LeaveApprovalModal({ leave, onSuccess, onClose }: LeaveA
     return (
         <div className="space-y-4">
             <div className="bg-white rounded-xl overflow-hidden">
-                {isPermission && (
-                    <div className="text-center pb-4 border-b border-dashed border-gray-200">
-                        <p className="text-xs font-medium text-gray-400 mb-0.5 uppercase tracking-wider">Type</p>
-                        <div className="text-xl font-extrabold text-gray-900 tracking-tight">
-                            Short Permission
-                        </div>
-                    </div>
-                )}
+                <div className="text-center pb-5 border-b border-dashed border-gray-100 uppercase tracking-widest text-xs font-bold text-gray-400">
+                    {leave.leave_type}
+                </div>
 
-                <div className="pt-2 pb-4 grid grid-cols-2 gap-y-4 gap-x-4">
+                <div className="pt-5 pb-4 grid grid-cols-2 gap-y-5 gap-x-6">
                     {isPermission ? (
                         <>
-                            <div className="space-y-0.5">
-                                <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                                    <FiCalendar className="w-2.5 h-2.5" /> Date
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                    <FiCalendar className="w-3 h-3" /> Date
                                 </div>
-                                <p className="text-sm font-semibold text-gray-900">{formatDateIST(leave.start_date)}</p>
+                                <p className="text-[13px] font-semibold text-gray-900">{formatDateIST(leave.start_date)}</p>
                             </div>
-                            <div className="text-right space-y-0.5">
-                                <div className="flex items-center justify-end gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                                    Time <FiClock className="w-2.5 h-2.5" />
+                            <div className="text-right space-y-1">
+                                <div className="flex items-center justify-end gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                    Time <FiClock className="w-3 h-3" />
                                 </div>
-                                <p className="text-sm font-semibold text-blue-600 leading-none">
+                                <p className="text-[13px] font-bold text-blue-600">
                                     {leave.start_time ? formatTimeIST(leave.start_time) : ''} - {leave.end_time ? formatTimeIST(leave.end_time) : ''}
                                 </p>
                             </div>
                         </>
                     ) : (
                         <>
-                            <div className="space-y-0.5">
-                                <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                                    <FiCalendar className="w-2.5 h-2.5" /> Start Date
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                    <FiCalendar className="w-3 h-3" /> Duration
                                 </div>
-                                <p className="text-sm font-semibold text-gray-900">{formatDateIST(leave.start_date)}</p>
+                                <p className="text-[13px] font-semibold text-gray-900">
+                                    {formatDateIST(leave.start_date)}
+                                    {leave.start_date !== leave.end_date && ` — ${formatDateIST(leave.end_date)}`}
+                                </p>
                             </div>
 
-                            <div className="text-right space-y-0.5">
-                                <div className="flex items-center justify-end gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                                    End Date <FiCalendar className="w-2.5 h-2.5" />
+                            <div className="text-right space-y-1">
+                                <div className="flex items-center justify-end gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                    Status <FiCheck className="w-3 h-3 text-gray-300" />
                                 </div>
-                                <p className="text-sm font-semibold text-gray-900">{formatDateIST(leave.end_date)}</p>
+                                <div className="flex justify-end">
+                                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${leave.status === 'approved' ? 'bg-green-50 text-green-600' :
+                                        leave.status === 'rejected' ? 'bg-red-50 text-red-600' :
+                                            'bg-yellow-50 text-yellow-600'
+                                        }`}>
+                                        {leave.status}
+                                    </span>
+                                </div>
                             </div>
                         </>
                     )}
 
-                    <div className="col-span-2 space-y-1 bg-gray-50 p-2.5 rounded-lg border border-gray-100">
-                        <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">
+                    <div className="col-span-2 space-y-1.5 bg-gray-50/80 p-3 rounded-xl border border-gray-100">
+                        <div className="flex items-center gap-1.5 text-[9px] font-bold text-gray-400 uppercase tracking-widest">
                             <FiFileText className="w-2.5 h-2.5" /> Reason
                         </div>
-                        <p className="text-xs text-gray-700 leading-relaxed font-medium">
+                        <p className="text-xs text-gray-800 leading-relaxed font-medium">
                             {leave.reason}
                         </p>
                     </div>
                 </div>
             </div>
 
-            <div className="space-y-3 pt-3 border-t border-gray-100">
-                {!isPermission && (
-                    <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">
-                            Leave Type <span className="text-red-500">*</span>
+            <div className="space-y-4 pt-2 border-t border-gray-50">
+                {!isPermission && isPending && (
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex justify-between">
+                            <span>Approve As Type</span>
+                            <span className="text-red-500/50">*</span>
                         </label>
                         <CustomDropdown
                             value={approvedLeaveType}
@@ -138,37 +145,54 @@ export default function LeaveApprovalModal({ leave, onSuccess, onClose }: LeaveA
                     </div>
                 )}
 
-                <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">
-                        Admin Remarks <span className="font-normal text-gray-400 normal-case ml-1">{remarks ? '' : '(Optional)'}</span>
-                    </label>
-                    <textarea
-                        value={remarks}
-                        onChange={(e) => setRemarks(e.target.value)}
-                        rows={2}
-                        className="w-full px-3 py-2 bg-gray-50 border-0 ring-1 ring-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-gray-400 text-xs resize-none"
-                        placeholder="Add notes about approval or rejection..."
-                    />
-                </div>
+                {(isPending || leave.admin_comment) && (
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                            Admin Remarks {isPending && <span className="font-medium text-gray-300 lowercase ml-1">(Optional)</span>}
+                        </label>
+                        {isPending ? (
+                            <textarea
+                                value={remarks}
+                                onChange={(e) => setRemarks(e.target.value)}
+                                rows={2}
+                                className="w-full px-3 py-2 bg-gray-50 border-0 ring-1 ring-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-gray-400 text-xs resize-none"
+                                placeholder="Add notes about approval or rejection..."
+                            />
+                        ) : (
+                            <div className="p-3 bg-blue-50/30 rounded-xl border border-blue-100/50 text-xs text-gray-700 italic leading-relaxed">
+                                "{leave.admin_comment}"
+                            </div>
+                        )}
+                    </div>
+                )}
 
-                <div className="grid grid-cols-2 gap-3 pt-1">
+                {isPending ? (
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                        <button
+                            onClick={() => handleAction('rejected')}
+                            disabled={loading}
+                            className="flex-1 h-11 border border-red-100 text-red-500 rounded-xl font-bold text-xs hover:bg-red-50 transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+                        >
+                            <FiX className="w-3.5 h-3.5" />
+                            <span>Reject Request</span>
+                        </button>
+                        <button
+                            onClick={() => handleAction('approved')}
+                            disabled={loading}
+                            className="flex-1 h-11 bg-green-600 text-white rounded-xl font-bold text-xs hover:bg-green-700 transition-all shadow-sm flex items-center justify-center gap-2 active:scale-[0.98]"
+                        >
+                            <FiCheck className="w-3.5 h-3.5" />
+                            <span>Approve {isPermission ? 'Permission' : 'Leave'}</span>
+                        </button>
+                    </div>
+                ) : (
                     <button
-                        onClick={() => handleAction('rejected')}
-                        disabled={loading}
-                        className="flex-1 h-11 border border-red-200 text-red-600 rounded-xl font-bold text-xs hover:bg-red-50 transition-all flex items-center justify-center gap-2"
+                        onClick={onClose}
+                        className="w-full h-11 bg-gray-900 text-white rounded-xl font-bold text-xs hover:bg-gray-800 transition-all active:scale-[0.98]"
                     >
-                        <FiX className="w-3.5 h-3.5" />
-                        <span>Reject</span>
+                        Close Details
                     </button>
-                    <button
-                        onClick={() => handleAction('approved')}
-                        disabled={loading}
-                        className="flex-1 h-11 bg-green-600 text-white rounded-xl font-bold text-xs hover:bg-green-700 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
-                    >
-                        <FiCheck className="w-3.5 h-3.5" />
-                        <span>Approve {isPermission ? 'Permission' : 'Leave'}</span>
-                    </button>
-                </div>
+                )}
             </div>
         </div>
     );

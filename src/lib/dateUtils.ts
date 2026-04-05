@@ -26,8 +26,22 @@ export function formatDateIST(dateString: string | Date): string {
  * @param dateString - ISO date string or Date object
  * @returns Formatted time string (e.g., "2:30 PM")
  */
-export function formatTimeIST(dateString: string | Date): string {
+export function formatTimeIST(dateString: string | Date | null | undefined): string {
+  if (!dateString) return '';
+  
+  // Check if it's a simple time string like "HH:mm" or "HH:mm:ss"
+  if (typeof dateString === 'string' && /^\d{1,2}:\d{2}(:\d{2})?$/.test(dateString.trim())) {
+    const parts = dateString.trim().split(':');
+    let hours = parseInt(parts[0]);
+    const minutes = parts[1].padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    return `${hours}:${minutes} ${ampm}`;
+  }
+
   const date = new Date(dateString);
+  if (isNaN(date.getTime())) return typeof dateString === 'string' ? dateString : '';
   
   // Convert to IST (UTC+5:30)
   return date.toLocaleString('en-US', {
