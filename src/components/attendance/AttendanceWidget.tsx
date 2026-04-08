@@ -12,8 +12,6 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
     const [status, setStatus] = useState<'out' | 'in' | 'done' | 'forgotten'>('out');
     const [loading, setLoading] = useState(true);
     const [attendance, setAttendance] = useState<any>(null);
-    const [showQuickClose, setShowQuickClose] = useState(false);
-    const [quickCloseTime, setQuickCloseTime] = useState('18:00');
     const { showToast } = useToast();
 
     useEffect(() => {
@@ -38,9 +36,10 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
                         const now = new Date();
                         const diffHours = (now.getTime() - checkInDate.getTime()) / (1000 * 60 * 60);
 
-                        // If it's been more than 20 hours, assume they forgot to punch out
+                        // If it's been more than 20 hours, it will be auto-closed by the system or on next punch-in
                         if (diffHours > 20) {
-                            setStatus('forgotten');
+                            setStatus('out');
+                            setAttendance(null);
                         } else {
                             setStatus('in');
                         }
@@ -63,35 +62,6 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
         }
     };
 
-    const handleQuickClose = async () => {
-        setLoading(true);
-        try {
-            const checkOutISO = new Date(`${attendance.date}T${quickCloseTime}:00+05:30`).toISOString();
-            const res = await fetch('/api/attendance', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'quick_close',
-                    date: attendance.date,
-                    check_out: checkOutISO
-                }),
-            });
-
-            if (res.ok) {
-                showToast('success', 'Submitted for approval. You can now punch in for today.');
-                setShowQuickClose(false);
-                setStatus('out');
-                setAttendance(null);
-            } else {
-                const err = await res.json();
-                showToast('error', err.error || 'Failed to submit quick close');
-            }
-        } catch (error) {
-            showToast('error', 'Something went wrong');
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handlePunch = async (action: 'punch_in' | 'punch_out') => {
         setLoading(true);
@@ -205,57 +175,6 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
         );
     }
 
-    if (status === 'forgotten') {
-        return (
-            <div className={`flex flex-col gap-2 bg-yellow-50 border border-yellow-100 rounded-xl p-3 ${variant === 'compact' ? 'w-full' : 'w-64'}`}>
-                {!showQuickClose ? (
-                    <>
-                        <div className="flex flex-col gap-2">
-                            <div className="flex items-center gap-2 p-2 pt-0 text-amber-700 bg-amber-50 rounded-lg">
-                                <FiClock className="w-10 h-10 flex-shrink-0" />
-                                <p className="text-[10px] sm:text-xs font-semibold leading-tight">
-                                    You missed a punch-out! Submit your estimated time to continue today.
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => setShowQuickClose(true)}
-                                className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-bold shadow-sm"
-                            >
-                                Quick Close
-                            </button>
-                        </div>
-                    </>
-                ) : (
-                    <div className="space-y-2">
-                        <div className="flex flex-col gap-1">
-                            <label className="text-[9px] font-bold text-yellow-700 uppercase">Logout Time</label>
-                            <input
-                                type="time"
-                                value={quickCloseTime}
-                                onChange={(e) => setQuickCloseTime(e.target.value)}
-                                className="px-2 py-1 text-xs border border-yellow-200 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                            />
-                        </div>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={handleQuickClose}
-                                disabled={loading}
-                                className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white text-[10px] font-bold py-1.5 rounded-lg transition-all"
-                            >
-                                Submit
-                            </button>
-                            <button
-                                onClick={() => setShowQuickClose(false)}
-                                className="px-2 py-1.5 text-yellow-700 text-[10px] font-bold hover:bg-yellow-100 rounded-lg transition-all"
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </div>
-        );
-    }
 
     if (status === 'done') {
         const checkIn = formatTimeIST(attendance.check_in);

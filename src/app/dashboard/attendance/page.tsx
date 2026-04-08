@@ -266,10 +266,10 @@ export default function AttendancePage() {
         const canViewAppeals = isAdmin || hasPermission(PERMISSION_NODES.ATTENDANCE_VIEW_APPEALS);
         if (!canViewAppeals || row.status !== 'pending') return null;
 
-        const isQuickClose = row.admin_comments?.includes('Quick Close');
+        const isAutoPunchOut = row.admin_comments?.includes('Punch by next day');
         
-        // If it lacks user_comments BUT is Quick Close, we'll render it under Punch Out by default.
-        if (!row.user_comments && !isQuickClose) return null;
+        // If it lacks user_comments BUT is Auto Punch Out, we don't need additional actions (it's already approved)
+        if (!row.user_comments && !isAutoPunchOut) return null;
 
         let showRemarks = false;
         if (row.user_comments) {
@@ -286,9 +286,6 @@ export default function AttendancePage() {
                 if (type === 'in') return null;
                 showRemarks = true;
             }
-        } else if (isQuickClose) {
-            if (type === 'in') return null; // Show quick close actions under Punch Out
-            showRemarks = true;
         }
         
         if (!showRemarks) return null;
@@ -309,7 +306,7 @@ export default function AttendancePage() {
                                 const { newIn, newOut } = getRequestedTimes(row);
                                 handleApproval(row.id, 'approved', newIn, newOut);
                             } else {
-                                // For Quick Close, approve immediately with no time changes
+                                // Approved immediately
                                 handleApproval(row.id, 'approved');
                             }
                         }}

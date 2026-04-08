@@ -150,6 +150,14 @@ export async function GET(req: NextRequest) {
         });
     }
 
+    // H. Auto Punch-Out: 12:05 AM IST (6:35 PM UTC)
+    if (manualJob === 'auto-punch-out' || (!manualJob && utcHour === 18 && utcMin >= 30)) {
+        await runJobSafely('autoPunchOut', async () => {
+            const { runAutoPunchOut } = await import('@/lib/cron-jobs/attendanceReminders');
+            return runAutoPunchOut();
+        });
+    }
+
     // Final Success Response (Even if some jobs had errors)
     return NextResponse.json({
         success: true,

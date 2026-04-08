@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST: Punch In / Punch Out / Quick Close
+ * POST: Punch In / Punch Out
  */
 export async function POST(request: NextRequest) {
     try {
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const action = body.action; // 'punch_in', 'punch_out', or 'quick_close'
+        const action = body.action; // 'punch_in' or 'punch_out'
         const { latitude, longitude, date, check_out_time } = body;
         const today = getTodayDateString();
 
@@ -116,7 +116,20 @@ export async function POST(request: NextRequest) {
                 .maybeSingle();
 
             if (openRecord) {
-                return NextResponse.json({ error: 'You are already punched in. Please punch out first.' }, { status: 400 });
+                // If the open record is from a previous day, auto-close it
+                if (openRecord.date < today) {
+                    const checkOutIST = `${openRecord.date}T18:00:00+05:30`;
+                    await supabaseAdmin
+                        .from('attendance')
+                        .update({
+                            check_out: new Date(checkOutIST).toISOString(),
+                            status: 'approved',
+                            admin_comments: 'Punch by next day'
+                        })
+                        .eq('id', openRecord.id);
+                } else {
+                    return NextResponse.json({ error: 'You are already punched in. Please punch out first.' }, { status: 400 });
+                }
             }
 
             // 2. Check if already punched in for TODAY (prevent double shift on same calendar date UTC)
@@ -191,55 +204,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(data);
         }
 
-        if (action === 'quick_close') {
-            const { date, check_out } = body;
-            if (!date || !check_out) {
-                return NextResponse.json({ error: 'Missing date or check-out details' }, { status: 400 });
-            }
-
-            const { data, error } = await supabaseAdmin
-                .from('attendance')
-                .update({
-                    check_out: check_out,
-                    status: 'pending',
-                    admin_comments: 'Submitted via Quick Close (Forgotten Punch Out)'
-                })
-                .eq('user_id', userResult.user.id)
-                .eq('date', date)
-                .select()
-                .maybeSingle();
-
-            if (error) {
-                console.error('Quick close error:', error);
-                return NextResponse.json({ error: error.message }, { status: 500 });
-            }
-
-            // Notify all admins that an employee forgot to punch out
-            try {
-                const { data: employeeData } = await supabaseAdmin
-                    .from('users')
-                    .select('full_name')
-                    .eq('id', userResult.user.id)
-                    .single();
-
-                const { data: admins } = await supabaseAdmin
-                    .from('users')
-                    .select('id')
-                    .eq('role', 'admin');
-
-                if (admins && employeeData) {
-                    await Promise.allSettled(
-                        admins.map((admin: { id: string }) =>
-                            NotificationService.notifyAttendanceAppealed(admin.id, employeeData.full_name, date)
-                        )
-                    );
-                }
-            } catch (notifyError) {
-                console.error('Failed to notify admins about Quick Close:', notifyError);
-            }
-
-            return NextResponse.json(data);
-        }
 
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     } catch (error: any) {

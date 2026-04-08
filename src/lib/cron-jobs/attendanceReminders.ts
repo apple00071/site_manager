@@ -83,3 +83,57 @@ export async function runPunchOutReminder() {
     await Promise.allSettled(updates);
     return { success: true, message: `Sent punch-out reminders to ${openRecords.length} employees` };
 }
+
+/**
+ * Auto Punch-Out (Midnight IST)
+ * Automatically closes any open attendance records from previous days
+ */
+export async function runAutoPunchOut() {
+    console.log('⏰ Starting Auto Punch-Out Logic');
+
+    const todayStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }).split(',')[0];
+    const [month, day, year] = todayStr.split('/');
+    const currentISTDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+
+    // 1. Find all records where check_out is null and date < currentISTDate
+    const { data: openRecords, error: findError } = await supabaseAdmin
+        .from('attendance')
+        .select('id, date, user_id')
+        .is('check_out', null)
+        .lt('date', currentISTDate);
+
+    if (findError) {
+        console.error('Error finding open records for auto-close:', findError);
+        throw findError;
+    }
+
+    if (!openRecords || openRecords.length === 0) {
+        return { success: true, message: 'No open records to auto-close' };
+    }
+
+    console.log(`📝 Auto-closing ${openRecords.length} records`);
+
+    const updates = openRecords.map((record: any) => {
+        // Set check_out to 18:00:00 (6 PM) of the record's date in IST
+        const checkOutIST = `${record.date}T18:00:00+05:30`;
+        
+        return supabaseAdmin
+            .from('attendance')
+            .update({
+                check_out: new Date(checkOutIST).toISOString(),
+                status: 'approved',
+                admin_comments: 'Punch by next day'
+            })
+            .eq('id', record.id);
+    });
+
+    const results = await Promise.allSettled(updates);
+    const succeeded = results.filter(r => r.status === 'fulfilled').length;
+    const failed = results.filter(r => r.status === 'rejected').length;
+
+    return { 
+        success: true, 
+        message: `Auto-closed ${succeeded} records, ${failed} failed`,
+        details: { succeeded, failed }
+    };
+}
