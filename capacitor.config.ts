@@ -6,7 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'out',
   server: {
     url: 'https://app.appleinteriors.in',
-    cleartext: true
+    cleartext: false
   }
 };
 
