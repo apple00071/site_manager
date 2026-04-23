@@ -84,12 +84,19 @@ export async function middleware(request: NextRequest) {
       }
     );
 
+    // Define public routes that don't require authentication
+    const publicRoutes = ['/', '/login', '/signup', '/forgot-password', '/privacy-policy', '/account-deletion'];
+    const isPublicRoute = publicRoutes.some(route =>
+      request.nextUrl.pathname === route ||
+      request.nextUrl.pathname.startsWith('/auth/')
+    );
+
     // Get the current user with error handling
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (authError) {
-      console.warn('Auth error in middleware:', authError.message);
-      // If there's an auth error, clear the auth cookies and redirect to login
+    if (authError && !isPublicRoute) {
+      console.warn('Auth error in middleware for protected route:', authError.message);
+      // If there's an auth error on a protected route, clear the auth cookies and redirect to login
       const clearResponse = NextResponse.redirect(new URL('/login', request.url));
 
       // Dynamically find and clear auth cookies instead of hardcoding project ID
@@ -101,13 +108,6 @@ export async function middleware(request: NextRequest) {
 
       return clearResponse;
     }
-
-    // Define public routes that don't require authentication
-    const publicRoutes = ['/', '/login', '/signup', '/forgot-password', '/privacy-policy', '/account-deletion'];
-    const isPublicRoute = publicRoutes.some(route =>
-      request.nextUrl.pathname === route ||
-      request.nextUrl.pathname.startsWith('/auth/')
-    );
 
     // If the user is not signed in and the current URL is not public, redirect to login
     if (!user && !isPublicRoute) {
