@@ -62,9 +62,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (response.ok) {
               const data = await response.json();
               if (data.authenticated && data.user) {
-                await supabase.auth.refreshSession();
-                const { data: { user: verifiedUser } } = await supabase.auth.getUser();
-                if (verifiedUser) {
+                const { data: { user: verifiedUser }, error: userError } = await supabase.auth.getUser();
+                if (verifiedUser && !userError) {
                   const { data: { session: refreshedSession } } = await supabase.auth.getSession();
                   currentSession = refreshedSession;
                 }
@@ -147,15 +146,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event: string, newSession: Session | null) => {
+      async (_event: string, session: Session | null) => {
         try {
-          if (newSession?.user) {
+          const { data: { user: verifiedUser } } = await supabase.auth.getUser();
+          
+          if (verifiedUser) {
             try {
-              const userData = await fetchUserRole(newSession.user.id);
+              const userData = await fetchUserRole(verifiedUser.id);
 
               if (userData) {
                 const userWithRole = {
-                  ...newSession.user,
+                  ...verifiedUser,
                   role: (userData as any).role as 'admin' | 'employee',
                   full_name: (userData as any).full_name,
                   designation: (userData as any).designation,
@@ -165,9 +166,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setIsAdmin(userWithRole.role === 'admin');
               } else {
                 setUser({
-                  ...newSession.user,
+                  ...verifiedUser,
                   role: 'employee',
-                  full_name: newSession.user.email?.split('@')[0] || 'User',
+                  full_name: verifiedUser.email?.split('@')[0] || 'User',
                   designation: '',
                 });
                 setIsAdmin(false);
@@ -175,9 +176,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } catch (error) {
               debugLog('Error handling auth state change:', error);
               setUser({
-                ...newSession.user,
+                ...verifiedUser,
                 role: 'employee',
-                full_name: newSession.user.email?.split('@')[0] || 'User',
+                full_name: verifiedUser.email?.split('@')[0] || 'User',
                 designation: '',
               });
               setIsAdmin(false);
@@ -187,7 +188,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setIsAdmin(false);
           }
 
-          setSession(newSession);
+          setSession(session);
         } catch (error) {
           debugLog('Error in auth state change handler:', error);
           setSession(null);

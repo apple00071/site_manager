@@ -99,15 +99,17 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     // Set up session listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: string, session: Session | null) => {
-        setSession(session);
-        setUser(session?.user ?? null);
         setIsLoading(true);
+        const { data: { user: verifiedUser } } = await supabase.auth.getUser();
+        
+        setSession(session);
+        setUser(verifiedUser ?? null);
 
-        if (session?.user) {
+        if (verifiedUser) {
           try {
             // Skip database query and check admin status from auth metadata
             console.log('🔍 Checking admin status from auth metadata...');
-            const userRole = session.user.user_metadata?.role || 'employee';
+            const userRole = verifiedUser.user_metadata?.role || 'employee';
             const isAdminUser = userRole === 'admin';
 
             console.log('📋 Admin check result:', {
@@ -141,15 +143,16 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     // Initial session check
     const initializeAuth = async () => {
       try {
+        const { data: { user: verifiedUser } } = await supabase.auth.getUser();
         const { data: { session } } = await supabase.auth.getSession();
         
-        if (session) {
+        if (verifiedUser) {
           setSession(session);
-          setUser(session.user);
+          setUser(verifiedUser);
 
           // Check if user is admin using auth metadata
           console.log('🔍 Checking admin status from auth metadata...');
-          const userRole = session.user.user_metadata?.role || 'employee';
+          const userRole = verifiedUser.user_metadata?.role || 'employee';
           const isAdminUser = userRole === 'admin';
 
           console.log('📋 Admin check result:', {

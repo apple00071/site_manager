@@ -9,7 +9,7 @@ export default function Home() {
 
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { user } } = await supabase.auth.getUser();
 
       // CRITICAL: Check if there's a pending deep link redirect waiting
       // We wait a tiny bit to see if OneSignalInit.tsx or the boot script has flagged a route
@@ -19,7 +19,7 @@ export default function Home() {
         return;
       }
 
-      if (session) {
+      if (user) {
         router.push('/dashboard');
       } else {
         router.push('/login');

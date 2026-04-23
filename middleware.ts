@@ -84,12 +84,12 @@ export async function middleware(request: NextRequest) {
       }
     );
 
-    // Get the current session with error handling
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // Get the current user with error handling
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (sessionError) {
-      console.warn('Session error in middleware:', sessionError.message);
-      // If there's a session error, clear the auth cookies and redirect to login
+    if (authError) {
+      console.warn('Auth error in middleware:', authError.message);
+      // If there's an auth error, clear the auth cookies and redirect to login
       const clearResponse = NextResponse.redirect(new URL('/login', request.url));
 
       // Dynamically find and clear auth cookies instead of hardcoding project ID
@@ -110,7 +110,7 @@ export async function middleware(request: NextRequest) {
     );
 
     // If the user is not signed in and the current URL is not public, redirect to login
-    if (!session && !isPublicRoute) {
+    if (!user && !isPublicRoute) {
       // Prevent redirect loops by checking if we're already being redirected
       const redirectedFrom = request.nextUrl.searchParams.get('redirectedFrom');
       if (redirectedFrom === request.nextUrl.pathname) {
@@ -133,8 +133,8 @@ export async function middleware(request: NextRequest) {
     }
 
     // If the user is signed in and tries to access auth pages or dashboard, check role
-    if (session) {
-      const userRole = session.user?.user_metadata?.role || 'employee';
+    if (user) {
+      const userRole = user?.user_metadata?.role || 'employee';
       const isAuthPage = request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup';
       const isDashboardPage = request.nextUrl.pathname.startsWith('/dashboard') && !request.nextUrl.pathname.startsWith('/dashboard/admin');
 
@@ -150,9 +150,9 @@ export async function middleware(request: NextRequest) {
       request.nextUrl.pathname.startsWith(route)
     );
 
-    if (session && isAdminRoute) {
+    if (user && isAdminRoute) {
       // Use user_metadata to match AuthContext implementation
-      const userRole = session.user?.user_metadata?.role || 'employee';
+      const userRole = user?.user_metadata?.role || 'employee';
 
       if (userRole !== 'admin') {
         return NextResponse.redirect(new URL('/dashboard', request.url));
