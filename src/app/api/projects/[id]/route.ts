@@ -87,11 +87,30 @@ export async function GET(
                     name:full_name,
                     designation
                 ),
+                designer:designer_id(
+                    id,
+                    email,
+                    full_name
+                ),
+                site_supervisor:site_supervisor_id(
+                    id,
+                    email,
+                    full_name
+                ),
                 creator:created_by(
                     id,
                     email,
                     full_name,
                     username
+                ),
+                project_members(
+                    user_id,
+                    users:user_id(
+                        id,
+                        email,
+                        full_name,
+                        designation
+                    )
                 )
             `)
             .eq('id', id)

@@ -72,8 +72,73 @@ export async function GET(request: NextRequest) {
             throw error;
         }
 
+        // Map standard office expenses to include project_name: parsed from description bracket prefix or fallback to 'Office'
+        let finalExpenses = (expenses || []).map((e: any) => {
+            let project_name = 'Office';
+            const desc = e.description || '';
+            const match = desc.match(/^\[(.*?)\]/);
+            if (match) {
+                project_name = match[1];
+            }
+            return {
+                id: e.id,
+                expense_date: e.expense_date,
+                project_name,
+                description: e.description,
+                amount: e.amount || 0,
+                status: e.status || 'pending',
+                category: e.category,
+                bill_urls: e.bill_urls || (e.bill_url ? [e.bill_url] : []),
+                user_id: e.user_id
+            };
+        });
+
+        // If user_id filter is specified (e.g. Employee 360 profile), load and merge their project expenses
+        if (userIdFilter) {
+            try {
+                const { data: projExpenses, error: projError } = await supabaseAdmin
+                    .from('inventory_items')
+                    .select(`
+                        id,
+                        item_name,
+                        total_cost,
+                        date_purchased,
+                        bill_approval_status,
+                        bill_urls,
+                        project:project_id(title)
+                    `)
+                    .eq('created_by', userIdFilter);
+
+                if (!projError && projExpenses) {
+                    const mappedProjExpenses = projExpenses.map((e: any) => ({
+                        id: e.id,
+                        expense_date: e.date_purchased || null,
+                        project_name: e.project ? e.project.title : 'Project',
+                        description: e.item_name,
+                        amount: e.total_cost || 0,
+                        status: e.bill_approval_status || 'pending',
+                        category: 'Project Expense',
+                        bill_urls: e.bill_urls || [],
+                        user_id: userIdFilter
+                    }));
+                    finalExpenses = [...finalExpenses, ...mappedProjExpenses];
+                } else if (projError) {
+                    console.error('Error querying project expenses:', projError);
+                }
+            } catch (err) {
+                console.error('Error fetching nested project expenses:', err);
+            }
+        }
+
+        // Sort unified list by date descending
+        finalExpenses.sort((a: any, b: any) => {
+            const dateA = a.expense_date ? new Date(a.expense_date).getTime() : 0;
+            const dateB = b.expense_date ? new Date(b.expense_date).getTime() : 0;
+            return dateB - dateA;
+        });
+
         return NextResponse.json({
-            expenses: expenses || []
+            expenses: finalExpenses
         });
     } catch (error: any) {
         console.error('Error fetching office expenses:', error);

@@ -9,6 +9,21 @@ import { FiPlus, FiEdit2, FiTrash2, FiEye, FiMoreVertical, FiSearch, FiX, FiSend
 import { formatDateIST } from '@/lib/dateUtils';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+const getSupervisorName = (project: any): string => {
+  if (project.site_supervisor?.full_name) {
+    return project.site_supervisor.full_name;
+  }
+  if (Array.isArray(project.project_members)) {
+    const supervisorMember = project.project_members.find((pm: any) => {
+      const designation = pm.users?.designation?.toLowerCase() || '';
+      return designation.includes('site') || designation.includes('supervisor') || designation.includes('engineer');
+    });
+    if (supervisorMember?.users?.full_name) {
+      return supervisorMember.users.full_name;
+    }
+  }
+  return 'Not Assigned';
+};
 
 export default function ProjectsPage() {
   const { user, isAdmin } = useAuth();
@@ -358,6 +373,14 @@ export default function ProjectsPage() {
                           </span>
                         </div>
                       )}
+                      <div>
+                        <span className="text-gray-500">Designer:</span>
+                        <span className="ml-1 text-gray-900 font-medium">{project.assigned_employee?.name || project.designer?.full_name || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Site Engineer:</span>
+                        <span className="ml-1 text-gray-900 font-medium">{getSupervisorName(project)}</span>
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -454,6 +477,12 @@ export default function ProjectsPage() {
                 <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Designer
+                </th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Site Engineer
+                </th>
                 <th
                   scope="col"
                   className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 hover:text-gray-700 transition-colors group"
@@ -514,6 +543,12 @@ export default function ProjectsPage() {
                         </span>
                       );
                     })()}
+                  </td>
+                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{project.assigned_employee?.name || project.designer?.full_name || '-'}</div>
+                  </td>
+                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{getSupervisorName(project)}</div>
                   </td>
                   <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
                     {project.start_date ? formatDateIST(project.start_date) : '-'}

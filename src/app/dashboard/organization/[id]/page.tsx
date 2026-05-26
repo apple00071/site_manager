@@ -8,6 +8,36 @@ import { TbCurrencyRupee } from 'react-icons/tb';
 import { formatDateIST } from '@/lib/dateUtils';
 import { DataTable, StatusBadge, getStatusVariant } from '@/components/ui/DataTable';
 import Link from 'next/link';
+import { ImageModal } from '@/components/ui/ImageModal';
+
+const openExternalLink = (url: string) => {
+    if (!url) return;
+    
+    // Median / GoNative support
+    // @ts-ignore
+    if (typeof window !== 'undefined' && window.median && window.median.open && window.median.open.external) {
+        // @ts-ignore
+        window.median.open.external({ url });
+        return;
+    }
+    
+    // Capacitor support
+    // @ts-ignore
+    if (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser) {
+        try {
+            // @ts-ignore
+            window.Capacitor.Plugins.Browser.open({ url });
+            return;
+        } catch (e) {
+            console.error('Capacitor browser open failed', e);
+        }
+    }
+    
+    // Standard window.open fallback
+    if (typeof window !== 'undefined') {
+        window.open(url, '_blank');
+    }
+};
 
 interface PerformanceMetrics {
     updateCount: number;
@@ -30,6 +60,8 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
     const [expenses, setExpenses] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('performance');
+    const [viewingBills, setViewingBills] = useState<string[]>([]);
+    const [viewingBillIndex, setViewingBillIndex] = useState<number>(0);
 
     useEffect(() => {
         setTitle('Employee 360');
@@ -326,9 +358,34 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
                                     data={expenses}
                                     keyField="id"
                                     columns={[
-                                        { label: 'Date', key: 'expense_date', render: (val) => formatDateIST(val).split(',')[0] },
+                                        { label: 'Date', key: 'expense_date', render: (val) => val ? formatDateIST(val).split(',')[0] : 'N/A' },
+                                        { label: 'Project Name', key: 'project_name', render: (val) => <span className="font-bold text-gray-800">{val || 'Office'}</span> },
                                         { label: 'Description', key: 'description' },
-                                        { label: 'Amount', key: 'amount', render: (val) => <span className="font-bold text-gray-900">₹{val}</span> },
+                                        { 
+                                            label: 'Bill', 
+                                            key: 'bill_urls', 
+                                            render: (val) => {
+                                                const bills = Array.isArray(val) ? val.filter(Boolean) : [];
+                                                if (bills.length === 0) return <span className="text-gray-400 text-xs italic">No Bill</span>;
+                                                return (
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {bills.map((url: string, idx: number) => (
+                                                            <button 
+                                                                key={idx} 
+                                                                onClick={() => {
+                                                                    setViewingBills(bills);
+                                                                    setViewingBillIndex(idx);
+                                                                }}
+                                                                className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-yellow-50 text-yellow-700 border border-yellow-200 hover:bg-yellow-100 hover:text-yellow-800 transition-colors cursor-pointer"
+                                                            >
+                                                                View Bill{bills.length > 1 ? ` ${idx + 1}` : ''}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                );
+                                            }
+                                        },
+                                        { label: 'Amount', key: 'amount', render: (val) => <span className="font-bold text-gray-900">₹{(Number(val) || 0).toLocaleString()}</span> },
                                         { label: 'Status', key: 'status', render: (val) => <StatusBadge status={val} variant={getStatusVariant(val)} /> },
                                     ]}
                                 />
@@ -337,24 +394,57 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
                                 {expenses.length === 0 ? (
                                     <div className="p-8 text-center text-gray-500">No expense records found.</div>
                                 ) : (
-                                    expenses.map(exp => (
-                                        <div key={exp.id} className="p-4 space-y-3">
-                                            <div className="flex justify-between items-start">
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-gray-900 text-sm">₹{(Number(exp.amount) || 0).toLocaleString()}</span>
-                                                    <span className="text-[10px] text-gray-500">{formatDateIST(exp.expense_date).split(',')[0]}</span>
+                                    expenses.map(exp => {
+                                        const bills = Array.isArray(exp.bill_urls) ? exp.bill_urls.filter(Boolean) : [];
+                                        return (
+                                            <div key={exp.id} className="p-4 space-y-3 bg-white/50 hover:bg-gray-50/50 transition-colors">
+                                                <div className="flex justify-between items-start">
+                                                    <div className="space-y-0.5">
+                                                        <span className="font-bold text-gray-900 text-base">₹{(Number(exp.amount) || 0).toLocaleString()}</span>
+                                                        <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
+                                                            <span>{exp.expense_date ? formatDateIST(exp.expense_date).split(',')[0] : 'N/A'}</span>
+                                                            <span>•</span>
+                                                            <span className="font-semibold text-gray-700">{exp.project_name || 'Office'}</span>
+                                                        </div>
+                                                    </div>
+                                                    <StatusBadge status={exp.status} variant={getStatusVariant(exp.status)} />
                                                 </div>
-                                                <StatusBadge status={exp.status} variant={getStatusVariant(exp.status)} />
+                                                <p className="text-xs text-gray-600 leading-relaxed font-medium">{exp.description || 'No description'}</p>
+                                                {bills.length > 0 && (
+                                                    <div className="flex flex-wrap gap-2 pt-1">
+                                                        {bills.map((url: string, idx: number) => (
+                                                            <button 
+                                                                key={idx} 
+                                                                onClick={() => {
+                                                                    setViewingBills(bills);
+                                                                    setViewingBillIndex(idx);
+                                                                }}
+                                                                className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold bg-yellow-50 text-yellow-700 border border-yellow-200 hover:bg-yellow-100 transition-colors cursor-pointer"
+                                                            >
+                                                                View Bill{bills.length > 1 ? ` ${idx + 1}` : ''}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
-                                            <p className="text-xs text-gray-600 line-clamp-2">{exp.description || 'No description'}</p>
-                                        </div>
-                                    ))
+                                        );
+                                    })
                                 )}
                             </div>
                         </>
                     )}
                 </div>
             </div>
+            
+            {viewingBills.length > 0 && (
+                <ImageModal
+                    images={viewingBills}
+                    currentIndex={viewingBillIndex}
+                    isOpen={viewingBills.length > 0}
+                    onClose={() => setViewingBills([])}
+                    onNavigate={(index) => setViewingBillIndex(index)}
+                />
+            )}
         </div>
     );
 }

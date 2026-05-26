@@ -4,6 +4,36 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 
+const openExternalLink = (url: string) => {
+  if (!url) return;
+  
+  // Median / GoNative support
+  // @ts-ignore
+  if (typeof window !== 'undefined' && window.median && window.median.open && window.median.open.external) {
+    // @ts-ignore
+    window.median.open.external({ url });
+    return;
+  }
+  
+  // Capacitor support
+  // @ts-ignore
+  if (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser) {
+    try {
+      // @ts-ignore
+      window.Capacitor.Plugins.Browser.open({ url });
+      return;
+    } catch (e) {
+      console.error('Capacitor browser open failed', e);
+    }
+  }
+  
+  // Standard window.open fallback
+  if (typeof window !== 'undefined') {
+    window.open(url, '_blank');
+  }
+};
+
+
 type ImageModalProps = {
   images: string[];
   currentIndex: number;
@@ -149,19 +179,23 @@ export function ImageModal({ images, currentIndex, isOpen, onClose, onNavigate }
         {isCurrentPDF ? (
           <div className="w-full h-full flex flex-col items-center justify-center" onClick={(e) => e.stopPropagation()}>
             <iframe
-              src={currentUrl}
+              src={
+                typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent)
+                  ? `https://docs.google.com/viewer?url=${encodeURIComponent(currentUrl)}&embedded=true`
+                  : currentUrl
+              }
               className="w-full h-full rounded-lg shadow-2xl bg-white"
               title={`PDF ${activeIndex + 1}`}
             />
-            <a
-              href={currentUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 btn-primary"
-              onClick={(e) => e.stopPropagation()}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openExternalLink(currentUrl);
+              }}
+              className="mt-4 btn-primary flex items-center gap-2 cursor-pointer"
             >
-              📄 Open PDF in New Tab
-            </a>
+              📄 Open PDF in System App
+            </button>
           </div>
         ) : (
           <img
