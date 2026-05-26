@@ -86,7 +86,7 @@ export async function runMemberCheckupReminder() {
 
 /**
  * Admin Task Verification Reminder (5:30 PM IST)
- * Notifies Admin to check the team's progress
+ * Notifies Admin to check the team's progress + snag summary
  */
 export async function runAdminTaskCheckReminder() {
     console.log('🏁 Starting Admin Task Check Reminder Logic');
@@ -101,13 +101,29 @@ export async function runAdminTaskCheckReminder() {
         return { success: true, message: 'No admins found' };
     }
 
+    // Fetch snag summary for end-of-day report
+    const { data: openSnags } = await supabaseAdmin
+        .from('snags')
+        .select('id, status, assigned_to_user_id')
+        .in('status', ['open', 'assigned', 'resolved']);
+
+    const totalOpen = (openSnags || []).filter((s: any) => s.status === 'open').length;
+    const totalAssigned = (openSnags || []).filter((s: any) => s.status === 'assigned').length;
+    const totalResolved = (openSnags || []).filter((s: any) => s.status === 'resolved').length;
+
+    // Build snag summary line for admins
+    let snagSummary = '';
+    if (totalOpen + totalAssigned + totalResolved > 0) {
+        snagSummary = `\n\n📋 Snag Summary:\n- Open (Unassigned): ${totalOpen}\n- Assigned (In Progress): ${totalAssigned}\n- Resolved (Pending Verification): ${totalResolved}`;
+    }
+
     const updates = [];
     for (const admin of admins) {
         updates.push(
             NotificationService.createNotification({
                 userId: admin.id,
                 title: 'End of Day Review',
-                message: `Hi ${admin.full_name}, please take a moment to review the team's task updates and completions as we wrap up today's work.`,
+                message: `Hi ${admin.full_name}, please take a moment to review the team's task updates and completions as we wrap up today's work.${snagSummary}`,
                 type: 'general',
                 skipInApp: true
             })
@@ -115,5 +131,9 @@ export async function runAdminTaskCheckReminder() {
     }
 
     await Promise.allSettled(updates);
-    return { success: true, message: `Sent review reminders to ${admins.length} admins` };
+    return {
+        success: true,
+        message: `Sent review reminders to ${admins.length} admins`,
+        snagSummary: { totalOpen, totalAssigned, totalResolved }
+    };
 }

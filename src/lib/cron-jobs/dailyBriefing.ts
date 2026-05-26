@@ -6,10 +6,9 @@ export async function runDailyBriefing() {
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // 2. Fetch tasks due TODAY or OVERDUE (status=todo/in_progress)
+    // 1. Fetch tasks due TODAY or OVERDUE (status=todo/in_progress)
 
     // Calendar Tasks
-    // We get everything with status NOT done/completed
     const { data: calendarTasks, error: tasksError } = await supabaseAdmin
         .from('tasks')
         .select('id, title, assigned_to, end_at, status')
@@ -29,7 +28,29 @@ export async function runDailyBriefing() {
 
     if (stepTasksError) throw stepTasksError;
 
-    // 3. Group by User
+    // 2. Fetch open/assigned snags per user
+    const { data: openSnags } = await supabaseAdmin
+        .from('snags')
+        .select('id, assigned_to_user_id, created_by, status')
+        .in('status', ['open', 'assigned']);
+
+    // Build a map: userId -> { assignedSnags, openSnags }
+    const snagStats: Record<string, { assigned: number; open: number }> = {};
+
+    (openSnags || []).forEach((snag: any) => {
+        // Count snags assigned to this user
+        if (snag.assigned_to_user_id) {
+            if (!snagStats[snag.assigned_to_user_id]) snagStats[snag.assigned_to_user_id] = { assigned: 0, open: 0 };
+            snagStats[snag.assigned_to_user_id].assigned++;
+        }
+        // Count open (unassigned) snags for the creator
+        if (!snag.assigned_to_user_id && snag.created_by) {
+            if (!snagStats[snag.created_by]) snagStats[snag.created_by] = { assigned: 0, open: 0 };
+            snagStats[snag.created_by].open++;
+        }
+    });
+
+    // 3. Group tasks by User
     const userStats: Record<string, { today: number; overdue: number }> = {};
 
     const processTask = (userId: string, dueDate: string | Date) => {
@@ -63,7 +84,7 @@ export async function runDailyBriefing() {
         }
     });
 
-    // 4. Send Briefings to ALL users with a device token
+    // 4. Send Briefings to ALL users
     const { data: allUsers } = await supabaseAdmin
         .from('users')
         .select('id, full_name');
@@ -71,8 +92,18 @@ export async function runDailyBriefing() {
     const updates = [];
     for (const user of (allUsers || [])) {
         const stats = userStats[user.id] || { today: 0, overdue: 0 };
+        const snags = snagStats[user.id] || { assigned: 0, open: 0 };
 
-        const message = `Hello ${user.full_name},\n\nHere is a look at your tasks for today:\n- Due Today: ${stats.today}\n- Overdue: ${stats.overdue}\n\nWishing you a productive and successful day ahead.`;
+        // Build snag line only if there's something to report
+        let snagLine = '';
+        if (snags.assigned > 0 || snags.open > 0) {
+            const parts = [];
+            if (snags.assigned > 0) parts.push(`${snags.assigned} Assigned to You`);
+            if (snags.open > 0) parts.push(`${snags.open} Open (Unassigned)`);
+            snagLine = `\n- Pending Snags: ${parts.join(', ')}`;
+        }
+
+        const message = `Hello ${user.full_name},\n\nHere is a look at your day:\n- Tasks Due Today: ${stats.today}\n- Overdue Tasks: ${stats.overdue}${snagLine}\n\nWishing you a productive and successful day ahead.`;
 
         console.log(`Sending briefing to ${user.full_name}`);
         updates.push(
@@ -93,6 +124,7 @@ export async function runDailyBriefing() {
     return {
         success: true,
         message: `Sent ${updates.length} daily briefings`,
-        stats: userStats
+        stats: userStats,
+        snagStats
     };
 }
