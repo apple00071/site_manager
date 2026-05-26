@@ -72,38 +72,35 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
         const fetchAllData = async () => {
             setLoading(true);
             try {
-                // Fetch basic user info
-                const userRes = await fetch(`/api/admin/users?id=${id}`);
-                const userData = await userRes.json();
+                // Fetch all endpoints concurrently
+                const [userRes, perfRes, attRes, projRes, leaveRes, expRes] = await Promise.all([
+                    fetch(`/api/admin/users?id=${id}`),
+                    fetch(`/api/admin/users/${id}/performance`),
+                    fetch(`/api/attendance?user_id=${id}`),
+                    fetch(`/api/admin/projects?userId=${id}`),
+                    fetch(`/api/leaves?user_id=${id}`),
+                    fetch(`/api/office-expenses?user_id=${id}`)
+                ]);
+
+                // Parse all json bodies concurrently
+                const [userData, perfData, attData, projData, leaveData, expData] = await Promise.all([
+                    userRes.json(),
+                    perfRes.json(),
+                    attRes.json(),
+                    projRes.json(),
+                    leaveRes.json(),
+                    expRes.json()
+                ]);
+
                 setUser(userData);
-
-                // Fetch Performance Metrics
-                const perfRes = await fetch(`/api/admin/users/${id}/performance`);
-                const perfData = await perfRes.json();
                 setMetrics(perfData.metrics);
-
-                // Fetch Attendance
-                const attRes = await fetch(`/api/attendance?user_id=${id}`);
-                const attData = await attRes.json();
                 setAttendance(attData);
-
-                // Fetch Projects
-                const projRes = await fetch(`/api/admin/projects?userId=${id}`);
-                const projData = await projRes.json();
                 setProjects(projData);
-
-                // Fetch Leaves
-                const leaveRes = await fetch(`/api/leaves?user_id=${id}`);
-                const leaveData = await leaveRes.json();
                 setLeaves(leaveData.leaves || []);
-
-                // Fetch Expenses
-                const expRes = await fetch(`/api/office-expenses?user_id=${id}`);
-                const expData = await expRes.json();
                 setExpenses(expData.expenses || []);
 
             } catch (error) {
-                console.error('Error fetching profile data:', error);
+                console.error('Error fetching profile data concurrently:', error);
             } finally {
                 setLoading(false);
             }
