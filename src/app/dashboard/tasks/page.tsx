@@ -927,19 +927,28 @@ export default function TasksPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, filterAssignee]);
 
-  // Category counts for sidebar
+  // Filter tasks to only include the currently selected month
+  const selectedMonthTasks = useMemo(() => {
+    return tasks.filter(t => {
+      if (!t.start_at) return false;
+      const tDate = new Date(t.start_at);
+      return tDate.getFullYear() === date.getFullYear() && tDate.getMonth() === date.getMonth();
+    });
+  }, [tasks, date]);
+
+  // Category counts for sidebar (scoped to the currently selected month)
   const categoryCounts = useMemo(() => {
     return {
-      forMe: tasks.filter(t => {
+      forMe: selectedMonthTasks.filter(t => {
         const assignedToArray = Array.isArray(t.assigned_to) 
           ? t.assigned_to 
           : (t.assigned_to ? [t.assigned_to] : []);
         return assignedToArray.includes(user?.id || '');
       }).length,
-      byMe: tasks.filter(t => t.created_by === user?.id).length,
-      all: tasks.length
+      byMe: selectedMonthTasks.filter(t => t.created_by === user?.id).length,
+      all: selectedMonthTasks.length
     };
-  }, [tasks, user]);
+  }, [selectedMonthTasks, user]);
 
 
   // Filter tasks by active category
