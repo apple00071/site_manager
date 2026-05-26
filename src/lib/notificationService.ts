@@ -542,13 +542,13 @@ export class NotificationService {
         if (project.site_supervisor_id) stakeholders.add(project.site_supervisor_id);
       }
 
-      // 2. Get Global Admins
-      const { data: admins } = await supabaseAdmin
+      // 2. Get Global Admins & HR (both receive all project-level notifications)
+      const { data: adminsAndHr } = await supabaseAdmin
         .from('users')
         .select('id')
-        .eq('role', 'admin');
+        .in('role', ['admin', 'hr']);
 
-      admins?.forEach((admin: { id: string }) => stakeholders.add(admin.id));
+      adminsAndHr?.forEach((u: { id: string }) => stakeholders.add(u.id));
 
       // 3. Get Project Members (specifically site supervisors/engineers)
       const { data: members } = await supabaseAdmin

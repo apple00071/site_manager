@@ -52,20 +52,20 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
-        // Notify Admins
+        // Notify Admins & HR
         try {
-            const { data: admins } = await supabaseAdmin
+            const { data: adminsAndHr } = await supabaseAdmin
                 .from('users')
                 .select('id')
-                .eq('role', 'admin');
+                .in('role', ['admin', 'hr']);
 
             const employeeName = userResult.user.user_metadata?.full_name || 'An employee';
             const date = data.date;
 
-            if (admins) {
-                const adminList = admins as { id: string }[];
-                for (const admin of adminList) {
-                    await NotificationService.notifyAttendanceAppealed(admin.id, employeeName, date);
+            if (adminsAndHr) {
+                const recipients = adminsAndHr as { id: string }[];
+                for (const recipient of recipients) {
+                    await NotificationService.notifyAttendanceAppealed(recipient.id, employeeName, date);
                 }
             }
         } catch (notifyError) {

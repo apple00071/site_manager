@@ -337,11 +337,11 @@ export async function POST(request: NextRequest) {
 
         // --- NOTIFICATIONS ---
         try {
-            // Notify all admins
-            const { data: admins } = await supabaseAdmin
+            // Notify all admins & HR
+            const { data: adminsAndHr } = await supabaseAdmin
                 .from('users')
                 .select('id')
-                .eq('role', 'admin');
+                .in('role', ['admin', 'hr']);
 
             const { data: requester } = await supabaseAdmin
                 .from('users')
@@ -351,11 +351,11 @@ export async function POST(request: NextRequest) {
 
             const requesterName = requester?.full_name || 'Unknown User';
 
-            if (admins && admins.length > 0) {
+            if (adminsAndHr && adminsAndHr.length > 0) {
                 // Unified notifications
-                await Promise.all(admins.map((admin: { id: string }) =>
+                await Promise.all(adminsAndHr.map((u: { id: string }) =>
                     NotificationService.notifyExpenseCreated(
-                        admin.id,
+                        u.id,
                         description,
                         amount,
                         requesterName

@@ -8,23 +8,23 @@ import { NotificationService } from '@/lib/notificationService';
 export async function runAdminAssignReminder() {
     console.log('👑 Starting Admin Assign Reminder Logic');
 
-    const { data: admins, error: adminsError } = await supabaseAdmin
+    const { data: recipients, error: recipientsError } = await supabaseAdmin
         .from('users')
         .select('id, full_name')
-        .eq('role', 'admin');
+        .in('role', ['admin', 'hr']);
 
-    if (adminsError) throw adminsError;
-    if (!admins || admins.length === 0) {
-        return { success: true, message: 'No admins found' };
+    if (recipientsError) throw recipientsError;
+    if (!recipients || recipients.length === 0) {
+        return { success: true, message: 'No admins or HR users found' };
     }
 
     const updates = [];
-    for (const admin of admins) {
+    for (const recipient of recipients) {
         updates.push(
             NotificationService.createNotification({
-                userId: admin.id,
+                userId: recipient.id,
                 title: 'Team Task Allocation',
-                message: `Hello ${admin.full_name}, this is a reminder to review and finalize task assignments for the team to ensure everyone is set for the day.`,
+                message: `Hello ${recipient.full_name}, this is a reminder to review and finalize task assignments for the team to ensure everyone is set for the day.`,
                 type: 'general',
                 skipInApp: true
             })
@@ -32,7 +32,7 @@ export async function runAdminAssignReminder() {
     }
 
     await Promise.allSettled(updates);
-    return { success: true, message: `Sent reminders to ${admins.length} admins` };
+    return { success: true, message: `Sent reminders to ${recipients.length} admins/HR` };
 }
 
 /**
@@ -94,11 +94,11 @@ export async function runAdminTaskCheckReminder() {
     const { data: admins, error: adminsError } = await supabaseAdmin
         .from('users')
         .select('id, full_name')
-        .eq('role', 'admin');
+        .in('role', ['admin', 'hr']);
 
     if (adminsError) throw adminsError;
     if (!admins || admins.length === 0) {
-        return { success: true, message: 'No admins found' };
+        return { success: true, message: 'No admins or HR users found' };
     }
 
     // Fetch snag summary for end-of-day report

@@ -90,12 +90,12 @@ export async function POST(request: NextRequest) {
 
         if (error) throw error;
 
-        // Notify admins
+        // Notify admins & HR
         try {
-            const { data: admins } = await supabaseAdmin
+            const { data: adminsAndHr } = await supabaseAdmin
                 .from('users')
                 .select('id')
-                .eq('role', 'admin');
+                .in('role', ['admin', 'hr']);
 
             const { data: requester } = await supabaseAdmin
                 .from('users')
@@ -105,10 +105,10 @@ export async function POST(request: NextRequest) {
 
             const requesterName = requester?.full_name || 'Unknown User';
 
-            if (admins) {
-                await Promise.all(admins.map((admin: any) =>
+            if (adminsAndHr) {
+                await Promise.all(adminsAndHr.map((u: any) =>
                     NotificationService.notifyLeaveCreated(
-                        admin.id,
+                        u.id,
                         leave_type,
                         start_date,
                         end_date,
