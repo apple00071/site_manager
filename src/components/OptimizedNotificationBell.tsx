@@ -32,21 +32,39 @@ const getNotificationUrl = (type: string, relatedId?: string | null, relatedType
     case 'design_approved':
     case 'design_rejected':
     case 'design_uploaded':
+    case 'comment_added':
       return relatedId ? `${baseUrl}/projects/${relatedId}?stage=design` : undefined;
     case 'project_update':
     case 'mention':
       return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=updates` : undefined;
     case 'inventory_added':
-      return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=inventory` : undefined;
     case 'bill_approved':
     case 'bill_rejected':
+    case 'bill_resubmitted':
+      return relatedId ? `${baseUrl}/projects/${relatedId}?stage=finance&tab=expenses` : undefined;
     case 'invoice_created':
     case 'invoice_approved':
     case 'invoice_rejected':
     case 'proposal_sent':
     case 'proposal_approved':
     case 'proposal_rejected':
+    case 'payment_recorded':
       return relatedId ? `${baseUrl}/projects/${relatedId}?stage=orders` : `${baseUrl}/tasks?category=proposals`;
+    case 'expense_created':
+    case 'expense_approved':
+    case 'expense_rejected':
+      return `${baseUrl}/office-expenses`;
+    case 'leave_created':
+    case 'leave_approved':
+    case 'leave_rejected':
+    case 'attendance_appealed':
+    case 'attendance_approved':
+    case 'attendance_rejected':
+      return `${baseUrl}/attendance`;
+    case 'site_log_submitted':
+      return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=dlogs` : undefined;
+    case 'report_generated':
+      return relatedId ? `${baseUrl}/projects/${relatedId}?stage=reports` : undefined;
     default:
       return undefined;
   }

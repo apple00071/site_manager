@@ -17,6 +17,25 @@ import AttendanceWidget from '@/components/attendance/AttendanceWidget';
 import PasswordChangeModal from '@/components/PasswordChangeModal';
 
 
+const getDesignerName = (proj: any): string => {
+  return proj.assigned_employee?.name || proj.designer?.full_name || 'Not Assigned';
+};
+
+const getSupervisorName = (proj: any): string => {
+  if (proj.site_supervisor?.full_name) return proj.site_supervisor.full_name;
+  if (Array.isArray(proj.project_members)) {
+    const supervisorMember = proj.project_members.find((pm: any) => {
+      const designation = pm.users?.designation?.toLowerCase() || '';
+      return designation.includes('site') || designation.includes('supervisor') || designation.includes('engineer');
+    });
+    if (supervisorMember?.users?.full_name) {
+      return supervisorMember.users.full_name;
+    }
+  }
+  return 'Not Assigned';
+};
+
+
 function DashboardLayoutContent({
   children,
 }: {
@@ -33,12 +52,12 @@ function DashboardLayoutContent({
   const { hasPermission } = useUserPermissions();
   const [searchQuery, setSearchQuery] = useState('');
   const [projects, setProjects] = useState<any[]>([]);
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [loadingProjects, setLoadingProjects] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const modalInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSearchFocus = async () => {
-    setShowDropdown(true);
+  const fetchProjects = async () => {
     if (projects.length === 0) {
       setLoadingProjects(true);
       try {
@@ -57,22 +76,93 @@ function DashboardLayoutContent({
 
   const filteredProjects = useMemo(() => {
     if (!searchQuery.trim()) return [];
-    return projects.filter((p: any) =>
-      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.customer_name && p.customer_name.toLowerCase().includes(searchQuery.toLowerCase()))
-    ).slice(0, 5);
+    const query = searchQuery.toLowerCase();
+    return projects.filter((p: any) => {
+      // 1. Match project title
+      if (p.title?.toLowerCase().includes(query)) return true;
+
+      // 2. Match customer name
+      if (p.customer_name?.toLowerCase().includes(query)) return true;
+
+      // 3. Match designer name
+      if (p.designer?.full_name?.toLowerCase().includes(query)) return true;
+
+      // 4. Match site supervisor / engineer name
+      if (p.site_supervisor?.full_name?.toLowerCase().includes(query)) return true;
+
+      // 5. Match assigned employee name
+      if (p.assigned_employee?.name?.toLowerCase().includes(query)) return true;
+
+      // 6. Match project members
+      if (p.project_members && Array.isArray(p.project_members)) {
+        const matchesMember = p.project_members.some((member: any) => 
+          member?.users?.full_name?.toLowerCase().includes(query)
+        );
+        if (matchesMember) return true;
+      }
+
+      return false;
+    }).slice(0, 8);
   }, [searchQuery, projects]);
 
+  // Reset selected index when search query changes
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [searchQuery]);
+
+  // Focus modal input when search opens
+  useEffect(() => {
+    if (isSearchOpen) {
+      const timer = setTimeout(() => {
+        modalInputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isSearchOpen]);
+
+  // Global keybind and arrow key navigation handlers
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Toggle search modal with Ctrl+K or Cmd+K
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
-        searchInputRef.current?.focus();
+        setIsSearchOpen((prev) => {
+          if (!prev) {
+            fetchProjects();
+          }
+          return !prev;
+        });
+        return;
+      }
+
+      // Handle keyboard navigation if modal is open
+      if (isSearchOpen) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setIsSearchOpen(false);
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setSelectedIndex((prev) => 
+            filteredProjects.length > 0 ? Math.min(prev + 1, filteredProjects.length - 1) : 0
+          );
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setSelectedIndex((prev) => Math.max(prev - 1, 0));
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (filteredProjects[selectedIndex]) {
+            const proj = filteredProjects[selectedIndex];
+            setIsSearchOpen(false);
+            setSearchQuery('');
+            router.push(`/dashboard/projects/${proj.id}`);
+          }
+        }
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [isSearchOpen, projects, filteredProjects, selectedIndex, router]);
 
 
   // Get dynamic page title based on current route
@@ -343,60 +433,23 @@ function DashboardLayoutContent({
               )}
             </div>
 
-            {/* Desktop Quick Project Search Bar */}
-            <div className="hidden md:block relative max-w-xs w-60 mx-4">
-              <div className="relative">
-                <FiSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Search projects... (Ctrl+K)"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onFocus={handleSearchFocus}
-                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-gray-50/50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white transition-all font-medium text-gray-800 placeholder-gray-400"
-                />
+            {/* Desktop Quick Project Search Button (Trigger) */}
+            <button
+              onClick={() => {
+                setIsSearchOpen(true);
+                fetchProjects();
+              }}
+              className="hidden md:flex items-center justify-between max-w-xs w-60 mx-4 px-3 py-1.5 bg-gray-50/60 border border-gray-200 rounded-lg text-left hover:bg-gray-100/50 hover:border-gray-300 transition-all font-medium text-gray-400 hover:text-gray-500 shadow-sm"
+              type="button"
+            >
+              <div className="flex items-center gap-2">
+                <FiSearch className="text-gray-400 w-3.5 h-3.5 shrink-0" />
+                <span className="text-xs font-medium">Search projects...</span>
               </div>
-
-              {showDropdown && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
-                  <div className="absolute left-0 mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 max-h-64 overflow-y-auto">
-                    {loadingProjects ? (
-                      <div className="px-4 py-3 text-xs text-gray-500 flex items-center gap-2 font-medium">
-                        <div className="animate-spin rounded-full h-3 w-3 border-t-2 border-b-2 border-yellow-500 flex-shrink-0"></div>
-                        Loading projects...
-                      </div>
-                    ) : searchQuery.trim() === '' ? (
-                      <div className="px-4 py-2.5 text-[11px] text-gray-400 font-semibold italic">
-                        Type project name to search...
-                      </div>
-                    ) : filteredProjects.length === 0 ? (
-                      <div className="px-4 py-2.5 text-xs text-gray-500 font-medium">
-                        No projects matched.
-                      </div>
-                    ) : (
-                      filteredProjects.map((proj: any) => (
-                        <button
-                          key={proj.id}
-                          onClick={() => {
-                            setShowDropdown(false);
-                            setSearchQuery('');
-                            router.push(`/dashboard/projects/${proj.id}`);
-                          }}
-                          className="w-full text-left px-4 py-2 hover:bg-yellow-50/80 transition-colors flex flex-col gap-0.5 border-b border-gray-50 last:border-0 cursor-pointer"
-                        >
-                          <span className="text-xs font-bold text-gray-900 truncate">{proj.title}</span>
-                          <span className="text-[10px] text-gray-500 font-medium truncate">
-                            Client: {proj.customer_name || 'N/A'} • Status: <span className="capitalize">{proj.status.replace(/_/g, ' ')}</span>
-                          </span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
+              <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[9px] font-bold text-gray-400 bg-white rounded border border-gray-200 shadow-xs">
+                Ctrl+K
+              </span>
+            </button>
 
             {/* Right side: Status + Actions + Notification */}
             <div className="flex items-center gap-2 lg:gap-3 ml-auto shrink-0">
@@ -463,6 +516,19 @@ function DashboardLayoutContent({
 
               {/* Bell + Avatar group - tightly packed */}
               <div className="flex items-center">
+                {/* Mobile/Tablet Search Icon Trigger */}
+                <button
+                  onClick={() => {
+                    setIsSearchOpen(true);
+                    fetchProjects();
+                  }}
+                  className="md:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors mr-1 shrink-0"
+                  aria-label="Search projects"
+                  type="button"
+                >
+                  <FiSearch className="w-5 h-5" />
+                </button>
+
                 <OptimizedNotificationBell />
 
                 {/* User Avatar with Dropdown */}
@@ -546,6 +612,187 @@ function DashboardLayoutContent({
       </div>
       {/* PWA Install Prompt */}
       < PWAInstallPrompt />
+
+      {/* Centered Spotlight Search Modal */}
+      {isSearchOpen && (
+        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] px-4 animate-fade-in">
+          {/* Glassmorphic Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity duration-300"
+            onClick={() => setIsSearchOpen(false)}
+          />
+
+          {/* Modal Card */}
+          <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-[0_0_50px_-12px_rgba(0,0,0,0.35)] border border-gray-100/80 overflow-hidden flex flex-col z-10 animate-scale-in">
+            {/* Search Header */}
+            <div className="relative p-4 border-b border-gray-100 flex items-center gap-3">
+              <FiSearch className="text-yellow-500 w-5 h-5 shrink-0" />
+              <input
+                ref={modalInputRef}
+                type="text"
+                placeholder="Search projects by title or client name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full text-sm bg-transparent border-0 focus:outline-none focus:ring-0 text-gray-800 placeholder-gray-400 font-medium"
+              />
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="hidden sm:inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold text-gray-400 bg-gray-100 rounded border border-gray-200 shadow-2xs font-sans">
+                  ESC
+                </span>
+                <button
+                  onClick={() => setIsSearchOpen(false)}
+                  className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100/50 transition-all"
+                  aria-label="Close search"
+                  type="button"
+                >
+                  <FiX className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Results / Empty / Loading / Suggestions */}
+            <div className="max-h-[360px] overflow-y-auto divide-y divide-gray-50 no-scrollbar">
+              {loadingProjects ? (
+                <div className="p-8 text-center flex flex-col items-center justify-center gap-3">
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-yellow-500 border-t-transparent"></div>
+                  <span className="text-xs text-gray-500 font-medium">Loading projects catalog...</span>
+                </div>
+              ) : searchQuery.trim() === '' ? (
+                <div className="p-6 text-center">
+                  <div className="inline-flex p-3 bg-yellow-50 rounded-xl text-yellow-600 mb-3">
+                    <FiSearch className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-gray-800">Quick Project Search</h3>
+                  <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto">
+                    Type a project name, customer name, or status to instantly jump to its dashboard.
+                  </p>
+                  
+                  {/* Suggestions */}
+                  {projects.length > 0 && (
+                    <div className="mt-4 text-left">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2 px-1">
+                        Recent / Active Projects
+                      </span>
+                      <div className="grid gap-1">
+                        {projects.slice(0, 3).map((p: any) => (
+                          <button
+                            key={p.id}
+                            onClick={() => {
+                              setIsSearchOpen(false);
+                              setSearchQuery('');
+                              router.push(`/dashboard/projects/${p.id}`);
+                            }}
+                            className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-yellow-50/50 hover:border-yellow-100/50 border border-transparent transition-all flex items-center justify-between gap-3"
+                            type="button"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-gray-900 truncate">{p.title}</p>
+                              <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5 text-[9px] font-medium items-center">
+                                <span className="text-gray-500">
+                                  Client: <strong className="font-semibold text-gray-700">{p.customer_name || 'N/A'}</strong>
+                                </span>
+                                <span className="text-gray-300">•</span>
+                                <span className="text-gray-500">
+                                  Designer: <strong className="font-semibold text-gray-700">{getDesignerName(p)}</strong>
+                                </span>
+                                <span className="text-gray-300">•</span>
+                                <span className="text-gray-500">
+                                  Site Engg: <strong className="font-semibold text-gray-700">{getSupervisorName(p)}</strong>
+                                </span>
+                              </div>
+                            </div>
+                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700 font-bold border border-yellow-100 uppercase shrink-0">
+                              {p.status?.replace(/_/g, ' ') || 'active'}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : filteredProjects.length === 0 ? (
+                <div className="p-8 text-center flex flex-col items-center justify-center">
+                  <span className="text-2xl mb-2">🔍</span>
+                  <p className="text-xs font-semibold text-gray-700">No projects found</p>
+                  <p className="text-[10px] text-gray-400 mt-1">We couldn't find any projects matching "{searchQuery}"</p>
+                </div>
+              ) : (
+                <div className="p-2 space-y-0.5">
+                  <div className="px-2 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                    Search Results ({filteredProjects.length})
+                  </div>
+                  {filteredProjects.map((proj: any, index: number) => {
+                    const isSelected = index === selectedIndex;
+                    return (
+                      <button
+                        key={proj.id}
+                        onClick={() => {
+                          setIsSearchOpen(false);
+                          setSearchQuery('');
+                          router.push(`/dashboard/projects/${proj.id}`);
+                        }}
+                        onMouseEnter={() => setSelectedIndex(index)}
+                        className={`w-full text-left px-3.5 py-3 rounded-xl transition-all flex items-center justify-between gap-3 border ${
+                          isSelected
+                            ? 'bg-yellow-50 border-yellow-200 shadow-xs'
+                            : 'hover:bg-gray-50/60 text-gray-800 border-transparent'
+                        }`}
+                        type="button"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold truncate text-gray-900">
+                            {proj.title}
+                          </p>
+                          <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1 text-[10px] font-medium items-center">
+                            <span className={isSelected ? 'text-gray-700' : 'text-gray-500'}>
+                              Client: <strong className={isSelected ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}>{proj.customer_name || 'N/A'}</strong>
+                            </span>
+                            <span className="text-gray-300">•</span>
+                            <span className={isSelected ? 'text-gray-700' : 'text-gray-500'}>
+                              Designer: <strong className={isSelected ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}>{getDesignerName(proj)}</strong>
+                            </span>
+                            <span className="text-gray-300">•</span>
+                            <span className={isSelected ? 'text-gray-700' : 'text-gray-500'}>
+                              Site Engg: <strong className={isSelected ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}>{getSupervisorName(proj)}</strong>
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide ${
+                            isSelected 
+                              ? 'bg-yellow-100/70 text-yellow-800 border border-yellow-200' 
+                              : 'bg-gray-100 text-gray-600 border border-gray-200'
+                          }`}>
+                            {proj.status.replace(/_/g, ' ')}
+                          </span>
+                          {isSelected && (
+                            <span className="text-yellow-600 text-xs font-bold shrink-0 animate-pulse">
+                              →
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer Navigation Hints */}
+            <div className="p-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-400 font-medium">
+              <span className="flex items-center gap-1">
+                <span className="bg-white px-1 py-0.5 rounded border border-gray-200">↑↓</span> navigate
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="bg-white px-1.5 py-0.5 rounded border border-gray-200">Enter</span> select
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="bg-white px-1 py-0.5 rounded border border-gray-200">Esc</span> close
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div >
   );
 }
