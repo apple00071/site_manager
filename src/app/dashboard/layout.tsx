@@ -2,9 +2,9 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX, FiCheckSquare, FiAlertTriangle, FiCreditCard, FiRadio, FiClock } from 'react-icons/fi';
+import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX, FiCheckSquare, FiAlertTriangle, FiCreditCard, FiRadio, FiClock, FiSearch } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
 import { supabase } from '@/lib/supabase';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
@@ -31,6 +31,49 @@ function DashboardLayoutContent({
   const router = useRouter();
   const pathname = usePathname();
   const { hasPermission } = useUserPermissions();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [projects, setProjects] = useState<any[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [loadingProjects, setLoadingProjects] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSearchFocus = async () => {
+    setShowDropdown(true);
+    if (projects.length === 0) {
+      setLoadingProjects(true);
+      try {
+        const response = await fetch('/api/admin/projects');
+        if (response.ok) {
+          const data = await response.json();
+          setProjects(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error('Error loading projects for search:', err);
+      } finally {
+        setLoadingProjects(false);
+      }
+    }
+  };
+
+  const filteredProjects = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    return projects.filter((p: any) =>
+      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.customer_name && p.customer_name.toLowerCase().includes(searchQuery.toLowerCase()))
+    ).slice(0, 5);
+  }, [searchQuery, projects]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
 
   // Get dynamic page title based on current route
   const { title: customTitle, subtitle, tabs, activeTab, onTabChange, actions } = useHeaderTitle();
@@ -297,6 +340,61 @@ function DashboardLayoutContent({
                     ))}
                   </div>
                 </div>
+              )}
+            </div>
+
+            {/* Desktop Quick Project Search Bar */}
+            <div className="hidden md:block relative max-w-xs w-60 mx-4">
+              <div className="relative">
+                <FiSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search projects... (Ctrl+K)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={handleSearchFocus}
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-gray-50/50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white transition-all font-medium text-gray-800 placeholder-gray-400"
+                />
+              </div>
+
+              {showDropdown && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
+                  <div className="absolute left-0 mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 max-h-64 overflow-y-auto">
+                    {loadingProjects ? (
+                      <div className="px-4 py-3 text-xs text-gray-500 flex items-center gap-2 font-medium">
+                        <div className="animate-spin rounded-full h-3 w-3 border-t-2 border-b-2 border-yellow-500 flex-shrink-0"></div>
+                        Loading projects...
+                      </div>
+                    ) : searchQuery.trim() === '' ? (
+                      <div className="px-4 py-2.5 text-[11px] text-gray-400 font-semibold italic">
+                        Type project name to search...
+                      </div>
+                    ) : filteredProjects.length === 0 ? (
+                      <div className="px-4 py-2.5 text-xs text-gray-500 font-medium">
+                        No projects matched.
+                      </div>
+                    ) : (
+                      filteredProjects.map((proj: any) => (
+                        <button
+                          key={proj.id}
+                          onClick={() => {
+                            setShowDropdown(false);
+                            setSearchQuery('');
+                            router.push(`/dashboard/projects/${proj.id}`);
+                          }}
+                          className="w-full text-left px-4 py-2 hover:bg-yellow-50/80 transition-colors flex flex-col gap-0.5 border-b border-gray-50 last:border-0 cursor-pointer"
+                        >
+                          <span className="text-xs font-bold text-gray-900 truncate">{proj.title}</span>
+                          <span className="text-[10px] text-gray-500 font-medium truncate">
+                            Client: {proj.customer_name || 'N/A'} • Status: <span className="capitalize">{proj.status.replace(/_/g, ' ')}</span>
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </>
               )}
             </div>
 
