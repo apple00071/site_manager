@@ -197,8 +197,48 @@ export async function POST(request: NextRequest) {
                 await NotificationService.notifySnagAssigned(
                     assigned_to_user_id,
                     description,
-                    contextName
+                    contextName,
+                    data.id,
+                    !!project_id
                 );
+            }
+
+            // Notify stakeholders about snag creation
+            if (project_id) {
+                const stakeholderIds = await NotificationService.getProjectStakeholders(project_id);
+                const otherStakeholders = stakeholderIds.filter((id: string) => id !== user.id && id !== assigned_to_user_id);
+                
+                await Promise.allSettled(
+                    otherStakeholders.map((id: string) => NotificationService.notifySnagCreated(
+                        id,
+                        description,
+                        contextName,
+                        data.id,
+                        true
+                    ))
+                );
+            } else {
+                // If it's a global snag, notify all admins & HR
+                const { data: adminsAndHr } = await supabaseAdmin
+                    .from('users')
+                    .select('id')
+                    .in('role', ['admin', 'hr']);
+                    
+                if (adminsAndHr) {
+                    const notifyIds = adminsAndHr
+                        .map((u: { id: string }) => u.id)
+                        .filter((id: string) => id !== user.id && id !== assigned_to_user_id);
+                        
+                    await Promise.allSettled(
+                        notifyIds.map((id: string) => NotificationService.notifySnagCreated(
+                            id,
+                            description,
+                            contextName,
+                            data.id,
+                            false
+                        ))
+                    );
+                }
             }
         } catch (notifError) {
             console.error('Error sending snag creation notifications:', notifError);
@@ -340,7 +380,7 @@ export async function PATCH(request: NextRequest) {
             }
 
             if (action === 'assign' && updates.assigned_to_user_id) {
-                await NotificationService.notifySnagAssigned(updates.assigned_to_user_id, description, contextName);
+                await NotificationService.notifySnagAssigned(updates.assigned_to_user_id, description, contextName, id, !!existing.project_id);
             } else if (action === 'resolve') {
                 // Notify all stakeholders that snag is resolved
                 const { data: projectData } = await supabaseAdmin
@@ -358,7 +398,7 @@ export async function PATCH(request: NextRequest) {
                 });
             }
             else if ((action === 'verify' || action === 'close') && existing.assigned_to_user_id) {
-                await NotificationService.notifySnagVerified(existing.assigned_to_user_id, description, contextName);
+                await NotificationService.notifySnagVerified(existing.assigned_to_user_id, description, contextName, id, !!existing.project_id);
             } else if (action === 'comment') {
                 const { comment } = body;
                 
