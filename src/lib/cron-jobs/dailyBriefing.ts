@@ -28,25 +28,31 @@ export async function runDailyBriefing() {
 
     if (stepTasksError) throw stepTasksError;
 
-    // 2. Fetch open/assigned snags per user
+    // 2. Fetch open/assigned/resolved snags for briefing
     const { data: openSnags } = await supabaseAdmin
         .from('snags')
         .select('id, assigned_to_user_id, created_by, status')
-        .in('status', ['open', 'assigned']);
+        .in('status', ['open', 'assigned', 'resolved']);
+
+    const totalOpen = (openSnags || []).filter((s: any) => s.status === 'open').length;
+    const totalAssigned = (openSnags || []).filter((s: any) => s.status === 'assigned').length;
+    const totalResolved = (openSnags || []).filter((s: any) => s.status === 'resolved').length;
 
     // Build a map: userId -> { assignedSnags, openSnags }
     const snagStats: Record<string, { assigned: number; open: number }> = {};
 
     (openSnags || []).forEach((snag: any) => {
-        // Count snags assigned to this user
-        if (snag.assigned_to_user_id) {
-            if (!snagStats[snag.assigned_to_user_id]) snagStats[snag.assigned_to_user_id] = { assigned: 0, open: 0 };
-            snagStats[snag.assigned_to_user_id].assigned++;
-        }
-        // Count open (unassigned) snags for the creator
-        if (!snag.assigned_to_user_id && snag.created_by) {
-            if (!snagStats[snag.created_by]) snagStats[snag.created_by] = { assigned: 0, open: 0 };
-            snagStats[snag.created_by].open++;
+        if (snag.status === 'open' || snag.status === 'assigned') {
+            // Count snags assigned to this user
+            if (snag.assigned_to_user_id) {
+                if (!snagStats[snag.assigned_to_user_id]) snagStats[snag.assigned_to_user_id] = { assigned: 0, open: 0 };
+                snagStats[snag.assigned_to_user_id].assigned++;
+            }
+            // Count open (unassigned) snags for the creator
+            if (!snag.assigned_to_user_id && snag.created_by) {
+                if (!snagStats[snag.created_by]) snagStats[snag.created_by] = { assigned: 0, open: 0 };
+                snagStats[snag.created_by].open++;
+            }
         }
     });
 
@@ -87,21 +93,28 @@ export async function runDailyBriefing() {
     // 4. Send Briefings to ALL active users
     const { data: allUsers } = await supabaseAdmin
         .from('users')
-        .select('id, full_name')
+        .select('id, full_name, role, designation')
         .eq('is_active', true);
 
     const updates = [];
     for (const user of (allUsers || [])) {
         const stats = userStats[user.id] || { today: 0, overdue: 0 };
         const snags = snagStats[user.id] || { assigned: 0, open: 0 };
+        const isAdmin = user.role === 'admin' || user.designation?.toLowerCase().includes('hr');
 
         // Build snag line only if there's something to report
         let snagLine = '';
-        if (snags.assigned > 0 || snags.open > 0) {
-            const parts = [];
-            if (snags.assigned > 0) parts.push(`${snags.assigned} Assigned to You`);
-            if (snags.open > 0) parts.push(`${snags.open} Open (Unassigned)`);
-            snagLine = `\n- Pending Snags: ${parts.join(', ')}`;
+        if (isAdmin) {
+            if (totalOpen + totalAssigned + totalResolved > 0) {
+                snagLine = `\n- Pending Snags: ${totalOpen} Open, ${totalAssigned} Assigned, ${totalResolved} Resolved`;
+            }
+        } else {
+            if (snags.assigned > 0 || snags.open > 0) {
+                const parts = [];
+                if (snags.assigned > 0) parts.push(`${snags.assigned} Assigned to You`);
+                if (snags.open > 0) parts.push(`${snags.open} Open (Unassigned)`);
+                snagLine = `\n- Pending Snags: ${parts.join(', ')}`;
+            }
         }
 
         const message = `Hello ${user.full_name},\n\nHere is a look at your day:\n- Tasks Due Today: ${stats.today}\n- Overdue Tasks: ${stats.overdue}${snagLine}\n\nWishing you a productive and successful day ahead.`;
@@ -119,6 +132,7 @@ export async function runDailyBriefing() {
             })
         );
     }
+
 
     await Promise.allSettled(updates);
 
