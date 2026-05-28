@@ -70,6 +70,7 @@ interface Employee {
   email: string;
   designation: string;
   role: string;
+  is_active?: boolean;
 }
 
 export default function EditProjectPage() {
@@ -124,6 +125,7 @@ export default function EditProjectPage() {
           email: u.email,
           designation: u.designation,
           role: u.role,
+          is_active: u.is_active !== false,
         })));
 
         // Reset form with project data
@@ -309,8 +311,11 @@ export default function EditProjectPage() {
     );
   }
 
-  // Filter designers from employees
-  const designers = employees.filter(emp => emp.designation && emp.designation.toLowerCase().includes('designer'));
+  // Filter designers from employees: only active ones, or the currently assigned designer (even if inactive)
+  const designers = employees.filter(emp => 
+    (emp.is_active || (project && project.assigned_employee_id === emp.id)) && 
+    emp.designation && emp.designation.toLowerCase().includes('designer')
+  );
 
   return (
     <div className="space-y-4 sm:space-y-6 safe-area-inset-bottom">

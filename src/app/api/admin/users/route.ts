@@ -291,6 +291,36 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json();
+
+    // Check if this is a toggle active status request
+    if (body && typeof body.is_active === 'boolean' && Object.keys(body).length === 2 && body.id) {
+      const { id, is_active } = body;
+      console.log('Toggling user active status:', { id, is_active });
+
+      // Update public.users table
+      const { error: profileError } = await supabaseAdmin
+        .from('users')
+        .update({ is_active })
+        .eq('id', id);
+
+      if (profileError) {
+        console.error('Error toggling user active status in db:', profileError);
+        return NextResponse.json({ error: profileError.message || 'Failed to toggle status' }, { status: 500 });
+      }
+
+      // Update ban_duration in Supabase Auth based on status (none = active, 876600h = banned)
+      const ban_duration = is_active ? 'none' : '876600h';
+      const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(id, {
+        ban_duration
+      });
+
+      if (authUpdateError) {
+        console.error('Error updating auth ban status:', authUpdateError);
+      }
+
+      return NextResponse.json({ success: true, is_active });
+    }
+
     const parsed = updateUserSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -424,38 +454,40 @@ export async function DELETE(req: Request) {
       );
     }
 
-    console.log('Deleting user:', { id });
+    console.log('Soft-deleting user profile (disabling):', { id });
 
-    // Delete from Supabase Auth
-    const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(id);
-    if (authDeleteError) {
-      console.error('Error deleting auth user:', authDeleteError);
-      return NextResponse.json(
-        { error: authDeleteError.message || 'Failed to delete auth user' },
-        { status: 500 }
-      );
-    }
-
-    // Delete profile row from users table
+    // Soft delete by updating is_active to false to preserve historical data
     const { error: profileError } = await supabaseAdmin
       .from('users')
-      .delete()
+      .update({ is_active: false })
       .eq('id', id);
 
     if (profileError) {
-      console.error('Error deleting user profile:', profileError);
+      console.error('Error soft-deleting user profile:', profileError);
       return NextResponse.json(
-        { error: profileError.message || 'Failed to delete user profile' },
+        { error: profileError.message || 'Failed to soft-delete user profile' },
         { status: 500 }
       );
     }
 
-    console.log('User deleted successfully:', id);
+    console.log('Banning auth user:', { id });
+
+    // Ban the user in Supabase Auth for 100 years to prevent sign-ins while keeping data intact
+    const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(id, {
+      ban_duration: '876600h', // 100 years
+    });
+
+    if (authUpdateError) {
+      console.error('Error banning auth user:', authUpdateError);
+      // We log but don't fail the request since database profile is already updated
+    }
+
+    console.log('User disabled successfully:', id);
 
     return NextResponse.json(
       {
         success: true,
-        message: 'User deleted successfully',
+        message: 'User disabled successfully',
       },
       { status: 200 }
     );

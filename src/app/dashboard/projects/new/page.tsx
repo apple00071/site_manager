@@ -154,12 +154,13 @@ export default function NewProjectPage() {
         console.log('Employees loaded:', employeesData?.length, employeesData);
 
         // Map to the expected format with 'name' field and include role for logic
-        const mappedEmployees = (employeesData || []).map((u: { id: string; full_name: string | null; email: string | null; designation: string | null; role: string | null }) => ({
+        const mappedEmployees = (employeesData || []).map((u: { id: string; full_name: string | null; email: string | null; designation: string | null; role: string | null; is_active?: boolean }) => ({
           id: u.id,
           name: u.full_name,
           email: u.email,
           designation: u.designation,
           role: u.role,
+          is_active: u.is_active !== false,
         }));
 
         console.log('Mapped employees:', mappedEmployees);
@@ -662,15 +663,15 @@ export default function NewProjectPage() {
                       <p className="text-sm text-gray-500">No team members found in the system.</p>
                       <p className="text-xs text-gray-400 mt-1">Please add team members and set their designations (e.g., 'Designer') first in User Management.</p>
                     </div>
-                  ) : employees.filter(emp => emp.designation && emp.designation.toLowerCase().includes('designer')).length === 0 ? (
+                  ) : employees.filter(emp => emp.is_active && emp.designation && emp.designation.toLowerCase().includes('designer')).length === 0 ? (
                     <div className="text-center py-4">
-                      <p className="text-sm text-gray-500">No designers found.</p>
-                      <p className="text-xs text-gray-400 mt-1">Please add users whose designation contains 'designer' in User Management.</p>
+                      <p className="text-sm text-gray-500">No active designers found.</p>
+                      <p className="text-xs text-gray-400 mt-1">Please add active users whose designation contains 'designer' in User Management.</p>
                       <p className="text-xs text-gray-400 mt-2">Total team members loaded: {employees.length}</p>
                     </div>
                   ) : (
                     employees
-                      .filter(emp => emp.designation && emp.designation.toLowerCase().includes('designer'))
+                      .filter(emp => emp.is_active && emp.designation && emp.designation.toLowerCase().includes('designer'))
                       .map((employee) => (
                         <label
                           key={employee.id}
