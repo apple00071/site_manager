@@ -10,6 +10,9 @@ import { formatDateIST } from '@/lib/dateUtils';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 const getSupervisorName = (project: any): string => {
+  if (project.site_supervisor?.username) {
+    return project.site_supervisor.username;
+  }
   if (project.site_supervisor?.full_name) {
     return project.site_supervisor.full_name;
   }
@@ -18,6 +21,9 @@ const getSupervisorName = (project: any): string => {
       const designation = pm.users?.designation?.toLowerCase() || '';
       return designation.includes('site') || designation.includes('supervisor') || designation.includes('engineer');
     });
+    if (supervisorMember?.users?.username) {
+      return supervisorMember.users.username;
+    }
     if (supervisorMember?.users?.full_name) {
       return supervisorMember.users.full_name;
     }
@@ -375,7 +381,7 @@ export default function ProjectsPage() {
                       )}
                       <div>
                         <span className="text-gray-500">Designer:</span>
-                        <span className="ml-1 text-gray-900 font-medium">{project.assigned_employee?.name || project.designer?.full_name || 'N/A'}</span>
+                        <span className="ml-1 text-gray-900 font-medium">{project.assigned_employee?.name || project.designer?.username || project.designer?.full_name || 'N/A'}</span>
                       </div>
                       <div>
                         <span className="text-gray-500">Site Engineer:</span>
@@ -545,7 +551,7 @@ export default function ProjectsPage() {
                     })()}
                   </td>
                   <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{project.assigned_employee?.name || project.designer?.full_name || '-'}</div>
+                    <div className="text-sm text-gray-900">{project.assigned_employee?.name || project.designer?.username || project.designer?.full_name || '-'}</div>
                   </td>
                   <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{getSupervisorName(project)}</div>

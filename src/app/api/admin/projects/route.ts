@@ -153,17 +153,20 @@ export async function GET(request: NextRequest) {
         assigned_employee:assigned_employee_id(
           id,
           email,
-          name:full_name,
+          name:username,
+          full_name,
           designation
         ),
         designer:designer_id(
           id,
           email,
+          username,
           full_name
         ),
         site_supervisor:site_supervisor_id(
           id,
           email,
+          username,
           full_name
         ),
         creator:created_by(
@@ -177,6 +180,7 @@ export async function GET(request: NextRequest) {
           users:user_id(
             id,
             email,
+            username,
             full_name,
             designation
           )
