@@ -120,6 +120,33 @@ export async function runAdminTaskCheckReminder() {
         snagSummary = `\n\n📋 Snag Summary:\n- Open (Unassigned): ${totalOpen}\n- Assigned (In Progress): ${totalAssigned}\n- Resolved (Pending Verification): ${totalResolved}`;
     }
 
+    // 2. Fetch Tasks due today or earlier for summaries
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // Calendar Tasks
+    const { data: calendarTasks } = await supabaseAdmin
+        .from('tasks')
+        .select('id, end_at, assigned_to, status')
+        .neq('status', 'cancelled')
+        .lte('end_at', `${todayStr}T23:59:59`);
+
+    // Project Tasks
+    const { data: projectTasks } = await supabaseAdmin
+        .from('project_step_tasks')
+        .select('id, estimated_completion_date, assigned_to, status')
+        .neq('status', 'cancelled')
+        .lte('estimated_completion_date', todayStr);
+
+    const allDueTasks = [...(calendarTasks || []), ...(projectTasks || [])];
+    const totalTasksCompleted = allDueTasks.filter((t: any) => t.status === 'done').length;
+    const totalTasksInProgress = allDueTasks.filter((t: any) => t.status === 'in_progress').length;
+    const totalTasksTodo = allDueTasks.filter((t: any) => t.status === 'todo').length;
+
+    let taskSummary = '';
+    if (allDueTasks.length > 0) {
+        taskSummary = `\n\n📋 Task Summary:\n- Completed: ${totalTasksCompleted}\n- In Progress: ${totalTasksInProgress}\n- Overdue / Remaining: ${totalTasksTodo}`;
+    }
+
     const updates = [];
 
     // 1. Send EOD Reviews to Admins
@@ -128,39 +155,21 @@ export async function runAdminTaskCheckReminder() {
             NotificationService.createNotification({
                 userId: admin.id,
                 title: 'End of Day Review',
-                message: `Hi ${admin.full_name}, please take a moment to review the team's task updates and completions as we wrap up today's work.${snagSummary}`,
+                message: `Hi ${admin.full_name}, please take a moment to review the team's task updates and completions as we wrap up today's work.${taskSummary}${snagSummary}`,
                 type: 'general',
                 skipInApp: true
             })
         );
     }
 
-    // 2. Fetch Tasks due today or earlier for members
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    // Calendar Tasks
-    const { data: calendarTasks } = await supabaseAdmin
-        .from('tasks')
-        .select('id, end_at, assigned_to')
-        .neq('status', 'done')
-        .neq('status', 'cancelled')
-        .lte('end_at', `${todayStr}T23:59:59`);
-
-    // Project Tasks
-    const { data: projectTasks } = await supabaseAdmin
-        .from('project_step_tasks')
-        .select('id, estimated_completion_date, assigned_to')
-        .neq('status', 'done')
-        .neq('status', 'cancelled')
-        .lte('estimated_completion_date', todayStr);
-
+    // 3. Map Pending Tasks for Members
     const pendingTasksMap: Record<string, number> = {};
     const addPending = (userId: string) => {
         pendingTasksMap[userId] = (pendingTasksMap[userId] || 0) + 1;
     };
 
     calendarTasks?.forEach((t: any) => {
-        if (t.assigned_to) {
+        if (t.status !== 'done' && t.assigned_to) {
             if (Array.isArray(t.assigned_to)) {
                 t.assigned_to.forEach((uid: any) => addPending(uid));
             } else {
@@ -170,7 +179,7 @@ export async function runAdminTaskCheckReminder() {
     });
 
     projectTasks?.forEach((t: any) => {
-        if (t.assigned_to) {
+        if (t.status !== 'done' && t.assigned_to) {
             if (Array.isArray(t.assigned_to)) {
                 t.assigned_to.forEach((uid: any) => addPending(uid));
             } else {
