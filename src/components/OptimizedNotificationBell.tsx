@@ -565,7 +565,7 @@ export function OptimizedNotificationBell() {
                               </svg>
                             </button>
                           </div>
-                          <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
+                          <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">{notification.message}</p>
                           <p className="text-xs text-gray-400 mt-1">
                             {getRelativeTime(notification.created_at)}
                           </p>
