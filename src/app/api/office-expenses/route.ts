@@ -343,7 +343,7 @@ export async function POST(request: NextRequest) {
                 .select('id, role, designation')
                 .eq('is_active', true);
 
-            const adminsAndHr = allUsers?.filter((u: any) => u.role === 'admin' || u.designation?.toLowerCase() === 'hr') || [];
+            const adminsAndHr = allUsers?.filter((u: any) => u.role === 'admin' || u.designation?.toLowerCase().includes('hr')) || [];
 
             const { data: requester } = await supabaseAdmin
                 .from('users')

@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
                 .select('id, role, designation')
                 .eq('is_active', true);
 
-            const adminsAndHr = allUsers?.filter((u: any) => u.role === 'admin' || u.designation?.toLowerCase() === 'hr') || [];
+            const adminsAndHr = allUsers?.filter((u: any) => u.role === 'admin' || u.designation?.toLowerCase().includes('hr')) || [];
 
             const employeeName = userResult.user.user_metadata?.full_name || 'An employee';
             const date = data.date;

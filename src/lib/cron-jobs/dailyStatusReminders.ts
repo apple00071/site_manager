@@ -14,7 +14,7 @@ export async function runAdminAssignReminder() {
         .eq('is_active', true);
 
     if (recipientsError) throw recipientsError;
-    const recipients = allUsers?.filter((u: any) => u.role === 'admin' || u.designation?.toLowerCase() === 'hr') || [];
+    const recipients = allUsers?.filter((u: any) => u.role === 'admin' || u.designation?.toLowerCase().includes('hr')) || [];
     if (recipients.length === 0) {
         return { success: true, message: 'No admins or HR users found' };
     }
@@ -98,8 +98,8 @@ export async function runAdminTaskCheckReminder() {
         .eq('is_active', true);
 
     if (adminsError) throw adminsError;
-    const admins = allUsers?.filter((u: any) => u.role === 'admin' || u.designation?.toLowerCase() === 'hr') || [];
-    const members = allUsers?.filter((u: any) => u.role !== 'admin' && u.designation?.toLowerCase() !== 'hr') || [];
+    const admins = allUsers?.filter((u: any) => u.role === 'admin' || u.designation?.toLowerCase().includes('hr')) || [];
+    const members = allUsers?.filter((u: any) => u.role !== 'admin' && !u.designation?.toLowerCase().includes('hr')) || [];
     if (admins.length === 0 && members.length === 0) {
         return { success: true, message: 'No active users found' };
     }

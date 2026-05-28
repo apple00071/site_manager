@@ -548,7 +548,7 @@ export class NotificationService {
         .select('id, role, designation')
         .eq('is_active', true);
 
-      const adminsAndHr = allUsers?.filter((u: any) => u.role === 'admin' || u.designation?.toLowerCase() === 'hr') || [];
+      const adminsAndHr = allUsers?.filter((u: any) => u.role === 'admin' || u.designation?.toLowerCase().includes('hr')) || [];
       adminsAndHr.forEach((u: { id: string }) => stakeholders.add(u.id));
 
       // 3. Get Project Members (specifically site supervisors/engineers)
