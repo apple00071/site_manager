@@ -462,7 +462,7 @@ export default function ProjectsPage() {
                 <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
                   #
                 </th>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider max-w-xs xl:max-w-sm">
                   Project Name
                 </th>
                 <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -521,9 +521,9 @@ export default function ProjectsPage() {
                   <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
                     {index + 1}
                   </td>
-
-                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-4 py-4">
-                    <div className="text-sm font-semibold text-gray-900">{project.title}</div>
+ 
+                  <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-4 py-4 max-w-xs xl:max-w-sm whitespace-normal">
+                    <div className="text-sm font-semibold text-gray-900 break-all">{project.title}</div>
                   </td>
                   <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{project.customer_name || 'N/A'}</div>
