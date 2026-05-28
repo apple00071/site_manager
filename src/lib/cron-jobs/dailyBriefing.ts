@@ -84,10 +84,11 @@ export async function runDailyBriefing() {
         }
     });
 
-    // 4. Send Briefings to ALL users
+    // 4. Send Briefings to ALL active users
     const { data: allUsers } = await supabaseAdmin
         .from('users')
-        .select('id, full_name');
+        .select('id, full_name')
+        .eq('is_active', true);
 
     const updates = [];
     for (const user of (allUsers || [])) {

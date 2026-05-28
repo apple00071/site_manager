@@ -92,10 +92,12 @@ export async function POST(request: NextRequest) {
 
         // Notify admins & HR
         try {
-            const { data: adminsAndHr } = await supabaseAdmin
+            const { data: allUsers } = await supabaseAdmin
                 .from('users')
-                .select('id')
-                .in('role', ['admin', 'hr']);
+                .select('id, role, designation')
+                .eq('is_active', true);
+
+            const adminsAndHr = allUsers?.filter((u: any) => u.role === 'admin' || u.designation?.toLowerCase() === 'hr') || [];
 
             const { data: requester } = await supabaseAdmin
                 .from('users')

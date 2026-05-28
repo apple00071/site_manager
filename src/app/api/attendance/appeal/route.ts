@@ -54,10 +54,12 @@ export async function POST(request: NextRequest) {
 
         // Notify Admins & HR
         try {
-            const { data: adminsAndHr } = await supabaseAdmin
+            const { data: allUsers } = await supabaseAdmin
                 .from('users')
-                .select('id')
-                .in('role', ['admin', 'hr']);
+                .select('id, role, designation')
+                .eq('is_active', true);
+
+            const adminsAndHr = allUsers?.filter((u: any) => u.role === 'admin' || u.designation?.toLowerCase() === 'hr') || [];
 
             const employeeName = userResult.user.user_metadata?.full_name || 'An employee';
             const date = data.date;

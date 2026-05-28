@@ -219,10 +219,12 @@ export async function POST(request: NextRequest) {
                 );
             } else {
                 // If it's a global snag, notify all admins & HR
-                const { data: adminsAndHr } = await supabaseAdmin
+                const { data: allUsers } = await supabaseAdmin
                     .from('users')
-                    .select('id')
-                    .in('role', ['admin', 'hr']);
+                    .select('id, role, designation')
+                    .eq('is_active', true);
+                    
+                const adminsAndHr = allUsers?.filter((u: any) => u.role === 'admin' || u.designation?.toLowerCase() === 'hr') || [];
                     
                 if (adminsAndHr) {
                     const notifyIds = adminsAndHr
