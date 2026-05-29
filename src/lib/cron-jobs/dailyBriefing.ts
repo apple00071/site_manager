@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { NotificationService } from '@/lib/notificationService';
+import { fetchUsersWithRoles, isAdminOrHR } from '@/lib/cron-jobs/cronUtils';
 
 export async function runDailyBriefing() {
     console.log('🌅 Starting Daily Briefing Logic');
@@ -29,14 +30,19 @@ export async function runDailyBriefing() {
     if (stepTasksError) throw stepTasksError;
 
     // 2. Fetch open/assigned/resolved snags for briefing
-    const { data: openSnags } = await supabaseAdmin
+    const { data: openSnags, error: snagsQueryError } = await supabaseAdmin
         .from('snags')
         .select('id, assigned_to_user_id, created_by, status')
         .in('status', ['open', 'assigned', 'resolved']);
 
+    if (snagsQueryError) {
+        console.error('❌ Error fetching snags in daily briefing:', snagsQueryError);
+    }
+
     const totalOpen = (openSnags || []).filter((s: any) => s.status === 'open').length;
     const totalAssigned = (openSnags || []).filter((s: any) => s.status === 'assigned').length;
     const totalResolved = (openSnags || []).filter((s: any) => s.status === 'resolved').length;
+    console.log(`[DailyBriefing] Snag counts: Open: ${totalOpen}, Assigned: ${totalAssigned}, Resolved: ${totalResolved}`);
 
     // Build a map: userId -> { assignedSnags, openSnags }
     const snagStats: Record<string, { assigned: number; open: number }> = {};
@@ -90,34 +96,36 @@ export async function runDailyBriefing() {
         }
     });
 
-    // 4. Send Briefings to ALL active users
-    const { data: allUsers } = await supabaseAdmin
-        .from('users')
-        .select('id, full_name, role, designation')
-        .eq('is_active', true);
+    // 4. Send Briefings to ALL active users (with roles joined)
+    const allUsers = await fetchUsersWithRoles();
 
     const updates = [];
     for (const user of (allUsers || [])) {
         const stats = userStats[user.id] || { today: 0, overdue: 0 };
         const snags = snagStats[user.id] || { assigned: 0, open: 0 };
-        const isAdmin = user.role === 'admin' || user.designation?.toLowerCase().includes('hr');
+        const isAdmin = isAdminOrHR(user);
 
-        // Build snag line only if there's something to report
-        let snagLine = '';
+        // Build snag section only if there's something to report
+        let snagSection = '';
         if (isAdmin) {
             if (totalOpen + totalAssigned + totalResolved > 0) {
-                snagLine = `\n- Pending Snags: ${totalOpen} Open, ${totalAssigned} Assigned, ${totalResolved} Resolved`;
+                snagSection = `\n\n🔧 Snag Summary:\n- Open (Unassigned): ${totalOpen}\n- Assigned (In Progress): ${totalAssigned}\n- Resolved (Pending Verification): ${totalResolved}`;
             }
         } else {
-            if (snags.assigned > 0 || snags.open > 0) {
-                const parts = [];
-                if (snags.assigned > 0) parts.push(`${snags.assigned} Assigned to You`);
-                if (snags.open > 0) parts.push(`${snags.open} Open (Unassigned)`);
-                snagLine = `\n- Pending Snags: ${parts.join(', ')}`;
+            const parts = [];
+            if (snags.assigned > 0) parts.push(`- Assigned to You: ${snags.assigned}`);
+            if (snags.open > 0) parts.push(`- Open (Unassigned): ${snags.open}`);
+            if (parts.length > 0) {
+                snagSection = `\n\n🔧 Snag Summary:\n${parts.join('\n')}`;
             }
         }
 
-        const message = `Hello ${user.full_name},\n\nHere is a look at your day:\n- Tasks Due Today: ${stats.today}\n- Overdue Tasks: ${stats.overdue}${snagLine}\n\nWishing you a productive and successful day ahead.`;
+        // Build task summary line
+        const taskLine = `\n\n📋 Task Summary:\n- Due Today: ${stats.today}\n- Overdue: ${stats.overdue}`;
+
+        const message = `Good morning, ${user.full_name}! 🌅\n\nHere's your daily briefing for today:${taskLine}${snagSection}\n\nHave a productive day ahead!`;
+
+        console.log(`[DailyBriefing] Constructing message for ${user.full_name} (isAdmin: ${isAdmin}, hasSnagSection: ${!!snagSection})`);
 
         console.log(`Sending briefing to ${user.full_name}`);
         updates.push(

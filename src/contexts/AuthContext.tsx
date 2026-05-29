@@ -383,10 +383,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearAuthCache();
 
       try {
-        await Promise.all([
-          fetch('/api/auth/logout', { method: 'POST' }),
-          fetch('/api/onesignal/subscribe', { method: 'DELETE' }).catch(() => {}),
-        ]);
+        // First delete onesignal subscription while still authenticated
+        await fetch('/api/onesignal/subscribe', { method: 'DELETE' }).catch(() => {});
+        // Then perform the formal auth logout
+        await fetch('/api/auth/logout', { method: 'POST' });
       } catch (_) {
         // Ignore logout cleanup errors.
       }

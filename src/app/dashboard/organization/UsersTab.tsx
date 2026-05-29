@@ -238,7 +238,7 @@ export default function UsersTab() {
                                                     {/* Sleek Toggle Switch */}
                                                     <button
                                                         onClick={() => handleToggleUserStatus(user.id, user.is_active !== false)}
-                                                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 ${
+                                                        className={`no-touch-target relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 ${
                                                             user.is_active !== false ? 'bg-yellow-500' : 'bg-gray-200'
                                                         }`}
                                                         title={user.is_active !== false ? 'Deactivate User' : 'Activate User'}
@@ -260,90 +260,87 @@ export default function UsersTab() {
                 </table>
             </div>
 
-            {/* Mobile View: Cards */}
-            <div className="lg:hidden space-y-4">
+            {/* Mobile View: Compact List */}
+            <div className="lg:hidden space-y-3">
                 {sortedDesignations.map(designation => (
-                    <div key={designation} className="space-y-4">
+                    <div key={designation} className="space-y-2">
+                        {/* Group Header */}
                         <div
-                            className="px-4 py-2 bg-gray-100/50 rounded-lg flex items-center justify-between cursor-pointer"
+                            className="flex items-center gap-2 px-1 cursor-pointer"
                             onClick={() => toggleGroup(designation)}
                         >
-                            <div className="flex items-center gap-2">
-                                {collapsedGroups[designation] ? (
-                                    <FiChevronRight className="w-3.5 h-3.5 text-gray-400" />
-                                ) : (
-                                    <FiChevronDown className="w-3.5 h-3.5 text-gray-400" />
-                                )}
-                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest leading-none mt-0.5">
-                                    {designation}
-                                </span>
-                                <span className="text-[10px] font-bold text-gray-400 bg-white px-1.5 py-0.5 rounded-full border border-gray-200">
-                                    {groupedUsers[designation].length}
-                                </span>
-                            </div>
+                            {collapsedGroups[designation]
+                                ? <FiChevronRight className="w-3.5 h-3.5 text-gray-400" />
+                                : <FiChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                            }
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                {designation}
+                            </span>
+                            <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
+                                {groupedUsers[designation].length}
+                            </span>
                         </div>
+
                         {!collapsedGroups[designation] && (
-                            <div className="space-y-4">
+                            <div className="space-y-2">
                                 {groupedUsers[designation].map((user: User) => {
                                     const isInactive = user.is_active === false;
                                     return (
-                                        <div key={user.id} className={`bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-4 ${isInactive ? 'opacity-65 bg-gray-50/50' : ''}`}>
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="h-10 w-10 rounded-full bg-yellow-50 flex items-center justify-center text-yellow-700 font-bold border border-yellow-100">
-                                                        {user.full_name.charAt(0).toUpperCase()}
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <div className="text-sm font-semibold text-gray-900 truncate flex items-center gap-2">
-                                                            {user.full_name}
-                                                            {isInactive && (
-                                                                <span className="px-1.5 py-0.5 text-[9px] font-bold tracking-wider uppercase bg-gray-100 text-gray-500 rounded border border-gray-200">
-                                                                    Inactive
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <div className="text-xs text-gray-500 truncate">{user.email}</div>
-                                                    </div>
+                                        <div
+                                            key={user.id}
+                                            className={`bg-white rounded-xl border border-gray-100 px-3.5 py-3 flex items-center gap-3 ${isInactive ? 'opacity-60' : ''}`}
+                                        >
+                                            {/* Avatar */}
+                                            <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${isInactive ? 'bg-gray-100 text-gray-400 border border-gray-200' : 'bg-yellow-50 text-yellow-700 border border-yellow-100'}`}>
+                                                {user.full_name.charAt(0).toUpperCase()}
+                                            </div>
+
+                                            {/* Name + Email */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <span className="text-sm font-semibold text-gray-900 truncate">
+                                                        {user.full_name}
+                                                    </span>
+                                                    {isInactive && (
+                                                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-gray-100 text-gray-400 border border-gray-200 shrink-0">
+                                                            Inactive
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full ${getRoleColor(user)}`}>
+                                                <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                                                <span className={`inline-flex mt-1 px-2 py-0.5 text-[10px] font-bold uppercase rounded-full ${getRoleColor(user)}`}>
                                                     {getRoleDisplay(user)}
                                                 </span>
                                             </div>
 
-                                            <div className="flex items-center justify-between pt-2 border-t border-gray-50">
-                                                <div className="text-xs text-gray-500">
-                                                    <span className="font-medium text-gray-400">Designation:</span> {user.designation || '-'}
-                                                </div>
-                                                <div className="flex items-center gap-3">
-                                                    <Link
-                                                        href={`/dashboard/organization/${user.id}`}
-                                                        className="flex items-center justify-center p-2 text-yellow-600 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors"
-                                                        title="View Profile"
-                                                    >
-                                                        <FiActivity className="h-4 w-4" />
-                                                    </Link>
-                                                    <Link
-                                                        href={`/dashboard/organization/${user.id}/edit`}
-                                                        className="flex items-center justify-center p-2 text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
-                                                    >
-                                                        <FiEdit2 className="h-4 w-4" />
-                                                    </Link>
-                                                    
-                                                    {/* Sleek Toggle Switch */}
-                                                    <button
-                                                        onClick={() => handleToggleUserStatus(user.id, user.is_active !== false)}
-                                                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 ${
-                                                            user.is_active !== false ? 'bg-yellow-500' : 'bg-gray-200'
-                                                        }`}
-                                                        title={user.is_active !== false ? 'Deactivate User' : 'Activate User'}
-                                                    >
-                                                        <span
-                                                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                                                                user.is_active !== false ? 'translate-x-4' : 'translate-x-0'
-                                                            }`}
-                                                        />
-                                                    </button>
-                                                </div>
+                                            {/* Actions */}
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                <Link
+                                                    href={`/dashboard/organization/${user.id}`}
+                                                    className="flex items-center justify-center p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
+                                                    title="View Profile"
+                                                >
+                                                    <FiActivity className="h-4 w-4" />
+                                                </Link>
+                                                <Link
+                                                    href={`/dashboard/organization/${user.id}/edit`}
+                                                    className="flex items-center justify-center p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                                    title="Edit"
+                                                >
+                                                    <FiEdit2 className="h-4 w-4" />
+                                                </Link>
+                                                {/* Toggle */}
+                                                <button
+                                                    onClick={() => handleToggleUserStatus(user.id, user.is_active !== false)}
+                                                    className={`no-touch-target relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                                        user.is_active !== false ? 'bg-yellow-400' : 'bg-gray-200'
+                                                    }`}
+                                                    title={user.is_active !== false ? 'Deactivate' : 'Activate'}
+                                                >
+                                                    <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                                                        user.is_active !== false ? 'translate-x-4' : 'translate-x-0'
+                                                    }`} />
+                                                </button>
                                             </div>
                                         </div>
                                     );

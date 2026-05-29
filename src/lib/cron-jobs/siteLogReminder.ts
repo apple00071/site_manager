@@ -60,7 +60,7 @@ export async function runSiteLogReminder() {
             const designation = (user.designation || '').toLowerCase();
 
             if (
-                role === 'hr' ||
+                role === 'admin' ||
                 designation.includes('site engineer') ||
                 designation.includes('designer') ||
                 designation.includes('hr')

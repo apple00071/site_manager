@@ -138,7 +138,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                 existingIds.add(assignedEmployee.id);
             }
 
-            const available = (allUsers || []).filter((u: SystemUser) => !existingIds.has(u.id));
+            const available = (allUsers || []).filter((u: SystemUser & { is_active?: boolean }) => !existingIds.has(u.id) && u.is_active !== false);
             setAvailableUsers(available);
         } catch (err) {
             console.error('Error fetching available users:', err);

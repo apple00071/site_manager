@@ -604,7 +604,7 @@ function DashboardLayoutContent({
         {/* Main content area with minimal padding - wrapped in PullToRefresh for mobile */}
         <PullToRefresh>
           <main className="flex-1 bg-white overflow-x-hidden max-w-full">
-            <div className={`pt-4 lg:pt-2 h-full flex flex-col min-h-0 max-w-full ${isCustomHeaderPage ? '' : 'px-2 sm:px-3 lg:px-4 pb-6'}`}>
+            <div className={`pt-4 lg:pt-2 min-h-full flex flex-col max-w-full ${isCustomHeaderPage ? '' : 'px-2 sm:px-3 lg:px-4 pb-6'}`}>
               {children}
             </div>
           </main>

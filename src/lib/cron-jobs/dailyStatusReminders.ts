@@ -1,20 +1,16 @@
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { NotificationService } from '@/lib/notificationService';
+import { fetchUsersWithRoles, isAdminOrHR } from '@/lib/cron-jobs/cronUtils';
 
 /**
  * Admin Assign Reminder (10:30 AM IST)
- * Notifies Admin only to assign tasks to members
+ * Notifies Admin and HR only to assign tasks to members
  */
 export async function runAdminAssignReminder() {
     console.log('👑 Starting Admin Assign Reminder Logic');
 
-    const { data: allUsers, error: recipientsError } = await supabaseAdmin
-        .from('users')
-        .select('id, full_name, role, designation')
-        .eq('is_active', true);
-
-    if (recipientsError) throw recipientsError;
-    const recipients = allUsers?.filter((u: any) => u.role === 'admin' || u.designation?.toLowerCase().includes('hr')) || [];
+    const allUsers = await fetchUsersWithRoles();
+    const recipients = allUsers.filter(isAdminOrHR);
     if (recipients.length === 0) {
         return { success: true, message: 'No admins or HR users found' };
     }
@@ -92,14 +88,10 @@ export async function runMemberCheckupReminder() {
 export async function runAdminTaskCheckReminder() {
     console.log('🏁 Starting Admin Task Check Reminder Logic');
 
-    const { data: allUsers, error: adminsError } = await supabaseAdmin
-        .from('users')
-        .select('id, full_name, role, designation')
-        .eq('is_active', true);
+    const allUsers = await fetchUsersWithRoles();
+    const admins = allUsers.filter(isAdminOrHR);
+    const members = allUsers.filter((u: any) => !isAdminOrHR(u));
 
-    if (adminsError) throw adminsError;
-    const admins = allUsers?.filter((u: any) => u.role === 'admin' || u.designation?.toLowerCase().includes('hr')) || [];
-    const members = allUsers?.filter((u: any) => u.role !== 'admin' && !u.designation?.toLowerCase().includes('hr')) || [];
     if (admins.length === 0 && members.length === 0) {
         return { success: true, message: 'No active users found' };
     }
@@ -117,7 +109,7 @@ export async function runAdminTaskCheckReminder() {
     // Build snag summary line for admins
     let snagSummary = '';
     if (totalOpen + totalAssigned + totalResolved > 0) {
-        snagSummary = `\n\n📋 Snag Summary:\n- Open (Unassigned): ${totalOpen}\n- Assigned (In Progress): ${totalAssigned}\n- Resolved (Pending Verification): ${totalResolved}`;
+        snagSummary = `\n\n🔧 Snag Summary:\n- Open (Unassigned): ${totalOpen}\n- Assigned (In Progress): ${totalAssigned}\n- Resolved (Pending Verification): ${totalResolved}`;
     }
 
     // 2. Fetch Tasks due today or earlier for summaries

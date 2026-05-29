@@ -35,20 +35,50 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const project_id = searchParams.get('project_id');
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : null;
 
-    if (!project_id) {
-      return NextResponse.json({ error: 'project_id is required' }, { status: 400 });
-    }
-
-    // Fetch updates with user information
-    const { data: updates, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('project_updates')
       .select(`
         *,
-        user:users!project_updates_user_id_fkey(id, full_name, email)
+        user:users!project_updates_user_id_fkey(id, full_name, email),
+        project:projects(id, title)
       `)
-      .eq('project_id', project_id)
-      .order('update_date', { ascending: false });
+      .order('created_at', { ascending: false });
+
+    if (project_id) {
+      query = query.eq('project_id', project_id);
+    } else {
+      const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
+      if (userRole !== 'admin') {
+        const { data: memberProjects } = await supabaseAdmin
+          .from('project_members')
+          .select('project_id')
+          .eq('user_id', user.id);
+
+        const { data: assignedProjects } = await supabaseAdmin
+          .from('projects')
+          .select('id')
+          .eq('assigned_employee_id', user.id);
+
+        const projectIds = [
+          ...(memberProjects?.map((m: any) => m.project_id) || []),
+          ...(assignedProjects?.map((p: any) => p.id) || [])
+        ];
+
+        if (projectIds.length === 0) {
+          return NextResponse.json({ updates: [] });
+        }
+
+        query = query.in('project_id', projectIds);
+      }
+    }
+
+    if (limit) {
+      query = query.limit(limit);
+    }
+
+    const { data: updates, error } = await query;
 
     if (error) {
       console.error('Error fetching project updates:', error);

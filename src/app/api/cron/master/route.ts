@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runDailyBriefing } from '@/lib/cron-jobs/dailyBriefing';
 import { runTaskReminders } from '@/lib/cron-jobs/taskReminders';
-import { runSiteLogReminder } from '@/lib/cron-jobs/siteLogReminder';
+import { runAfternoonProgressReminder } from '@/lib/cron-jobs/afternoonReminder';
 import { supabaseAdmin } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
@@ -129,9 +129,9 @@ export async function GET(req: NextRequest) {
         });
     }
 
-    // D. Site Log & DPR Reminder: 5:00 PM IST (11:30 AM UTC)
-    if (manualJob === 'site-log-reminder' || (!manualJob && utcHour === 11 && utcMin >= 30)) {
-        await runJobSafely('siteLogs', runSiteLogReminder);
+    // C2. Afternoon Progress Reminder: 3:00 PM IST (9:30 AM UTC)
+    if (manualJob === 'afternoon-reminder' || (!manualJob && utcHour === 9 && utcMin >= 30)) {
+        await runJobSafely('afternoonReminder', runAfternoonProgressReminder);
     }
 
     // E. Admin Task Review: 5:30 PM IST (12:00 PM UTC)
