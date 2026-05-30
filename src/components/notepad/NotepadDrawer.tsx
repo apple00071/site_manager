@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   FiFileText, FiPlus, FiTrash2, FiCopy, FiDownload,
   FiCheck, FiSearch, FiX, FiChevronLeft, FiEdit3,
-  FiCalendar, FiList, FiClock, FiAlertCircle
+  FiCalendar, FiClock, FiAlertCircle, FiDatabase, FiCloudOff
 } from 'react-icons/fi';
 
 interface Note {
@@ -29,33 +29,80 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
   const [mobileView, setMobileView] = useState<'list' | 'editor'>('list');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
+  // Database Connection States
+  const [dbStatus, setDbStatus] = useState<'loading' | 'connected' | 'table_missing' | 'offline'>('loading');
+  const [tableMissingMessage, setTableMissingMessage] = useState('');
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 1. Initialize notes from localStorage
+  // 1. Initial Load: Fetch from database or fall back to localStorage
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('apple_site_notepad_notes');
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setNotes(parsed);
-            setActiveNoteId(parsed[0].id);
-          } else {
-            createDefaultNote();
-          }
-        } catch {
-          createDefaultNote();
-        }
-      } else {
-        createDefaultNote();
-      }
-    }
-  }, []);
+    if (!isOpen) return;
 
-  // Create default initial note
-  const createDefaultNote = () => {
+    const loadNotes = async () => {
+      setDbStatus('loading');
+      try {
+        const res = await fetch('/api/notepad?t=' + Date.now());
+        if (res.ok) {
+          const data = await res.json();
+          const dbNotes = data.notes.map((n: any) => ({
+            id: n.id,
+            title: n.title,
+            content: n.content,
+            updatedAt: n.updated_at || n.created_at
+          }));
+          setNotes(dbNotes);
+          if (dbNotes.length > 0) {
+            setActiveNoteId(dbNotes[0].id);
+          }
+          setDbStatus('connected');
+          
+          // Sync to local storage as backup cache
+          localStorage.setItem('apple_site_notepad_notes', JSON.stringify(dbNotes));
+        } else if (res.status === 404) {
+          const data = await res.json();
+          if (data.error === 'database_table_missing') {
+            setDbStatus('table_missing');
+            setTableMissingMessage(data.message);
+            loadFromLocalStorageFallback();
+          } else {
+            setDbStatus('offline');
+            loadFromLocalStorageFallback();
+          }
+        } else {
+          setDbStatus('offline');
+          loadFromLocalStorageFallback();
+        }
+      } catch (err) {
+        console.error('Error fetching notes from cloud:', err);
+        setDbStatus('offline');
+        loadFromLocalStorageFallback();
+      }
+    };
+
+    loadNotes();
+  }, [isOpen]);
+
+  // Fallback loader
+  const loadFromLocalStorageFallback = () => {
+    const stored = localStorage.getItem('apple_site_notepad_notes');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setNotes(parsed);
+          setActiveNoteId(parsed[0].id);
+          return;
+        }
+      } catch { }
+    }
+    createDefaultNoteFallback();
+  };
+
+  // Create default fallback notes
+  const createDefaultNoteFallback = () => {
     const defaultNote: Note = {
       id: 'default-note-1',
       title: 'Quick Scratchpad',
@@ -64,15 +111,13 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
     };
     setNotes([defaultNote]);
     setActiveNoteId(defaultNote.id);
-    localStorage.setItem('apple_site_notepad_notes', JSON.stringify([defaultNote]));
   };
 
-  // Find active note
   const activeNote = notes.find(n => n.id === activeNoteId) || null;
 
   // Auto-switch to editor view on mobile if a note becomes active
   useEffect(() => {
-    if (activeNoteId && window.innerWidth < 768) {
+    if (activeNoteId && typeof window !== 'undefined' && window.innerWidth < 768) {
       setMobileView('editor');
     }
   }, [activeNoteId]);
@@ -96,34 +141,63 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
   }, [isOpen, onClose]);
 
   // Create a new note
-  const handleCreateNote = () => {
-    const newNote: Note = {
-      id: `note-${Date.now()}`,
+  const handleCreateNote = async () => {
+    const newNoteObj = {
       title: `Note ${notes.length + 1}`,
-      content: '',
+      content: ''
+    };
+
+    // 1. Optimistic UI update locally
+    const tempId = `temp-note-${Date.now()}`;
+    const optimisticNote: Note = {
+      id: tempId,
+      title: newNoteObj.title,
+      content: newNoteObj.content,
       updatedAt: new Date().toISOString()
     };
-    const updated = [newNote, ...notes];
+    const updated = [optimisticNote, ...notes];
     setNotes(updated);
-    setActiveNoteId(newNote.id);
+    setActiveNoteId(tempId);
     setMobileView('editor');
-    setEditingTitleId(newNote.id);
-    setTempTitle(newNote.title);
-    saveNotesToStorage(updated);
+    setEditingTitleId(tempId);
+    setTempTitle(newNoteObj.title);
+
+    // 2. Sync to Database
+    if (dbStatus === 'connected') {
+      try {
+        const res = await fetch('/api/notepad', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newNoteObj)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          // Update temp ID with real DB UUID
+          const savedNote: Note = {
+            id: data.note.id,
+            title: data.note.title,
+            content: data.note.content,
+            updatedAt: data.note.updated_at || data.note.created_at
+          };
+          const syncedList = updated.map(n => n.id === tempId ? savedNote : n);
+          setNotes(syncedList);
+          setActiveNoteId(savedNote.id);
+          setEditingTitleId(savedNote.id);
+          localStorage.setItem('apple_site_notepad_notes', JSON.stringify(syncedList));
+        }
+      } catch (err) {
+        console.error('Failed to sync new note to DB:', err);
+      }
+    } else {
+      localStorage.setItem('apple_site_notepad_notes', JSON.stringify(updated));
+    }
   };
 
-  // Save notes helper
-  const saveNotesToStorage = (updatedNotes: Note[]) => {
-    setSaveStatus('saving');
-    localStorage.setItem('apple_site_notepad_notes', JSON.stringify(updatedNotes));
-    setTimeout(() => {
-      setSaveStatus('saved');
-    }, 400);
-  };
-
-  // Update note content
+  // Debounced auto-save content changes to database
   const handleContentChange = (content: string) => {
     if (!activeNoteId) return;
+
+    // 1. Update local state instantly
     const updated = notes.map(n => {
       if (n.id === activeNoteId) {
         return { ...n, content, updatedAt: new Date().toISOString() };
@@ -131,21 +205,47 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
       return n;
     });
     setNotes(updated);
-    saveNotesToStorage(updated);
+    localStorage.setItem('apple_site_notepad_notes', JSON.stringify(updated));
+
+    // 2. Debounce database cloud save
+    if (dbStatus === 'connected' && !activeNoteId.startsWith('temp-')) {
+      setSaveStatus('saving');
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      
+      saveTimeoutRef.current = setTimeout(async () => {
+        try {
+          const res = await fetch('/api/notepad', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: activeNoteId, content })
+          });
+          if (res.ok) {
+            setSaveStatus('saved');
+          } else {
+            setSaveStatus(null);
+          }
+        } catch {
+          setSaveStatus(null);
+        }
+      }, 600); // 600ms delay after user stops typing
+    } else {
+      setSaveStatus('saved');
+    }
   };
 
-  // Delete a note
-  const handleDeleteNote = (id: string, e: React.MouseEvent) => {
+  // Delete note
+  const handleDeleteNote = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const remaining = notes.filter(n => n.id !== id);
     setShowDeleteConfirm(null);
 
+    // 1. Optimistic UI update locally
     if (remaining.length > 0) {
       setNotes(remaining);
       if (activeNoteId === id) {
         setActiveNoteId(remaining[0].id);
       }
-      saveNotesToStorage(remaining);
+      localStorage.setItem('apple_site_notepad_notes', JSON.stringify(remaining));
     } else {
       // Re-create default if all deleted
       const defaultNote: Note = {
@@ -156,12 +256,21 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
       };
       setNotes([defaultNote]);
       setActiveNoteId(defaultNote.id);
-      saveNotesToStorage([defaultNote]);
+      localStorage.setItem('apple_site_notepad_notes', JSON.stringify([defaultNote]));
     }
     setMobileView('list');
+
+    // 2. DB delete sync
+    if (dbStatus === 'connected' && !id.startsWith('temp-')) {
+      try {
+        await fetch(`/api/notepad?id=${id}`, { method: 'DELETE' });
+      } catch (err) {
+        console.error('Failed to delete note in database:', err);
+      }
+    }
   };
 
-  // Start renaming a note
+  // Start renaming note title
   const startRenaming = (note: Note, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingTitleId(note.id);
@@ -169,11 +278,12 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
   };
 
   // Save renamed note title
-  const saveTitle = (id: string) => {
+  const saveTitle = async (id: string) => {
     if (!tempTitle.trim()) {
       setEditingTitleId(null);
       return;
     }
+
     const updated = notes.map(n => {
       if (n.id === id) {
         return { ...n, title: tempTitle.trim(), updatedAt: new Date().toISOString() };
@@ -182,7 +292,26 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
     });
     setNotes(updated);
     setEditingTitleId(null);
-    saveNotesToStorage(updated);
+    localStorage.setItem('apple_site_notepad_notes', JSON.stringify(updated));
+
+    // DB rename sync
+    if (dbStatus === 'connected' && !id.startsWith('temp-')) {
+      setSaveStatus('saving');
+      try {
+        const res = await fetch('/api/notepad', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, title: tempTitle.trim() })
+        });
+        if (res.ok) {
+          setSaveStatus('saved');
+        } else {
+          setSaveStatus(null);
+        }
+      } catch {
+        setSaveStatus(null);
+      }
+    }
   };
 
   // Text inserting helpers for tactile typing on mobile
@@ -219,7 +348,7 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
     insertTextAtCursor(`[${formatted}] `);
   };
 
-  // Quick Copy
+  // Copy Clipboard
   const [copied, setCopied] = useState(false);
   const handleCopyNote = () => {
     if (!activeNote) return;
@@ -228,7 +357,7 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
     setTimeout(() => setCopied(false), 1500);
   };
 
-  // Quick Export
+  // Export File
   const handleDownloadNote = () => {
     if (!activeNote) return;
     const element = document.createElement('a');
@@ -240,7 +369,7 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
     document.body.removeChild(element);
   };
 
-  // Filter notes based on search
+  // Search Filter
   const filteredNotes = notes.filter(n =>
     n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     n.content.toLowerCase().includes(searchQuery.toLowerCase())
@@ -272,7 +401,9 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
             </div>
             <div>
               <h2 className="text-sm font-bold text-gray-900">Scratchpad Notepad</h2>
-              <p className="text-[10px] font-semibold text-gray-400">Offline-first local notes</p>
+              <p className="text-[10px] font-semibold text-gray-400">
+                {dbStatus === 'connected' ? 'Cloud database synced' : 'Local browser fallback'}
+              </p>
             </div>
           </div>
 
@@ -285,7 +416,7 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
             )}
             {saveStatus === 'saved' && (
               <span className="text-[10px] font-extrabold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100 flex items-center gap-0.5">
-                <FiCheck className="w-2.5 h-2.5" /> Auto-saved
+                <FiCheck className="w-2.5 h-2.5" /> Synced
               </span>
             )}
 
@@ -298,6 +429,28 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
             </button>
           </div>
         </div>
+
+        {/* Database Connectivity Banners */}
+        {dbStatus === 'loading' && (
+          <div className="px-4 py-1.5 bg-yellow-50 border-b border-yellow-100 flex items-center gap-2 text-yellow-700 text-[10px] font-bold shrink-0 animate-pulse select-none">
+            <FiDatabase className="animate-bounce" /> Connecting to cloud database...
+          </div>
+        )}
+        {dbStatus === 'offline' && (
+          <div className="px-4 py-1.5 bg-gray-100 border-b border-gray-200 flex items-center gap-2 text-gray-600 text-[10px] font-bold shrink-0 select-none">
+            <FiCloudOff /> Cloud database offline. Notes are saving locally in browser cache.
+          </div>
+        )}
+        {dbStatus === 'table_missing' && (
+          <div className="px-4 py-2 bg-rose-50 border-b border-rose-100 flex flex-col gap-1 text-rose-700 text-[10px] shrink-0 font-medium select-none">
+            <div className="flex items-center gap-1.5 font-bold">
+              <FiDatabase /> Cloud sync unavailable: Table missing in database
+            </div>
+            <p className="leading-relaxed text-rose-600">
+              Please execute the SQL script in <code className="bg-rose-100/60 px-1 rounded font-bold font-mono">supabase/migrations/notepad_notes.sql</code> in your Supabase SQL Editor. Notes will save locally in your browser for now!
+            </p>
+          </div>
+        )}
 
         {/* Dual Layout Panel: Sidebar (Note Directory) + Editor */}
         <div className="flex-1 flex overflow-hidden relative">
