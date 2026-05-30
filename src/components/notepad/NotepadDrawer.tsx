@@ -138,13 +138,14 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
   const handleDeleteNote = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const remaining = notes.filter(n => n.id !== id);
-    setNotes(remaining);
     setShowDeleteConfirm(null);
 
     if (remaining.length > 0) {
+      setNotes(remaining);
       if (activeNoteId === id) {
         setActiveNoteId(remaining[0].id);
       }
+      saveNotesToStorage(remaining);
     } else {
       // Re-create default if all deleted
       const defaultNote: Note = {
@@ -155,8 +156,8 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
       };
       setNotes([defaultNote]);
       setActiveNoteId(defaultNote.id);
+      saveNotesToStorage([defaultNote]);
     }
-    saveNotesToStorage(remaining.length > 0 ? remaining : []);
     setMobileView('list');
   };
 
@@ -381,7 +382,7 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
 
                         {/* Inline renaming / deleting actions */}
                         {!isRenaming && !isConfirmingDelete && (
-                          <div className="hidden group-hover:flex items-center gap-1 shrink-0 bg-transparent">
+                          <div className="flex md:hidden md:group-hover:flex items-center gap-1 shrink-0 bg-transparent">
                             <button
                               onClick={(e) => startRenaming(note, e)}
                               className="no-touch-target min-w-0 flex items-center justify-center w-6 h-6 p-1 hover:bg-gray-200 rounded text-gray-500 hover:text-gray-800"
@@ -496,8 +497,10 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
                     </button>
                     <button
                       onClick={(e) => {
-                        setShowDeleteConfirm(activeNote.id);
-                        setEditingTitleId(null);
+                        e.stopPropagation();
+                        if (window.confirm(`Are you sure you want to delete this note ("${activeNote.title}")?`)) {
+                          handleDeleteNote(activeNote.id, e);
+                        }
                       }}
                       className="no-touch-target min-w-0 flex items-center justify-center w-8 h-8 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600 transition-colors"
                       title="Delete this note"
