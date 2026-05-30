@@ -41,8 +41,24 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
   useEffect(() => {
     if (!isOpen) return;
 
+    // Load from local storage immediately for SWR (Stale-While-Revalidate) instant load!
+    const stored = localStorage.getItem('apple_site_notepad_notes');
+    let hasLoadedLocal = false;
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setNotes(parsed);
+          setActiveNoteId(parsed[0].id);
+          hasLoadedLocal = true;
+        }
+      } catch { }
+    }
+    if (!hasLoadedLocal) {
+      createDefaultNoteFallback();
+    }
+
     const loadNotes = async () => {
-      setDbStatus('loading');
       try {
         const res = await fetch('/api/notepad?t=' + Date.now());
         if (res.ok) {
@@ -54,8 +70,15 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
             updatedAt: n.updated_at || n.created_at
           }));
           setNotes(dbNotes);
+          
+          // Only update active note if the current active note ID is no longer present
           if (dbNotes.length > 0) {
-            setActiveNoteId(dbNotes[0].id);
+            setActiveNoteId((prevId) => {
+              if (prevId && dbNotes.some((dn: any) => dn.id === prevId)) {
+                return prevId;
+              }
+              return dbNotes[0].id;
+            });
           }
           setDbStatus('connected');
           
@@ -66,40 +89,22 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
           if (data.error === 'database_table_missing') {
             setDbStatus('table_missing');
             setTableMissingMessage(data.message);
-            loadFromLocalStorageFallback();
           } else {
             setDbStatus('offline');
-            loadFromLocalStorageFallback();
           }
         } else {
           setDbStatus('offline');
-          loadFromLocalStorageFallback();
         }
       } catch (err) {
         console.error('Error fetching notes from cloud:', err);
         setDbStatus('offline');
-        loadFromLocalStorageFallback();
       }
     };
 
     loadNotes();
   }, [isOpen]);
 
-  // Fallback loader
-  const loadFromLocalStorageFallback = () => {
-    const stored = localStorage.getItem('apple_site_notepad_notes');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setNotes(parsed);
-          setActiveNoteId(parsed[0].id);
-          return;
-        }
-      } catch { }
-    }
-    createDefaultNoteFallback();
-  };
+
 
   // Create default fallback notes
   const createDefaultNoteFallback = () => {
@@ -431,18 +436,8 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
         </div>
 
         {/* Database Connectivity Banners */}
-        {dbStatus === 'loading' && (
-          <div className="px-4 py-1.5 bg-yellow-50 border-b border-yellow-100 flex items-center gap-2 text-yellow-700 text-[10px] font-bold shrink-0 animate-pulse select-none">
-            <FiDatabase className="animate-bounce" /> Connecting to cloud database...
-          </div>
-        )}
-        {dbStatus === 'offline' && (
-          <div className="px-4 py-1.5 bg-gray-100 border-b border-gray-200 flex items-center gap-2 text-gray-600 text-[10px] font-bold shrink-0 select-none">
-            <FiCloudOff /> Cloud database offline. Notes are saving locally in browser cache.
-          </div>
-        )}
         {dbStatus === 'table_missing' && (
-          <div className="px-4 py-2 bg-rose-50 border-b border-rose-100 flex flex-col gap-1 text-rose-700 text-[10px] shrink-0 font-medium select-none">
+          <div className="px-4 py-2 bg-rose-50 border-b border-rose-100 flex flex-col gap-1 text-rose-700 text-[10px] shrink-0 font-medium select-none animate-in fade-in slide-in-from-top-1 duration-200">
             <div className="flex items-center gap-1.5 font-bold">
               <FiDatabase /> Cloud sync unavailable: Table missing in database
             </div>
