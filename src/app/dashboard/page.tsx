@@ -371,8 +371,8 @@ export default function DashboardPage() {
                     : (project.status === 'in_progress' ? 50 : 15);
                   
                   const totalDays = Math.max(1, Math.ceil((new Date(project.estimated_completion_date).getTime() - new Date(project.start_date).getTime()) / 86400000));
-                  const daysLeft = Math.ceil((new Date(project.estimated_completion_date).getTime() - Date.now()) / 86400000);
-                  const isOverdue = daysLeft < 0;
+                  const daysElapsed = Math.max(0, Math.ceil((Date.now() - new Date(project.start_date).getTime()) / 86400000));
+                  const isOverdue = daysElapsed > totalDays;
                   
                   return (
                     <div key={project.id} className="pt-3.5 first:pt-0 flex flex-col gap-2">
@@ -396,12 +396,12 @@ export default function DashboardPage() {
                           {isOverdue ? (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold bg-rose-50 text-rose-600 border border-rose-100">
                               <FiAlertCircle className="h-3 w-3" />
-                              <span>{daysLeft}/{totalDays} days</span>
+                              <span>{daysElapsed}/{totalDays} days</span>
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold bg-amber-50 text-amber-600 border border-amber-100">
                               <FiCalendar className="h-3 w-3" style={{ color: BRAND }} />
-                              <span>{daysLeft}/{totalDays} days</span>
+                              <span>{daysElapsed}/{totalDays} days</span>
                             </span>
                           )}
                         </div>
@@ -457,7 +457,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               updatesList.slice(0, 4).map((update) => {
-                const dateFormatted = new Date(update.update_date || update.created_at).toLocaleDateString('en-IN', {
+                const dateFormatted = new Date(update.created_at || update.update_date).toLocaleDateString('en-IN', {
                   day: 'numeric',
                   month: 'short',
                   hour: '2-digit',
