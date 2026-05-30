@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX, FiCheckSquare, FiAlertTriangle, FiCreditCard, FiRadio, FiClock, FiSearch } from 'react-icons/fi';
+import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX, FiCheckSquare, FiAlertTriangle, FiCreditCard, FiRadio, FiClock, FiSearch, FiFileText } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
 import { supabase } from '@/lib/supabase';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
@@ -15,6 +15,7 @@ import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import AttendanceWidget from '@/components/attendance/AttendanceWidget';
 import PasswordChangeModal from '@/components/PasswordChangeModal';
+import NotepadDrawer from '@/components/notepad/NotepadDrawer';
 
 
 const getDesignerName = (proj: any): string => {
@@ -55,6 +56,7 @@ function DashboardLayoutContent({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isNotepadOpen, setIsNotepadOpen] = useState(false);
   const modalInputRef = useRef<HTMLInputElement>(null);
 
   const fetchProjects = async () => {
@@ -382,6 +384,18 @@ function DashboardLayoutContent({
                 </Link>
               </>
             )}
+            <button
+              onClick={() => {
+                setIsNotepadOpen(true);
+                setSidebarOpen(false);
+              }}
+              className="w-full flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
+              title="Notepad"
+              type="button"
+            >
+              <FiFileText className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
+              <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Notepad</span>
+            </button>
           </div>
         </nav>
       </div>
@@ -529,6 +543,17 @@ function DashboardLayoutContent({
                   <FiSearch className="w-5 h-5" />
                 </button>
 
+                {/* Global Notepad Drawer Trigger */}
+                <button
+                  onClick={() => setIsNotepadOpen(true)}
+                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors mr-1 shrink-0 touch-target"
+                  aria-label="Open notepad"
+                  title="Open Notepad"
+                  type="button"
+                >
+                  <FiFileText className="w-5 h-5" />
+                </button>
+
                 <OptimizedNotificationBell />
 
                 {/* User Avatar with Dropdown */}
@@ -612,6 +637,9 @@ function DashboardLayoutContent({
       </div>
       {/* PWA Install Prompt */}
       < PWAInstallPrompt />
+
+      {/* Premium Scratchpad Notepad Drawer */}
+      <NotepadDrawer isOpen={isNotepadOpen} onClose={() => setIsNotepadOpen(false)} />
 
       {/* Centered Spotlight Search Modal */}
       {isSearchOpen && (
