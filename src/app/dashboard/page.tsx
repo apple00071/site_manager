@@ -370,6 +370,10 @@ export default function DashboardPage() {
                     ? Math.round((completedTasks / projectTasks.length) * 100)
                     : (project.status === 'in_progress' ? 50 : 15);
                   
+                  const totalDays = Math.max(1, Math.ceil((new Date(project.estimated_completion_date).getTime() - new Date(project.start_date).getTime()) / 86400000));
+                  const daysLeft = Math.ceil((new Date(project.estimated_completion_date).getTime() - Date.now()) / 86400000);
+                  const isOverdue = daysLeft < 0;
+                  
                   return (
                     <div key={project.id} className="pt-3.5 first:pt-0 flex flex-col gap-2">
                       <div className="flex items-center justify-between gap-4">
@@ -389,8 +393,17 @@ export default function DashboardPage() {
                           Designer: <span className="font-medium text-gray-700">{project.assigned_employee?.full_name || 'Unassigned'}</span>
                         </div>
                         <div className="shrink-0 flex items-center gap-1">
-                          <FiCalendar className="h-3 w-3" />
-                          <span>Est: {new Date(project.estimated_completion_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
+                          {isOverdue ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold bg-rose-50 text-rose-600 border border-rose-100">
+                              <FiAlertCircle className="h-3 w-3" />
+                              <span>{daysLeft}/{totalDays} days</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold bg-amber-50 text-amber-600 border border-amber-100">
+                              <FiCalendar className="h-3 w-3" style={{ color: BRAND }} />
+                              <span>{daysLeft}/{totalDays} days</span>
+                            </span>
+                          )}
                         </div>
                       </div>
 
