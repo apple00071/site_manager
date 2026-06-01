@@ -250,6 +250,21 @@ export async function POST(req: Request) {
         }
       }
 
+      // Send welcome email
+      try {
+        const origin =
+          req.headers.get('origin') ||
+          process.env.NEXT_PUBLIC_SITE_URL ||
+          process.env.NEXT_PUBLIC_APP_URL ||
+          'http://localhost:3000';
+        const loginLink = `${origin}/login`;
+        
+        const { sendWelcomeEmail } = await import('@/lib/email');
+        await sendWelcomeEmail(email, full_name, username, finalPassword, loginLink);
+      } catch (emailError) {
+        console.error('Failed to send welcome email:', emailError);
+      }
+
       return NextResponse.json(
         {
           success: true,
