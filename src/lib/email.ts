@@ -16,7 +16,11 @@ export const sendWelcomeEmail = async (
         const resend = new Resend(process.env.RESEND_API_KEY);
         
         const origin = new URL(loginLink).origin;
-        const logoUrl = `${origin}/New-logo.png`;
+        
+        // Email clients can't load images from localhost, use a public fallback for local testing
+        const logoUrl = origin.includes('localhost') 
+            ? 'https://raw.githubusercontent.com/apple00071/site_manager/master/public/New-logo.png' 
+            : `${origin}/New-logo.png`;
         
         const html = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">

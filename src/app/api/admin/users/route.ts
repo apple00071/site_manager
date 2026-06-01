@@ -207,6 +207,15 @@ export async function POST(req: Request) {
 
       if (profileError) {
         console.error('Error creating user profile:', profileError);
+        
+        // Attempt to clean up the orphaned auth user
+        try {
+            await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+            console.log('Cleaned up orphaned auth user after profile creation failure');
+        } catch (cleanupError) {
+            console.error('Failed to clean up auth user:', cleanupError);
+        }
+
         return NextResponse.json(
           { error: profileError.message || 'Failed to create user profile' },
           { status: 500 }
