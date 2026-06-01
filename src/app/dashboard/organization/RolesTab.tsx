@@ -211,7 +211,8 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
             { id: 'user.create', label: 'Add new users' },
             { id: 'user.edit', label: 'Edit user details' },
             { id: 'user.delete', label: 'Remove users' },
-            { id: 'role.manage', label: 'Manage roles and permissions' }
+            { id: 'users.manage_roles', label: 'Manage roles and permissions' },
+            { id: 'users.manage_documents', label: 'Upload and manage employee documents' }
         ],
         notifications: ['New user added', 'User role changed']
     },
@@ -302,6 +303,7 @@ export default function RolesTab() {
     const [openDropdown, setOpenDropdown] = useState<string | null>(null);
     const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number } | null>(null);
     const [saving, setSaving] = useState(false);
+    const [syncing, setSyncing] = useState(false);
 
     // Form state
     const [roleName, setRoleName] = useState('');
@@ -338,6 +340,25 @@ export default function RolesTab() {
             }
         } catch (error) {
             console.error('Error fetching permissions:', error);
+        }
+    };
+
+    const handleSyncPermissions = async () => {
+        try {
+            setSyncing(true);
+            const res = await fetch('/api/admin/sync-permissions', { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+                alert(`Successfully synced permissions! Added ${data.new_permissions?.length || 0} new permissions.`);
+                fetchAllPermissions(); // Refresh the list
+            } else {
+                alert(`Failed to sync: ${data.error}`);
+            }
+        } catch (error) {
+            console.error('Error syncing permissions:', error);
+            alert('An error occurred while syncing permissions.');
+        } finally {
+            setSyncing(false);
         }
     };
 
@@ -607,9 +628,16 @@ export default function RolesTab() {
                 <DataTable columns={columns} data={roles} keyField="id" className="min-w-full" />
             </div>
 
-            <div className="flex justify-start">
+            <div className="flex justify-start gap-3">
                 <button onClick={handleAddRole} className="btn-primary">
                     + Add New Role
+                </button>
+                <button 
+                    onClick={handleSyncPermissions} 
+                    disabled={syncing}
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold rounded-lg transition-colors disabled:opacity-50"
+                >
+                    {syncing ? 'Syncing...' : 'Sync Permissions'}
                 </button>
             </div>
 
