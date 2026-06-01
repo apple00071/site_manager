@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { verifyPermission } from '@/lib/rbac';
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
 
 export async function DELETE(request: Request, context: any) {
     try {
@@ -12,8 +14,14 @@ export async function DELETE(request: Request, context: any) {
           return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
     
-        if (userRole !== 'admin') {
-            return NextResponse.json({ error: 'Forbidden. Only admins can delete documents.' }, { status: 403 });
+        let hasPermission = userRole === 'admin';
+        if (!hasPermission) {
+            const permCheck = await verifyPermission(user.id, PERMISSION_NODES.USERS_MANAGE_DOCUMENTS);
+            hasPermission = permCheck.allowed;
+        }
+        
+        if (!hasPermission) {
+            return NextResponse.json({ error: 'Forbidden. You do not have permission to delete documents.' }, { status: 403 });
         }
 
         // 2. Get document to find the file_url

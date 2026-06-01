@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { verifyPermission } from '@/lib/rbac';
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
 
 export async function GET(request: Request, context: any) {
   try {
@@ -12,8 +14,14 @@ export async function GET(request: Request, context: any) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    // Only admins or the employee themselves can view documents
-    if (userRole !== 'admin' && user.id !== id) {
+    // Only admins, the employee themselves, or users with manage_documents permission can view documents
+    let canView = userRole === 'admin' || user.id === id;
+    if (!canView) {
+        const permCheck = await verifyPermission(user.id, PERMISSION_NODES.USERS_MANAGE_DOCUMENTS);
+        canView = permCheck.allowed;
+    }
+    
+    if (!canView) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -62,8 +70,14 @@ export async function POST(request: Request, context: any) {
           return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
     
-        if (userRole !== 'admin') {
-            return NextResponse.json({ error: 'Forbidden. Only admins can upload documents.' }, { status: 403 });
+        let hasPermission = userRole === 'admin';
+        if (!hasPermission) {
+            const permCheck = await verifyPermission(user.id, PERMISSION_NODES.USERS_MANAGE_DOCUMENTS);
+            hasPermission = permCheck.allowed;
+        }
+        
+        if (!hasPermission) {
+            return NextResponse.json({ error: 'Forbidden. You do not have permission to upload documents.' }, { status: 403 });
         }
 
         const body = await request.json();

@@ -106,6 +106,7 @@ export const PERMISSION_NODES = {
     USERS_EDIT: 'users.edit',
     USERS_DELETE: 'users.delete',
     USERS_MANAGE_ROLES: 'users.manage_roles',
+    USERS_MANAGE_DOCUMENTS: 'users.manage_documents',
 
     // Settings Permissions
     SETTINGS_VIEW: 'settings.view',

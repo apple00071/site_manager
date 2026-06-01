@@ -10,6 +10,7 @@ import { DataTable, StatusBadge, getStatusVariant } from '@/components/ui/DataTa
 import Link from 'next/link';
 import { ImageModal } from '@/components/ui/ImageModal';
 import { supabase } from '@/lib/supabase';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 const openExternalLink = (url: string) => {
     if (!url) return;
@@ -75,6 +76,7 @@ function useCountUp(target: number, duration = 900) {
 export default function UserProfilePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const { user: currentUser, isAdmin } = useAuth();
+    const { hasPermission } = useUserPermissions();
     const { setTitle, setSubtitle } = useHeaderTitle();
 
     const [user, setUser] = useState<any>(null);
@@ -897,7 +899,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
                         <div className="p-6">
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className="text-lg font-bold text-gray-900">Employee Documents</h3>
-                                {isAdmin && (
+                                {(isAdmin || hasPermission('users.manage_documents')) && (
                                     <button
                                         onClick={() => setIsUploadModalOpen(true)}
                                         className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-bold rounded-xl transition-colors"
@@ -937,7 +939,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
                                                         <FiEye /> View
                                                     </button>
                                                 )}
-                                                {isAdmin && (
+                                                {(isAdmin || hasPermission('users.manage_documents')) && (
                                                     <button 
                                                         onClick={() => handleDeleteDocument(doc.id)}
                                                         className="inline-flex justify-center items-center p-2 text-red-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
