@@ -15,8 +15,14 @@ export const sendWelcomeEmail = async (
     try {
         const resend = new Resend(process.env.RESEND_API_KEY);
         
+        const origin = new URL(loginLink).origin;
+        const logoUrl = `${origin}/New-logo.png`;
+        
         const html = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <img src="${logoUrl}" alt="Apple Interior Manager" style="max-height: 80px; max-width: 100%;">
+                </div>
                 <h2 style="color: #333; text-align: center;">Welcome to Apple Interior Manager!</h2>
                 <p>Hello ${fullName},</p>
                 <p>Your account has been created successfully. Below are your login credentials:</p>
@@ -39,7 +45,12 @@ export const sendWelcomeEmail = async (
                     </a>
                 </div>
                 
-                <p style="color: #777; font-size: 12px; text-align: center;">If you did not expect this email, please ignore it.</p>
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center;">
+                    <p style="color: #555; font-size: 14px; font-weight: bold; margin-bottom: 5px;">Need help?</p>
+                    <p style="color: #666; font-size: 14px; margin: 0;">For any issues, please contact Pavan (8247494622)</p>
+                </div>
+                
+                <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px;">If you did not expect this email, please ignore it.</p>
             </div>
         `;
 
