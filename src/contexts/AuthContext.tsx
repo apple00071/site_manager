@@ -358,6 +358,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    // Immediately clear state for instant UI feedback
+    setUser(null);
+    setSession(null);
+    setIsAdmin(false);
+
     try {
       if (typeof window !== 'undefined') {
         const tourCompleted = localStorage.getItem('apple_admin_tour_completed');
@@ -396,10 +401,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error && DEBUG_ENABLED) {
         console.error('Error signing out:', error);
       }
-
-      setUser(null);
-      setSession(null);
-      setIsAdmin(false);
 
       if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
         try {

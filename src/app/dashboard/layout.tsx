@@ -50,7 +50,7 @@ function DashboardLayoutContent({
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission, hasAnyPermission } = useUserPermissions();
   const [searchQuery, setSearchQuery] = useState('');
   const [projects, setProjects] = useState<any[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -361,8 +361,7 @@ function DashboardLayoutContent({
                 <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Payroll</span>
               </Link>
             )}
-            {isAdmin && (
-              <>
+            {(isAdmin || hasPermission('broadcast.view')) && (
                 <Link
                   href="/dashboard/organization?tab=broadcast"
                   className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
@@ -372,6 +371,8 @@ function DashboardLayoutContent({
                   <FiRadio className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
                   <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Broadcast</span>
                 </Link>
+            )}
+            {(isAdmin || hasAnyPermission(['users.view', 'users.create', 'users.edit', 'users.delete', 'role.manage', 'settings.edit'])) && (
                 <Link
                   href="/dashboard/organization"
                   className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
@@ -382,7 +383,6 @@ function DashboardLayoutContent({
                   <FiUsers className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
                   <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Org</span>
                 </Link>
-              </>
             )}
             <button
               onClick={() => {

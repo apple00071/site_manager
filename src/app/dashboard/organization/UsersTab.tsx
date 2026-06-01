@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiActivity, FiChevronDown, FiChevronRight } from 'react-icons/fi';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface Role {
     id: string;
@@ -21,6 +22,7 @@ interface User {
 }
 
 export default function UsersTab() {
+    const router = useRouter();
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
     const [loading, setLoading] = useState(true);
@@ -191,7 +193,11 @@ export default function UsersTab() {
                                 {!collapsedGroups[designation] && groupedUsers[designation].map((user: User) => {
                                     const isInactive = user.is_active === false;
                                     return (
-                                        <tr key={user.id} className={`hover:bg-gray-50 transition-colors group ${isInactive ? 'opacity-65 bg-gray-50/30' : ''}`}>
+                                        <tr 
+                                            key={user.id} 
+                                            onClick={() => router.push(`/dashboard/organization/${user.id}`)}
+                                            className={`cursor-pointer hover:bg-gray-50 transition-colors group ${isInactive ? 'opacity-65 bg-gray-50/30' : ''}`}
+                                        >
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center gap-3">
                                                     <div className="h-9 w-9 rounded-full bg-yellow-50 flex items-center justify-center text-yellow-700 font-bold border border-yellow-100 text-xs">
@@ -217,7 +223,7 @@ export default function UsersTab() {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <div className="flex justify-end items-center gap-4">
+                                                <div className="flex justify-end items-center gap-4" onClick={(e) => e.stopPropagation()}>
                                                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <Link
                                                             href={`/dashboard/organization/${user.id}`}
@@ -288,7 +294,8 @@ export default function UsersTab() {
                                     return (
                                         <div
                                             key={user.id}
-                                            className={`bg-white rounded-xl border border-gray-100 px-3.5 py-3 flex items-center gap-3 ${isInactive ? 'opacity-60' : ''}`}
+                                            onClick={() => router.push(`/dashboard/organization/${user.id}`)}
+                                            className={`bg-white rounded-xl border border-gray-100 px-3.5 py-3 flex items-center gap-3 cursor-pointer hover:border-yellow-200 hover:bg-yellow-50/10 transition-colors ${isInactive ? 'opacity-60' : ''}`}
                                         >
                                             {/* Avatar */}
                                             <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${isInactive ? 'bg-gray-100 text-gray-400 border border-gray-200' : 'bg-yellow-50 text-yellow-700 border border-yellow-100'}`}>
@@ -314,7 +321,7 @@ export default function UsersTab() {
                                             </div>
 
                                             {/* Actions */}
-                                            <div className="flex items-center gap-1.5 shrink-0">
+                                            <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                                                 <Link
                                                     href={`/dashboard/organization/${user.id}`}
                                                     className="flex items-center justify-center p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
