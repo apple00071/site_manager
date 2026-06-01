@@ -717,17 +717,20 @@ export default function RolesTab() {
                                                                 {isExpanded && (
                                                                     <div className="px-4 pb-4">
                                                                         <div className="space-y-2">
-                                                                            {perms.map((perm) => (
-                                                                                <label key={perm.id} className="flex items-start gap-2 cursor-pointer">
-                                                                                    <input
-                                                                                        type="checkbox"
-                                                                                        checked={selectedPermissionIds.has(perm.id)}
-                                                                                        onChange={() => handlePermissionChange(perm.id)}
-                                                                                        className="mt-0.5 h-4 w-4 text-yellow-600 rounded border-gray-300 focus:ring-yellow-500"
-                                                                                    />
-                                                                                    <span className="text-sm text-gray-700">{perm.description || perm.code}</span>
-                                                                                </label>
-                                                                            ))}
+                                                                            {perms.map((perm) => {
+                                                                                const friendlyLabel = def.permissions.find(p => p.id === perm.code)?.label;
+                                                                                return (
+                                                                                    <label key={perm.id} className="flex items-start gap-2 cursor-pointer">
+                                                                                        <input
+                                                                                            type="checkbox"
+                                                                                            checked={selectedPermissionIds.has(perm.id)}
+                                                                                            onChange={() => handlePermissionChange(perm.id)}
+                                                                                            className="mt-0.5 h-4 w-4 text-yellow-600 rounded border-gray-300 focus:ring-yellow-500"
+                                                                                        />
+                                                                                        <span className="text-sm text-gray-700">{friendlyLabel || perm.description || perm.code}</span>
+                                                                                    </label>
+                                                                                );
+                                                                            })}
                                                                         </div>
                                                                     </div>
                                                                 )}
