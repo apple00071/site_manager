@@ -108,82 +108,108 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!user) return;
+
+    const fetchWithTimeout = async (url: string, timeout = 10000) => {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      try {
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(id);
+        return res;
+      } catch (err) {
+        clearTimeout(id);
+        throw err;
+      }
+    };
+
     const fetchData = async () => {
       setLoading(true);
       try {
+        const [projectsRes, tasksRes, snagsRes, updatesRes, usersRes, membersRes] = await Promise.all([
+          fetchWithTimeout('/api/admin/projects').catch((err) => {
+            console.error('Projects fetch error:', err);
+            return null;
+          }),
+          fetchWithTimeout('/api/tasks/all?t=' + Date.now()).catch((err) => {
+            console.error('Tasks fetch error:', err);
+            return null;
+          }),
+          fetchWithTimeout('/api/snags?all=true').catch((err) => {
+            console.error('Snags fetch error:', err);
+            return null;
+          }),
+          fetchWithTimeout('/api/project-updates?limit=6').catch((err) => {
+            console.error('Project updates fetch error:', err);
+            return null;
+          }),
+          fetchWithTimeout('/api/admin/users').catch((err) => {
+            console.error('Users fetch error:', err);
+            return null;
+          }),
+          fetchWithTimeout('/api/project-members/all').catch((err) => {
+            console.error('Members fetch error:', err);
+            return null;
+          })
+        ]);
+
         // Projects
         let projects: any[] = [];
-        try {
-          const res = await fetch('/api/admin/projects');
-          if (res.ok) projects = await res.json();
-        } catch { }
-
-        if (projects.length > 0) {
-          setProjectsList(projects);
-          setStats(prev => ({
-            ...prev,
-            totalProjects: projects.length,
-            activeProjects: projects.filter(p => p.status !== 'completed').length,
-            completedProjects: projects.filter(p => p.status === 'completed').length,
-            upcomingDeadlines: projects.filter(p => {
-              const days = (new Date(p.estimated_completion_date).getTime() - Date.now()) / 86400000;
-              return days <= 7 && days > 0;
-            }).length,
-          }));
+        if (projectsRes && projectsRes.ok) {
+          projects = await projectsRes.json().catch(() => []);
+          if (projects.length > 0) {
+            setProjectsList(projects);
+            setStats(prev => ({
+              ...prev,
+              totalProjects: projects.length,
+              activeProjects: projects.filter(p => p.status !== 'completed').length,
+              completedProjects: projects.filter(p => p.status === 'completed').length,
+              upcomingDeadlines: projects.filter(p => {
+                const days = (new Date(p.estimated_completion_date).getTime() - Date.now()) / 86400000;
+                return days <= 7 && days > 0;
+              }).length,
+            }));
+          }
         }
 
         // Tasks
-        try {
-          const res = await fetch('/api/tasks/all?t=' + Date.now());
-          if (res.ok) {
-            const raw = await res.json();
-            const tasks = Array.isArray(raw) ? raw : (raw?.tasks || raw?.data || []);
-            if (Array.isArray(tasks)) {
-              setTasksList(tasks);
-              setStats(prev => ({
-                ...prev,
-                totalTasks: tasks.length,
-                todoTasks: tasks.filter(t => t.status === 'todo').length,
-                inProgressTasks: tasks.filter(t => t.status === 'in_progress').length,
-                doneTasks: tasks.filter(t => t.status === 'done').length,
-              }));
-            }
+        if (tasksRes && tasksRes.ok) {
+          const raw = await tasksRes.json().catch(() => []);
+          const tasks = Array.isArray(raw) ? raw : (raw?.tasks || raw?.data || []);
+          if (Array.isArray(tasks)) {
+            setTasksList(tasks);
+            setStats(prev => ({
+              ...prev,
+              totalTasks: tasks.length,
+              todoTasks: tasks.filter(t => t.status === 'todo').length,
+              inProgressTasks: tasks.filter(t => t.status === 'in_progress').length,
+              doneTasks: tasks.filter(t => t.status === 'done').length,
+            }));
           }
-        } catch { }
+        }
 
         // Snags
-        try {
-          const res = await fetch('/api/snags?all=true');
-          if (res.ok) {
-            const raw = await res.json();
-            const snags = Array.isArray(raw) ? raw : (raw?.snags || raw?.data || []);
-            if (Array.isArray(snags)) {
-              setStats(prev => ({
-                ...prev,
-                totalSnags: snags.length,
-                openSnags: snags.filter((s: any) => s.status === 'open' || s.status === 'assigned').length,
-                resolvedSnags: snags.filter((s: any) => s.status === 'resolved' || s.status === 'verified').length,
-              }));
-            }
+        if (snagsRes && snagsRes.ok) {
+          const raw = await snagsRes.json().catch(() => []);
+          const snags = Array.isArray(raw) ? raw : (raw?.snags || raw?.data || []);
+          if (Array.isArray(snags)) {
+            setStats(prev => ({
+              ...prev,
+              totalSnags: snags.length,
+              openSnags: snags.filter((s: any) => s.status === 'open' || s.status === 'assigned').length,
+              resolvedSnags: snags.filter((s: any) => s.status === 'resolved' || s.status === 'verified').length,
+            }));
           }
-        } catch { }
+        }
 
         // Project Updates (Work Progress Updates)
-        try {
-          const res = await fetch('/api/project-updates?limit=6');
-          if (res.ok) {
-            const raw = await res.json();
-            setUpdatesList(raw.updates || []);
-          }
-        } catch (err) {
-          console.error('Error fetching project updates:', err);
+        if (updatesRes && updatesRes.ok) {
+          const raw = await updatesRes.json().catch(() => ({}));
+          setUpdatesList(raw.updates || []);
         }
 
         // Team
-        try {
-          const res = await fetch('/api/admin/users');
-          if (!res.ok) return;
-          let allUsers: any[] = await res.json();
+        if (usersRes && usersRes.ok) {
+          let allUsers: any[] = await usersRes.json().catch(() => []);
           // Exclude disabled users, customers, and admins
           allUsers = allUsers.filter((u: any) =>
             u.is_active !== false &&
@@ -203,21 +229,18 @@ export default function DashboardPage() {
             }
           });
 
-          try {
-            const mRes = await fetch('/api/project-members/all');
-            if (mRes.ok) {
-              const members = await mRes.json();
-              if (Array.isArray(members)) {
-                members.forEach((m: any) => {
-                  const proj = projectLookup.get(m.project_id);
-                  if (proj && userProjectMap.has(m.user_id)) {
-                    const up = userProjectMap.get(m.user_id)!;
-                    proj.status === 'completed' ? up.completed.add(proj.title) : up.active.add(proj.title);
-                  }
-                });
-              }
+          if (membersRes && membersRes.ok) {
+            const members = await membersRes.json().catch(() => []);
+            if (Array.isArray(members)) {
+              members.forEach((m: any) => {
+                const proj = projectLookup.get(m.project_id);
+                if (proj && userProjectMap.has(m.user_id)) {
+                  const up = userProjectMap.get(m.user_id)!;
+                  proj.status === 'completed' ? up.completed.add(proj.title) : up.active.add(proj.title);
+                }
+              });
             }
-          } catch { }
+          }
 
           const teamData: TeamMember[] = allUsers.map((u: any) => {
             const up = userProjectMap.get(u.id) || { active: new Set<string>(), completed: new Set<string>() };
@@ -236,8 +259,10 @@ export default function DashboardPage() {
             return a.activeProjects - b.activeProjects;
           });
           setTeamMembers(teamData);
-        } catch { }
+        }
 
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
       } finally {
         setLoading(false);
       }
