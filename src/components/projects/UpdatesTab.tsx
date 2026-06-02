@@ -308,33 +308,22 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     setUploadingPhotos(true);
 
     try {
-      const uploadPromises = Array.from(files).map(async (file, i) => {
+      const { uploadFile } = await import('@/lib/uploadUtils');
+      const folder = user?.id || 'anonymous';
+
+      const uploadPromises = Array.from(files).map(async (file) => {
         try {
-          const fileExt = file.name.split('.').pop();
-          const fileName = `${user?.id}/${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
-
-          const { error } = await supabase.storage
-            .from('project-update-photos')
-            .upload(fileName, file);
-
-          if (error) {
-            console.error(`Error uploading ${file.name}:`, error);
-            return null;
-          }
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('project-update-photos')
-            .getPublicUrl(fileName);
-
-          return publicUrl;
-        } catch (err) {
-          console.error(`Exception uploading ${file.name}:`, err);
-          return null;
+          const url = await uploadFile(file, 'project-update-photos', folder);
+          return { url, error: null };
+        } catch (err: any) {
+          console.error(`Error uploading ${file.name}:`, err);
+          return { url: null, error: err?.message || JSON.stringify(err) };
         }
       });
 
       const results = await Promise.all(uploadPromises);
-      const successfulUrls = results.filter((url): url is string => url !== null);
+      const successfulUrls = results.filter((r): r is { url: string; error: null } => r.url !== null).map(r => r.url);
+      const errors = results.filter((r): r is { url: null; error: string } => r.error !== null).map(r => r.error);
 
       if (successfulUrls.length > 0) {
         setForm(prev => ({ ...prev, photos: [...prev.photos, ...successfulUrls] }));
@@ -342,11 +331,12 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
 
       if (successfulUrls.length < files.length) {
         const failedCount = files.length - successfulUrls.length;
-        alert(`Successfully uploaded ${successfulUrls.length} files. ${failedCount} file(s) failed. (Note: Max 50MB per file)`);
+        const errorDetails = errors.length > 0 ? `\n\nErrors:\n${errors.join('\n')}` : '';
+        alert(`Successfully uploaded ${successfulUrls.length} files. ${failedCount} file(s) failed.${errorDetails}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading files:', error);
-      alert('Failed to upload files. Please try again.');
+      alert(`Failed to upload files: ${error?.message || 'Unknown error'}`);
     } finally {
       setUploadingPhotos(false);
       // Clear input so same files can be re-selected if needed
