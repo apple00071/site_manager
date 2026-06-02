@@ -1,6 +1,6 @@
 import fs from 'fs';
 
-function loadEnv(file) {
+function loadEnv(file: string) {
     try {
         const content = fs.readFileSync(file, 'utf8');
         for (const line of content.split('\n')) {
@@ -30,12 +30,12 @@ async function sync() {
         .from('permissions')
         .select('id, code');
 
-    const existingCodes = new Set(existingPermissions?.map(p => p.code) || []);
+    const existingCodes = new Set(existingPermissions?.map((p: any) => p.code) || []);
     const permissionValues = Object.values(PERMISSION_NODES);
-    const newPermissions = permissionValues.filter(code => !existingCodes.has(code));
+    const newPermissions = permissionValues.filter((code: string) => !existingCodes.has(code));
 
     if (newPermissions.length > 0) {
-        const toInsert = newPermissions.map(code => ({
+        const toInsert = newPermissions.map((code: string) => ({
             code,
             module: code.split('.')[0],
             action: code.split('.')[1] || code,
@@ -75,7 +75,7 @@ async function sync() {
                 .delete()
                 .eq('role_id', adminRole.id);
 
-            const adminPerms = allPermissions.map(p => ({
+            const adminPerms = allPermissions.map((p: any) => ({
                 role_id: adminRole.id,
                 permission_id: p.id
             }));
