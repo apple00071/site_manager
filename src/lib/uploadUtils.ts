@@ -76,6 +76,28 @@ export async function uploadFile(
         }
     }
 
+    // Try server-side upload API first to bypass client-side RLS/auth state sync issues in webviews
+    const allowedApiBuckets = ['project-update-photos', 'inventory-bills', 'design-files', 'project-update-voices'];
+    if (allowedApiBuckets.includes(bucket)) {
+        const formData = new FormData();
+        formData.append('file', fileToUpload);
+        formData.append('bucket', bucket);
+
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.error || `Upload failed with status ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.url;
+    }
+
+    // Fallback to client-side upload for other buckets (if any)
     const fileExt = file.name.split('.').pop();
     const fileName = `${folder}/${crypto.randomUUID()}.${fileExt}`;
 
