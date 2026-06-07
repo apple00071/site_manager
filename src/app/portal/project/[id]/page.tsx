@@ -489,7 +489,14 @@ export default function SecureProjectPortal({ params }: { params: Promise<{ id: 
 
               <div className="flex items-center justify-between mt-4">
                 <div className="flex items-center gap-2">
-                  <label className="p-2 text-gray-400 hover:text-yellow-600 hover:bg-gray-50 rounded-lg transition-all cursor-pointer"><FiCamera size={18}/><input type="file" multiple accept="image/*" onChange={handlePhotoUpload} className="hidden" /></label>
+                  <label className="p-2 text-gray-400 hover:text-yellow-600 hover:bg-gray-50 rounded-lg transition-all cursor-pointer" title="Take Photo">
+                    <FiCamera size={18}/>
+                    <input type="file" accept="image/*" capture="environment" onChange={handlePhotoUpload} className="hidden" />
+                  </label>
+                  <label className="p-2 text-gray-400 hover:text-yellow-600 hover:bg-gray-50 rounded-lg transition-all cursor-pointer" title="Attach Gallery Photos">
+                    <FiImage size={18}/>
+                    <input type="file" multiple accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                  </label>
                   <button onClick={isRecording ? stopRecording : startRecording} className={`p-2 rounded-lg transition-all flex items-center gap-2 ${isRecording ? 'bg-red-50 text-red-500' : 'text-gray-400 hover:text-yellow-600 hover:bg-gray-50'}`}><FiMic size={18}/> {isRecording && <span className="text-[9px] font-bold uppercase">Rec</span>}</button>
                 </div>
                 <button onClick={handlePostMessage} disabled={isPosting || (!messageInput.trim() && uploadedPhotos.length === 0 && !audioBlobRef.current)} className="px-6 py-2 bg-yellow-500 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all hover:bg-yellow-600 disabled:opacity-50 flex items-center gap-2"><FiSend size={12} /> Send</button>

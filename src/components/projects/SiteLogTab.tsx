@@ -7,7 +7,7 @@ import { ImageModal } from '@/components/ui/ImageModal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDateReadable, getTodayDateString, formatDateTimeIST } from '@/lib/dateUtils';
-import { FiPlus, FiCalendar, FiUsers, FiUser, FiPhone, FiImage, FiMoreVertical, FiEdit2, FiTrash2, FiCheckCircle, FiX, FiCheckSquare, FiLoader } from 'react-icons/fi';
+import { FiPlus, FiCalendar, FiUsers, FiUser, FiPhone, FiImage, FiMoreVertical, FiEdit2, FiTrash2, FiCheckCircle, FiX, FiCheckSquare, FiLoader, FiCamera } from 'react-icons/fi';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { uploadFiles } from '@/lib/uploadUtils';
 import { CustomDropdown, CustomDatePicker } from '@/components/ui/CustomControls';
@@ -364,18 +364,33 @@ export const SiteLogTab = forwardRef<SiteLogTabHandle, SiteLogTabProps>(({ proje
                         </div>
                     ))}
                 </div>
-                <label className={`flex items-center gap-2 text-yellow-600 hover:text-yellow-700 text-sm font-medium ${isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                    {isUploading ? <FiLoader className="animate-spin" /> : <FiImage />}
-                    {isUploading ? 'Uploading...' : 'Attach Photos/Files'}
-                    <input
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handlePhotoUpload}
-                        disabled={isUploading}
-                    />
-                </label>
+                <div className="flex items-center gap-4 flex-wrap">
+                    <label className={`flex items-center gap-2 text-yellow-600 hover:text-yellow-700 text-sm font-medium ${isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`} title="Take Photo">
+                        {isUploading ? <FiLoader className="animate-spin" /> : <FiCamera />}
+                        {isUploading ? 'Uploading...' : 'Take Photo'}
+                        <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            className="hidden"
+                            onChange={handlePhotoUpload}
+                            disabled={isUploading}
+                        />
+                    </label>
+
+                    <label className={`flex items-center gap-2 text-yellow-600 hover:text-yellow-700 text-sm font-medium ${isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`} title="Attach Photos/Files">
+                        {isUploading ? <FiLoader className="animate-spin" /> : <FiImage />}
+                        {isUploading ? 'Uploading...' : 'Attach Photos/Files'}
+                        <input
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handlePhotoUpload}
+                            disabled={isUploading}
+                        />
+                    </label>
+                </div>
             </div>
         </div>
     );
