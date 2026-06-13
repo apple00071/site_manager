@@ -16,7 +16,7 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import AttendanceWidget from '@/components/attendance/AttendanceWidget';
 import PasswordChangeModal from '@/components/PasswordChangeModal';
 import NotepadDrawer from '@/components/notepad/NotepadDrawer';
-import ChatBotDrawer from '@/components/chatbot/ChatBotDrawer';
+// import ChatBotDrawer from '@/components/chatbot/ChatBotDrawer';
 
 
 
@@ -399,6 +399,7 @@ function DashboardLayoutContent({
               <FiFileText className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
               <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Notepad</span>
             </button>
+            {/* AI Assistant disabled
             <button
               onClick={() => {
                 setIsChatOpen(true);
@@ -411,6 +412,7 @@ function DashboardLayoutContent({
               <FiMessageSquare className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
               <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Ask AI</span>
             </button>
+            */}
           </div>
         </nav>
       </div>
@@ -656,10 +658,11 @@ function DashboardLayoutContent({
       {/* Premium Scratchpad Notepad Drawer */}
       <NotepadDrawer isOpen={isNotepadOpen} onClose={() => setIsNotepadOpen(false)} />
 
-      {/* AI Chatbot Assistant Drawer */}
+      {/* AI Chatbot Assistant Drawer - Disabled
       <ChatBotDrawer isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+      */}
 
-      {/* Floating AI Chat Trigger Button */}
+      {/* Floating AI Chat Trigger Button - Disabled
       <button
         onClick={() => setIsChatOpen(true)}
         className="fixed bottom-6 right-6 z-40 p-3.5 rounded-full bg-yellow-500 hover:bg-yellow-600 text-gray-950 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-110 flex items-center justify-center border-2 border-white ring-4 ring-yellow-400/20 active:scale-95 cursor-pointer animate-in zoom-in duration-300"
@@ -669,6 +672,7 @@ function DashboardLayoutContent({
       >
         <FiMessageSquare className="w-6 h-6 animate-pulse" />
       </button>
+      */}
 
       {/* Centered Spotlight Search Modal */}
       {isSearchOpen && (
