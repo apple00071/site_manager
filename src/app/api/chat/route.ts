@@ -246,7 +246,8 @@ I can still pull real data directly from your database! Try querying me about:
       const stepDetails = projSteps.map((s: any) => {
         const stepTasks = tasks.filter((t: any) => t.step_id === s.id);
         const taskDetails = stepTasks.map((t: any) => {
-          const assignees = (t.assigned_to || []).map((id: string) => userMap[id] || id).join(', ');
+          const rawAssignees = Array.isArray(t.assigned_to) ? t.assigned_to : (t.assigned_to ? [t.assigned_to] : []);
+          const assignees = rawAssignees.map((id: string) => userMap[id] || id).join(', ');
           return `      - Task: "${t.title}" | Status: ${t.status} | Assigned to: [${assignees || 'None'}]`;
         }).join('\n');
 
