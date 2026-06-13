@@ -76,17 +76,19 @@ export async function POST(request: NextRequest) {
       inventoryItems = inventoryRes.data || [];
       leavesList = leavesRes.data || [];
     } else {
-      const [memberProjects, assignedProjects, designerProjects] = await Promise.all([
+      const [memberProjects, assignedProjects, designerProjects, supervisorProjects] = await Promise.all([
         supabaseAdmin.from('project_members').select('project_id').eq('user_id', userId),
         supabaseAdmin.from('projects').select('id').eq('assigned_employee_id', userId),
-        supabaseAdmin.from('projects').select('id').eq('designer_id', userId)
+        supabaseAdmin.from('projects').select('id').eq('designer_id', userId),
+        supabaseAdmin.from('projects').select('id').eq('site_supervisor_id', userId)
       ]);
 
       const memberIds = memberProjects.data?.map((p: any) => p.project_id) || [];
       const assignedIds = assignedProjects.data?.map((p: any) => p.id) || [];
       const designerIds = designerProjects.data?.map((p: any) => p.id) || [];
+      const supervisorIds = supervisorProjects.data?.map((p: any) => p.id) || [];
 
-      const allowedProjectIds = [...new Set([...memberIds, ...assignedIds, ...designerIds])];
+      const allowedProjectIds = [...new Set([...memberIds, ...assignedIds, ...designerIds, ...supervisorIds])];
 
       if (allowedProjectIds.length > 0) {
         const [projectsRes, stepsRes, snagsRes, updatesRes, designsRes, inventoryRes, leavesRes] = await Promise.all([
@@ -241,6 +243,7 @@ I can still pull real data directly from your database! Try querying me about:
     const projectMarkdownList = projects.map((p: any) => {
       const projClient = p.client_id ? clientMap[p.client_id] : p.customer_name;
       const designerName = p.assigned_employee_id ? userMap[p.assigned_employee_id] : 'Not Assigned';
+      const siteSupervisorName = p.site_supervisor_id ? userMap[p.site_supervisor_id] : 'Not Assigned';
       
       const projSteps = steps.filter((s: any) => s.project_id === p.id);
       const stepDetails = projSteps.map((s: any) => {
@@ -290,6 +293,7 @@ I can still pull real data directly from your database! Try querying me about:
   * Client/Customer: ${projClient}
   * Address: ${p.address || 'N/A'}
   * Designer/In-charge: ${designerName}
+  * Site Supervisor/Engineer: ${siteSupervisorName}
   * Start Date: ${p.start_date || 'N/A'}
   * Estimated Completion: ${p.estimated_completion_date || 'N/A'}
   * Steps & Tasks:\n${stepDetails || '    (No stages defined yet)'}
