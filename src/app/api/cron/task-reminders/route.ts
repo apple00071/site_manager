@@ -79,65 +79,48 @@ export async function GET(req: NextRequest) {
         tomorrow.setDate(tomorrow.getDate() + 1);
         const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
-        // Fetch tasks due tomorrow
-        const { data: calendarTasks, error: tasksError } = await supabaseAdmin
+        // Fetch tasks due tomorrow (both calendar and project step tasks)
+        const { data: dueTomorrowTasks, error: tasksError } = await supabaseAdmin
             .from('tasks')
-            .select('id, title, assigned_to, end_at, project_id, projects(title)')
+            .select(`
+                id, 
+                title, 
+                assigned_to, 
+                end_at, 
+                estimated_completion_date, 
+                project_id, 
+                step_id, 
+                projects(title),
+                project_steps(project_id, projects(title))
+            `)
             .eq('status', 'todo')
-            .filter('end_at', 'gte', `${tomorrowStr}T00:00:00`)
-            .filter('end_at', 'lt', `${tomorrowStr}T23:59:59`);
+            .or(`and(end_at.gte.${tomorrowStr}T00:00:00,end_at.lt.${tomorrowStr}T23:59:59),estimated_completion_date.eq.${tomorrowStr}`);
 
         if (tasksError) throw tasksError;
 
-        const { data: projectTasks, error: stepTasksError } = await supabaseAdmin
-            .from('project_step_tasks')
-            .select('id, title, assigned_to, estimated_completion_date, step_id, project_steps(project_id, projects(title))')
-            .eq('status', 'todo')
-            .eq('estimated_completion_date', tomorrowStr);
-
-        if (stepTasksError) throw stepTasksError;
-
         const summaryUpdates = [];
-        // Process Calendar Tasks
-        if (calendarTasks) {
-            for (const task of calendarTasks) {
+        if (dueTomorrowTasks) {
+            for (const task of dueTomorrowTasks) {
                 const assignedIds = Array.isArray(task.assigned_to) 
                     ? task.assigned_to 
                     : (task.assigned_to ? [task.assigned_to] : []);
                 
-                for (const assigneeId of assignedIds) {
-                    summaryUpdates.push(
-                        NotificationService.createNotification({
-                            userId: assigneeId,
-                            title: 'Task Due Tomorrow',
-                            message: `Reminder: "${task.title}" is due tomorrow.`,
-                            type: 'task_assigned',
-                            relatedId: task.id,
-                            relatedType: 'task',
-                            skipInApp: true
-                        })
-                    );
-                }
-            }
-        }
+                const projectName = (task.projects as any)?.title || (task.project_steps as any)?.projects?.title || 'Project';
+                const taskType = task.step_id ? 'project_task' : 'task';
+                const titleText = task.step_id ? 'Project Task Due Tomorrow' : 'Task Due Tomorrow';
+                const messageText = task.step_id 
+                    ? `Reminder: "${task.title}" in ${projectName} is due tomorrow.`
+                    : `Reminder: "${task.title}" is due tomorrow.`;
 
-        // Process Project Tasks
-        if (projectTasks) {
-            for (const task of projectTasks) {
-                const assignedIds = Array.isArray(task.assigned_to) 
-                    ? task.assigned_to 
-                    : (task.assigned_to ? [task.assigned_to] : []);
-                
-                const projectName = (task.project_steps as any)?.projects?.title || 'Project';
                 for (const assigneeId of assignedIds) {
                     summaryUpdates.push(
                         NotificationService.createNotification({
                             userId: assigneeId,
-                            title: 'Project Task Due Tomorrow',
-                            message: `Reminder: "${task.title}" in ${projectName} is due tomorrow.`,
+                            title: titleText,
+                            message: messageText,
                             type: 'task_assigned',
                             relatedId: task.id,
-                            relatedType: 'project_task',
+                            relatedType: taskType,
                             skipInApp: true
                         })
                     );
@@ -155,8 +138,7 @@ export async function GET(req: NextRequest) {
             summary_sent: summaryUpdates.length,
             processed: {
                 upcomingTasks: upcomingTasks?.length || 0,
-                calendarTasks: calendarTasks?.length || 0,
-                projectTasks: projectTasks?.length || 0
+                dueTomorrowTasks: dueTomorrowTasks?.length || 0
             }
         });
 

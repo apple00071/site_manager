@@ -8,26 +8,14 @@ export async function runDailyBriefing() {
     const todayStr = new Date().toISOString().split('T')[0];
 
     // 1. Fetch tasks due TODAY or OVERDUE (status=todo/in_progress)
-
-    // Calendar Tasks
-    const { data: calendarTasks, error: tasksError } = await supabaseAdmin
+    const { data: allTasks, error: tasksError } = await supabaseAdmin
         .from('tasks')
-        .select('id, title, assigned_to, end_at, status')
+        .select('id, title, assigned_to, end_at, estimated_completion_date, status')
         .neq('status', 'done')
         .neq('status', 'cancelled')
-        .lte('end_at', `${todayStr}T23:59:59`); // Due today or earlier
+        .or(`end_at.lte.${todayStr}T23:59:59,estimated_completion_date.lte.${todayStr}`);
 
     if (tasksError) throw tasksError;
-
-    // Project Tasks
-    const { data: projectTasks, error: stepTasksError } = await supabaseAdmin
-        .from('project_step_tasks')
-        .select('id, title, assigned_to, estimated_completion_date, status')
-        .neq('status', 'done')
-        .neq('status', 'cancelled')
-        .lte('estimated_completion_date', todayStr); // Due today or earlier
-
-    if (stepTasksError) throw stepTasksError;
 
     // 2. Fetch open/assigned/resolved snags for briefing
     const { data: openSnags, error: snagsQueryError } = await supabaseAdmin
@@ -76,22 +64,13 @@ export async function runDailyBriefing() {
         }
     };
 
-    calendarTasks?.forEach((t: any) => {
+    allTasks?.forEach((t: any) => {
+        const dueDate = t.estimated_completion_date || (t.end_at ? new Date(t.end_at).toISOString().split('T')[0] : todayStr);
         if (t.assigned_to) {
             if (Array.isArray(t.assigned_to)) {
-                t.assigned_to.forEach((uid: string) => processTask(uid, t.end_at));
+                t.assigned_to.forEach((uid: string) => processTask(uid, dueDate));
             } else {
-                processTask(t.assigned_to, t.end_at);
-            }
-        }
-    });
-
-    projectTasks?.forEach((t: any) => {
-        if (t.assigned_to) {
-            if (Array.isArray(t.assigned_to)) {
-                t.assigned_to.forEach((uid: string) => processTask(uid, t.estimated_completion_date));
-            } else {
-                processTask(t.assigned_to, t.estimated_completion_date);
+                processTask(t.assigned_to, dueDate);
             }
         }
     });

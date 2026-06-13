@@ -12,27 +12,20 @@ export async function runAfternoonProgressReminder() {
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // 1. Fetch pending calendar tasks
-    const { data: calendarTasks } = await supabaseAdmin
+    // 1. Fetch pending tasks (both calendar and project step tasks)
+    const { data: pendingTasks } = await supabaseAdmin
         .from('tasks')
-        .select('id, title, assigned_to, end_at, status')
+        .select('id, title, assigned_to, end_at, estimated_completion_date, status')
         .in('status', ['todo', 'in_progress'])
-        .lte('end_at', `${todayStr}T23:59:59`);
+        .or(`end_at.lte.${todayStr}T23:59:59,estimated_completion_date.lte.${todayStr}`);
 
-    // 2. Fetch pending project tasks
-    const { data: projectTasks } = await supabaseAdmin
-        .from('project_step_tasks')
-        .select('id, title, assigned_to, estimated_completion_date, status')
-        .in('status', ['todo', 'in_progress'])
-        .lte('estimated_completion_date', todayStr);
-
-    // 3. Fetch pending snags (assigned to users)
+    // 2. Fetch pending snags (assigned to users)
     const { data: pendingSnags } = await supabaseAdmin
         .from('snags')
         .select('id, assigned_to_user_id, status')
         .in('status', ['assigned']);
 
-    // 4. Build per-user stats
+    // 3. Build per-user stats
     const userTaskCount: Record<string, number> = {};
     const userOverdueCount: Record<string, number> = {};
     const userSnagCount: Record<string, number> = {};
@@ -45,15 +38,8 @@ export async function runAfternoonProgressReminder() {
         }
     };
 
-    calendarTasks?.forEach((t: any) => {
-        const dueDate = new Date(t.end_at).toISOString().split('T')[0];
-        const isOverdue = dueDate < todayStr;
-        const assignees = Array.isArray(t.assigned_to) ? t.assigned_to : (t.assigned_to ? [t.assigned_to] : []);
-        assignees.forEach((uid: string) => addTask(uid, dueDate, isOverdue));
-    });
-
-    projectTasks?.forEach((t: any) => {
-        const dueDate = t.estimated_completion_date;
+    pendingTasks?.forEach((t: any) => {
+        const dueDate = t.estimated_completion_date || (t.end_at ? new Date(t.end_at).toISOString().split('T')[0] : todayStr);
         const isOverdue = dueDate < todayStr;
         const assignees = Array.isArray(t.assigned_to) ? t.assigned_to : (t.assigned_to ? [t.assigned_to] : []);
         assignees.forEach((uid: string) => addTask(uid, dueDate, isOverdue));

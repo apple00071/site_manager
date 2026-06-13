@@ -53,7 +53,7 @@ export async function GET(
 
         // Metric C: Task Adherence (Last 90 days)
         const { data: tasks, error: taskError } = await supabaseAdmin
-            .from('project_step_tasks')
+            .from('tasks')
             .select('status, estimated_completion_date, updated_at')
             .contains('assigned_to', [targetUserId])
             .eq('status', 'done')

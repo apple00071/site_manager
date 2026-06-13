@@ -49,16 +49,11 @@ export async function runMemberCheckupReminder() {
         .neq('status', 'done')
         .neq('status', 'cancelled');
 
-    const { data: projectTasks } = await supabaseAdmin
-        .from('project_step_tasks')
-        .select('assigned_to')
-        .neq('status', 'done')
-        .neq('status', 'cancelled');
-
-    const userIds = new Set([
-        ...(tasks?.map((t: any) => t.assigned_to) || []),
-        ...(projectTasks?.map((t: any) => t.assigned_to) || [])
-    ].filter(Boolean));
+    const userIds = new Set(
+        (tasks || [])
+            .flatMap((t: any) => Array.isArray(t.assigned_to) ? t.assigned_to : (t.assigned_to ? [t.assigned_to] : []))
+            .filter(Boolean)
+    );
 
     if (userIds.size === 0) {
         return { success: true, message: 'No members with active tasks found' };
@@ -112,30 +107,21 @@ export async function runAdminTaskCheckReminder() {
         snagSummary = `\n\n🔧 Snag Summary:\n- Open (Unassigned): ${totalOpen}\n- Assigned (In Progress): ${totalAssigned}\n- Resolved (Pending Verification): ${totalResolved}`;
     }
 
-    // 2. Fetch Tasks due today or earlier for summaries
+    // 2. Fetch Tasks due today or earlier for summaries (both calendar and project tasks)
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Calendar Tasks
-    const { data: calendarTasks } = await supabaseAdmin
+    const { data: allDueTasks } = await supabaseAdmin
         .from('tasks')
-        .select('id, end_at, assigned_to, status')
+        .select('id, end_at, estimated_completion_date, assigned_to, status')
         .neq('status', 'cancelled')
-        .lte('end_at', `${todayStr}T23:59:59`);
+        .or(`end_at.lte.${todayStr}T23:59:59,estimated_completion_date.lte.${todayStr}`);
 
-    // Project Tasks
-    const { data: projectTasks } = await supabaseAdmin
-        .from('project_step_tasks')
-        .select('id, estimated_completion_date, assigned_to, status')
-        .neq('status', 'cancelled')
-        .lte('estimated_completion_date', todayStr);
-
-    const allDueTasks = [...(calendarTasks || []), ...(projectTasks || [])];
-    const totalTasksCompleted = allDueTasks.filter((t: any) => t.status === 'done').length;
-    const totalTasksInProgress = allDueTasks.filter((t: any) => t.status === 'in_progress').length;
-    const totalTasksTodo = allDueTasks.filter((t: any) => t.status === 'todo').length;
+    const totalTasksCompleted = (allDueTasks || []).filter((t: any) => t.status === 'done').length;
+    const totalTasksInProgress = (allDueTasks || []).filter((t: any) => t.status === 'in_progress').length;
+    const totalTasksTodo = (allDueTasks || []).filter((t: any) => t.status === 'todo').length;
 
     let taskSummary = '';
-    if (allDueTasks.length > 0) {
+    if (allDueTasks && allDueTasks.length > 0) {
         taskSummary = `\n\n📋 Task Summary:\n- Completed: ${totalTasksCompleted}\n- In Progress: ${totalTasksInProgress}\n- Overdue / Remaining: ${totalTasksTodo}`;
     }
 
@@ -160,17 +146,7 @@ export async function runAdminTaskCheckReminder() {
         pendingTasksMap[userId] = (pendingTasksMap[userId] || 0) + 1;
     };
 
-    calendarTasks?.forEach((t: any) => {
-        if (t.status !== 'done' && t.assigned_to) {
-            if (Array.isArray(t.assigned_to)) {
-                t.assigned_to.forEach((uid: any) => addPending(uid));
-            } else {
-                addPending(t.assigned_to);
-            }
-        }
-    });
-
-    projectTasks?.forEach((t: any) => {
+    allDueTasks?.forEach((t: any) => {
         if (t.status !== 'done' && t.assigned_to) {
             if (Array.isArray(t.assigned_to)) {
                 t.assigned_to.forEach((uid: any) => addPending(uid));

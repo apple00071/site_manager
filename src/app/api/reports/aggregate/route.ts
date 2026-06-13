@@ -22,8 +22,9 @@ export async function GET(request: NextRequest) {
 
         // 1. Fetch Today's Tasks
         const { data: tasks } = await supabaseAdmin
-            .from('project_step_tasks')
+            .from('tasks')
             .select('id, title, status, updated_at')
+            .eq('project_id', projectId)
             .filter('updated_at', 'gte', dayStart)
             .filter('updated_at', 'lte', dayEnd)
             .eq('status', 'done');

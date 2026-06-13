@@ -23,12 +23,17 @@ export async function GET(request: NextRequest) {
     const userId = user.id;
     const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
 
-    let tasksQuery;
+    // Fetch users mapping for resolving assignee names
+    const { data: usersData } = await supabaseAdmin.from('users').select('id, full_name');
+    const userMap = new Map(usersData?.map((u: any) => [u.id, u.full_name]) || []);
+
+    let tasks: any[] = [];
+    let fetchError;
 
     if (userRole === 'admin') {
       // Admin can see all tasks
-      tasksQuery = supabaseAdmin
-        .from('project_step_tasks')
+      const { data, error } = await supabaseAdmin
+        .from('tasks')
         .select(`
           *,
           step:project_steps(
@@ -40,16 +45,13 @@ export async function GET(request: NextRequest) {
               customer_name,
               status
             )
-          ),
-          assigned_user:users!project_step_tasks_assigned_to_fkey(
-            id,
-            full_name
           )
         `)
         .order('created_at', { ascending: false });
+      tasks = data || [];
+      fetchError = error;
     } else {
       // Regular users can only see tasks from projects they're assigned to
-
       // First get all project IDs the user has access to
       const { data: memberProjects, error: memberError } = await supabaseAdmin
         .from('project_members')
@@ -70,8 +72,8 @@ export async function GET(request: NextRequest) {
         .select('id')
         .eq('assigned_employee_id', userId);
 
-      if (memberError) {
-        console.error('Error fetching member projects:', memberError);
+      if (assignedError) {
+        console.error('Error fetching assigned projects:', assignedError);
         return NextResponse.json(
           { error: 'Error fetching accessible projects' },
           { status: 500 }
@@ -85,82 +87,52 @@ export async function GET(request: NextRequest) {
       const assignedProjectIds = assignedProjects?.map((p: AssignedProject) => p.id) || [];
       const allProjectIds = [...new Set([...memberProjectIds, ...assignedProjectIds])];
 
-      if (allProjectIds.length === 0) {
-        // User has no accessible projects
-        return NextResponse.json({ tasks: [] }, { status: 200 });
-      }
-
       // Get all project steps for accessible projects
-      const { data: accessibleSteps, error: stepsError } = await supabaseAdmin
-        .from('project_steps')
-        .select('id')
-        .in('project_id', allProjectIds);
+      let stepIds: string[] = [];
+      if (allProjectIds.length > 0) {
+        const { data: accessibleSteps, error: stepsError } = await supabaseAdmin
+          .from('project_steps')
+          .select('id')
+          .in('project_id', allProjectIds);
 
-      if (stepsError) {
-        console.error('Error fetching accessible steps:', stepsError);
-        return NextResponse.json(
-          { error: 'Error fetching project steps' },
-          { status: 500 }
-        );
+        if (stepsError) {
+          console.error('Error fetching accessible steps:', stepsError);
+        } else {
+          interface AccessibleStep { id: string; }
+          stepIds = accessibleSteps?.map((s: AccessibleStep) => s.id) || [];
+        }
       }
 
-      // For non-admin users, we need to fetch:
-      // 1. Tasks in projects they have access to (via steps)
-      // 2. Tasks directly assigned to them (even without project access)
-
-      interface AccessibleStep { id: string; }
-      const stepIds = accessibleSteps?.map((s: AccessibleStep) => s.id) || [];
-
-      // Fetch tasks for accessible steps OR tasks directly assigned to the user
+      // Construct a single consolidated query for tasks
+      let orFilter = `assigned_to.cs.{"${userId}"},created_by.eq.${userId}`;
+      if (allProjectIds.length > 0) {
+        orFilter += `,project_id.in.(${allProjectIds.join(',')})`;
+      }
       if (stepIds.length > 0) {
-        tasksQuery = supabaseAdmin
-          .from('project_step_tasks')
-          .select(`
-            *,
-            step:project_steps(
-              id,
-              title,
-              project:projects(
-                id,
-                title,
-                customer_name,
-                status
-              )
-            ),
-            assigned_user:users!project_step_tasks_assigned_to_fkey(
-              id,
-              full_name
-            )
-          `)
-          .or(`step_id.in.(${stepIds.join(',')}),assigned_to.cs.{"${userId}"},created_by.eq.${userId}`)
-          .order('created_at', { ascending: false });
-      } else {
-        // No accessible steps, but still fetch tasks assigned to or created by the user
-        tasksQuery = supabaseAdmin
-          .from('project_step_tasks')
-          .select(`
-            *,
-            step:project_steps(
-              id,
-              title,
-              project:projects(
-                id,
-                title,
-                customer_name,
-                status
-              )
-            ),
-            assigned_user:users!project_step_tasks_assigned_to_fkey(
-              id,
-              full_name
-            )
-          `)
-          .or(`assigned_to.cs.{"${userId}"},created_by.eq.${userId}`)
-          .order('created_at', { ascending: false });
+        orFilter += `,step_id.in.(${stepIds.join(',')})`;
       }
-    }
 
-    const { data: tasks, error: fetchError } = await tasksQuery;
+      const { data, error } = await supabaseAdmin
+        .from('tasks')
+        .select(`
+          *,
+          step:project_steps(
+            id,
+            title,
+            project:projects(
+              id,
+              title,
+              customer_name,
+              status
+            )
+          )
+        `)
+        .or(orFilter)
+        .order('created_at', { ascending: false });
+
+      tasks = data || [];
+      fetchError = error;
+    }
 
     if (fetchError) {
       console.error('Error fetching tasks:', fetchError);
@@ -170,33 +142,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Also include standalone calendar tasks from the generic tasks table
-    let calendarTasks: any[] = [];
-    try {
-      let calendarQuery = supabaseAdmin
-        .from('tasks')
-        .select('*')
-        .order('start_at', { ascending: false });
+    // Normalize and map assignee names in memory
+    const combinedTasks = tasks.map((t: any) => {
+      const rawAssignees = Array.isArray(t.assigned_to) 
+        ? t.assigned_to 
+        : (t.assigned_to ? [t.assigned_to] : []);
+      
+      const assignedUsers = rawAssignees.map((id: string) => ({
+        id,
+        full_name: userMap.get(id) || 'Unknown User'
+      }));
 
-      if (userRole !== 'admin') {
-        calendarQuery = calendarQuery.or(`created_by.eq.${userId},assigned_to.cs.{"${userId}"}`);
-      }
-
-      const { data: calendarData, error: calendarError } = await calendarQuery;
-
-      if (calendarError) {
-        console.error('Error fetching calendar tasks for dashboard:', calendarError);
-      } else if (Array.isArray(calendarData)) {
-        calendarTasks = calendarData;
-      }
-    } catch (calendarError) {
-      console.error('Unexpected error fetching calendar tasks for dashboard:', calendarError);
-    }
-
-    const combinedTasks = [
-      ...(Array.isArray(tasks) ? tasks : []),
-      ...calendarTasks,
-    ];
+      return {
+        ...t,
+        assigned_to: rawAssignees,
+        // Backward compatibility properties
+        assigned_user: assignedUsers[0] || null,
+        assigned_users: assignedUsers
+      };
+    });
 
     return NextResponse.json({ tasks: combinedTasks }, { status: 200 });
   } catch (error: any) {

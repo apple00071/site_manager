@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch tasks
     const { data: tasks, error: fetchError } = await supabaseAdmin
-      .from('project_step_tasks')
+      .from('tasks')
       .select('*')
       .eq('step_id', stepId)
       .order('created_at', { ascending: true });
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
     console.log('Creating task for user:', user.email, 'step_id:', parsed.data.step_id);
 
     // Check access
-    const { hasAccess, error: accessError } = await checkProjectAccess(userId, parsed.data.step_id, userRole);
+    const { hasAccess, projectId, error: accessError } = await checkProjectAccess(userId, parsed.data.step_id, userRole);
     if (!hasAccess) {
       console.error('Access denied:', accessError);
       return NextResponse.json(
@@ -193,16 +193,20 @@ export async function POST(request: NextRequest) {
 
     // Create task using admin client (bypasses RLS)
     const { data: task, error: insertError } = await supabaseAdmin
-      .from('project_step_tasks')
+      .from('tasks')
       .insert({
         step_id: parsed.data.step_id,
+        project_id: projectId || null,
         title: parsed.data.title,
         start_date: parsed.data.start_date || null,
         estimated_completion_date: parsed.data.estimated_completion_date || null,
+        start_at: parsed.data.start_date ? new Date(parsed.data.start_date).toISOString() : null,
+        end_at: parsed.data.estimated_completion_date ? new Date(parsed.data.estimated_completion_date).toISOString() : null,
         status: parsed.data.status,
         completion_description: parsed.data.completion_description || null,
         completion_photos: parsed.data.completion_photos || [],
         assigned_to: parsed.data.assigned_to || [],
+        created_by: userId,
       })
       .select('*')
       .single();
@@ -312,7 +316,7 @@ export async function PATCH(request: NextRequest) {
 
     // Get the task to find its step_id
     const { data: existingTask, error: fetchError } = await supabaseAdmin
-      .from('project_step_tasks')
+      .from('tasks')
       .select('step_id, assigned_to, title, status')
       .eq('id', parsed.data.id)
       .single();
@@ -336,9 +340,13 @@ export async function PATCH(request: NextRequest) {
     // Update task
     const updateData: any = {};
     if (parsed.data.title !== undefined) updateData.title = parsed.data.title;
-    if (parsed.data.start_date !== undefined) updateData.start_date = parsed.data.start_date;
+    if (parsed.data.start_date !== undefined) {
+      updateData.start_date = parsed.data.start_date;
+      updateData.start_at = parsed.data.start_date ? new Date(parsed.data.start_date).toISOString() : null;
+    }
     if (parsed.data.estimated_completion_date !== undefined) {
       updateData.estimated_completion_date = parsed.data.estimated_completion_date;
+      updateData.end_at = parsed.data.estimated_completion_date ? new Date(parsed.data.estimated_completion_date).toISOString() : null;
     }
     if (parsed.data.status !== undefined) updateData.status = parsed.data.status;
     if (parsed.data.completion_description !== undefined) updateData.completion_description = parsed.data.completion_description;
@@ -347,7 +355,7 @@ export async function PATCH(request: NextRequest) {
     updateData.updated_at = new Date().toISOString();
 
     const { data: task, error: updateError } = await supabaseAdmin
-      .from('project_step_tasks')
+      .from('tasks')
       .update(updateData)
       .eq('id', parsed.data.id)
       .select('*')
@@ -508,7 +516,7 @@ export async function DELETE(request: NextRequest) {
 
     // Get the task to find its step_id
     const { data: existingTask, error: fetchError } = await supabaseAdmin
-      .from('project_step_tasks')
+      .from('tasks')
       .select('step_id')
       .eq('id', taskId)
       .single();
@@ -531,7 +539,7 @@ export async function DELETE(request: NextRequest) {
 
     // Delete task
     const { error: deleteError } = await supabaseAdmin
-      .from('project_step_tasks')
+      .from('tasks')
       .delete()
       .eq('id', taskId);
 

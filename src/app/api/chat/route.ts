@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       const [projectsRes, stepsRes, tasksRes, snagsRes, clientsRes, updatesRes, designsRes, inventoryRes, leavesRes] = await Promise.all([
         supabaseAdmin.from('projects').select('*').order('created_at', { ascending: false }),
         supabaseAdmin.from('project_steps').select('*'),
-        supabaseAdmin.from('project_step_tasks').select('*'),
+        supabaseAdmin.from('tasks').select('*'),
         supabaseAdmin.from('snags').select('*'),
         supabaseAdmin.from('clients').select('*'),
         supabaseAdmin.from('project_updates').select('*').order('update_date', { ascending: false }).limit(150),
@@ -111,7 +111,10 @@ export async function POST(request: NextRequest) {
 
         const stepIds = steps.map((s: any) => s.id);
         if (stepIds.length > 0) {
-          const tasksRes = await supabaseAdmin.from('project_step_tasks').select('*').in('step_id', stepIds);
+          const tasksRes = await supabaseAdmin
+            .from('tasks')
+            .select('*')
+            .or(`step_id.in.(${stepIds.join(',')}),assigned_to.cs.{"${userId}"},created_by.eq.${userId}`);
           tasks = tasksRes.data || [];
         }
 
@@ -550,13 +553,16 @@ ${leavesList.map((l: any) => `- User: ${userMap[l.user_id] || l.user_id} | Type:
 
         // Try inserting as array first
         const { data: taskArray, error: taskArrayError } = await supabaseAdmin
-          .from('project_step_tasks')
+          .from('tasks')
           .insert({
             step_id: stepId,
+            project_id: projectId || null,
             title: taskTitle,
             description: taskDescription,
             start_date: startDate,
             estimated_completion_date: estimatedCompletionDate,
+            start_at: startDate ? new Date(startDate).toISOString() : null,
+            end_at: estimatedCompletionDate ? new Date(estimatedCompletionDate).toISOString() : null,
             priority: priority,
             assigned_to: assignedTo, // array
             created_by: userId,
@@ -583,13 +589,16 @@ ${leavesList.map((l: any) => `- User: ${userMap[l.user_id] || l.user_id} | Type:
           console.log(`Database is using single UUID column for assigned_to. Falling back to: ${singleAssignee}`);
           
           const { data: taskSingle, error: taskSingleError } = await supabaseAdmin
-            .from('project_step_tasks')
+            .from('tasks')
             .insert({
               step_id: stepId,
+              project_id: projectId || null,
               title: taskTitle,
               description: taskDescription,
               start_date: startDate,
               estimated_completion_date: estimatedCompletionDate,
+              start_at: startDate ? new Date(startDate).toISOString() : null,
+              end_at: estimatedCompletionDate ? new Date(estimatedCompletionDate).toISOString() : null,
               priority: priority,
               assigned_to: singleAssignee, // single uuid
               created_by: userId,

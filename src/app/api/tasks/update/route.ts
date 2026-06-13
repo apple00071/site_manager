@@ -17,7 +17,7 @@ export async function PATCH(request: NextRequest) {
 
     // Get the current task to find its step_id and previous assignment/status
     const { data: currentTask, error: fetchError } = await supabaseAdmin
-      .from('project_step_tasks')
+      .from('tasks')
       .select('step_id, assigned_to, status, title')
       .eq('id', id)
       .single();
@@ -73,6 +73,8 @@ export async function PATCH(request: NextRequest) {
       title: task_title,
       start_date: start_date || null,
       estimated_completion_date: estimated_completion_date || null,
+      start_at: start_date ? new Date(start_date).toISOString() : null,
+      end_at: estimated_completion_date ? new Date(estimated_completion_date).toISOString() : null,
       priority: priority || 'medium',
       status: status || 'todo',
       completion_description: completion_description || null,
@@ -81,9 +83,12 @@ export async function PATCH(request: NextRequest) {
       step_id: stepId,
       assigned_to: assigned_to || null, // Always include assigned_to, even if empty
     };
+    if (project_id) {
+      updateData.project_id = project_id;
+    }
 
     const { data: updatedTask, error: updateError } = await supabaseAdmin
-      .from('project_step_tasks')
+      .from('tasks')
       .update(updateData)
       .eq('id', id)
       .select(`

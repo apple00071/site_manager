@@ -111,13 +111,16 @@ export async function POST(request: NextRequest) {
 
     // Try inserting as array first
     const { data: taskArray, error: taskArrayError } = await supabaseAdmin
-      .from('project_step_tasks')
+      .from('tasks')
       .insert({
         step_id: stepId,
+        project_id: projectId || null,
         title: parsed.data.task_title,
         description: parsed.data.task_description || null,
         start_date: parsed.data.start_date || null,
         estimated_completion_date: parsed.data.estimated_completion_date || null,
+        start_at: parsed.data.start_date ? new Date(parsed.data.start_date).toISOString() : null,
+        end_at: parsed.data.estimated_completion_date ? new Date(parsed.data.estimated_completion_date).toISOString() : null,
         priority: parsed.data.priority,
         assigned_to: assignedTo, // array
         created_by: user.id,
@@ -144,13 +147,16 @@ export async function POST(request: NextRequest) {
       console.log(`Database is using single UUID column for assigned_to. Falling back to: ${singleAssignee}`);
       
       const { data: taskSingle, error: taskSingleError } = await supabaseAdmin
-        .from('project_step_tasks')
+        .from('tasks')
         .insert({
           step_id: stepId,
+          project_id: projectId || null,
           title: parsed.data.task_title,
           description: parsed.data.task_description || null,
           start_date: parsed.data.start_date || null,
           estimated_completion_date: parsed.data.estimated_completion_date || null,
+          start_at: parsed.data.start_date ? new Date(parsed.data.start_date).toISOString() : null,
+          end_at: parsed.data.estimated_completion_date ? new Date(parsed.data.estimated_completion_date).toISOString() : null,
           priority: parsed.data.priority,
           assigned_to: singleAssignee, // single uuid
           created_by: user.id,
