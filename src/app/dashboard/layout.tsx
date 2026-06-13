@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX, FiCheckSquare, FiAlertTriangle, FiCreditCard, FiRadio, FiClock, FiSearch, FiFileText } from 'react-icons/fi';
+import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX, FiCheckSquare, FiAlertTriangle, FiCreditCard, FiRadio, FiClock, FiSearch, FiFileText, FiMessageSquare } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
 import { supabase } from '@/lib/supabase';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
@@ -16,6 +16,8 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import AttendanceWidget from '@/components/attendance/AttendanceWidget';
 import PasswordChangeModal from '@/components/PasswordChangeModal';
 import NotepadDrawer from '@/components/notepad/NotepadDrawer';
+import ChatBotDrawer from '@/components/chatbot/ChatBotDrawer';
+
 
 
 const getDesignerName = (proj: any): string => {
@@ -57,6 +59,7 @@ function DashboardLayoutContent({
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isNotepadOpen, setIsNotepadOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const modalInputRef = useRef<HTMLInputElement>(null);
 
   const fetchProjects = async () => {
@@ -396,6 +399,18 @@ function DashboardLayoutContent({
               <FiFileText className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
               <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Notepad</span>
             </button>
+            <button
+              onClick={() => {
+                setIsChatOpen(true);
+                setSidebarOpen(false);
+              }}
+              className="w-full flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
+              title="AI Assistant"
+              type="button"
+            >
+              <FiMessageSquare className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
+              <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Ask AI</span>
+            </button>
           </div>
         </nav>
       </div>
@@ -640,6 +655,20 @@ function DashboardLayoutContent({
 
       {/* Premium Scratchpad Notepad Drawer */}
       <NotepadDrawer isOpen={isNotepadOpen} onClose={() => setIsNotepadOpen(false)} />
+
+      {/* AI Chatbot Assistant Drawer */}
+      <ChatBotDrawer isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+
+      {/* Floating AI Chat Trigger Button */}
+      <button
+        onClick={() => setIsChatOpen(true)}
+        className="fixed bottom-6 right-6 z-40 p-3.5 rounded-full bg-yellow-500 hover:bg-yellow-600 text-gray-950 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-110 flex items-center justify-center border-2 border-white ring-4 ring-yellow-400/20 active:scale-95 cursor-pointer animate-in zoom-in duration-300"
+        title="Ask AI Assistant"
+        aria-label="Open AI Assistant"
+        type="button"
+      >
+        <FiMessageSquare className="w-6 h-6 animate-pulse" />
+      </button>
 
       {/* Centered Spotlight Search Modal */}
       {isSearchOpen && (
