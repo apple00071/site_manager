@@ -106,7 +106,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Create the task
-    const { data: task, error: taskError } = await supabaseAdmin
+    let taskInsertError;
+    let taskResult;
+
+    // Try inserting as array first
+    const { data: taskArray, error: taskArrayError } = await supabaseAdmin
       .from('project_step_tasks')
       .insert({
         step_id: stepId,
@@ -115,7 +119,7 @@ export async function POST(request: NextRequest) {
         start_date: parsed.data.start_date || null,
         estimated_completion_date: parsed.data.estimated_completion_date || null,
         priority: parsed.data.priority,
-        assigned_to: assignedTo,
+        assigned_to: assignedTo, // array
         created_by: user.id,
         status: 'todo',
       })
@@ -134,13 +138,59 @@ export async function POST(request: NextRequest) {
       `)
       .single();
 
-    if (taskError) {
-      console.error('Error creating task:', taskError);
+    if (taskArrayError && taskArrayError.message.includes('type uuid')) {
+      // Fallback: the database is using the old schema with single UUID column
+      const singleAssignee = (assignedTo && assignedTo.length > 0) ? assignedTo[0] : null;
+      console.log(`Database is using single UUID column for assigned_to. Falling back to: ${singleAssignee}`);
+      
+      const { data: taskSingle, error: taskSingleError } = await supabaseAdmin
+        .from('project_step_tasks')
+        .insert({
+          step_id: stepId,
+          title: parsed.data.task_title,
+          description: parsed.data.task_description || null,
+          start_date: parsed.data.start_date || null,
+          estimated_completion_date: parsed.data.estimated_completion_date || null,
+          priority: parsed.data.priority,
+          assigned_to: singleAssignee, // single uuid
+          created_by: user.id,
+          status: 'todo',
+        })
+        .select(`
+          *,
+          step:project_steps(
+            id,
+            title,
+            project:projects(
+              id,
+              title,
+              customer_name,
+              phone_number
+            )
+          )
+        `)
+        .single();
+
+      if (taskSingleError) {
+        taskInsertError = taskSingleError;
+      } else {
+        taskResult = taskSingle;
+      }
+    } else if (taskArrayError) {
+      taskInsertError = taskArrayError;
+    } else {
+      taskResult = taskArray;
+    }
+
+    if (taskInsertError || !taskResult) {
+      console.error('Error creating task:', taskInsertError);
       return NextResponse.json(
-        { error: 'Failed to create task' },
+        { error: 'Failed to create task', details: taskInsertError?.message },
         { status: 500 }
       );
     }
+
+    const task = taskResult;
 
     // Send notifications
     try {

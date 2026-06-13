@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { NotificationService } from '@/lib/notificationService';
 
 export const dynamic = 'force-dynamic';
 
@@ -315,7 +316,7 @@ Here is the current authorized database context for the logged-in user (${user.e
 ### SYSTEM DATA CONTEXT
 
 Available Team Members (Users):
-${activeUsersList.map((u: any) => `- Name: ${u.full_name} | Role: ${u.role} | Designation: ${u.designation || 'N/A'} | Email: ${u.email}`).join('\n') || 'None'}
+${activeUsersList.map((u: any) => `- Name: ${u.full_name} | Role: ${u.role} | Designation: ${u.designation || 'N/A'} | Email: ${u.email} | ID: ${u.id}`).join('\n') || 'None'}
 
 Projects, Tasks, and Project Snags:
 ${projectMarkdownList || 'No projects found or assigned.'}
@@ -331,8 +332,35 @@ ${leavesList.map((l: any) => `- User: ${userMap[l.user_id] || l.user_id} | Type:
 2. If the user asks about data not present in the context or if you cannot find it, politely state that you don't have access to that information or that it doesn't exist in the system.
 3. Be professional, direct, and present lists or summaries in clean markdown tables or bullets to make it extremely easy to read.
 4. Keep the role of the user in mind. Do not expose data that is not present in their context.
-5. If the user asks to modify data or execute operations, explain that you are a read-only assistant and guide them on where they can do it in the user interface (e.g., "You can update task status directly in the Projects tab of the dashboard").
+5. If the user asks to modify data or execute operations (other than task creation), explain that you are a read-only assistant and guide them on where they can do it in the user interface (e.g., "You can update task status directly in the Projects tab of the dashboard").
 6. When presenting design files or bill documents, you MUST preserve the markdown link format e.g. [filename](fileurl) or [View Bill](url) so the links are clickable for the user. Do not hide, format as code, or omit the URLs.
+7. If the user explicitly asks you to create a task (e.g., "Create a task...", "Assign a task...", "Add a task to..."), you MUST output a special XML block at the very end of your response to trigger server-side task creation. The XML block must have the tag name "<create_task>" and contain a JSON payload adhering to the following schema:
+   {
+     "project_id": "UUID string (Look up the Project ID from the Projects list above, or set to null if it's a standalone task not associated with any project)",
+     "step_title": "string (Optional: the stage or step name, e.g. 'Electrical', 'Woodwork', 'False Ceiling', 'Snagging', etc.)",
+     "task_title": "string (Required: the title of the task)",
+     "task_description": "string (Optional: description/details of the task)",
+     "start_date": "YYYY-MM-DD (Optional: starting date, format: YYYY-MM-DD, or null)",
+     "estimated_completion_date": "YYYY-MM-DD (Optional: due date, format: YYYY-MM-DD, or null)",
+     "assigned_to": ["UUID string"] (Optional: array of team member User IDs from the Team Members list above to assign, or null/empty array)",
+     "priority": "low" | "medium" | "high" | "urgent" (Optional: priority, defaults to 'medium')
+   }
+   
+   Example:
+   If the user says "Create task Boxing work under project Aparna Zicon and assign to Naresh", you would find "Aparna Zicon" project ID (e.g. "a1b2c3d4-...") and Naresh's user ID (e.g. "x1y2z3...") in the context, and output:
+   Here is the text describing what you are doing...
+   <create_task>
+   {
+     "project_id": "a1b2c3d4-...",
+     "step_title": "General",
+     "task_title": "Boxing work",
+     "assigned_to": ["x1y2z3..."],
+     "priority": "medium"
+   }
+   </create_task>
+
+   If the user asks to create a task but didn't specify a title, or if you cannot find the requested project or assignee, do not output the tag; ask clarifying questions first.
+   Explain what task you are creating in the text response preceding the block, but keep it clean. The XML block will be parsed and executed server-side, and stripped from the final user message.
 `;
 
     // 5. Providers functions
@@ -457,6 +485,211 @@ ${leavesList.map((l: any) => `- User: ${userMap[l.user_id] || l.user_id} | Type:
         response: generateLocalResponse(lastMessage),
         provider: 'Local Database Engine (Fallback)'
       });
+    }
+
+    // Parse task creation if requested by AI
+    const taskMatch = replyText.match(/<create_task>([\s\S]*?)<\/create_task>/);
+    if (taskMatch) {
+      const jsonStr = taskMatch[1].trim();
+      try {
+        const taskData = JSON.parse(jsonStr);
+        const projectId = taskData.project_id === '' ? null : taskData.project_id;
+        const taskTitle = taskData.task_title;
+        const stepTitle = taskData.step_title;
+        const taskDescription = taskData.task_description || null;
+        const startDate = taskData.start_date || null;
+        const estimatedCompletionDate = taskData.estimated_completion_date || null;
+        const assignedTo = (taskData.assigned_to && taskData.assigned_to.length > 0) ? taskData.assigned_to : null;
+        const priority = taskData.priority || 'medium';
+
+        if (!taskTitle) {
+          throw new Error('Task title is required but was not provided in the payload.');
+        }
+
+        // Handle step creation only if project_id and step_title are provided
+        let stepId: string | null = null;
+        if (projectId && stepTitle) {
+          const { data: existingStep } = await supabaseAdmin
+            .from('project_steps')
+            .select('id')
+            .eq('project_id', projectId)
+            .eq('title', stepTitle)
+            .single();
+
+          if (existingStep) {
+            stepId = existingStep.id;
+          } else {
+            // Create new step
+            const { data: newStep, error: stepError } = await supabaseAdmin
+              .from('project_steps')
+              .insert({
+                project_id: projectId,
+                title: stepTitle,
+                description: `Step created for task: ${taskTitle}`,
+                created_by: userId,
+              })
+              .select('id')
+              .single();
+
+            if (stepError) {
+              console.error('Error creating step:', stepError);
+              throw new Error(`Failed to create project step: ${stepError.message}`);
+            }
+            stepId = newStep.id;
+          }
+        }
+
+        // Create the task
+        let taskInsertError;
+        let taskResult;
+
+        // Try inserting as array first
+        const { data: taskArray, error: taskArrayError } = await supabaseAdmin
+          .from('project_step_tasks')
+          .insert({
+            step_id: stepId,
+            title: taskTitle,
+            description: taskDescription,
+            start_date: startDate,
+            estimated_completion_date: estimatedCompletionDate,
+            priority: priority,
+            assigned_to: assignedTo, // array
+            created_by: userId,
+            status: 'todo',
+          })
+          .select(`
+            *,
+            step:project_steps(
+              id,
+              title,
+              project:projects(
+                id,
+                title,
+                customer_name,
+                phone_number
+              )
+            )
+          `)
+          .single();
+
+        if (taskArrayError && taskArrayError.message.includes('type uuid')) {
+          // Fallback: the database is using the old schema with single UUID column
+          const singleAssignee = (assignedTo && assignedTo.length > 0) ? assignedTo[0] : null;
+          console.log(`Database is using single UUID column for assigned_to. Falling back to: ${singleAssignee}`);
+          
+          const { data: taskSingle, error: taskSingleError } = await supabaseAdmin
+            .from('project_step_tasks')
+            .insert({
+              step_id: stepId,
+              title: taskTitle,
+              description: taskDescription,
+              start_date: startDate,
+              estimated_completion_date: estimatedCompletionDate,
+              priority: priority,
+              assigned_to: singleAssignee, // single uuid
+              created_by: userId,
+              status: 'todo',
+            })
+            .select(`
+              *,
+              step:project_steps(
+                id,
+                title,
+                project:projects(
+                  id,
+                  title,
+                  customer_name,
+                  phone_number
+                )
+              )
+            `)
+            .single();
+
+          if (taskSingleError) {
+            taskInsertError = taskSingleError;
+          } else {
+            taskResult = taskSingle;
+          }
+        } else if (taskArrayError) {
+          taskInsertError = taskArrayError;
+        } else {
+          taskResult = taskArray;
+        }
+
+        if (taskInsertError || !taskResult) {
+          console.error('Error creating task:', taskInsertError);
+          throw new Error(`Failed to insert task record: ${taskInsertError?.message}`);
+        }
+
+        const task = taskResult;
+
+        // Send notifications
+        try {
+          let projectData = null;
+          if (projectId) {
+            const { data } = await supabaseAdmin
+              .from('projects')
+              .select('title, customer_name, created_by')
+              .eq('id', projectId)
+              .single();
+            projectData = data;
+          }
+
+          // Notify all assigned users
+          if (assignedTo && Array.isArray(assignedTo)) {
+            for (const assigneeId of assignedTo) {
+              if (assigneeId !== userId) {
+                await NotificationService.notifyTaskAssigned(
+                  assigneeId,
+                  taskTitle,
+                  projectData?.title || 'Standalone',
+                  task.id
+                );
+              }
+            }
+          }
+
+          // Notify project creator if current user is not admin
+          const userFullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
+          if (!isAdmin && projectData && projectData.created_by !== userId) {
+            await NotificationService.createNotification({
+              userId: projectData.created_by,
+              title: 'New Task Created',
+              message: `${userFullName} created task "${taskTitle}" in project "${projectData.title}"`,
+              type: 'project_update',
+              relatedId: task.id,
+              relatedType: 'task'
+            });
+          }
+        } catch (notificationError) {
+          console.error('Failed to send notifications during chat task creation:', notificationError);
+        }
+
+        // Clean reply and append confirmation block
+        const displayPriority = priority.charAt(0).toUpperCase() + priority.slice(1);
+        const displayProject = task?.step?.project?.title || 'Standalone';
+        const displayStep = stepTitle || 'General';
+        
+        const cleanReply = replyText.replace(/<create_task>[\s\S]*?<\/create_task>/, `
+        
+✅ **Task created successfully!**
+- **Title:** ${taskTitle}
+- **Project:** ${displayProject}
+- **Step/Stage:** ${displayStep}
+- **Priority:** \`${displayPriority}\`
+- **Status:** \`TODO\`
+`);
+        replyText = cleanReply;
+
+      } catch (err: any) {
+        console.error('Error processing chatbot task creation:', err);
+        const cleanReply = replyText.replace(/<create_task>[\s\S]*?<\/create_task>/, `
+        
+❌ **Failed to create task.**
+*Error details: ${err.message || 'Unknown database write error'}*
+`);
+        replyText = cleanReply;
+      }
     }
 
     return NextResponse.json({ response: replyText, provider: usedProvider });
