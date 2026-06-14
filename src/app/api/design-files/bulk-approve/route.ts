@@ -94,8 +94,9 @@ export async function POST(request: NextRequest) {
                     title: `Design ${action === 'approve' ? 'Approved' : 'Rejected'}`,
                     message: `Your design "${design.file_name}" has been ${action === 'approve' ? 'approved' : 'rejected'} by ${userData.full_name}`,
                     type: action === 'approve' ? 'design_approved' : 'design_rejected',
-                    relatedId: design.id,
-                    relatedType: 'design_file'
+                    relatedId: design.project_id,
+                    relatedType: 'project',
+                    metadata: { designFileId: design.id }
                 })
             );
             await Promise.all(notifications);

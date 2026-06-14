@@ -190,11 +190,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create design file' }, { status: 500 });
     }
 
-    // Notify admins of new design upload
+    // Notify stakeholders of new design upload
     try {
       const { data: projectData } = await supabaseAdmin
         .from('projects')
-        .select('created_by, title')
+        .select('created_by, title, designer_id, site_supervisor_id')
         .eq('id', project_id)
         .single();
 
@@ -202,50 +202,50 @@ export async function POST(request: NextRequest) {
         // Fetch all active admins
         const { data: adminsData } = await supabaseAdmin
           .from('users')
-          .select('id, phone_number')
+          .select('id')
           .eq('role', 'admin')
           .eq('is_active', true);
 
-        // Collect all recipient user IDs (admins + project creator, excluding the uploader itself)
+        // Fetch all project members
+        const { data: membersData } = await supabaseAdmin
+          .from('project_members')
+          .select('user_id')
+          .eq('project_id', project_id);
+
+        // Collect all recipient user IDs (admins + creator + designer + supervisor + members, excluding uploader)
         const recipientIds = new Set<string>();
         if (adminsData) {
-          adminsData.forEach((admin: any) => {
-            if (admin.id !== userId) {
-              recipientIds.add(admin.id);
-            }
-          });
+          adminsData.forEach((admin: any) => recipientIds.add(admin.id));
         }
-        if (projectData.created_by && projectData.created_by !== userId) {
+        if (projectData.created_by) {
           recipientIds.add(projectData.created_by);
         }
+        if (projectData.designer_id) {
+          recipientIds.add(projectData.designer_id);
+        }
+        if (projectData.site_supervisor_id) {
+          recipientIds.add(projectData.site_supervisor_id);
+        }
+        if (membersData) {
+          membersData.forEach((member: any) => recipientIds.add(member.user_id));
+        }
 
-        // Send notification to all recipients
-        const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-        const link = `${origin}/dashboard/projects/${project_id}`;
+        // Exclude uploader
+        recipientIds.delete(userId);
 
+        // Send notifications
         for (const recipientId of recipientIds) {
           await NotificationService.createNotification({
             userId: recipientId,
             title: 'New Design Uploaded',
             message: `${userFullName} uploaded "${file_name}" for project "${projectData.title}"`,
             type: 'design_uploaded',
-            relatedId: design.id,
-            relatedType: 'design_file'
+            relatedId: project_id,
+            relatedType: 'project',
+            metadata: { designFileId: design.id }
           });
-
-          // Send WhatsApp if recipient has a phone number in the admins list
-          const adminObj = (adminsData || []).find((a: any) => a.id === recipientId);
-          const phoneNumber = adminObj?.phone_number;
-          if (phoneNumber) {
-            try {
-              await sendCustomWhatsAppNotification(
-                phoneNumber,
-                `🖼️ New Design Uploaded\n\n${userFullName} uploaded "${file_name}" for project "${projectData.title}"\n\nOpen: ${link}`
-              );
-            } catch (_) {}
-          }
         }
-        console.log(`Design upload notification sent to ${recipientIds.size} admin/creator recipients.`);
+        console.log(`Design upload notification sent to ${recipientIds.size} stakeholders.`);
       }
     } catch (notificationError) {
       console.error('Failed to send design upload notification:', notificationError);
@@ -341,26 +341,11 @@ export async function PATCH(request: NextRequest) {
           title: `Design ${statusMessage.charAt(0).toUpperCase() + statusMessage.slice(1)}`,
           message: message,
           type: approval_status === 'approved' ? 'design_approved' : 'design_rejected',
-          relatedId: design.id,
-          relatedType: 'design_file'
+          relatedId: design.project_id,
+          relatedType: 'project',
+          metadata: { designFileId: design.id }
         });
         console.log('Design approval notification sent to employee:', design.uploaded_by_user.id);
-
-        try {
-          const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-          const link = `${origin}/dashboard/projects/${design.project_id}`;
-          const { data: uploader } = await supabaseAdmin
-            .from('users')
-            .select('phone_number')
-            .eq('id', design.uploaded_by_user.id)
-            .single();
-          if (uploader?.phone_number) {
-            await sendCustomWhatsAppNotification(
-              uploader.phone_number,
-              `${message}\n\nOpen: ${link}`
-            );
-          }
-        } catch (_) { }
       }
     } catch (notificationError) {
       console.error('Failed to send design approval notification:', notificationError);

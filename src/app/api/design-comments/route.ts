@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
       try {
         const { data: designFile } = await supabaseAdmin
           .from('design_files')
-          .select('file_name, project:projects(title)')
+          .select('file_name, project_id, project:projects(title)')
           .eq('id', design_file_id)
           .single();
 
@@ -161,8 +161,8 @@ export async function POST(request: NextRequest) {
             userFullName,
             designFile?.file_name || projectName,
             comment,
-            design_file_id,
-            'design_file'
+            designFile?.project_id || design_file_id,
+            'project'
           )
         ));
       } catch (mentionError) {
@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
               userFullName,
               designFile.file_name,
               comment,
-              design_file_id,
+              designFile.project_id,
               projectName
             )
           );
@@ -203,7 +203,7 @@ export async function POST(request: NextRequest) {
               userFullName,
               designFile.file_name,
               comment,
-              design_file_id,
+              designFile.project_id,
               projectName
             )
           );
@@ -211,35 +211,6 @@ export async function POST(request: NextRequest) {
 
         await Promise.all(notifications);
         console.log('Comment notifications sent for design:', design_file_id);
-
-        try {
-          const recipientIds: string[] = [];
-          if (designFile.uploaded_by && designFile.uploaded_by !== userId) {
-            recipientIds.push(designFile.uploaded_by);
-          }
-          if (project?.created_by && project.created_by !== userId && project.created_by !== designFile.uploaded_by) {
-            recipientIds.push(project.created_by);
-          }
-
-          if (recipientIds.length > 0) {
-            const { data: recipients } = await supabaseAdmin
-              .from('users')
-              .select('id, phone_number')
-              .in('id', recipientIds);
-
-            const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-            const link = designFile.project_id ? `${origin}/dashboard/projects/${designFile.project_id}` : '#';
-            const message = `💬 *New Design Comment*\n\nProject: ${projectName}\nFile: ${designFile.file_name}\nAuthor: ${userFullName}\n\nComment: "${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}"\n\nOpen: ${link}`;
-
-            await Promise.all(
-              (recipients || [])
-                .filter(r => !!r.phone_number)
-                .map(r => sendCustomWhatsAppNotification(r.phone_number as unknown as string, message))
-            );
-          }
-        } catch (waError) {
-          console.error('Failed to send WhatsApp notifications for comment:', waError);
-        }
       }
     } catch (notificationError) {
       console.error('Failed to send comment notifications:', notificationError);
