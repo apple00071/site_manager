@@ -5,6 +5,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { ToastProvider } from '@/components/ui/Toast';
 import WomensDayPopup from '@/components/WomensDayPopup';
+import TelemetryTracker from '@/components/TelemetryTracker';
 
 export default function ClientLayout({
   children,
@@ -70,6 +71,7 @@ export default function ClientLayout({
     <ErrorBoundary>
       <ToastProvider>
         <AuthProvider>
+          <TelemetryTracker />
           <WomensDayPopup />
           {children}
         </AuthProvider>

@@ -12,9 +12,14 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalProjects: 0,
+    activeUsers: 0,
   });
   const [recentUsers, setRecentUsers] = useState<any[]>([]);
   const [dashboardLoading, setDashboardLoading] = useState(true);
+
+  // Check if current user is an IT admin
+  const userDesignation = (user?.user_metadata?.designation || '').toLowerCase();
+  const isITUser = isAdmin && userDesignation.includes('it');
 
   useEffect(() => {
     // Redirect if not admin
@@ -44,10 +49,26 @@ export default function AdminDashboard() {
           .order('created_at', { ascending: false })
           .limit(5);
 
+        let activeUsersCount = 0;
+        if (isITUser) {
+          try {
+            const telemetryRes = await fetch('/api/admin/telemetry');
+            if (telemetryRes.ok) {
+              const telemetryPayload = await telemetryRes.json();
+              if (telemetryPayload.success && telemetryPayload.data?.liveUsers) {
+                activeUsersCount = telemetryPayload.data.liveUsers.length;
+              }
+            }
+          } catch (err) {
+            console.error('Error fetching telemetry count:', err);
+          }
+        }
+
         if (!userError && !projectError && !recentError) {
           setStats({
             totalUsers: userCount || 0,
             totalProjects: projectCount || 0,
+            activeUsers: activeUsersCount,
           });
           setRecentUsers(recent || []);
         }
@@ -59,7 +80,7 @@ export default function AdminDashboard() {
     };
 
     fetchDashboardData();
-  }, [user, isAdmin, isLoading, router]);
+  }, [user, isAdmin, isLoading, router, isITUser]);
 
   if (isLoading || dashboardLoading) {
     return (
@@ -112,6 +133,14 @@ export default function AdminDashboard() {
             >
               Create New Project
             </a>
+            {isITUser && (
+              <a
+                href="/admin/telemetry"
+                className="btn-primary bg-indigo-600 hover:bg-indigo-700 border-indigo-600 shadow-sm"
+              >
+                App Telemetry Monitor
+              </a>
+            )}
           </div>
 
           {/* Stats Cards */}
@@ -169,6 +198,36 @@ export default function AdminDashboard() {
                 </div>
               </div>
             </div>
+
+            {isITUser && (
+              <div className="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
+                <div className="px-4 py-5 sm:p-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0 bg-indigo-600 rounded-lg p-3">
+                      <span className="relative flex h-6 w-6">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-6 w-6 bg-green-500"></span>
+                      </span>
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-600 truncate">Active Users Online</dt>
+                        <dd className="flex items-baseline">
+                          <div className="text-2xl font-bold text-gray-900">{stats.activeUsers}</div>
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 px-4 py-4 sm:px-6">
+                  <div className="text-sm">
+                    <a href="/admin/telemetry" className="font-semibold text-indigo-600 hover:text-indigo-700 transition-colors">
+                      Monitor live status →
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Recent Users */}
