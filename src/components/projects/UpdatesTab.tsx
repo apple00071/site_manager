@@ -902,7 +902,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
           }
           
           if (nativeFileUris.length > 0) {
-            // Copy description to clipboard so the user can easily paste it as caption in WhatsApp
+            // Always copy description to clipboard as a reliable backup/helper
             if (cleanDescription) {
               try {
                 await navigator.clipboard.writeText(cleanDescription);
@@ -915,8 +915,12 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
               files: nativeFileUris,
               dialogTitle: 'Share Update Photos'
             };
-            // Note: We omit shareOptions.text when sharing files because Android WhatsApp has a bug 
-            // where providing both text and files causes it to discard the files and only send the text.
+
+            // Android WhatsApp allows sharing both text (caption) and file when sharing exactly ONE image.
+            // When sharing MULTIPLE images, WhatsApp has a bug where it ignores/discards the images if text is provided.
+            if (nativeFileUris.length === 1 && cleanDescription) {
+              shareOptions.text = cleanDescription;
+            }
             
             await Share.share(shareOptions);
             setSharingId(null);
@@ -960,7 +964,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         const filesToShare = await downloadPhotos(update.photos);
         
         if (filesToShare.length > 0) {
-          // Copy description to clipboard so they can paste it
+          // Copy description to clipboard
           if (cleanDescription) {
             try {
               await navigator.clipboard.writeText(cleanDescription);
@@ -970,7 +974,11 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
           const shareData: ShareData = {
             files: filesToShare,
           };
-          // Note: Omit text to prevent WhatsApp from discarding the files in the standard Web Share API as well.
+          
+          // Only include text for single file shares to prevent WhatsApp from discarding multi-file shares.
+          if (filesToShare.length === 1 && cleanDescription) {
+            shareData.text = cleanDescription;
+          }
           
           if (navigator.canShare(shareData)) {
             await navigator.share(shareData);
