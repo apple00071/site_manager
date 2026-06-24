@@ -863,17 +863,23 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
           for (let i = 0; i < limitedUrls.length; i++) {
             const url = limitedUrls[i];
             try {
-              const response = await fetch(url);
-              if (!response.ok) continue;
-              const blob = await response.blob();
-              const base64Data = await blobToBase64(blob);
-              
-              const mimeType = blob.type || 'image/jpeg';
+              // Parse extension from URL
               let extension = 'jpg';
-              if (mimeType === 'image/png') extension = 'png';
-              else if (mimeType === 'image/webp') extension = 'webp';
+              const cleanUrl = url.split('?')[0].toLowerCase();
+              if (cleanUrl.endsWith('.png')) extension = 'png';
+              else if (cleanUrl.endsWith('.webp')) extension = 'webp';
+              else if (cleanUrl.endsWith('.pdf')) extension = 'pdf';
               
               const filename = `share_photo_${i + 1}_${Date.now()}.${extension}`;
+              
+              // Fetch file as Blob, convert to base64, and write via native Filesystem
+              // This avoids using the deprecated Filesystem.downloadFile which throws errors in v8.
+              const response = await fetch(url);
+              if (!response.ok) {
+                throw new Error(`Failed to fetch image: ${response.statusText}`);
+              }
+              const blob = await response.blob();
+              const base64Data = await blobToBase64(blob);
               
               await Filesystem.writeFile({
                 path: filename,
@@ -890,7 +896,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                 nativeFileUris.push(uriResult.uri);
               }
             } catch (err) {
-              console.error('Error saving image natively for share:', url, err);
+              console.error('Error downloading image natively for share:', url, err);
             }
           }
           
@@ -908,7 +914,27 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
             return;
           }
         } catch (nativeErr) {
-          console.error('Capacitor native share failed, falling back to Web Share API:', nativeErr);
+          console.error('Capacitor native share failed, trying Median/GoNative fallback:', nativeErr);
+        }
+      }
+
+      // 1.5 Try Median/GoNative native file sharing if running inside Median/GoNative app
+      // @ts-ignore
+      const isMedianApp = typeof window !== 'undefined' && (window.median || window.gonative);
+      if (hasPhotos && isMedianApp) {
+        try {
+          const medianShare = (window as any).median?.share || (window as any).gonative?.share;
+          if (medianShare && typeof medianShare.shareFile === 'function') {
+            // Share the first photo (or download all, but shareFile is single)
+            await medianShare.shareFile({
+              url: update.photos[0],
+              filename: `update_photo_1.jpg`
+            });
+            setSharingId(null);
+            return;
+          }
+        } catch (medianErr) {
+          console.error('Median native shareFile failed, falling back to Web Share API:', medianErr);
         }
       }
 
