@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDateReadable, formatDateTimeReadable, formatTimeIST, getTodayDateString } from '@/lib/dateUtils';
@@ -95,6 +96,19 @@ function VoiceNotePlayer({ src }: VoiceNotePlayerProps) {
     </div>
   );
 }
+
+const blobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
 
 export function UpdatesTab({ projectId }: UpdatesTabProps) {
   const { user } = useAuth();
@@ -817,7 +831,63 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     try {
       const hasPhotos = update.photos && update.photos.length > 0;
       
-      // 1. Try to use native Web Share API with files if supported
+      // 1. Try native Capacitor sharing first if running inside mobile app
+      if (hasPhotos && Capacitor.isNativePlatform()) {
+        try {
+          const { Filesystem, Directory } = await import('@capacitor/filesystem');
+          const { Share } = await import('@capacitor/share');
+          
+          const nativeFileUris: string[] = [];
+          const limitedUrls = update.photos.slice(0, 10);
+          
+          for (let i = 0; i < limitedUrls.length; i++) {
+            const url = limitedUrls[i];
+            try {
+              const response = await fetch(url);
+              if (!response.ok) continue;
+              const blob = await response.blob();
+              const base64Data = await blobToBase64(blob);
+              
+              const mimeType = blob.type || 'image/jpeg';
+              let extension = 'jpg';
+              if (mimeType === 'image/png') extension = 'png';
+              else if (mimeType === 'image/webp') extension = 'webp';
+              
+              const filename = `share_photo_${i + 1}_${Date.now()}.${extension}`;
+              
+              await Filesystem.writeFile({
+                path: filename,
+                data: base64Data,
+                directory: Directory.Cache
+              });
+              
+              const uriResult = await Filesystem.getUri({
+                directory: Directory.Cache,
+                path: filename
+              });
+              
+              if (uriResult?.uri) {
+                nativeFileUris.push(uriResult.uri);
+              }
+            } catch (err) {
+              console.error('Error saving image natively for share:', url, err);
+            }
+          }
+          
+          if (nativeFileUris.length > 0) {
+            await Share.share({
+              files: nativeFileUris,
+              dialogTitle: 'Share Update Photos'
+            });
+            setSharingId(null);
+            return;
+          }
+        } catch (nativeErr) {
+          console.error('Capacitor native share failed, falling back to Web Share API:', nativeErr);
+        }
+      }
+
+      // 2. Try to use native Web Share API with files if supported (Browser/PWA)
       if (hasPhotos && navigator.share && navigator.canShare) {
         const filesToShare = await downloadPhotos(update.photos);
         
