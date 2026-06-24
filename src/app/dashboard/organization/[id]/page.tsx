@@ -153,29 +153,20 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
 
         setUploadingDoc(true);
         try {
-            // 1. Upload file to supabase storage
-            const fileExt = docFile.name.split('.').pop();
-            const fileName = `${id}/${crypto.randomUUID()}.${fileExt}`;
-            
-            const { error: uploadError } = await supabase.storage
-                .from('employee-documents')
-                .upload(fileName, docFile);
+            // 1. Create FormData for server-side upload
+            const formData = new FormData();
+            formData.append('document_name', docName);
+            formData.append('file', docFile);
 
-            if (uploadError) throw uploadError;
-
-            // 2. Save record in database via API
+            // 2. Upload and save record via API
             const res = await fetch(`/api/admin/users/${id}/documents`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    document_name: docName,
-                    file_url: fileName
-                })
+                body: formData
             });
 
             if (!res.ok) {
                 const data = await res.json();
-                throw new Error(data.error || 'Failed to save document record');
+                throw new Error(data.error || 'Failed to upload document');
             }
 
             // 3. Refresh documents

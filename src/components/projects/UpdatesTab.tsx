@@ -110,6 +110,35 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
   });
 };
 
+const openExternalLink = (url: string) => {
+  if (!url) return;
+  
+  // Median / GoNative support
+  // @ts-ignore
+  if (typeof window !== 'undefined' && window.median && window.median.open && window.median.open.external) {
+    // @ts-ignore
+    window.median.open.external({ url });
+    return;
+  }
+  
+  // Capacitor support
+  // @ts-ignore
+  if (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser) {
+    try {
+      // @ts-ignore
+      window.Capacitor.Plugins.Browser.open({ url });
+      return;
+    } catch (e) {
+      console.error('Capacitor browser open failed', e);
+    }
+  }
+  
+  // Standard window.open fallback
+  if (typeof window !== 'undefined') {
+    window.open(url, '_blank');
+  }
+};
+
 export function UpdatesTab({ projectId }: UpdatesTabProps) {
   const { user } = useAuth();
   const [updates, setUpdates] = useState<ProjectUpdate[]>([]);
@@ -923,14 +952,14 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
       
       if (fallbackMessage) {
         const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(fallbackMessage)}`;
-        window.open(waUrl, '_blank');
+        openExternalLink(waUrl);
       }
     } catch (shareError) {
       console.error('Error sharing update:', shareError);
       
       if (cleanDescription) {
         const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(cleanDescription)}`;
-        window.open(waUrl, '_blank');
+        openExternalLink(waUrl);
       }
     } finally {
       setSharingId(null);

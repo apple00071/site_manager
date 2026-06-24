@@ -80,19 +80,37 @@ export async function POST(request: Request, context: any) {
             return NextResponse.json({ error: 'Forbidden. You do not have permission to upload documents.' }, { status: 403 });
         }
 
-        const body = await request.json();
-        const { document_name, file_url } = body;
+        const formData = await request.formData();
+        const document_name = formData.get('document_name') as string;
+        const file = formData.get('file');
 
-        if (!document_name || !file_url) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        if (!document_name || !file || !(file instanceof Blob)) {
+            return NextResponse.json({ error: 'Missing required fields or file' }, { status: 400 });
         }
 
+        // Upload file to storage via service role
+        const fileExt = (file as any).name?.split('.').pop() || 'bin';
+        const fileName = `${id}/${crypto.randomUUID()}.${fileExt}`;
+
+        const { error: uploadError } = await supabaseAdmin.storage
+            .from('employee-documents')
+            .upload(fileName, file, {
+                contentType: file.type || 'application/octet-stream',
+                upsert: false
+            });
+
+        if (uploadError) {
+            console.error('Error uploading file via API:', uploadError);
+            return NextResponse.json({ error: uploadError.message || 'Failed to upload file to storage' }, { status: 500 });
+        }
+
+        // Insert record into database
         const { data, error } = await supabaseAdmin
             .from('employee_documents')
             .insert({
                 employee_id: id,
                 document_name,
-                file_url,
+                file_url: fileName,
                 uploaded_by: user.id
             })
             .select()
@@ -100,6 +118,8 @@ export async function POST(request: Request, context: any) {
 
         if (error) {
             console.error('Error inserting document record:', error);
+            // Cleanup uploaded file on error
+            await supabaseAdmin.storage.from('employee-documents').remove([fileName]);
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
