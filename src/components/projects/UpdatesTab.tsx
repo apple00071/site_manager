@@ -895,8 +895,9 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
               if (uriResult?.uri) {
                 nativeFileUris.push(uriResult.uri);
               }
-            } catch (err) {
+            } catch (err: any) {
               console.error('Error downloading image natively for share:', url, err);
+              alert('Image download error: ' + (err?.message || JSON.stringify(err)));
             }
           }
           
@@ -913,8 +914,9 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
             setSharingId(null);
             return;
           }
-        } catch (nativeErr) {
+        } catch (nativeErr: any) {
           console.error('Capacitor native share failed, trying Median/GoNative fallback:', nativeErr);
+          alert('Capacitor share failed: ' + (nativeErr?.message || JSON.stringify(nativeErr)));
         }
       }
 
@@ -924,17 +926,18 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
       if (hasPhotos && isMedianApp) {
         try {
           const medianShare = (window as any).median?.share || (window as any).gonative?.share;
-          if (medianShare && typeof medianShare.shareFile === 'function') {
-            // Share the first photo (or download all, but shareFile is single)
-            await medianShare.shareFile({
+          if (medianShare && typeof medianShare.downloadFile === 'function') {
+            // Share the first photo natively (downloads it and triggers "Open with" system dialog on Android)
+            await medianShare.downloadFile({
               url: update.photos[0],
-              filename: `update_photo_1.jpg`
+              open: true
             });
             setSharingId(null);
             return;
           }
-        } catch (medianErr) {
-          console.error('Median native shareFile failed, falling back to Web Share API:', medianErr);
+        } catch (medianErr: any) {
+          console.error('Median native downloadFile failed, falling back to Web Share API:', medianErr);
+          alert('Median downloadFile failed: ' + (medianErr?.message || JSON.stringify(medianErr)));
         }
       }
 
