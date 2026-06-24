@@ -902,13 +902,21 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
           }
           
           if (nativeFileUris.length > 0) {
+            // Copy description to clipboard so the user can easily paste it as caption in WhatsApp
+            if (cleanDescription) {
+              try {
+                await navigator.clipboard.writeText(cleanDescription);
+              } catch (clipErr) {
+                console.error('Failed to copy description to clipboard:', clipErr);
+              }
+            }
+
             const shareOptions: any = {
               files: nativeFileUris,
               dialogTitle: 'Share Update Photos'
             };
-            if (cleanDescription) {
-              shareOptions.text = cleanDescription;
-            }
+            // Note: We omit shareOptions.text when sharing files because Android WhatsApp has a bug 
+            // where providing both text and files causes it to discard the files and only send the text.
             
             await Share.share(shareOptions);
             setSharingId(null);
@@ -927,6 +935,12 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         try {
           const medianShare = (window as any).median?.share || (window as any).gonative?.share;
           if (medianShare && typeof medianShare.downloadFile === 'function') {
+            // Copy description to clipboard
+            if (cleanDescription) {
+              try {
+                await navigator.clipboard.writeText(cleanDescription);
+              } catch (e) {}
+            }
             // Share the first photo natively (downloads it and triggers "Open with" system dialog on Android)
             await medianShare.downloadFile({
               url: update.photos[0],
@@ -946,12 +960,17 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         const filesToShare = await downloadPhotos(update.photos);
         
         if (filesToShare.length > 0) {
+          // Copy description to clipboard so they can paste it
+          if (cleanDescription) {
+            try {
+              await navigator.clipboard.writeText(cleanDescription);
+            } catch (e) {}
+          }
+
           const shareData: ShareData = {
             files: filesToShare,
           };
-          if (cleanDescription) {
-            shareData.text = cleanDescription;
-          }
+          // Note: Omit text to prevent WhatsApp from discarding the files in the standard Web Share API as well.
           
           if (navigator.canShare(shareData)) {
             await navigator.share(shareData);
