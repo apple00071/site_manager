@@ -815,18 +815,9 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     
     setSharingId(update.id);
     
-    const author = update.sender_name && !update.user_id 
-      ? update.sender_name 
-      : update.user?.full_name || 'Team';
-      
-    let message = `*Apple Interior Manager - Project Update*\n`;
-    message += `*Project:* ${projectTitle || 'Interior Project'}\n`;
-    message += `*Date:* ${formatDateReadable(update.update_date)}\n`;
-    message += `*Posted By:* ${author}\n\n`;
-    message += `*Update:*\n${update.description}\n`;
-    
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const projectLink = `${origin}/dashboard/projects/${projectId}?stage=work_progress&tab=updates`;
+    // Clean up description - ignore system generated placeholders like "Photos", "Voice note"
+    const isDefaultLabel = update.description === 'Photos' || update.description === 'Voice note' || update.description === 'Voice note with photos';
+    const cleanDescription = isDefaultLabel ? '' : update.description;
 
     try {
       const hasPhotos = update.photos && update.photos.length > 0;
@@ -875,10 +866,15 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
           }
           
           if (nativeFileUris.length > 0) {
-            await Share.share({
+            const shareOptions: any = {
               files: nativeFileUris,
               dialogTitle: 'Share Update Photos'
-            });
+            };
+            if (cleanDescription) {
+              shareOptions.text = cleanDescription;
+            }
+            
+            await Share.share(shareOptions);
             setSharingId(null);
             return;
           }
@@ -895,6 +891,9 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
           const shareData: ShareData = {
             files: filesToShare,
           };
+          if (cleanDescription) {
+            shareData.text = cleanDescription;
+          }
           
           if (navigator.canShare(shareData)) {
             await navigator.share(shareData);
@@ -904,43 +903,35 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         }
       }
       
-      // 2. Fallback to direct WhatsApp link redirect (e.g. desktop/unsupported browser)
-      let fallbackMessage = message;
+      // 3. Fallback to direct WhatsApp link redirect (e.g. desktop/unsupported browser)
+      let fallbackMessage = '';
+      if (cleanDescription) {
+        fallbackMessage += `${cleanDescription}\n\n`;
+      }
+      
       if (hasPhotos) {
-        fallbackMessage += `\n📷 *Photos (${update.photos.length}):*`;
-        if (update.photos.length <= 2) {
-          update.photos.forEach((url, i) => {
-            fallbackMessage += `\n${i + 1}. ${url}`;
-          });
-        } else {
-          update.photos.slice(0, 2).forEach((url, i) => {
-            fallbackMessage += `\n${i + 1}. ${url}`;
-          });
-          fallbackMessage += `\n...and ${update.photos.length - 2} more photos in the project portal.`;
-        }
-        fallbackMessage += `\n`;
+        update.photos.forEach((url) => {
+          fallbackMessage += `${url}\n`;
+        });
       }
       
       if (update.audio_url) {
-        fallbackMessage += `\n🎵 *Voice Note:* ${update.audio_url}\n`;
+        fallbackMessage += `${update.audio_url}\n`;
       }
       
-      fallbackMessage += `\n🔗 *View Update & All Photos:* ${projectLink}`;
+      fallbackMessage = fallbackMessage.trim();
       
-      const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(fallbackMessage)}`;
-      window.open(waUrl, '_blank');
+      if (fallbackMessage) {
+        const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(fallbackMessage)}`;
+        window.open(waUrl, '_blank');
+      }
     } catch (shareError) {
       console.error('Error sharing update:', shareError);
       
-      // Final fallback to text-only WhatsApp redirect
-      let finalMessage = message;
-      if (update.photos && update.photos.length > 0) {
-        finalMessage += `\n📷 *Photos (${update.photos.length}):* View in portal`;
+      if (cleanDescription) {
+        const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(cleanDescription)}`;
+        window.open(waUrl, '_blank');
       }
-      finalMessage += `\n\n🔗 *Link:* ${projectLink}`;
-      
-      const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(finalMessage)}`;
-      window.open(waUrl, '_blank');
     } finally {
       setSharingId(null);
     }
