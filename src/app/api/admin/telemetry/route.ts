@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser, supabaseAdmin } from '@/lib/supabase-server';
+import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
 
 export const dynamic = 'force-dynamic';
@@ -7,10 +7,31 @@ export const revalidate = 0;
 
 export async function GET(req: Request) {
   try {
-    const { user, error: authError } = await getCurrentUser();
+    const { user: authUser, error: authError } = await getAuthUser();
 
-    if (authError || !user) {
+    if (authError || !authUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: 'Supabase admin client is not initialized.' },
+        { status: 500 }
+      );
+    }
+
+    // Fetch user details including designation from database
+    const { data: user, error: userError } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .eq('id', authUser.id)
+      .single();
+
+    if (userError || !user) {
+      return NextResponse.json(
+        { error: 'Forbidden. User profile not found.' },
+        { status: 403 }
+      );
     }
 
     // Authorization check: User must have 'IT' in their designation
@@ -21,13 +42,6 @@ export async function GET(req: Request) {
       return NextResponse.json(
         { error: 'Forbidden. Access restricted to IT users only.' },
         { status: 403 }
-      );
-    }
-
-    if (!supabaseAdmin) {
-      return NextResponse.json(
-        { error: 'Supabase admin client is not initialized.' },
-        { status: 500 }
       );
     }
 

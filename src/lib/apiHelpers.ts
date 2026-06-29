@@ -20,12 +20,4 @@ export function createNoCacheResponse(data: any, options?: ResponseInit) {
   return addNoCacheHeaders(response);
 }
 
-/**
- * Route segment config for dynamic API routes
- * Export this from your API route files
- */
-export const dynamicApiConfig = {
-  dynamic: 'force-dynamic',
-  revalidate: 0,
-} as const;
 

@@ -9,7 +9,7 @@ function loadEnv(file: string) {
                 const key = match[1];
                 let value = match[2] || '';
                 if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
-                process.env[key] = value;
+                process.env[key] = value.trim();
             }
         }
     } catch (e) {
@@ -19,8 +19,8 @@ function loadEnv(file: string) {
 loadEnv('.env.local');
 loadEnv('.env');
 
-import { supabaseAdmin } from './src/lib/supabase-server';
-import { PERMISSION_NODES } from './src/lib/rbac-constants';
+const { supabaseAdmin } = require('./src/lib/supabase-server');
+const { PERMISSION_NODES } = require('./src/lib/rbac-constants');
 
 async function sync() {
     console.log('Syncing permissions...');
@@ -32,10 +32,10 @@ async function sync() {
 
     const existingCodes = new Set(existingPermissions?.map((p: any) => p.code) || []);
     const permissionValues = Object.values(PERMISSION_NODES);
-    const newPermissions = permissionValues.filter((code: string) => !existingCodes.has(code));
+    const newPermissions = permissionValues.filter((code: any) => !existingCodes.has(code));
 
     if (newPermissions.length > 0) {
-        const toInsert = newPermissions.map((code: string) => ({
+        const toInsert = newPermissions.map((code: any) => ({
             code,
             module: code.split('.')[0],
             action: code.split('.')[1] || code,

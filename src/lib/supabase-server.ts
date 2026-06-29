@@ -82,37 +82,3 @@ export async function getAuthUser() {
   }
 }
 
-// Secure helper function to get current authenticated user with full profile from the users table
-export async function getCurrentUser() {
-  try {
-    const { user: authUser, error: authError } = await getAuthUser();
-
-    if (authError || !authUser) {
-      return { user: null, error: authError || 'User not authenticated' };
-    }
-
-    // Get user details from database
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('*')
-      .eq('id', authUser.id)
-      .single();
-
-    if (userError || !userData) {
-      console.error('User fetch error:', userError);
-      return { user: null, error: userError?.message || 'User data not found' };
-    }
-
-    return { user: userData, error: null };
-  } catch (error: any) {
-    console.error('Error getting current user:', error);
-    return { user: null, error: error.message };
-  }
-}
-
-// Export configuration for other files
-export const supabaseConfig = {
-  url: supabaseUrl as string,
-  anonKey: supabaseAnonKey as string,
-  serviceKey: supabaseServiceKey as string
-};

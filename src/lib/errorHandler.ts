@@ -57,21 +57,6 @@ export const handleApiError = (error: any) => {
   };
 };
 
-/**
- * Handles authentication errors
- */
-export const handleAuthError = (error: any, userId?: string) => {
-  logError(error instanceof Error ? error : new Error(String(error)), {
-    level: 'warning',
-    context: { source: 'Authentication' },
-    userId,
-  });
-  
-  return {
-    message: 'Authentication failed. Please try again.',
-    code: 'AUTH_ERROR',
-  };
-};
 
 /**
  * Sanitizes error messages for client display

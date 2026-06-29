@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX, FiCheckSquare, FiAlertTriangle, FiCreditCard, FiRadio, FiClock, FiSearch, FiFileText, FiMessageSquare, FiActivity } from 'react-icons/fi';
+import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX, FiCheckSquare, FiAlertTriangle, FiCreditCard, FiRadio, FiClock, FiSearch, FiFileText, FiMessageSquare, FiActivity, FiGrid } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
 import { supabase } from '@/lib/supabase';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
@@ -194,6 +194,7 @@ function DashboardLayoutContent({
     if (pathname === '/dashboard/my-tasks') return 'My Tasks';
     if (pathname === '/dashboard/tasks') return 'All Tasks';
     if (pathname === '/dashboard/office-expenses') return 'Expenses';
+    if (pathname === '/dashboard/crm') return 'CRM & Quotation Log';
     if (pathname === '/dashboard/attendance') return 'Attendance';
     if (pathname === '/dashboard/snags') return 'Snags';
     if (pathname.startsWith('/dashboard/projects/')) {
@@ -344,6 +345,18 @@ function DashboardLayoutContent({
               <FiCreditCard className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
               <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Expenses</span>
             </Link>
+            {hasPermission('crm.view') && (
+              <Link
+                href="/dashboard/crm"
+                className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
+                onClick={() => setSidebarOpen(false)}
+                title="CRM"
+                id="sidebar-crm"
+              >
+                <FiGrid className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
+                <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">CRM</span>
+              </Link>
+            )}
             {hasPermission('attendance.view') && (
               <Link
                 href="/dashboard/attendance"

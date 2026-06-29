@@ -61,24 +61,8 @@ export function formatDateTimeIST(dateString: string | Date): string {
   return `${formatDateIST(dateString)}, ${formatTimeIST(dateString)}`;
 }
 
-/**
- * Format date in a more readable format.
- * For consistency, this uses the same DD/MM/YYYY IST format as formatDateIST.
- * @param dateString - ISO date string or Date object
- * @returns Formatted date string (e.g., "25/12/2024")
- */
-export function formatDateReadable(dateString: string | Date): string {
-  return formatDateIST(dateString);
-}
-
-/**
- * Format date and time in readable format using DD/MM/YYYY and 12-hour IST time
- * @param dateString - ISO date string or Date object
- * @returns Formatted string (e.g., "25/12/2024, 2:30 PM")
- */
-export function formatDateTimeReadable(dateString: string | Date): string {
-  return formatDateTimeIST(dateString);
-}
+export const formatDateReadable = formatDateIST;
+export const formatDateTimeReadable = formatDateTimeIST;
 
 /**
  * Get relative time (e.g., "2 hours ago", "3 days ago")

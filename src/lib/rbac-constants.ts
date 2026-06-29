@@ -138,6 +138,10 @@ export const PERMISSION_NODES = {
     ATTENDANCE_APPROVE: 'attendance.approve',
 
     PAYROLL_CONFIG: 'payroll.config',
+
+    // CRM Permissions
+    CRM_VIEW: 'crm.view',
+    CRM_MANAGE: 'crm.manage',
 } as const;
 
 export type PermissionNode = typeof PERMISSION_NODES[keyof typeof PERMISSION_NODES];
