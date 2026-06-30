@@ -49,6 +49,7 @@ next-env.d.ts
 !tsconfig.json
 !vercel.json
 !eslint_report.json
+!src/app/api/crm/fallback_leads.json
 !*.config.js
 !*.config.ts
 !*.config.mjs
