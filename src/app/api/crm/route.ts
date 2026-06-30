@@ -4,8 +4,7 @@ import { verifyPermission } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
-// Seed sample data in case the SQL table is not yet created in the database
-import fallbackLeads from './fallback_leads.json';
+
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,7 +19,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!supabaseAdmin) {
-      return NextResponse.json({ success: true, data: fallbackLeads, warning: 'Database client not initialized. Serving sample data.' });
+      return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
     }
 
     // Try fetching from the database
@@ -31,14 +30,8 @@ export async function GET(request: NextRequest) {
       .order('ref_no', { ascending: false });
 
     if (error) {
-      console.warn('Could not fetch from quotation_leads table (it might not be created yet):', error.message);
-      // Fail-safe: Serve mock data so the app won't break locally
-      return NextResponse.json({ 
-        success: true, 
-        data: fallbackLeads, 
-        warning: 'quotation_leads table not found. Serving sample data.',
-        db_error: error.message
-      });
+      console.error('Error fetching quotation_leads:', error.message);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, data });
