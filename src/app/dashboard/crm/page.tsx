@@ -10,6 +10,8 @@ import {
 import { TbCurrencyRupee } from 'react-icons/tb';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import * as XLSX from 'xlsx';
+import dynamic from 'next/dynamic';
+const QuotationBuilder = dynamic(() => import('@/components/crm/QuotationBuilder'), { ssr: false });
 
 interface Lead {
   id: string;
@@ -27,6 +29,8 @@ interface Lead {
   follow_up_2: string;
   follow_up_3: string;
   remarks: string;
+  latest_quotation_id?: string;
+  quote_version?: number;
 }
 
 export default function CRMPage() {
@@ -34,6 +38,7 @@ export default function CRMPage() {
   
   const [activeTab, setActiveTab] = useState<'dashboard' | 'log'>('dashboard');
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [quotationLead, setQuotationLead] = useState<Lead | null>(null);
   const [loading, setLoading] = useState(true);
   const [dbWarning, setDbWarning] = useState<string | null>(null);
   const [dashboardTimeFilter, setDashboardTimeFilter] = useState<'all' | 'month' | '3months' | '6months'>('all');
@@ -1065,6 +1070,7 @@ export default function CRMPage() {
                 <tr className="bg-gray-100 text-gray-500 font-bold select-none text-center divide-x divide-gray-200 sticky top-0 z-20">
                   {/* Left row index header spacer */}
                   <th className="w-10 bg-gray-200 border-b border-gray-300 font-black text-[10px]"></th>
+                  {hasPermission('crm.manage') && <th className="w-8 bg-gray-200 border-b border-gray-300" />}
                   {columns.map((col, idx) => (
                     <th 
                       key={col.id} 
@@ -1218,6 +1224,22 @@ export default function CRMPage() {
                               </td>
                             );
                           })}
+                          {/* Quotation action button */}
+                          {hasPermission('crm.manage') && (
+                            <td className="w-8 px-1 text-center border-l border-gray-200">
+                              <button
+                                title={lead.latest_quotation_id ? 'View / Revise Quotation' : 'Build Quotation'}
+                                onClick={(e) => { e.stopPropagation(); setQuotationLead(lead); }}
+                                className={`text-xs rounded px-1 py-0.5 transition-colors ${
+                                  lead.latest_quotation_id
+                                    ? 'text-yellow-600 hover:bg-yellow-50 font-bold'
+                                    : 'text-gray-300 hover:text-gray-500 hover:bg-gray-50'
+                                }`}
+                              >
+                                📄
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       </Fragment>
                     );
@@ -1442,6 +1464,20 @@ export default function CRMPage() {
           </div>
         )}
       </BottomSheet>
+
+      {/* Quotation Builder Modal */}
+      {quotationLead && (
+        <QuotationBuilder
+          lead={quotationLead}
+          onClose={() => setQuotationLead(null)}
+          onSaved={(newQuoteValue) => {
+            setLeads(prev => prev.map(l =>
+              l.id === quotationLead.id ? { ...l, quote_value: newQuoteValue } : l
+            ));
+            setQuotationLead(null);
+          }}
+        />
+      )}
     </div>
   );
 }
