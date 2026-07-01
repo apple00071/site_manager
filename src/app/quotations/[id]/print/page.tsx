@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Fragment } from 'react';
 import { useParams } from 'next/navigation';
+import Script from 'next/script';
 
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
@@ -65,6 +66,44 @@ export default function QuotationPrintPage() {
 
   const lead = quotation.quotation_leads;
   const items: any[] = (quotation.quotation_items || []).sort((a: any, b: any) => a.sort_order - b.sort_order);
+
+  // Dynamic Page Title
+  useEffect(() => {
+    if (lead?.client_name) {
+      document.title = `Quotation — ${lead.client_name}`;
+    }
+  }, [lead]);
+
+  const handleDownloadPDF = () => {
+    const element = document.querySelector('.page');
+    if (!element) return;
+    
+    // Temporarily hide the no-print buttons
+    const noPrint = document.querySelector('.no-print') as HTMLElement;
+    if (noPrint) noPrint.style.display = 'none';
+
+    const html2pdf = (window as any).html2pdf;
+    if (!html2pdf) {
+      alert('PDF download utility is still loading. Please try again in a second...');
+      if (noPrint) noPrint.style.display = '';
+      return;
+    }
+
+    const opt = {
+      margin:       0,
+      filename:     `Quotation_${lead?.client_name || 'Client'}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2.2, useCORS: true, logging: false },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().from(element).set(opt).save().then(() => {
+      if (noPrint) noPrint.style.display = '';
+    }).catch((err: any) => {
+      console.error(err);
+      if (noPrint) noPrint.style.display = '';
+    });
+  };
 
   // Group by section
   const sections: Record<string, any[]> = {};
@@ -140,8 +179,19 @@ export default function QuotationPrintPage() {
         }
       `}</style>
 
+      <Script 
+        src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" 
+        strategy="lazyOnload" 
+      />
+
       <div className="page">
-        <div className="no-print">
+        <div className="no-print" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', padding: '10px 0', borderBottom: '1px solid #eee', marginBottom: '10px' }}>
+          <button
+            onClick={handleDownloadPDF}
+            style={{ background: '#4caf50', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 20px', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
+          >
+            📥 Download PDF
+          </button>
           <button
             onClick={() => window.print()}
             style={{ background: '#f5c518', border: 'none', borderRadius: '6px', padding: '8px 20px', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
