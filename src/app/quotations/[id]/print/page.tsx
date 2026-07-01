@@ -49,6 +49,15 @@ export default function QuotationPrintPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const lead = quotation?.quotation_leads;
+
+  // Dynamic Page Title
+  useEffect(() => {
+    if (lead?.client_name) {
+      document.title = `Quotation — ${lead.client_name}`;
+    }
+  }, [lead]);
+
   useEffect(() => {
     if (!id) return;
     fetch(`/api/quotations/by-id?id=${id}`)
@@ -64,15 +73,7 @@ export default function QuotationPrintPage() {
   if (loading) return <div style={{ textAlign: 'center', padding: '60px', fontFamily: 'Inter, sans-serif' }}>Loading quotation…</div>;
   if (error || !quotation) return <div style={{ textAlign: 'center', padding: '60px', color: '#cc4444' }}>{error || 'Quotation not found'}</div>;
 
-  const lead = quotation.quotation_leads;
   const items: any[] = (quotation.quotation_items || []).sort((a: any, b: any) => a.sort_order - b.sort_order);
-
-  // Dynamic Page Title
-  useEffect(() => {
-    if (lead?.client_name) {
-      document.title = `Quotation — ${lead.client_name}`;
-    }
-  }, [lead]);
 
   const handleDownloadPDF = () => {
     const element = document.querySelector('.page');
