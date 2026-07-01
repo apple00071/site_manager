@@ -326,9 +326,88 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
 
   return (
     <div style={styles.overlay} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={styles.modal}>
+      <style>{`
+        @media (max-width: 640px) {
+          .qb-modal {
+            max-height: 100vh !important;
+            height: 100vh !important;
+            border-radius: 0 !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+          }
+          .qb-header {
+            padding: 10px 14px !important;
+          }
+          .qb-tabs {
+            flex-wrap: wrap !important;
+          }
+          .qb-tab {
+            padding: 8px 12px !important;
+            font-size: 11px !important;
+            flex: 1 !important;
+            justify-content: center !important;
+          }
+          .qb-tab-badge {
+            display: none !important;
+          }
+          .qb-body {
+            padding: 10px !important;
+          }
+          .qb-section-grid {
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+            gap: 8px !important;
+          }
+          .qb-desktop-headers {
+            display: none !important;
+          }
+          .qb-item-row {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            padding: 10px 8px !important;
+            gap: 8px !important;
+          }
+          .qb-row-inputs {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr 1fr 1.5fr 1.5fr auto !important;
+            gap: 6px !important;
+            align-items: center !important;
+          }
+          .qb-cell {
+            width: auto !important;
+          }
+          .qb-label-hint {
+            display: block !important;
+            font-size: 9px;
+            color: #999;
+            margin-bottom: 2px;
+            font-weight: bold;
+          }
+          .qb-footer {
+            flex-direction: column !important;
+            gap: 10px !important;
+            align-items: stretch !important;
+            text-align: center !important;
+            padding: 12px 14px !important;
+          }
+          .qb-footer-actions {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 8px !important;
+          }
+          .qb-spec-row {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 4px !important;
+          }
+          .qb-spec-label {
+            width: 100% !important;
+            margin-bottom: 2px !important;
+          }
+        }
+      `}</style>
+      <div className="qb-modal" style={styles.modal}>
         {/* Header */}
-        <div style={styles.header}>
+        <div className="qb-header" style={styles.header}>
           <div>
             <div style={styles.headerTitle}>Quotation Builder</div>
             <div style={{ ...styles.headerSub, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '2px' }}>
@@ -362,22 +441,22 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
         </div>
 
         {/* Tabs */}
-        <div style={styles.tabs}>
+        <div className="qb-tabs" style={styles.tabs}>
           {(['sections', 'items', 'specs', 'summary'] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}) }}>
+            <button key={t} className="qb-tab" onClick={() => setTab(t)} style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}) }}>
               {t === 'specs' ? 'Specs' : t.charAt(0).toUpperCase() + t.slice(1)}
-              {t === 'items' && items.length > 0 && <span style={styles.tabBadge}>{items.length}</span>}
-              {t === 'summary' && subtotal > 0 && <span style={styles.tabBadge}>{fmt(finalAmount)}</span>}
+              {t === 'items' && items.length > 0 && <span className="qb-tab-badge" style={styles.tabBadge}>{items.length}</span>}
+              {t === 'summary' && subtotal > 0 && <span className="qb-tab-badge" style={styles.tabBadge}>{fmt(finalAmount)}</span>}
             </button>
           ))}
         </div>
 
         {/* Tab content */}
-        <div style={styles.body}>
+        <div className="qb-body" style={styles.body}>
 
           {/* ── SECTIONS TAB ── */}
           {tab === 'sections' && (
-            <div style={styles.sectionGrid}>
+            <div className="qb-section-grid" style={styles.sectionGrid}>
               {sectionsList.map(section => {
                 const selected = selectedSections.includes(section);
                 return (
@@ -520,7 +599,7 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                     {!collapsed && (
                       <>
                         {/* Column headers */}
-                        <div style={styles.itemRow}>
+                        <div className="qb-desktop-headers" style={styles.itemRow}>
                           <div style={{ ...styles.col, ...styles.colDesc, fontWeight: 600, fontSize: '11px', color: '#888' }}>Description</div>
                           <div style={{ ...styles.col, ...styles.colLW, fontWeight: 600, fontSize: '11px', color: '#888', textAlign: 'center' }}>L (ft)</div>
                           <div style={{ ...styles.col, ...styles.colLW, fontWeight: 600, fontSize: '11px', color: '#888', textAlign: 'center' }}>W (ft)</div>
@@ -531,9 +610,9 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                         </div>
 
                         {sectionItems.map((item, idx) => (
-                          <div key={item._key} style={{ ...styles.itemRow, background: idx % 2 === 0 ? '#fff' : '#fafaf7' }}>
+                          <div key={item._key} className="qb-item-row" style={{ ...styles.itemRow, background: idx % 2 === 0 ? '#fff' : '#fafaf7' }}>
                             {/* Description */}
-                            <div style={{ ...styles.col, ...styles.colDesc }}>
+                            <div className="qb-cell qb-desc-col" style={{ ...styles.col, ...styles.colDesc }}>
                               <input
                                 style={styles.input}
                                 value={item.item_name}
@@ -541,41 +620,56 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                                 onChange={e => updateItem(item._key, { item_name: e.target.value })}
                               />
                             </div>
-                            {/* L */}
-                            <div style={{ ...styles.col, ...styles.colLW }}>
-                              {item.is_lumpsum
-                                ? <span style={styles.dash}>—</span>
-                                : <input style={{ ...styles.input, textAlign: 'center' }} value={item.length_ft} placeholder="0" onChange={e => updateItem(item._key, { length_ft: e.target.value })} />
-                              }
+                            {/* Inputs row */}
+                            <div className="qb-row-inputs" style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
+                              {/* L */}
+                              <div className="qb-cell" style={{ ...styles.col, ...styles.colLW, flexDirection: 'column', alignItems: 'stretch' }}>
+                                <span className="qb-label-hint" style={{ display: 'none' }}>L (ft)</span>
+                                {item.is_lumpsum
+                                  ? <span style={styles.dash}>—</span>
+                                  : <input style={{ ...styles.input, textAlign: 'center' }} value={item.length_ft} placeholder="0" onChange={e => updateItem(item._key, { length_ft: e.target.value })} />
+                                }
+                              </div>
+                              {/* W */}
+                              <div className="qb-cell" style={{ ...styles.col, ...styles.colLW, flexDirection: 'column', alignItems: 'stretch' }}>
+                                <span className="qb-label-hint" style={{ display: 'none' }}>W (ft)</span>
+                                {item.is_lumpsum
+                                  ? <span style={styles.dash}>—</span>
+                                  : <input style={{ ...styles.input, textAlign: 'center' }} value={item.width_ft} placeholder="0" onChange={e => updateItem(item._key, { width_ft: e.target.value })} />
+                                }
+                              </div>
+                              {/* Area */}
+                              <div className="qb-cell" style={{ ...styles.col, ...styles.colArea, flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                                <span className="qb-label-hint" style={{ display: 'none' }}>Area</span>
+                                <div style={{ fontSize: '12px', color: item.is_lumpsum ? '#aaa' : '#333', textAlign: 'center', padding: '4px 0' }}>
+                                  {item.is_lumpsum ? <span style={styles.lsmTag}>LSM</span> : item.area_sqft}
+                                </div>
+                              </div>
+                              {/* Rate */}
+                              <div className="qb-cell" style={{ ...styles.col, ...styles.colRate, flexDirection: 'column', alignItems: 'stretch' }}>
+                                <span className="qb-label-hint" style={{ display: 'none' }}>Rate (₹)</span>
+                                <input
+                                  style={{ ...styles.input, textAlign: 'right' }}
+                                  value={item.rate}
+                                  type="number"
+                                  onChange={e => updateItem(item._key, { rate: parseFloat(e.target.value) || 0 })}
+                                />
+                              </div>
+                              {/* Amount */}
+                              <div className="qb-cell" style={{ ...styles.col, ...styles.colAmt, flexDirection: 'column', alignItems: 'stretch' }}>
+                                <span className="qb-label-hint" style={{ display: 'none' }}>Amount (₹)</span>
+                                <div style={{ textAlign: 'right', fontSize: '12px', fontWeight: 600, color: '#2b2b2b', padding: '4px 0' }}>
+                                  {fmt(item.amount)}
+                                </div>
+                              </div>
+                              {/* Delete */}
+                              <div className="qb-cell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <span className="qb-label-hint" style={{ display: 'none' }}>&nbsp;</span>
+                                <button onClick={() => removeItem(item._key)} style={styles.deleteBtn} title="Remove">
+                                  <FiTrash2 size={13} />
+                                </button>
+                              </div>
                             </div>
-                            {/* W */}
-                            <div style={{ ...styles.col, ...styles.colLW }}>
-                              {item.is_lumpsum
-                                ? <span style={styles.dash}>—</span>
-                                : <input style={{ ...styles.input, textAlign: 'center' }} value={item.width_ft} placeholder="0" onChange={e => updateItem(item._key, { width_ft: e.target.value })} />
-                              }
-                            </div>
-                            {/* Area */}
-                            <div style={{ ...styles.col, ...styles.colArea, textAlign: 'center', fontSize: '12px', color: item.is_lumpsum ? '#aaa' : '#333' }}>
-                              {item.is_lumpsum ? <span style={styles.lsmTag}>LSM</span> : item.area_sqft}
-                            </div>
-                            {/* Rate */}
-                            <div style={{ ...styles.col, ...styles.colRate }}>
-                              <input
-                                style={{ ...styles.input, textAlign: 'right' }}
-                                value={item.rate}
-                                type="number"
-                                onChange={e => updateItem(item._key, { rate: parseFloat(e.target.value) || 0 })}
-                              />
-                            </div>
-                            {/* Amount */}
-                            <div style={{ ...styles.col, ...styles.colAmt, textAlign: 'right', fontSize: '12px', fontWeight: 600, color: '#2b2b2b' }}>
-                              {fmt(item.amount)}
-                            </div>
-                            {/* Delete */}
-                            <button onClick={() => removeItem(item._key)} style={styles.deleteBtn} title="Remove">
-                              <FiTrash2 size={13} />
-                            </button>
                           </div>
                         ))}
 
@@ -682,13 +776,13 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
         </div>
 
         {/* Footer actions */}
-        <div style={styles.footer}>
+        <div className="qb-footer" style={styles.footer}>
           <div style={{ fontSize: '12px', color: '#888' }}>
             {items.length} items · {fmt(subtotal)}
             {discountAmount > 0 && ` − ${fmt(discountAmount)} disc`}
             {discountAmount > 0 && ` = ${fmt(finalAmount)}`}
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="qb-footer-actions" style={{ display: 'flex', gap: '8px' }}>
             {existingQuotation && (
               <button
                 style={styles.printBtn}
