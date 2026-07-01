@@ -482,10 +482,12 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                     style={{ ...styles.sectionCard, ...(selected ? styles.sectionCardActive : {}) }}
                   >
                     <span style={styles.sectionCheck}>{selected ? '✓' : '+'}</span>
-                    <span style={styles.sectionLabel}>{section}</span>
-                    {selected && sectionTotals[section] > 0 && (
-                      <span style={styles.sectionTotal}>{fmt(sectionTotals[section])}</span>
-                    )}
+                    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: '2px' }}>
+                      <span style={styles.sectionLabel}>{section}</span>
+                      {selected && sectionTotals[section] > 0 && (
+                        <span style={styles.sectionTotal}>{fmt(sectionTotals[section])}</span>
+                      )}
+                    </div>
                   </button>
                 );
               })}
@@ -868,7 +870,7 @@ const styles: Record<string, React.CSSProperties> = {
   sectionCard: {
     border: '1.5px solid #e0e0e0', borderRadius: '8px', padding: '12px 10px',
     background: '#fff', cursor: 'pointer', textAlign: 'left', display: 'flex',
-    flexDirection: 'column', gap: '4px', transition: 'all 0.15s',
+    flexDirection: 'row', alignItems: 'center', gap: '10px', transition: 'all 0.15s',
   },
   sectionCardActive: {
     border: '1.5px solid #f5c518', background: '#fffbea',
@@ -909,7 +911,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   deleteBtn: {
     background: 'none', border: 'none', cursor: 'pointer', color: '#ccc',
-    padding: '4px', display: 'flex', alignItems: 'center',
+    padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    width: '28px', height: '28px',
     transition: 'color 0.1s',
   },
   addItemBtn: {
