@@ -52,14 +52,29 @@ export default function QuotationPrintPage() {
   const lead = quotation?.quotation_leads;
 
   const pageRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
-  const [wrapperHeight, setWrapperHeight] = useState<string | number>('auto');
 
-  // Dynamic Page Title
+  // Dynamic Page Title & Mobile Viewport
   useEffect(() => {
     if (lead?.client_name) {
       document.title = `Quotation — ${lead.client_name}`;
     }
+    
+    // Enable native mobile pinch-to-zoom for this document view.
+    // By setting width=840 we ensure the A4 page fits inside initially.
+    let viewportMeta = document.querySelector('meta[name="viewport"]');
+    if (!viewportMeta) {
+      viewportMeta = document.createElement('meta');
+      viewportMeta.setAttribute('name', 'viewport');
+      document.head.appendChild(viewportMeta);
+    }
+    viewportMeta.setAttribute('content', 'width=840, initial-scale=1, maximum-scale=5, user-scalable=yes');
+    
+    return () => {
+      // Revert to strict app viewport on unmount
+      if (viewportMeta) {
+        viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
+      }
+    };
   }, [lead]);
 
   useEffect(() => {
@@ -73,29 +88,6 @@ export default function QuotationPrintPage() {
       })
       .catch(() => { setError('Failed to load quotation'); setLoading(false); });
   }, [id]);
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 840) {
-        const padding = 20;
-        const scaleFactor = (window.innerWidth - padding) / 794; // 210mm ≈ 794px
-        setScale(scaleFactor);
-        if (pageRef.current) {
-          setWrapperHeight(pageRef.current.offsetHeight * scaleFactor + 40);
-        }
-      } else {
-        setScale(1);
-        setWrapperHeight('auto');
-      }
-    };
-    handleResize();
-    const timer = setTimeout(handleResize, 400);
-    window.addEventListener('resize', handleResize);
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      clearTimeout(timer);
-    };
-  }, [quotation]);
 
   if (loading) return <div style={{ textAlign: 'center', padding: '60px', fontFamily: 'Inter, sans-serif' }}>Loading quotation…</div>;
   if (error || !quotation) return <div style={{ textAlign: 'center', padding: '60px', color: '#cc4444' }}>{error || 'Quotation not found'}</div>;
@@ -191,9 +183,6 @@ export default function QuotationPrintPage() {
         .no-print { background: #fff; padding: 10px 0; text-align: right; display: flex; gap: 8px; justify-content: flex-end; }
         
         @media screen and (max-width: 640px) {
-          body {
-            overflow-x: hidden !important;
-          }
           .print-header-actions {
             display: grid !important;
             grid-template-columns: 1fr 1fr !important;
@@ -260,22 +249,8 @@ export default function QuotationPrintPage() {
         </button>
       </div>
 
-      <div 
-        className="page-scale-wrapper" 
-        style={{ 
-          width: '100%', 
-          overflow: 'hidden', 
-          height: wrapperHeight,
-          display: 'flex',
-          justifyContent: scale !== 1 ? 'flex-start' : 'center',
-          padding: scale !== 1 ? '0 10px' : '0'
-        }}
-      >
-        <div 
-          className="page" 
-          ref={pageRef}
-          style={scale !== 1 ? { transform: `scale(${scale})`, transformOrigin: 'top left', boxShadow: 'none', margin: '0' } : {}}
-        >
+      <div className="page-scale-wrapper" style={{ width: '100%', display: 'flex', justifyContent: 'center', background: '#f5f5f5', padding: '20px 0' }}>
+        <div className="page" ref={pageRef}>
           <div className="header-bar" />
           <div className="header">
             <div style={{ background: '#ffffff', padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center' }}>
