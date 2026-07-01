@@ -325,12 +325,15 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
   }
 
   return (
-    <div style={styles.overlay} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="qb-overlay" style={styles.overlay} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <style>{`
         @media (max-width: 640px) {
+          .qb-overlay {
+            padding: 0 !important;
+          }
           .qb-modal {
-            max-height: 100vh !important;
-            height: 100vh !important;
+            max-height: 100dvh !important;
+            height: 100dvh !important;
             border-radius: 0 !important;
             max-width: 100% !important;
             margin: 0 !important;
@@ -390,9 +393,14 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
             padding: 12px 14px !important;
           }
           .qb-footer-actions {
-            display: grid !important;
-            grid-template-columns: 1fr 1fr !important;
+            display: flex !important;
+            flex-direction: column !important;
             gap: 8px !important;
+          }
+          .qb-footer-actions button {
+            width: 100% !important;
+            justify-content: center !important;
+            padding: 12px 10px !important;
           }
           .qb-spec-row {
             flex-direction: column !important;
