@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Fragment } from 'react';
+import { useEffect, useState, Fragment, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Script from 'next/script';
 
@@ -51,6 +51,10 @@ export default function QuotationPrintPage() {
 
   const lead = quotation?.quotation_leads;
 
+  const pageRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [wrapperHeight, setWrapperHeight] = useState<string | number>('auto');
+
   // Dynamic Page Title
   useEffect(() => {
     if (lead?.client_name) {
@@ -69,6 +73,29 @@ export default function QuotationPrintPage() {
       })
       .catch(() => { setError('Failed to load quotation'); setLoading(false); });
   }, [id]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 840) {
+        const padding = 20;
+        const scaleFactor = (window.innerWidth - padding) / 794; // 210mm ≈ 794px
+        setScale(scaleFactor);
+        if (pageRef.current) {
+          setWrapperHeight(pageRef.current.offsetHeight * scaleFactor + 40);
+        }
+      } else {
+        setScale(1);
+        setWrapperHeight('auto');
+      }
+    };
+    handleResize();
+    const timer = setTimeout(handleResize, 400);
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timer);
+    };
+  }, [quotation]);
 
   if (loading) return <div style={{ textAlign: 'center', padding: '60px', fontFamily: 'Inter, sans-serif' }}>Loading quotation…</div>;
   if (error || !quotation) return <div style={{ textAlign: 'center', padding: '60px', color: '#cc4444' }}>{error || 'Quotation not found'}</div>;
@@ -185,173 +212,179 @@ export default function QuotationPrintPage() {
         strategy="lazyOnload" 
       />
 
-      <div className="page">
-        <div className="no-print" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', padding: '10px 0', borderBottom: '1px solid #eee', marginBottom: '10px' }}>
-          <button
-            onClick={handleDownloadPDF}
-            style={{ background: '#4caf50', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 20px', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
-          >
-            📥 Download PDF
-          </button>
-          <button
-            onClick={() => window.print()}
-            style={{ background: '#f5c518', border: 'none', borderRadius: '6px', padding: '8px 20px', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
-          >
-            🖨 Print / Save PDF
-          </button>
-          <button
-            onClick={() => window.close()}
-            style={{ background: '#eee', border: 'none', borderRadius: '6px', padding: '8px 16px', cursor: 'pointer', fontSize: '13px' }}
-          >
-            Close
-          </button>
-        </div>
+      <div className="no-print" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', padding: '10px 16px', background: '#fff', borderBottom: '1px solid #eee', maxWidth: '794px', margin: '0 auto' }}>
+        <button
+          onClick={handleDownloadPDF}
+          style={{ background: '#4caf50', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 20px', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
+        >
+          📥 Download PDF
+        </button>
+        <button
+          onClick={() => window.print()}
+          style={{ background: '#f5c518', border: 'none', borderRadius: '6px', padding: '8px 20px', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
+        >
+          🖨 Print / Save PDF
+        </button>
+        <button
+          onClick={() => window.close()}
+          style={{ background: '#eee', border: 'none', borderRadius: '6px', padding: '8px 16px', cursor: 'pointer', fontSize: '13px' }}
+        >
+          Close
+        </button>
+      </div>
 
-        <div className="header-bar" />
-        <div className="header">
-          <div style={{ background: '#ffffff', padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center' }}>
-            <img 
-              src="/New-logo.png" 
-              alt="Apple Interiors" 
-              style={{ height: '50px', width: 'auto', objectFit: 'contain' }} 
-            />
-          </div>
-          <div className="header-contact">
-            <b>Kukatpally, Hyderabad</b><br />
-            +91 96039 60337 · +91 91606 77899<br />
-            www.appleinteriors.in
-          </div>
-        </div>
-
-        <div className="client-section">
-          <div className="doc-title">Interior Design Quotation</div>
-          <div className="client-grid">
-            <div>
-              <div className="client-row"><span className="client-label">Client Name :</span><span>{lead?.client_name}</span></div>
-              <div className="client-row"><span className="client-label">Phone :</span><span>{lead?.phone}</span></div>
-              <div className="client-row"><span className="client-label">Site Location :</span><span>{lead?.site_project}</span></div>
+      <div className="page-scale-wrapper" style={{ width: '100%', overflow: 'hidden', height: wrapperHeight }}>
+        <div 
+          className="page" 
+          ref={pageRef}
+          style={scale !== 1 ? { transform: `scale(${scale})`, transformOrigin: 'top center', boxShadow: 'none', margin: '0 auto' } : {}}
+        >
+          <div className="header-bar" />
+          <div className="header">
+            <div style={{ background: '#ffffff', padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center' }}>
+              <img 
+                src="/New-logo.png" 
+                alt="Apple Interiors" 
+                style={{ height: '50px', width: 'auto', objectFit: 'contain' }} 
+              />
             </div>
-            <div>
-              <div className="client-row"><span className="client-label">Date :</span><span>{printDate}</span></div>
-              <div className="client-row"><span className="client-label">Ref No :</span><span>{lead?.ref_no}</span></div>
-              <div className="client-row"><span className="client-label">Version :</span><span>v{quotation.version}</span></div>
+            <div className="header-contact">
+              <b>Kukatpally, Hyderabad</b><br />
+              +91 96039 60337 · +91 91606 77899<br />
+              www.appleinteriors.in
             </div>
           </div>
-        </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th className="col-no">#</th>
-              <th>Description of Work</th>
-              <th className="col-l">L (ft)</th>
-              <th className="col-w">W (ft)</th>
-              <th className="col-area">Area (sq.ft)</th>
-              <th className="col-rate">Rate (₹)</th>
-              <th className="col-amt">Amount (₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(sections).map(([section, sItems]) => {
-              const sectionTotal = sItems.reduce((s, i) => s + i.amount, 0);
-              return (
-                <Fragment key={section}>
-                  <tr key={`h-${section}`} className="section-row">
-                    <td colSpan={7}>&nbsp;&nbsp;{section.toUpperCase()}</td>
-                  </tr>
-                  {sItems.map((item: any, idx: number) => (
-                    <tr key={item.id} className={idx % 2 === 0 ? 'item-even' : 'item-odd'}>
-                      <td className="col-no">{idx + 1}</td>
-                      <td>{item.item_name}</td>
-                      <td className="col-l">{item.is_lumpsum ? '—' : (item.length_ft ?? '—')}</td>
-                      <td className="col-w">{item.is_lumpsum ? '—' : (item.width_ft ?? '—')}</td>
-                      <td className="col-area">{item.is_lumpsum ? 1 : item.area_sqft}</td>
-                      <td className="col-rate">{fmt(item.rate)}</td>
-                      <td className="col-amt">{fmt(item.amount)}</td>
+          <div className="client-section">
+            <div className="doc-title">Interior Design Quotation</div>
+            <div className="client-grid">
+              <div>
+                <div className="client-row"><span className="client-label">Client Name :</span><span>{lead?.client_name}</span></div>
+                <div className="client-row"><span className="client-label">Phone :</span><span>{lead?.phone}</span></div>
+                <div className="client-row"><span className="client-label">Site Location :</span><span>{lead?.site_project}</span></div>
+              </div>
+              <div>
+                <div className="client-row"><span className="client-label">Date :</span><span>{printDate}</span></div>
+                <div className="client-row"><span className="client-label">Ref No :</span><span>{lead?.ref_no}</span></div>
+                <div className="client-row"><span className="client-label">Version :</span><span>v{quotation.version}</span></div>
+              </div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th className="col-no">#</th>
+                <th>Description of Work</th>
+                <th className="col-l">L (ft)</th>
+                <th className="col-w">W (ft)</th>
+                <th className="col-area">Area (sq.ft)</th>
+                <th className="col-rate">Rate (₹)</th>
+                <th className="col-amt">Amount (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(sections).map(([section, sItems]) => {
+                const sectionTotal = sItems.reduce((s, i) => s + i.amount, 0);
+                return (
+                  <Fragment key={section}>
+                    <tr key={`h-${section}`} className="section-row">
+                      <td colSpan={7}>&nbsp;&nbsp;{section.toUpperCase()}</td>
                     </tr>
-                  ))}
-                  <tr className="subtotal-row">
-                    <td colSpan={6} style={{ textAlign: 'right', paddingRight: '8px' }}>Sub-Total — {section}</td>
-                    <td className="col-amt">{fmt(sectionTotal)}</td>
-                  </tr>
-                </Fragment>
-              );
-            })}
+                    {sItems.map((item: any, idx: number) => (
+                      <tr key={item.id} className={idx % 2 === 0 ? 'item-even' : 'item-odd'}>
+                        <td className="col-no">{idx + 1}</td>
+                        <td>{item.item_name}</td>
+                        <td className="col-l">{item.is_lumpsum ? '—' : (item.length_ft ?? '—')}</td>
+                        <td className="col-w">{item.is_lumpsum ? '—' : (item.width_ft ?? '—')}</td>
+                        <td className="col-area">{item.is_lumpsum ? 1 : item.area_sqft}</td>
+                        <td className="col-rate">{fmt(item.rate)}</td>
+                        <td className="col-amt">{fmt(item.amount)}</td>
+                      </tr>
+                    ))}
+                    <tr className="subtotal-row">
+                      <td colSpan={6} style={{ textAlign: 'right', paddingRight: '8px' }}>Sub-Total — {section}</td>
+                      <td className="col-amt">{fmt(sectionTotal)}</td>
+                    </tr>
+                  </Fragment>
+                );
+              })}
 
-            {hasDiscount && (
-              <tr style={{ background: '#fff8e1' }}>
-                <td colSpan={6} style={{ textAlign: 'right', padding: '5px 8px', fontStyle: 'italic', color: '#cc4444' }}>
-                  Discount {quotation.discount_type === 'percent' ? `(${quotation.discount_value}%)` : '(Flat)'}
-                </td>
-                <td style={{ textAlign: 'right', padding: '5px 6px', color: '#cc4444', fontWeight: 600 }}>
-                  − {fmt(discountAmt)}
-                </td>
+              {hasDiscount && (
+                <tr style={{ background: '#fff8e1' }}>
+                  <td colSpan={6} style={{ textAlign: 'right', padding: '5px 8px', fontStyle: 'italic', color: '#cc4444' }}>
+                    Discount {quotation.discount_type === 'percent' ? `(${quotation.discount_value}%)` : '(Flat)'}
+                  </td>
+                  <td style={{ textAlign: 'right', padding: '5px 6px', color: '#cc4444', fontWeight: 600 }}>
+                    − {fmt(discountAmt)}
+                  </td>
+                </tr>
+              )}
+
+              <tr className="grand-total">
+                <td colSpan={6} className="lbl">GRAND TOTAL &nbsp;<span style={{ fontSize: '8pt', fontWeight: 400 }}>(Exclusive of GST)</span></td>
+                <td className="val">{fmt(quotation.final_amount)}</td>
               </tr>
-            )}
+            </tbody>
+          </table>
 
-            <tr className="grand-total">
-              <td colSpan={6} className="lbl">GRAND TOTAL &nbsp;<span style={{ fontSize: '8pt', fontWeight: 400 }}>(Exclusive of GST)</span></td>
-              <td className="val">{fmt(quotation.final_amount)}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div className="section-heading">PAYMENT SCHEDULE</div>
-        <table className="payment-table">
-          <thead>
-            <tr>
-              <th>Stage</th>
-              <th>Milestone</th>
-              <th style={{ textAlign: 'center' }}>Percentage</th>
-              <th style={{ textAlign: 'right' }}>Amount (₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {PAYMENT_STAGES.map(({ stage, label, pct }, idx) => (
-              <tr key={stage} className={idx % 2 === 0 ? 'pay-even' : 'pay-odd'}>
-                <td style={{ fontWeight: 600 }}>{stage}</td>
-                <td>{label}</td>
-                <td style={{ textAlign: 'center' }}>{pct}%</td>
-                <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt((quotation.final_amount * pct) / 100)}</td>
+          <div className="section-heading">PAYMENT SCHEDULE</div>
+          <table className="payment-table">
+            <thead>
+              <tr>
+                <th>Stage</th>
+                <th>Milestone</th>
+                <th style={{ textAlign: 'center' }}>Percentage</th>
+                <th style={{ textAlign: 'right' }}>Amount (₹)</th>
               </tr>
-            ))}
-            <tr className="pay-total">
-              <td colSpan={3} style={{ textAlign: 'right' }}>Total</td>
-              <td style={{ textAlign: 'right' }}>{fmt(quotation.final_amount)}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div className="section-heading">MATERIAL & HARDWARE SPECIFICATIONS</div>
-        <table className="spec-table">
-          <tbody>
-            {(quotation.material_specs 
-              ? (Object.entries(quotation.material_specs) as [string, string][])
-              : MATERIAL_SPECS
-            ).map(([label, value], idx) => (
-              <tr key={label} className={idx % 2 !== 0 ? 'spec-odd' : ''}>
-                <td className="spec-label">{label}</td>
-                <td>{value}</td>
+            </thead>
+            <tbody>
+              {PAYMENT_STAGES.map(({ stage, label, pct }, idx) => (
+                <tr key={stage} className={idx % 2 === 0 ? 'pay-even' : 'pay-odd'}>
+                  <td style={{ fontWeight: 600 }}>{stage}</td>
+                  <td>{label}</td>
+                  <td style={{ textAlign: 'center' }}>{pct}%</td>
+                  <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt((quotation.final_amount * pct) / 100)}</td>
+                </tr>
+              ))}
+              <tr className="pay-total">
+                <td colSpan={3} style={{ textAlign: 'right' }}>Total</td>
+                <td style={{ textAlign: 'right' }}>{fmt(quotation.final_amount)}</td>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
 
-        <div className="section-heading">TERMS & CONDITIONS</div>
-        <div style={{ padding: '8px 10px' }}>
-          <ol className="terms-list">
-            {TERMS.map((t, i) => <li key={i}>{t}</li>)}
-          </ol>
-        </div>
+          <div className="section-heading">MATERIAL & HARDWARE SPECIFICATIONS</div>
+          <table className="spec-table">
+            <tbody>
+              {(quotation.material_specs 
+                ? (Object.entries(quotation.material_specs) as [string, string][])
+                : MATERIAL_SPECS
+              ).map(([label, value], idx) => (
+                <tr key={label} className={idx % 2 !== 0 ? 'spec-odd' : ''}>
+                  <td className="spec-label">{label}</td>
+                  <td>{value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-        {quotation.notes && (
-          <div style={{ padding: '8px 10px', fontStyle: 'italic', color: '#888', fontSize: '8pt' }}>
-            Note: {quotation.notes}
+          <div className="section-heading">TERMS & CONDITIONS</div>
+          <div style={{ padding: '8px 10px' }}>
+            <ol className="terms-list">
+              {TERMS.map((t, i) => <li key={i}>{t}</li>)}
+            </ol>
           </div>
-        )}
 
-        <div className="footer-bar">
-          <b>Apple Interiors</b> · Kukatpally, Hyderabad · +91 96039 60337 · www.appleinteriors.in
+          {quotation.notes && (
+            <div style={{ padding: '8px 10px', fontStyle: 'italic', color: '#888', fontSize: '8pt' }}>
+              Note: {quotation.notes}
+            </div>
+          )}
+
+          <div className="footer-bar">
+            <b>Apple Interiors</b> · Kukatpally, Hyderabad · +91 96039 60337 · www.appleinteriors.in
+          </div>
         </div>
       </div>
     </>
