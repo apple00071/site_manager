@@ -85,12 +85,15 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const [existingQuotation, setExistingQuotation] = useState<any>(null);
 
+  const [customSections, setCustomSections] = useState<string[]>([]);
+
   // Selected sections (ordered list matters for display)
-  const allSections = useMemo(() => {
+  const sectionsList = useMemo(() => {
     const seen = new Set<string>();
     rateCard.forEach(r => seen.add(r.section));
+    customSections.forEach(s => seen.add(s));
     return Array.from(seen);
-  }, [rateCard]);
+  }, [rateCard, customSections]);
 
   const [selectedSections, setSelectedSections] = useState<string[]>([]);
   const [items, setItems] = useState<QuotationItem[]>([]);
@@ -116,7 +119,8 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
       const rcData = await rcRes.json();
       const qData = await qRes.json();
 
-      setRateCard(rcData.data || []);
+      const standardRateCard: RateCardItem[] = rcData.data || [];
+      setRateCard(standardRateCard);
 
       const quotations: any[] = qData.data || [];
       setAllQuotations(quotations);
@@ -144,6 +148,12 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
             rate: i.rate,
             amount: i.amount,
           }));
+
+        // Determine custom sections
+        const savedSections = [...new Set(savedItems.map(i => i.section))];
+        const standardSections = new Set(standardRateCard.map(r => r.section));
+        const extraSections = savedSections.filter(s => !standardSections.has(s));
+        setCustomSections(extraSections);
 
         const usedSections = [...new Set(savedItems.map(i => i.section))];
         setSelectedSections(usedSections);
@@ -178,6 +188,12 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
         rate: i.rate,
         amount: i.amount,
       }));
+
+    // Determine custom sections
+    const savedSections = [...new Set(savedItems.map(i => i.section))];
+    const standardSections = new Set(rateCard.map(r => r.section));
+    const extraSections = savedSections.filter(s => !standardSections.has(s));
+    setCustomSections(extraSections);
 
     const usedSections = [...new Set(savedItems.map(i => i.section))];
     setSelectedSections(usedSections);
@@ -362,7 +378,7 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
           {/* ── SECTIONS TAB ── */}
           {tab === 'sections' && (
             <div style={styles.sectionGrid}>
-              {allSections.map(section => {
+              {sectionsList.map(section => {
                 const selected = selectedSections.includes(section);
                 return (
                   <button
@@ -378,14 +394,68 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                   </button>
                 );
               })}
+              <button
+                onClick={() => {
+                  const name = prompt('Enter custom section name (e.g. Balcony, Home Theatre, Bar Area):');
+                  if (name && name.trim()) {
+                    const trimmed = name.trim();
+                    if (sectionsList.includes(trimmed)) {
+                      return alert('Section already exists.');
+                    }
+                    setCustomSections(prev => [...prev, trimmed]);
+                    setSelectedSections(prev => [...prev, trimmed]);
+                  }
+                }}
+                style={{
+                  ...styles.sectionCard,
+                  border: '2px dashed #dcdcdc',
+                  background: '#fafafa',
+                  color: '#666',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <span style={{ fontSize: '18px', fontWeight: 'bold' }}>+</span>
+                <span style={{ fontSize: '12px', fontWeight: 600 }}>Add Custom Section</span>
+              </button>
             </div>
           )}
 
           {/* ── SPECS TAB ── */}
           {tab === 'specs' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '55vh', overflowY: 'auto', paddingRight: '6px' }}>
-              <div style={{ fontSize: '12px', color: '#666', marginBottom: '6px', fontStyle: 'italic' }}>
-                Modify the material and hardware specifications for this quotation:
+              <div style={{ fontSize: '12px', color: '#666', marginBottom: '6px', fontStyle: 'italic', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Modify the material and hardware specifications for this quotation:</span>
+                <button
+                  onClick={() => {
+                    const label = prompt('Enter custom specification name (e.g., Plumbing, Paint Brand, Lighting):');
+                    if (label && label.trim()) {
+                      const trimmed = label.trim();
+                      if (materialSpecs[trimmed] !== undefined) {
+                        return alert('Specification already exists.');
+                      }
+                      setMaterialSpecs(prev => ({ ...prev, [trimmed]: '' }));
+                    }
+                  }}
+                  style={{
+                    background: '#f5c518',
+                    color: '#2b2b2b',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '4px 10px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <FiPlus size={10} /> Add Spec Row
+                </button>
               </div>
               {Object.entries(materialSpecs).map(([label, value]) => (
                 <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid #f5f5f5', paddingBottom: '8px' }}>
@@ -403,6 +473,29 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                     value={value}
                     onChange={(e) => setMaterialSpecs(prev => ({ ...prev, [label]: e.target.value }))}
                   />
+                  <button
+                    onClick={() => {
+                      if (confirm(`Remove "${label}" from specifications?`)) {
+                        setMaterialSpecs(prev => {
+                          const copy = { ...prev };
+                          delete copy[label];
+                          return copy;
+                        });
+                      }
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#ef4444',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      display: 'flex',
+                      alignItems: 'center'
+                    }}
+                    title="Delete specification row"
+                  >
+                    <FiTrash2 size={14} />
+                  </button>
                 </div>
               ))}
             </div>
