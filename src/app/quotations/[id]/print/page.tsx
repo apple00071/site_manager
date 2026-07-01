@@ -189,6 +189,33 @@ export default function QuotationPrintPage() {
         .footer-bar { background: #2b2b2b; color: #999; text-align: center; font-size: 7pt; padding: 6px; margin-top: 14px; }
         .footer-bar b { color: #f5c518; }
         .no-print { background: #fff; padding: 10px 0; text-align: right; display: flex; gap: 8px; justify-content: flex-end; }
+        
+        @media screen and (max-width: 640px) {
+          body {
+            overflow-x: hidden !important;
+          }
+          .print-header-actions {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 8px !important;
+            padding: 10px !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+          }
+          .print-header-actions button {
+            width: 100% !important;
+            padding: 10px 6px !important;
+            font-size: 11px !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+          }
+          .print-header-actions button:last-child {
+            grid-column: span 2 !important;
+          }
+        }
+
         @media print {
           html, body {
             height: auto !important;
@@ -203,7 +230,7 @@ export default function QuotationPrintPage() {
           }
           body { background: #fff; }
           .no-print { display: none !important; }
-          .page { box-shadow: none; padding: 10mm 12mm; width: 100%; margin: 0; }
+          .page { box-shadow: none; padding: 10mm 12mm; width: 100% !important; margin: 0 !important; transform: none !important; }
         }
       `}</style>
 
@@ -212,7 +239,7 @@ export default function QuotationPrintPage() {
         strategy="lazyOnload" 
       />
 
-      <div className="no-print" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', padding: '10px 16px', background: '#fff', borderBottom: '1px solid #eee', maxWidth: '794px', margin: '0 auto' }}>
+      <div className="no-print print-header-actions" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', padding: '10px 16px', background: '#fff', borderBottom: '1px solid #eee', maxWidth: '794px', margin: '0 auto' }}>
         <button
           onClick={handleDownloadPDF}
           style={{ background: '#4caf50', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 20px', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
@@ -233,11 +260,21 @@ export default function QuotationPrintPage() {
         </button>
       </div>
 
-      <div className="page-scale-wrapper" style={{ width: '100%', overflow: 'hidden', height: wrapperHeight }}>
+      <div 
+        className="page-scale-wrapper" 
+        style={{ 
+          width: '100%', 
+          overflow: 'hidden', 
+          height: wrapperHeight,
+          display: 'flex',
+          justifyContent: scale !== 1 ? 'flex-start' : 'center',
+          padding: scale !== 1 ? '0 10px' : '0'
+        }}
+      >
         <div 
           className="page" 
           ref={pageRef}
-          style={scale !== 1 ? { transform: `scale(${scale})`, transformOrigin: 'top center', boxShadow: 'none', margin: '0 auto' } : {}}
+          style={scale !== 1 ? { transform: `scale(${scale})`, transformOrigin: 'top left', boxShadow: 'none', margin: '0' } : {}}
         >
           <div className="header-bar" />
           <div className="header">
