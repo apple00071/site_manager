@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS public.rate_card (
 
 -- RLS
 ALTER TABLE public.rate_card ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rate_card_read" ON public.rate_card;
+DROP POLICY IF EXISTS "rate_card_write" ON public.rate_card;
 CREATE POLICY "rate_card_read" ON public.rate_card FOR SELECT TO authenticated USING (true);
 CREATE POLICY "rate_card_write" ON public.rate_card FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
@@ -39,6 +41,8 @@ CREATE TABLE IF NOT EXISTS public.quotations (
 );
 
 ALTER TABLE public.quotations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "quotations_read" ON public.quotations;
+DROP POLICY IF EXISTS "quotations_write" ON public.quotations;
 CREATE POLICY "quotations_read" ON public.quotations FOR SELECT TO authenticated USING (true);
 CREATE POLICY "quotations_write" ON public.quotations FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
@@ -61,6 +65,8 @@ CREATE TABLE IF NOT EXISTS public.quotation_items (
 );
 
 ALTER TABLE public.quotation_items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "quotation_items_read" ON public.quotation_items;
+DROP POLICY IF EXISTS "quotation_items_write" ON public.quotation_items;
 CREATE POLICY "quotation_items_read" ON public.quotation_items FOR SELECT TO authenticated USING (true);
 CREATE POLICY "quotation_items_write" ON public.quotation_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
 

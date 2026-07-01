@@ -587,7 +587,7 @@ export default function CRMPage() {
 
   // Keyboard navigation inside sheet
   useEffect(() => {
-    if (!selectedCell || isEditing) return;
+    if (!selectedCell || isEditing || quotationLead) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const { rowIndex, colIndex } = selectedCell;
@@ -1007,6 +1007,25 @@ export default function CRMPage() {
                     <FiEdit className="h-3.5 w-3.5" /> Edit Details
                   </button>
                   <button
+                    onClick={() => {
+                      if (!selectedCell) return;
+                      const lead = filteredLeads[selectedCell.rowIndex];
+                      if (lead) setQuotationLead(lead);
+                    }}
+                    disabled={!selectedCell}
+                    className={`px-3 py-1.5 font-bold rounded-lg text-xs flex items-center gap-1.5 border transition-all ${
+                      selectedCell 
+                        ? 'bg-yellow-50 hover:bg-yellow-100 border-yellow-200 text-yellow-700 cursor-pointer active:scale-95 shadow-sm font-black' 
+                        : 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed'
+                    }`}
+                  >
+                    📄 {(() => {
+                      if (!selectedCell) return 'Quotation';
+                      const lead = filteredLeads[selectedCell.rowIndex];
+                      return lead?.latest_quotation_id ? `Quotation (v${lead.quote_version || 1})` : 'Create Quotation';
+                    })()}
+                  </button>
+                  <button
                     onClick={handleAddLead}
                     className="px-3.5 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg text-xs transition-colors flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
                   >
@@ -1069,8 +1088,9 @@ export default function CRMPage() {
               <thead>
                 <tr className="bg-gray-100 text-gray-500 font-bold select-none text-center divide-x divide-gray-200 sticky top-0 z-20">
                   {/* Left row index header spacer */}
-                  <th className="w-10 bg-gray-200 border-b border-gray-300 font-black text-[10px]"></th>
-                  {hasPermission('crm.manage') && <th className="w-8 bg-gray-200 border-b border-gray-300" />}
+                  <th className="w-10 bg-gray-200 border-b border-gray-300 font-black text-[10px]">Sl.
+                    <span className="block text-[8px] text-gray-400 font-bold">No.</span>
+                  </th>
                   {columns.map((col, idx) => (
                     <th 
                       key={col.id} 
@@ -1127,8 +1147,8 @@ export default function CRMPage() {
                         )}
 
                         <tr className={collapsedMonths[monthGroupName] ? 'hidden' : 'hover:bg-gray-50/30 transition-colors divide-x divide-gray-200'}>
-                          {/* Row Index Header */}
-                          <td className="w-10 text-center font-black text-gray-400 bg-gray-50 border-r border-gray-300 py-2 select-none">
+                          {/* Row Index / Sl. No. */}
+                          <td className="w-10 text-center font-black text-gray-400 bg-gray-50 border-r border-gray-300 py-2 select-none align-middle" style={{ verticalAlign: 'middle' }}>
                             {rowIndex + 1}
                           </td>
 
@@ -1147,14 +1167,14 @@ export default function CRMPage() {
                                   setIsEditing(false);
                                 }}
                                 onDoubleClick={() => startEditCell(rowIndex, colIndex)}
-                                className={`px-2 py-1.5 relative select-none min-h-[36px] transition-colors cursor-cell ${
+                                className={`px-2 py-1.5 relative select-none align-middle transition-colors cursor-cell ${
                                   col.id === 'site_project' || col.id === 'remarks' || col.id.startsWith('follow_up')
                                     ? 'whitespace-normal break-words'
                                     : 'truncate'
                                 } ${
                                   isCellSelected && !isCellEditing ? 'ring-2 ring-blue-500 ring-inset bg-blue-50/15' : ''
                                 } ${col.id === 'ref_no' ? 'text-gray-400 font-bold text-center' : ''}`}
-                                style={{ width: col.width, height: '36px' }}
+                                style={{ width: col.width, minHeight: '36px', verticalAlign: 'middle' }}
                               >
                                 {isCellEditing ? (
                                   col.type === 'status' ? (
@@ -1224,22 +1244,6 @@ export default function CRMPage() {
                               </td>
                             );
                           })}
-                          {/* Quotation action button */}
-                          {hasPermission('crm.manage') && (
-                            <td className="w-8 px-1 text-center border-l border-gray-200">
-                              <button
-                                title={lead.latest_quotation_id ? 'View / Revise Quotation' : 'Build Quotation'}
-                                onClick={(e) => { e.stopPropagation(); setQuotationLead(lead); }}
-                                className={`text-xs rounded px-1 py-0.5 transition-colors ${
-                                  lead.latest_quotation_id
-                                    ? 'text-yellow-600 hover:bg-yellow-50 font-bold'
-                                    : 'text-gray-300 hover:text-gray-500 hover:bg-gray-50'
-                                }`}
-                              >
-                                📄
-                              </button>
-                            </td>
-                          )}
                         </tr>
                       </Fragment>
                     );

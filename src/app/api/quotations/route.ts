@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
-  const { lead_id, items, discount_type, discount_value, notes } = body;
+  const { lead_id, items, discount_type, discount_value, notes, material_specs } = body;
 
   if (!lead_id || !Array.isArray(items)) {
     return NextResponse.json({ error: 'lead_id and items required' }, { status: 400 });
@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
       discount_value: discVal,
       final_amount: finalAmount,
       notes: notes || '',
+      material_specs: material_specs || null,
       created_by: user.id,
     })
     .select()

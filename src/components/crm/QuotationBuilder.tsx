@@ -58,10 +58,28 @@ function computeAmount(item: QuotationItem): number {
 let _keyCounter = 0;
 const newKey = () => `item_${++_keyCounter}_${Date.now()}`;
 
+const DEFAULT_MATERIAL_SPECS: Record<string, string> = {
+  'Plywood': '18mm BWP Ply — DT Platinum',
+  'Outer Laminate': '1.0mm thick up to ₹1,600/sheet — Glossy or Matt finish',
+  'Inner Laminate': '0.8mm Fabric Liner',
+  'Edge Finish': '2mm thick PVC edge tape',
+  'Hinges': 'Hettich',
+  'Channels': 'Hettich',
+  'Handles': 'SS finish — small up to ₹100, big up to ₹250',
+  'Glass': 'Modi Guard / Saint Gobain',
+  'Drawers': '2 per bedroom wardrobe — ₹3,000 extra per drawer',
+  'Kitchen Ply': 'Royale Touche (lifetime warranty) for base; 710 Gurjan BWP elsewhere',
+  'Kitchen Shutters': '1mm High Glossy Laminate; 0.8mm Fabric Liner inside',
+  'Kitchen Accessories': 'Sleek brand tandem baskets',
+  'False Ceiling Board': 'Saint Gobain Gyproc 12mm Gypsum',
+  'FC Channels': 'Ultra channels 0.4 & 0.6mm',
+  'Wiring': 'Finolex or equivalent grade, flexible piping',
+};
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
-  const [tab, setTab] = useState<'sections' | 'items' | 'summary'>('sections');
+  const [tab, setTab] = useState<'sections' | 'items' | 'specs' | 'summary'>('sections');
   const [rateCard, setRateCard] = useState<RateCardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -82,6 +100,10 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
   const [discountType, setDiscountType] = useState<'none' | 'percent' | 'flat'>('none');
   const [discountValue, setDiscountValue] = useState('');
   const [notes, setNotes] = useState('');
+  const [materialSpecs, setMaterialSpecs] = useState<Record<string, string>>(DEFAULT_MATERIAL_SPECS);
+
+  const [allQuotations, setAllQuotations] = useState<any[]>([]);
+  const [selectedQuoteId, setSelectedQuoteId] = useState<string>('');
 
   // ── Load rate card + existing quotation ──────────────────────────────────
   useEffect(() => {
@@ -97,12 +119,15 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
       setRateCard(rcData.data || []);
 
       const quotations: any[] = qData.data || [];
+      setAllQuotations(quotations);
       if (quotations.length > 0) {
         const latest = quotations[0]; // ordered by version desc
         setExistingQuotation(latest);
+        setSelectedQuoteId(latest.id);
         setDiscountType(latest.discount_type || 'none');
         setDiscountValue(latest.discount_value ? String(latest.discount_value) : '');
         setNotes(latest.notes || '');
+        setMaterialSpecs(latest.material_specs || DEFAULT_MATERIAL_SPECS);
 
         // Rebuild items from saved quotation
         const savedItems: QuotationItem[] = (latest.quotation_items || [])
@@ -128,6 +153,36 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
     }
     load();
   }, [lead.id]);
+
+  const handleSwitchVersion = (id: string) => {
+    const selected = allQuotations.find(q => q.id === id);
+    if (!selected) return;
+    setExistingQuotation(selected);
+    setSelectedQuoteId(selected.id);
+    setDiscountType(selected.discount_type || 'none');
+    setDiscountValue(selected.discount_value ? String(selected.discount_value) : '');
+    setNotes(selected.notes || '');
+    setMaterialSpecs(selected.material_specs || DEFAULT_MATERIAL_SPECS);
+
+    const savedItems: QuotationItem[] = (selected.quotation_items || [])
+      .sort((a: any, b: any) => a.sort_order - b.sort_order)
+      .map((i: any) => ({
+        _key: newKey(),
+        section: i.section,
+        item_name: i.item_name,
+        is_lumpsum: i.is_lumpsum,
+        length_ft: i.length_ft != null ? String(i.length_ft) : '',
+        width_ft: i.width_ft != null ? String(i.width_ft) : '',
+        area_sqft: i.area_sqft,
+        unit: i.unit,
+        rate: i.rate,
+        amount: i.amount,
+      }));
+
+    const usedSections = [...new Set(savedItems.map(i => i.section))];
+    setSelectedSections(usedSections);
+    setItems(savedItems);
+  };
 
   // ── Toggle section ────────────────────────────────────────────────────────
   const toggleSection = useCallback((section: string) => {
@@ -227,6 +282,7 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
           discount_type: discountType,
           discount_value: parseFloat(discountValue) || 0,
           notes,
+          material_specs: materialSpecs,
         }),
       });
       const data = await res.json();
@@ -259,9 +315,31 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
         <div style={styles.header}>
           <div>
             <div style={styles.headerTitle}>Quotation Builder</div>
-            <div style={styles.headerSub}>
-              {lead.client_name} · {lead.ref_no}
-              {existingQuotation && <span style={styles.versionBadge}>v{existingQuotation.version} (revising)</span>}
+            <div style={{ ...styles.headerSub, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '2px' }}>
+              <span>{lead.client_name} · {lead.ref_no}</span>
+              {allQuotations.length > 0 && (
+                <select
+                  value={selectedQuoteId}
+                  onChange={(e) => handleSwitchVersion(e.target.value)}
+                  style={{
+                    background: '#3a3a3a',
+                    color: '#fff',
+                    border: '1px solid #555',
+                    borderRadius: '4px',
+                    padding: '2px 6px',
+                    fontSize: '11px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    fontWeight: 600
+                  }}
+                >
+                  {allQuotations.map((q) => (
+                    <option key={q.id} value={q.id}>
+                      v{q.version} ({new Date(q.created_at).toLocaleDateString('en-IN')})
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
           <button onClick={onClose} style={styles.closeBtn}><FiX size={20} /></button>
@@ -269,9 +347,9 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
 
         {/* Tabs */}
         <div style={styles.tabs}>
-          {(['sections', 'items', 'summary'] as const).map(t => (
+          {(['sections', 'items', 'specs', 'summary'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)} style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}) }}>
-              {t.charAt(0).toUpperCase() + t.slice(1)}
+              {t === 'specs' ? 'Specs' : t.charAt(0).toUpperCase() + t.slice(1)}
               {t === 'items' && items.length > 0 && <span style={styles.tabBadge}>{items.length}</span>}
               {t === 'summary' && subtotal > 0 && <span style={styles.tabBadge}>{fmt(finalAmount)}</span>}
             </button>
@@ -300,6 +378,33 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                   </button>
                 );
               })}
+            </div>
+          )}
+
+          {/* ── SPECS TAB ── */}
+          {tab === 'specs' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '55vh', overflowY: 'auto', paddingRight: '6px' }}>
+              <div style={{ fontSize: '12px', color: '#666', marginBottom: '6px', fontStyle: 'italic' }}>
+                Modify the material and hardware specifications for this quotation:
+              </div>
+              {Object.entries(materialSpecs).map(([label, value]) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid #f5f5f5', paddingBottom: '8px' }}>
+                  <span style={{ width: '140px', fontSize: '12px', fontWeight: 600, color: '#333', flexShrink: 0 }}>{label}</span>
+                  <input
+                    style={{
+                      flex: 1,
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      padding: '5px 8px',
+                      fontSize: '12px',
+                      color: '#444',
+                      outline: 'none',
+                    }}
+                    value={value}
+                    onChange={(e) => setMaterialSpecs(prev => ({ ...prev, [label]: e.target.value }))}
+                  />
+                </div>
+              ))}
             </div>
           )}
 
@@ -496,7 +601,7 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                 style={styles.printBtn}
                 onClick={() => window.open(`/quotations/${existingQuotation.id}/print`, '_blank')}
               >
-                <FiPrinter size={14} /> Print current
+                <FiPrinter size={14} /> Print v{existingQuotation.version}
               </button>
             )}
             <button
@@ -542,7 +647,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   tabs: { display: 'flex', borderBottom: '2px solid #f0f0f0', background: '#fafafa' },
   tab: {
-    padding: '10px 20px', border: 'none', background: 'none', cursor: 'pointer',
+    padding: '10px 20px', borderBottom: '2px solid transparent', background: 'none', cursor: 'pointer',
     fontSize: '13px', color: '#666', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px',
   },
   tabActive: { color: '#2b2b2b', fontWeight: 700, borderBottom: '2px solid #f5c518', marginBottom: '-2px' },

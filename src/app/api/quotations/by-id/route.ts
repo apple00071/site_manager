@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabaseAdmin
     .from('quotations')
-    .select('*, quotation_items(*), quotation_leads(*)')
+    .select('*, quotation_items(*), quotation_leads!lead_id(*)')
     .eq('id', id)
     .single();
 

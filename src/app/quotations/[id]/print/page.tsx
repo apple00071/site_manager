@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import { useParams } from 'next/navigation';
 
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
@@ -81,6 +81,7 @@ export default function QuotationPrintPage() {
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        @page { size: A4 portrait; margin: 0; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Inter', Arial, sans-serif; font-size: 9pt; color: #1a1a1a; background: #f5f5f5; }
         .page { width: 210mm; margin: 0 auto; background: #fff; padding: 10mm 12mm; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
@@ -122,9 +123,20 @@ export default function QuotationPrintPage() {
         .footer-bar b { color: #f5c518; }
         .no-print { background: #fff; padding: 10px 0; text-align: right; display: flex; gap: 8px; justify-content: flex-end; }
         @media print {
+          html, body {
+            height: auto !important;
+            overflow: visible !important;
+            overflow-x: visible !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
           body { background: #fff; }
           .no-print { display: none !important; }
-          .page { box-shadow: none; padding: 6mm 8mm; }
+          .page { box-shadow: none; padding: 10mm 12mm; width: 100%; margin: 0; }
         }
       `}</style>
 
@@ -146,7 +158,13 @@ export default function QuotationPrintPage() {
 
         <div className="header-bar" />
         <div className="header">
-          <div className="header-title">APPLE INTERIORS</div>
+          <div style={{ background: '#ffffff', padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center' }}>
+            <img 
+              src="/New-logo.png" 
+              alt="Apple Interiors" 
+              style={{ height: '50px', width: 'auto', objectFit: 'contain' }} 
+            />
+          </div>
           <div className="header-contact">
             <b>Kukatpally, Hyderabad</b><br />
             +91 96039 60337 · +91 91606 77899<br />
@@ -186,7 +204,7 @@ export default function QuotationPrintPage() {
             {Object.entries(sections).map(([section, sItems]) => {
               const sectionTotal = sItems.reduce((s, i) => s + i.amount, 0);
               return (
-                <>
+                <Fragment key={section}>
                   <tr key={`h-${section}`} className="section-row">
                     <td colSpan={7}>&nbsp;&nbsp;{section.toUpperCase()}</td>
                   </tr>
@@ -205,7 +223,7 @@ export default function QuotationPrintPage() {
                     <td colSpan={6} style={{ textAlign: 'right', paddingRight: '8px' }}>Sub-Total — {section}</td>
                     <td className="col-amt">{fmt(sectionTotal)}</td>
                   </tr>
-                </>
+                </Fragment>
               );
             })}
 
@@ -256,7 +274,10 @@ export default function QuotationPrintPage() {
         <div className="section-heading">MATERIAL & HARDWARE SPECIFICATIONS</div>
         <table className="spec-table">
           <tbody>
-            {MATERIAL_SPECS.map(([label, value], idx) => (
+            {(quotation.material_specs 
+              ? (Object.entries(quotation.material_specs) as [string, string][])
+              : MATERIAL_SPECS
+            ).map(([label, value], idx) => (
               <tr key={label} className={idx % 2 !== 0 ? 'spec-odd' : ''}>
                 <td className="spec-label">{label}</td>
                 <td>{value}</td>
