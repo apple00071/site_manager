@@ -94,7 +94,7 @@ export default function QuotationPrintPage() {
 
   const items: any[] = (quotation.quotation_items || []).sort((a: any, b: any) => a.sort_order - b.sort_order);
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     const element = document.querySelector('.page');
     if (!element) return;
     
@@ -117,12 +117,45 @@ export default function QuotationPrintPage() {
       jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    html2pdf().from(element).set(opt).save().then(() => {
+    try {
+      // 1. Generate PDF as Blob
+      const worker = html2pdf().from(element).set(opt);
+      const pdfBlob = await worker.output('blob');
+      
       if (noPrint) noPrint.style.display = '';
-    }).catch((err: any) => {
-      console.error(err);
+
+      const fileName = opt.filename;
+      const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+      // 2. Try Native Web Share API (Crucial for Android App WebViews)
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: fileName,
+            text: 'Here is the interior quotation PDF.'
+          });
+          return; // Success! Share sheet handled it natively
+        } catch (shareErr) {
+          console.log('Share cancelled or failed', shareErr);
+          // Fall through to fallback
+        }
+      }
+
+      // 3. Fallback: Standard Browser Download
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('PDF generation error:', err);
       if (noPrint) noPrint.style.display = '';
-    });
+      alert('Failed to generate PDF. Please try again.');
+    }
   };
 
   // Group by section
@@ -236,7 +269,14 @@ export default function QuotationPrintPage() {
           📥 Download PDF
         </button>
         <button
-          onClick={() => window.print()}
+          onClick={() => {
+            if (window.innerWidth < 800) {
+              // Android webviews don't support window.print(). Route them to the share/download flow instead.
+              handleDownloadPDF();
+            } else {
+              window.print();
+            }
+          }}
           style={{ background: '#f5c518', border: 'none', borderRadius: '6px', padding: '8px 20px', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
         >
           🖨 Print / Save PDF
