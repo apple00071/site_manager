@@ -327,16 +327,24 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
   return (
     <div className="qb-overlay" style={styles.overlay} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <style>{`
+        @keyframes slideUpSheet {
+          from { transform: translateY(100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
         @media (max-width: 640px) {
           .qb-overlay {
             padding: 0 !important;
+            align-items: flex-end !important;
           }
           .qb-modal {
-            max-height: 100dvh !important;
-            height: 100dvh !important;
-            border-radius: 0 !important;
+            max-height: 92dvh !important;
+            height: auto !important;
+            border-radius: 24px 24px 0 0 !important;
             max-width: 100% !important;
             margin: 0 !important;
+            animation: slideUpSheet 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+            display: flex !important;
+            flex-direction: column !important;
           }
           .qb-header {
             padding: 10px 14px !important;
