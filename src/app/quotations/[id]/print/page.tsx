@@ -48,6 +48,9 @@ export default function QuotationPrintPage() {
   const [quotation, setQuotation] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  
+  const [pdfReadyFile, setPdfReadyFile] = useState<File | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const lead = quotation?.quotation_leads;
 
@@ -109,6 +112,8 @@ export default function QuotationPrintPage() {
       return;
     }
 
+    setIsGeneratingPdf(true);
+
     const opt = {
       margin:       0,
       filename:     `Quotation_${lead?.client_name || 'Client'}.pdf`,
@@ -118,7 +123,6 @@ export default function QuotationPrintPage() {
     };
 
     try {
-      // 1. Generate PDF as Blob
       const worker = html2pdf().from(element).set(opt);
       const pdfBlob = await worker.output('blob');
       
@@ -127,35 +131,54 @@ export default function QuotationPrintPage() {
       const fileName = opt.filename;
       const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
-      // 2. Try Native Web Share API (Crucial for Android App WebViews)
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({
-            files: [file],
-            title: fileName,
-            text: 'Here is the interior quotation PDF.'
-          });
-          return; // Success! Share sheet handled it natively
-        } catch (shareErr) {
-          console.log('Share cancelled or failed', shareErr);
-          // Fall through to fallback
-        }
+      // Mobile: Wait for synchronous user tap to bypass WebView security block
+      if (window.innerWidth < 800) {
+        setPdfReadyFile(file);
+      } else {
+        // Desktop: Download normally
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        URL.revokeObjectURL(url);
       }
-
-      // 3. Fallback: Standard Browser Download
-      const url = URL.createObjectURL(pdfBlob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      URL.revokeObjectURL(url);
     } catch (err) {
       console.error('PDF generation error:', err);
       if (noPrint) noPrint.style.display = '';
       alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setIsGeneratingPdf(false);
     }
+  };
+
+  const executeNativeShare = async () => {
+    if (!pdfReadyFile) return;
+    
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfReadyFile] })) {
+      try {
+        await navigator.share({
+          files: [pdfReadyFile],
+          title: pdfReadyFile.name,
+          text: 'Here is the interior quotation PDF.'
+        });
+      } catch (shareErr) {
+        console.log('Share cancelled or failed', shareErr);
+      }
+    } else {
+      // Fallback
+      const url = URL.createObjectURL(pdfReadyFile);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = pdfReadyFile.name;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    setPdfReadyFile(null); // Close modal
   };
 
   // Group by section
@@ -171,6 +194,39 @@ export default function QuotationPrintPage() {
 
   return (
     <>
+      {/* WebView Native Share Overlay Modal */}
+      {(isGeneratingPdf || pdfReadyFile) && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: '#fff', padding: '30px', borderRadius: '16px', textAlign: 'center', width: '100%', maxWidth: '340px', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+            {isGeneratingPdf ? (
+              <>
+                <div style={{ fontSize: '18px', fontWeight: 600, marginBottom: '10px' }}>Generating PDF...</div>
+                <div style={{ fontSize: '14px', color: '#666' }}>Please wait a moment while we render your quotation.</div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: '22px', fontWeight: 700, marginBottom: '12px', color: '#4caf50' }}>✅ PDF is Ready!</div>
+                <div style={{ fontSize: '15px', color: '#555', marginBottom: '24px', lineHeight: 1.5 }}>
+                  Tap below to open the native menu to Save, Share, or Print this file.
+                </div>
+                <button
+                  onClick={executeNativeShare}
+                  style={{ background: '#4caf50', color: '#fff', border: 'none', borderRadius: '8px', padding: '16px 20px', fontWeight: 700, width: '100%', fontSize: '16px', marginBottom: '12px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(76, 175, 80, 0.3)' }}
+                >
+                  📤 Share / Print PDF
+                </button>
+                <button
+                  onClick={() => setPdfReadyFile(null)}
+                  style={{ background: '#f5f5f5', color: '#333', border: 'none', borderRadius: '8px', padding: '12px 20px', fontWeight: 600, width: '100%', fontSize: '15px', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
         @page { size: A4 portrait; margin: 0; }
