@@ -708,6 +708,28 @@ export const ExpensesTab = forwardRef<ExpensesTabHandle, ExpensesTabProps>(({ pr
               </button>
             )}
 
+            <button
+              onClick={() => {
+                if (!mobileActionItem) return;
+
+                const bills = [
+                  ...(mobileActionItem.bill_urls || []),
+                  ...(mobileActionItem.bill_url ? [mobileActionItem.bill_url] : [])
+                ].filter((url, index, self) => self.indexOf(url) === index);
+
+                const shareText = `*Expense:* ${mobileActionItem.item_name}
+*Amount:* ₹${mobileActionItem.total_cost || 0}
+*Date:* ${mobileActionItem.date_purchased ? formatDateIST(mobileActionItem.date_purchased) : '-'}
+${(mobileActionItem as any).expense_type ? `*Type:* ${(mobileActionItem as any).expense_type}` : ''}`.trim();
+
+                shareToWhatsAppUtil(shareText, bills, 'Share Expense');
+                setMobileActionItem(null);
+              }}
+              className="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
+            >
+              <FiShare2 className="w-5 h-5 text-gray-500" /> Share
+            </button>
+
             {canEditBase && (
               <button
                 onClick={() => {
@@ -971,34 +993,29 @@ export const ExpensesTab = forwardRef<ExpensesTabHandle, ExpensesTabProps>(({ pr
                               <FiEye className="w-4 h-4" /> View Bills
                             </button>
                           )}
-                          {(() => {
-                            const item = filteredItems.find(i => i.id === openMenuId);
-                            return item && (canEditBase || canApprove);
-                          })() && (
-                            <button
-                              onClick={() => {
-                                const item = filteredItems.find(i => i.id === openMenuId);
-                                if (!item) return;
+                          <button
+                            onClick={() => {
+                              const item = filteredItems.find(i => i.id === openMenuId);
+                              if (!item) return;
 
-                                setMenuPosition(null);
+                              setMenuPosition(null);
 
-                                const bills = [
-                                  ...(item.bill_urls || []),
-                                  ...(item.bill_url ? [item.bill_url] : [])
-                                ].filter((url, index, self) => self.indexOf(url) === index);
+                              const bills = [
+                                ...(item.bill_urls || []),
+                                ...(item.bill_url ? [item.bill_url] : [])
+                              ].filter((url, index, self) => self.indexOf(url) === index);
 
-                                const shareText = `*Expense:* ${item.item_name}
+                              const shareText = `*Expense:* ${item.item_name}
 *Amount:* ₹${item.total_cost || 0}
 *Date:* ${item.date_purchased ? formatDateIST(item.date_purchased) : '-'}
 ${(item as any).expense_type ? `*Type:* ${(item as any).expense_type}` : ''}`.trim();
 
-                                shareToWhatsAppUtil(shareText, bills, 'Share Expense');
-                              }}
-                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                            >
-                              <FiShare2 className="w-4 h-4" /> Share
-                            </button>
-                          )}
+                              shareToWhatsAppUtil(shareText, bills, 'Share Expense');
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          >
+                            <FiShare2 className="w-4 h-4" /> Share
+                          </button>
                           {(() => {
                             const item = filteredItems.find(i => i.id === openMenuId);
                             return item && canEditBase;
