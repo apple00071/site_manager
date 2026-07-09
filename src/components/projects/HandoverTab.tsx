@@ -512,7 +512,7 @@ export function HandoverTab({ projectId }: HandoverTabProps) {
                                                                                             <input
                                                                                                 type="file"
                                                                                                 multiple
-                                                                                                accept="image/*"
+                                                                                                accept="image/jpeg, image/png, image/webp, image/gif"
                                                                                                 className="hidden"
                                                                                                 onChange={(e) => {
                                                                                                     handlePhotoUpload(item.id, e.target.files);

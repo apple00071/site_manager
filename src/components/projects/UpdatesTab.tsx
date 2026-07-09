@@ -1121,7 +1121,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                   id="camera-upload-input"
                   name="photos"
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg, image/png, image/webp, image/gif"
                   capture="environment"
                   onChange={handlePhotoUpload}
                   onClick={(e) => {
@@ -1145,7 +1145,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                   id="photo-upload-input"
                   name="photos"
                   type="file"
-                  accept="image/*,application/pdf"
+                  accept="image/jpeg, image/png, image/webp, image/gif, application/pdf"
                   multiple
                   onChange={handlePhotoUpload}
                   onClick={(e) => {

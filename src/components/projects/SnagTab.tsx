@@ -622,7 +622,7 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
                                                 <span className="text-[10px] text-gray-500 mt-1">Add</span>
                                             </>
                                         )}
-                                        <input type="file" multiple accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                                        <input type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif" className="hidden" onChange={handlePhotoUpload} />
                                     </label>
                                 </div>
                             </div>
@@ -704,7 +704,7 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
                                                 <span className="text-[10px] text-gray-500 mt-1">Add</span>
                                             </>
                                         )}
-                                        <input type="file" multiple accept="image/*" className="hidden" onChange={handleResolutionPhotoUpload} />
+                                        <input type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif" className="hidden" onChange={handleResolutionPhotoUpload} />
                                     </label>
                                 </div>
                             </div>
