@@ -234,9 +234,9 @@ export async function PATCH(request: NextRequest) {
     const isAdmin = userRole === 'admin';
     const permCheck = await verifyPermission(userId, PERMISSION_NODES.INVENTORY_EDIT);
 
-    // Only allow update if user is the creator or is an admin/has permission
-    if (existingItem.created_by !== userId && !isAdmin && !permCheck.allowed) {
-      return NextResponse.json({ error: 'Forbidden: You can only edit your own items' }, { status: 403 });
+    // Only allow update if user is an admin or has explicit permission
+    if (!isAdmin && !permCheck.allowed) {
+      return NextResponse.json({ error: 'Forbidden: You do not have permission to edit expenses' }, { status: 403 });
     }
 
     const { data: item, error } = await supabaseAdmin

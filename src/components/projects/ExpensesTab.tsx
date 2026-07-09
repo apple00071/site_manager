@@ -708,7 +708,7 @@ export const ExpensesTab = forwardRef<ExpensesTabHandle, ExpensesTabProps>(({ pr
               </button>
             )}
 
-            {(canEditBase || mobileActionItem.created_by === user?.id) && (
+            {canEditBase && (
               <button
                 onClick={() => {
                   if (mobileActionItem) handleEdit(mobileActionItem);
@@ -743,7 +743,7 @@ export const ExpensesTab = forwardRef<ExpensesTabHandle, ExpensesTabProps>(({ pr
               </>
             )}
 
-            {(canDeleteBase || mobileActionItem.created_by === user?.id) && (
+            {canDeleteBase && (
               <button
                 onClick={() => {
                   if (mobileActionItem) handleDelete(mobileActionItem.id);
@@ -996,7 +996,7 @@ ${(item as any).expense_type ? `*Type:* ${(item as any).expense_type}` : ''}`.tr
                           </button>
                           {(() => {
                             const item = filteredItems.find(i => i.id === openMenuId);
-                            return item && (canEditBase || item.created_by === user?.id);
+                            return item && canEditBase;
                           })() && (
                             <button
                               onClick={() => {
@@ -1033,7 +1033,7 @@ ${(item as any).expense_type ? `*Type:* ${(item as any).expense_type}` : ''}`.tr
                             )}
                           {(() => {
                             const item = filteredItems.find(i => i.id === openMenuId);
-                            return item && (canDeleteBase || item.created_by === user?.id);
+                            return item && canDeleteBase;
                           })() && (
                             <button
                               onClick={() => { handleDelete(openMenuId); setMenuPosition(null); }}

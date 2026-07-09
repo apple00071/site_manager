@@ -40,9 +40,9 @@ export async function DELETE(
         const isAdmin = userRole === 'admin';
         const permCheck = await verifyPermission(userId, PERMISSION_NODES.INVENTORY_DELETE);
 
-        // Only allow deletion if user is the creator or is an admin/has permission
-        if (existingItem.created_by !== userId && !isAdmin && !permCheck.allowed) {
-            return NextResponse.json({ error: 'Forbidden: You can only delete your own items' }, { status: 403 });
+        // Only allow deletion if user is an admin or has explicit permission
+        if (!isAdmin && !permCheck.allowed) {
+            return NextResponse.json({ error: 'Forbidden: You do not have permission to delete expenses' }, { status: 403 });
         }
 
         const { error } = await supabaseAdmin
