@@ -121,8 +121,7 @@ export async function POST(request: NextRequest) {
         quantity,
         supplier_name,
         date_purchased,
-        bill_url,
-        bill_urls: parsed.data.bill_urls || (bill_url ? [bill_url] : []),
+        bill_urls: parsed.data.bill_urls && parsed.data.bill_urls.length > 0 ? parsed.data.bill_urls : (bill_url ? [bill_url] : []),
         total_cost,
         created_by: userId,
         bill_approval_status: 'pending', // Default to pending approval
@@ -214,10 +213,12 @@ export async function PATCH(request: NextRequest) {
 
     const { id, ...updates } = parsed.data;
 
-    // Ensure bill_urls is handled (if provided in updates)
-    if ((updates as any).bill_urls && !(updates as any).bill_url && (updates as any).bill_urls.length > 0) {
-      (updates as any).bill_url = (updates as any).bill_urls[0];
+    // If an old client sends bill_url, ensure it's placed in bill_urls
+    if ((updates as any).bill_url && (!(updates as any).bill_urls || (updates as any).bill_urls.length === 0)) {
+      (updates as any).bill_urls = [(updates as any).bill_url];
     }
+    // Remove bill_url so it doesn't get sent to supabase
+    delete (updates as any).bill_url;
 
     // Check if user owns this item or is admin
     const { data: existingItem, error: fetchError } = await supabaseAdmin

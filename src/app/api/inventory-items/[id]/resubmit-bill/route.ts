@@ -67,7 +67,7 @@ export async function POST(
     const { data: updatedItem, error: updateError } = await supabaseAdmin
       .from('inventory_items')
       .update({
-        bill_url: bill_url,
+        bill_urls: [bill_url],
         bill_approval_status: 'pending',
         bill_resubmitted_from: itemId, // Track original item
         is_bill_resubmission: true,
