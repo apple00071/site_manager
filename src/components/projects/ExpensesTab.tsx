@@ -899,9 +899,14 @@ export const ExpensesTab = forwardRef<ExpensesTabHandle, ExpensesTabProps>(({ pr
                               setOpenMenuId(null);
                               setMenuPosition(null);
                             } else {
+                              const viewportHeight = window.innerHeight;
+                              const menuHeight = 200; // Approximate height for items
+                              const spaceBelow = viewportHeight - rect.bottom;
+                              const showAbove = spaceBelow < menuHeight && rect.top > menuHeight;
+
                               setOpenMenuId(item.id);
                               setMenuPosition({
-                                top: rect.bottom + window.scrollY,
+                                top: showAbove ? rect.top - menuHeight - 5 : rect.bottom + 5,
                                 left: rect.right - 192 // 192px = w-48
                               });
                             }
@@ -925,7 +930,12 @@ export const ExpensesTab = forwardRef<ExpensesTabHandle, ExpensesTabProps>(({ pr
                       <div
                         ref={menuRef}
                         className="fixed w-48 rounded-md shadow-lg bg-white border border-gray-200 z-[9999]"
-                        style={{ top: menuPosition.top, left: menuPosition.left }}
+                        style={{ 
+                          top: menuPosition.top, 
+                          left: menuPosition.left,
+                          maxHeight: 'calc(100vh - 40px)',
+                          overflowY: 'auto'
+                        }}
                       >
                         <div className="py-1" role="menu">
                           {(() => {
