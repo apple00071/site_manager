@@ -314,6 +314,8 @@ export const ExpensesTab = forwardRef<ExpensesTabHandle, ExpensesTabProps>(({ pr
   // Permission checks
   const canAdd = hasPermission('inventory.add');
   const canApprove = hasPermission('inventory.approve');
+  const canEditBase = hasPermission('inventory.edit');
+  const canDeleteBase = hasPermission('inventory.delete');
 
   const { showToast } = useToast();
   const [items, setItems] = useState<ExpenseItem[]>([]);
@@ -706,15 +708,17 @@ export const ExpensesTab = forwardRef<ExpensesTabHandle, ExpensesTabProps>(({ pr
               </button>
             )}
 
-            <button
-              onClick={() => {
-                if (mobileActionItem) handleEdit(mobileActionItem);
-                setMobileActionItem(null);
-              }}
-              className="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
-            >
-              <FiEdit2 className="w-5 h-5 text-gray-500" /> Edit Item
-            </button>
+            {(canEditBase || mobileActionItem.created_by === user?.id) && (
+              <button
+                onClick={() => {
+                  if (mobileActionItem) handleEdit(mobileActionItem);
+                  setMobileActionItem(null);
+                }}
+                className="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
+              >
+                <FiEdit2 className="w-5 h-5 text-gray-500" /> Edit Item
+              </button>
+            )}
 
             {canApprove && mobileActionItem.bill_approval_status === 'pending' && (
               <>
@@ -739,15 +743,17 @@ export const ExpensesTab = forwardRef<ExpensesTabHandle, ExpensesTabProps>(({ pr
               </>
             )}
 
-            <button
-              onClick={() => {
-                if (mobileActionItem) handleDelete(mobileActionItem.id);
-                setMobileActionItem(null);
-              }}
-              className="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg"
-            >
-              <FiTrash2 className="w-5 h-5" /> Delete Item
-            </button>
+            {(canDeleteBase || mobileActionItem.created_by === user?.id) && (
+              <button
+                onClick={() => {
+                  if (mobileActionItem) handleDelete(mobileActionItem.id);
+                  setMobileActionItem(null);
+                }}
+                className="w-full flex items-center gap-3 px-3 py-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg"
+              >
+                <FiTrash2 className="w-5 h-5" /> Delete Item
+              </button>
+            )}
           </div>
         )}
       </BottomSheet>
@@ -988,16 +994,21 @@ ${(item as any).expense_type ? `*Type:* ${(item as any).expense_type}` : ''}`.tr
                           >
                             <FiShare2 className="w-4 h-4" /> Share
                           </button>
-                          <button
-                            onClick={() => {
-                              const item = filteredItems.find(i => i.id === openMenuId);
-                              if (item) handleEdit(item);
-                              setMenuPosition(null);
-                            }}
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                          >
-                            <FiEdit2 className="w-4 h-4" /> Edit
-                          </button>
+                          {(() => {
+                            const item = filteredItems.find(i => i.id === openMenuId);
+                            return item && (canEditBase || item.created_by === user?.id);
+                          })() && (
+                            <button
+                              onClick={() => {
+                                const item = filteredItems.find(i => i.id === openMenuId);
+                                if (item) handleEdit(item);
+                                setMenuPosition(null);
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                            >
+                              <FiEdit2 className="w-4 h-4" /> Edit
+                            </button>
+                          )}
                           {canApprove && (() => {
                             const item = filteredItems.find(i => i.id === openMenuId);
                             return item && (item.bill_approval_status === 'pending' || item.bill_approval_status === 'rejected');
@@ -1020,12 +1031,17 @@ ${(item as any).expense_type ? `*Type:* ${(item as any).expense_type}` : ''}`.tr
                                 <FiX className="w-4 h-4" /> Reject
                               </button>
                             )}
-                          <button
-                            onClick={() => { handleDelete(openMenuId); setMenuPosition(null); }}
-                            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                          >
-                            <FiTrash2 className="w-4 h-4" /> Delete
-                          </button>
+                          {(() => {
+                            const item = filteredItems.find(i => i.id === openMenuId);
+                            return item && (canDeleteBase || item.created_by === user?.id);
+                          })() && (
+                            <button
+                              onClick={() => { handleDelete(openMenuId); setMenuPosition(null); }}
+                              className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                            >
+                              <FiTrash2 className="w-4 h-4" /> Delete
+                            </button>
+                          )}
                         </div>
                       </div>
                     </>,
