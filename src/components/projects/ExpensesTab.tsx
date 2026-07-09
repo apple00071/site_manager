@@ -971,29 +971,34 @@ export const ExpensesTab = forwardRef<ExpensesTabHandle, ExpensesTabProps>(({ pr
                               <FiEye className="w-4 h-4" /> View Bills
                             </button>
                           )}
-                          <button
-                            onClick={() => {
-                              const item = filteredItems.find(i => i.id === openMenuId);
-                              if (!item) return;
+                          {(() => {
+                            const item = filteredItems.find(i => i.id === openMenuId);
+                            return item && (canEditBase || canApprove);
+                          })() && (
+                            <button
+                              onClick={() => {
+                                const item = filteredItems.find(i => i.id === openMenuId);
+                                if (!item) return;
 
-                              setMenuPosition(null);
+                                setMenuPosition(null);
 
-                              const bills = [
-                                ...(item.bill_urls || []),
-                                ...(item.bill_url ? [item.bill_url] : [])
-                              ].filter((url, index, self) => self.indexOf(url) === index);
+                                const bills = [
+                                  ...(item.bill_urls || []),
+                                  ...(item.bill_url ? [item.bill_url] : [])
+                                ].filter((url, index, self) => self.indexOf(url) === index);
 
-                              const shareText = `*Expense:* ${item.item_name}
+                                const shareText = `*Expense:* ${item.item_name}
 *Amount:* ₹${item.total_cost || 0}
 *Date:* ${item.date_purchased ? formatDateIST(item.date_purchased) : '-'}
 ${(item as any).expense_type ? `*Type:* ${(item as any).expense_type}` : ''}`.trim();
 
-                              shareToWhatsAppUtil(shareText, bills, 'Share Expense');
-                            }}
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                          >
-                            <FiShare2 className="w-4 h-4" /> Share
-                          </button>
+                                shareToWhatsAppUtil(shareText, bills, 'Share Expense');
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                            >
+                              <FiShare2 className="w-4 h-4" /> Share
+                            </button>
+                          )}
                           {(() => {
                             const item = filteredItems.find(i => i.id === openMenuId);
                             return item && canEditBase;
