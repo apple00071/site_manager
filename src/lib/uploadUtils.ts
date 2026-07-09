@@ -67,10 +67,32 @@ export async function uploadFile(
 ): Promise<string> {
     let fileToUpload = file;
 
-    // Only compress images
-    if (file.type.startsWith('image/')) {
+    // Handle HEIC format from Android/iOS devices
+    if (file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif') || file.type === 'image/heic' || file.type === 'image/heif') {
         try {
-            fileToUpload = await compressImage(file);
+            const heic2any = (await import('heic2any')).default;
+            const convertedBlob = await heic2any({
+                blob: file,
+                toType: 'image/jpeg',
+                quality: 0.8
+            });
+            
+            const blob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+            
+            fileToUpload = new File([blob], file.name.replace(/\.hei[cf]$/i, '.jpg'), {
+                type: 'image/jpeg',
+                lastModified: Date.now(),
+            });
+        } catch (err) {
+            console.error('HEIC conversion failed:', err);
+            throw new Error('Failed to process HEIC image format.');
+        }
+    }
+
+    // Only compress images
+    if (fileToUpload.type.startsWith('image/')) {
+        try {
+            fileToUpload = await compressImage(fileToUpload);
         } catch (err) {
             console.warn('Compression failed, uploading original:', err);
         }

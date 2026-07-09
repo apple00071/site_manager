@@ -23,6 +23,7 @@
     "@supabase/supabase-js": "^2.76.1",
     "@types/nodemailer": "^7.0.4",
     "date-fns": "^3.6.0",
+    "heic2any": "^0.0.4",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
     "mammoth": "^1.11.0",
