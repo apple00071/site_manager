@@ -12,8 +12,9 @@ import { useToast } from '@/components/ui/Toast';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { SidePanel } from '@/components/ui/SidePanel';
 import { DesignViewer } from '@/components/projects/DesignViewer';
+import { shareToWhatsAppUtil } from '@/lib/shareUtils';
 import {
-  FiEdit2, FiTrash2, FiEye, FiPlus, FiMoreVertical, FiCheck, FiX, FiUpload, FiPackage, FiSearch, FiChevronDown
+  FiEdit2, FiTrash2, FiEye, FiPlus, FiMoreVertical, FiCheck, FiX, FiUpload, FiPackage, FiSearch, FiChevronDown, FiShare2
 } from 'react-icons/fi';
 import { CustomDropdown, CustomDatePicker } from '@/components/ui/CustomControls';
 
@@ -964,6 +965,29 @@ export const ExpensesTab = forwardRef<ExpensesTabHandle, ExpensesTabProps>(({ pr
                               <FiEye className="w-4 h-4" /> View Bills
                             </button>
                           )}
+                          <button
+                            onClick={() => {
+                              const item = filteredItems.find(i => i.id === openMenuId);
+                              if (!item) return;
+
+                              setMenuPosition(null);
+
+                              const bills = [
+                                ...(item.bill_urls || []),
+                                ...(item.bill_url ? [item.bill_url] : [])
+                              ].filter((url, index, self) => self.indexOf(url) === index);
+
+                              const shareText = `*Expense:* ${item.item_name}
+*Amount:* ₹${item.total_cost || 0}
+*Date:* ${item.date_purchased ? formatDateIST(item.date_purchased) : '-'}
+${(item as any).expense_type ? `*Type:* ${(item as any).expense_type}` : ''}`.trim();
+
+                              shareToWhatsAppUtil(shareText, bills, 'Share Expense');
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          >
+                            <FiShare2 className="w-4 h-4" /> Share
+                          </button>
                           <button
                             onClick={() => {
                               const item = filteredItems.find(i => i.id === openMenuId);
