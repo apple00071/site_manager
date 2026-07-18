@@ -142,15 +142,18 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
     }
 
-    const { data, error } = await supabaseAdmin
+    const ids = Array.isArray(id) ? id : typeof id === 'string' && id.includes(',') ? id.split(',') : [id];
+
+    let query = supabaseAdmin
       .from('quotation_leads')
       .update({
         ...updateFields,
         updated_at: new Date().toISOString()
       })
-      .eq('id', id)
-      .select()
-      .single();
+      .in('id', ids)
+      .select();
+
+    const { data, error } = ids.length === 1 ? await query.single() : await query;
 
     if (error) {
       console.error('Error updating quotation lead:', error);
@@ -187,17 +190,19 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
     }
 
+    const ids = id.split(',');
+
     const { error } = await supabaseAdmin
       .from('quotation_leads')
       .delete()
-      .eq('id', id);
+      .in('id', ids);
 
     if (error) {
       console.error('Error deleting quotation lead:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, message: 'Lead deleted successfully' });
+    return NextResponse.json({ success: true, message: 'Leads deleted successfully' });
   } catch (err: any) {
     console.error('CRM DELETE API Error:', err);
     return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });

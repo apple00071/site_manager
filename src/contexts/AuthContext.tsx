@@ -364,10 +364,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAdmin(false);
 
     try {
+      let tourCompleted: string | null = null;
+      let pendingPush: string | null = null;
+      let womensDayDismissed: string | null = null;
+
       if (typeof window !== 'undefined') {
-        const tourCompleted = localStorage.getItem('apple_admin_tour_completed');
-        const pendingPush = localStorage.getItem('pending_push_route');
-        const womensDayDismissed = localStorage.getItem('womens_day_2026_dismissed');
+        tourCompleted = localStorage.getItem('apple_admin_tour_completed');
+        pendingPush = localStorage.getItem('pending_push_route');
+        womensDayDismissed = localStorage.getItem('womens_day_2026_dismissed');
 
         localStorage.clear();
 
@@ -387,41 +391,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearPermissionsCache();
       clearAuthCache();
 
-      try {
-        // First delete onesignal subscription while still authenticated
-        await fetch('/api/onesignal/subscribe', { method: 'DELETE' }).catch(() => {});
-        // Then perform the formal auth logout
-        await fetch('/api/auth/logout', { method: 'POST' });
-      } catch (_) {
-        // Ignore logout cleanup errors.
-      }
-
-      const { error } = await supabase.auth.signOut();
-
-      if (error && DEBUG_ENABLED) {
-        console.error('Error signing out:', error);
-      }
-
-      if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      // Cleanups execution helper
+      const performCleanups = async () => {
         try {
-          const regs = await navigator.serviceWorker.getRegistrations();
-          await Promise.all(regs.map((r) => r.unregister()));
-          if (window.caches) {
-            const names = await caches.keys();
-            await Promise.all(names.map((name) => caches.delete(name)));
+          // 1. Delete onesignal subscription while still authenticated
+          await fetch('/api/onesignal/subscribe', { method: 'DELETE' }).catch(() => {});
+          // 2. Perform server auth cookies clear
+          await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+          // 3. supabase signOut
+          await supabase.auth.signOut().catch(() => {});
+        } catch (err) {
+          if (DEBUG_ENABLED) {
+            console.error('Error during signOut cleanups:', err);
           }
-        } catch (_) {
-          // Ignore service worker cleanup errors.
+        }
+      };
+
+      // Race cleanups against a 600ms hard timeout to prevent hanging UI
+      // ponytail: 600ms threshold ensures quick logout redirection even if service worker / networks freeze
+      await Promise.race([
+        performCleanups(),
+        new Promise(resolve => setTimeout(resolve, 600))
+      ]);
+
+      // Attempt service worker unregister in background without blocking
+      if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations()
+          .then(regs => regs.forEach(r => r.unregister().catch(() => {})))
+          .catch(() => {});
+        if (window.caches) {
+          caches.keys()
+            .then(names => names.forEach(name => caches.delete(name).catch(() => {})))
+            .catch(() => {});
         }
       }
     } catch (error) {
       if (DEBUG_ENABLED) {
         console.error('Error during sign out:', error);
       }
-
+    } finally {
       setUser(null);
       setSession(null);
       setIsAdmin(false);
+
+      // Force hard reload navigation to login screen to clear memory variables
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
     }
   };
 

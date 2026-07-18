@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
         if (conflict) {
           const conflictStart = new Date(conflict.start_at as string);
           const conflictEnd = new Date(conflict.end_at as string);
-          const conflictWindow = `${conflictStart.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${conflictEnd.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+          const conflictWindow = `${conflictStart.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })} - ${conflictEnd.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })}`;
           
           const { data: userData } = await supabaseAdmin.from('users').select('full_name').eq('id', assigneeId).single();
           const userName = userData?.full_name || 'One of the assignees';
@@ -361,7 +361,7 @@ export async function PATCH(request: NextRequest) {
         if (conflict) {
           const conflictStart = new Date(conflict.start_at as string);
           const conflictEnd = new Date(conflict.end_at as string);
-          const conflictWindow = `${conflictStart.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${conflictEnd.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+          const conflictWindow = `${conflictStart.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })} - ${conflictEnd.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })}`;
           
           const { data: userData } = await supabaseAdmin.from('users').select('full_name').eq('id', assigneeId).single();
           const userName = userData?.full_name || 'One of the assignees';
