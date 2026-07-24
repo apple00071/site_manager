@@ -23,8 +23,8 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
     const fetchAttendanceStatus = async () => {
         try {
             const today = getTodayDateString();
-            // Fetch the latest record regardless of date
-            const res = await fetch(`/api/attendance?user_id=${user?.id}&latest=true`);
+            // Fetch the latest record (prioritizing open check-in records)
+            const res = await fetch('/api/attendance?latest=true');
             if (res.ok) {
                 const data = await res.json();
                 if (data && data.length > 0) {
@@ -32,17 +32,7 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
                     setAttendance(record);
 
                     if (!record.check_out) {
-                        const checkInDate = new Date(record.check_in);
-                        const now = new Date();
-                        const diffHours = (now.getTime() - checkInDate.getTime()) / (1000 * 60 * 60);
-
-                        // If it's been more than 20 hours, it will be auto-closed by the system or on next punch-in
-                        if (diffHours > 20) {
-                            setStatus('out');
-                            setAttendance(null);
-                        } else {
-                            setStatus('in');
-                        }
+                        setStatus('in');
                     } else {
                         if (record.date === today) {
                             setStatus('done');
@@ -53,6 +43,7 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
                     }
                 } else {
                     setStatus('out');
+                    setAttendance(null);
                 }
             }
         } catch (error) {
@@ -161,6 +152,8 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
             } else {
                 const err = await res.json();
                 showToast('error', err.error || 'Failed to update attendance');
+                // Re-sync attendance status from server on failure
+                fetchAttendanceStatus();
             }
         } catch (_) {
             showToast('error', 'Something went wrong');

@@ -58,6 +58,34 @@ export async function GET(request: NextRequest) {
         }
 
         if (latestOnly) {
+            // First check if there is an open record (check_out IS NULL) for this user
+            let openQuery = supabaseAdmin.from('attendance').select(`
+                *,
+                users (full_name, email)
+            `).is('check_out', null);
+
+            if (!canViewAll) {
+                openQuery = openQuery.eq('user_id', userResult.user.id);
+            } else if (userId) {
+                openQuery = openQuery.eq('user_id', userId);
+            }
+
+            const { data: openData } = await openQuery.order('date', { ascending: false }).order('check_in', { ascending: false }).limit(1);
+
+            if (openData && openData.length > 0) {
+                let responseData = openData;
+                if (!canViewAppeals && openData) {
+                    responseData = openData.map((row: any) => {
+                        if (row.user_id !== userResult.user.id) {
+                            const { user_comments, admin_comments, ...rest } = row;
+                            return rest;
+                        }
+                        return row;
+                    });
+                }
+                return NextResponse.json(responseData);
+            }
+
             query = query.order('date', { ascending: false }).order('check_in', { ascending: false }).limit(1);
         } else {
             query = query.order('date', { ascending: false });
@@ -108,40 +136,49 @@ export async function POST(request: NextRequest) {
 
         if (action === 'punch_in') {
             // 1. Check if already punched in (any open record)
-            const { data: openRecord } = await supabaseAdmin
+            const { data: openRecords } = await supabaseAdmin
                 .from('attendance')
                 .select('id, date')
                 .eq('user_id', userResult.user.id)
                 .is('check_out', null)
-                .maybeSingle();
+                .order('date', { ascending: false });
 
-            if (openRecord) {
-                // If the open record is from a previous day, auto-close it
-                if (openRecord.date < today) {
-                    const checkOutIST = `${openRecord.date}T18:00:00+05:30`;
-                    await supabaseAdmin
-                        .from('attendance')
-                        .update({
-                            check_out: new Date(checkOutIST).toISOString(),
-                            status: 'approved',
-                            admin_comments: 'Punch by next day'
-                        })
-                        .eq('id', openRecord.id);
-                } else {
+            if (openRecords && openRecords.length > 0) {
+                const hasTodayOpen = openRecords.some((r: any) => r.date >= today);
+                if (hasTodayOpen) {
                     return NextResponse.json({ error: 'You are already punched in. Please punch out first.' }, { status: 400 });
+                } else {
+                    // Auto-close past open records
+                    for (const record of openRecords) {
+                        const checkOutIST = `${record.date}T18:00:00+05:30`;
+                        await supabaseAdmin
+                            .from('attendance')
+                            .update({
+                                check_out: new Date(checkOutIST).toISOString(),
+                                status: 'approved',
+                                admin_comments: 'Auto-closed by system on next punch-in'
+                            })
+                            .eq('id', record.id);
+                    }
                 }
             }
 
-            // 2. Check if already punched in for TODAY (prevent double shift on same calendar date UTC)
+            // 2. Check if already punched in or completed shift for TODAY
             const { data: existingToday } = await supabaseAdmin
                 .from('attendance')
-                .select('id')
+                .select('id, check_out')
                 .eq('user_id', userResult.user.id)
                 .eq('date', today)
+                .order('check_in', { ascending: false })
+                .limit(1)
                 .maybeSingle();
 
             if (existingToday) {
-                return NextResponse.json({ error: 'You have already completed or started a shift for today.' }, { status: 400 });
+                if (!existingToday.check_out) {
+                    return NextResponse.json({ error: 'You are already punched in. Please punch out first.' }, { status: 400 });
+                } else {
+                    return NextResponse.json({ error: 'You have already completed a shift for today.' }, { status: 400 });
+                }
             }
 
             const { data, error } = await supabaseAdmin
@@ -200,6 +237,18 @@ export async function POST(request: NextRequest) {
                 console.error('Punch out error:', error);
                 return NextResponse.json({ error: error.message }, { status: 500 });
             }
+
+            // Auto-close any lingering older open records if any exist
+            await supabaseAdmin
+                .from('attendance')
+                .update({
+                    check_out: new Date().toISOString(),
+                    status: 'approved',
+                    admin_comments: 'Auto-closed on punch out'
+                })
+                .eq('user_id', userResult.user.id)
+                .is('check_out', null)
+                .neq('id', openRecord.id);
 
             return NextResponse.json(data);
         }
