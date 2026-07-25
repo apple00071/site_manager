@@ -58,19 +58,21 @@ export async function GET(request: NextRequest) {
         }
 
         if (latestOnly) {
+            // For latestOnly (widget), scope to the targeted user (specified userId or requesting user)
+            const targetUserId = userId || userResult.user.id;
+
             // First check if there is an open record (check_out IS NULL) for this user
-            let openQuery = supabaseAdmin.from('attendance').select(`
-                *,
-                users (full_name, email)
-            `).is('check_out', null);
-
-            if (!canViewAll) {
-                openQuery = openQuery.eq('user_id', userResult.user.id);
-            } else if (userId) {
-                openQuery = openQuery.eq('user_id', userId);
-            }
-
-            const { data: openData } = await openQuery.order('date', { ascending: false }).order('check_in', { ascending: false }).limit(1);
+            const { data: openData } = await supabaseAdmin
+                .from('attendance')
+                .select(`
+                    *,
+                    users (full_name, email)
+                `)
+                .eq('user_id', targetUserId)
+                .is('check_out', null)
+                .order('date', { ascending: false })
+                .order('check_in', { ascending: false })
+                .limit(1);
 
             if (openData && openData.length > 0) {
                 let responseData = openData;
@@ -86,7 +88,7 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json(responseData);
             }
 
-            query = query.order('date', { ascending: false }).order('check_in', { ascending: false }).limit(1);
+            query = query.eq('user_id', targetUserId).order('date', { ascending: false }).order('check_in', { ascending: false }).limit(1);
         } else {
             query = query.order('date', { ascending: false });
         }

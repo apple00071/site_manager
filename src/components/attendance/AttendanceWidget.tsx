@@ -77,16 +77,27 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
                             }
                         }
 
-                        const position = await Geolocation.getCurrentPosition({
-                            enableHighAccuracy: true,
-                            timeout: 15000,
-                            maximumAge: 0
-                        });
-                        latitude = position.coords.latitude;
-                        longitude = position.coords.longitude;
+                        try {
+                            const position = await Geolocation.getCurrentPosition({
+                                enableHighAccuracy: true,
+                                timeout: 7000,
+                                maximumAge: 0
+                            });
+                            latitude = position.coords.latitude;
+                            longitude = position.coords.longitude;
+                        } catch (_) {
+                            // Fallback to coarse/standard location if high-accuracy times out indoors
+                            const position = await Geolocation.getCurrentPosition({
+                                enableHighAccuracy: false,
+                                timeout: 10000,
+                                maximumAge: 30000
+                            });
+                            latitude = position.coords.latitude;
+                            longitude = position.coords.longitude;
+                        }
                     } catch (posError: any) {
                         console.error('Capacitor Geolocation error:', posError);
-                        showToast('error', 'Could not capture precise location via device GPS. Ensure location is enabled.');
+                        showToast('error', 'Could not capture location via device GPS. Ensure location is enabled.');
                         setLoading(false);
                         return;
                     }
@@ -102,8 +113,17 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
                             const position = await new Promise<GeolocationPosition>((resolve, reject) => {
                                 navigator.geolocation.getCurrentPosition(resolve, reject, {
                                     enableHighAccuracy: true,
-                                    timeout: 15000,
+                                    timeout: 7000,
                                     maximumAge: 0
+                                });
+                            }).catch(() => {
+                                // Fallback to standard accuracy indoors if high accuracy times out
+                                return new Promise<GeolocationPosition>((resolve, reject) => {
+                                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                                        enableHighAccuracy: false,
+                                        timeout: 10000,
+                                        maximumAge: 30000
+                                    });
                                 });
                             });
                             latitude = position.coords.latitude;
@@ -114,7 +134,7 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
                             if (posError.code === 1) {
                                 message = 'Location access denied. Please check your browser permission and Windows Location Settings.';
                             } else if (posError.code === 3) {
-                                message = 'Location request timed out. Please try again (move near a window if indoors).';
+                                message = 'Location request timed out. Please try again.';
                             }
 
                             showToast('error', message);
