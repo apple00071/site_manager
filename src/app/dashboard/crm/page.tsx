@@ -687,43 +687,87 @@ export default function CRMPage() {
     setIsMobileEditOpen(true);
   };
 
-  // Save changes from Bottom Sheet
+  // Save changes from Bottom Sheet (Supports both Creating New Lead & Editing Existing Lead)
   const handleSaveMobileEdit = async () => {
     if (!mobileEditForm) return;
-    await syncLeadChange(mobileEditForm);
-    setIsMobileEditOpen(false);
-  };
 
-  // Add new lead API call
-  const handleAddLead = async () => {
-    if (!hasPermission('crm.manage')) return;
-    
+    if (!mobileEditForm.client_name?.trim()) {
+      alert('Please enter a Client Name.');
+      return;
+    }
+
     setSyncStatus('syncing');
-    try {
-      const response = await fetch('/api/crm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client_name: 'New Customer',
-          status: 'Draft',
-          quote_value: 0
-        })
-      });
-      if (response.ok) {
-        const result = await response.json();
-        setLeads(prev => [result.data, ...prev]);
-        setSyncStatus('synced');
-        // Focus on client name of the newly added lead
-        setSelectedCell({ rowIndex: 0, colIndex: 2 });
-        setIsEditing(true);
-        setEditValue('New Customer');
-      } else {
+
+    if (!mobileEditForm.id) {
+      // Creating NEW Lead
+      try {
+        const response = await fetch('/api/crm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            client_name: mobileEditForm.client_name.trim(),
+            phone: mobileEditForm.phone || '',
+            site_project: mobileEditForm.site_project || '',
+            area_sqft: mobileEditForm.area_sqft || 0,
+            quote_value: mobileEditForm.quote_value || 0,
+            status: mobileEditForm.status || 'Draft',
+            approved_value: mobileEditForm.approved_value || 0,
+            assigned_by: mobileEditForm.assigned_by || '',
+            follow_up_1: mobileEditForm.follow_up_1 || '',
+            follow_up_2: mobileEditForm.follow_up_2 || '',
+            follow_up_3: mobileEditForm.follow_up_3 || '',
+            remarks: mobileEditForm.remarks || '',
+            created_date: mobileEditForm.created_date || new Date().toISOString().split('T')[0]
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          setLeads(prev => [result.data, ...prev]);
+          setSyncStatus('synced');
+          setIsMobileEditOpen(false);
+          setMobileEditForm(null);
+          setSelectedCell({ rowIndex: 0, colId: 'client_name' });
+        } else {
+          const errData = await response.json().catch(() => ({}));
+          alert(`Failed to create lead: ${errData.error || 'Server error'}`);
+          setSyncStatus('error');
+        }
+      } catch (err) {
+        console.error('Error creating lead:', err);
+        alert('Failed to create lead.');
         setSyncStatus('error');
       }
-    } catch (err) {
-      console.error('Error adding lead:', err);
-      setSyncStatus('error');
+    } else {
+      // Updating EXISTING Lead
+      await syncLeadChange(mobileEditForm);
+      setIsMobileEditOpen(false);
+      setMobileEditForm(null);
     }
+  };
+
+  // Open Form to Add New Lead
+  const handleAddLead = () => {
+    if (!hasPermission('crm.manage')) return;
+
+    setMobileEditForm({
+      id: '',
+      ref_no: '',
+      created_date: new Date().toISOString().split('T')[0],
+      client_name: '',
+      phone: '',
+      site_project: '',
+      area_sqft: 0,
+      quote_value: 0,
+      status: 'Draft',
+      approved_value: 0,
+      assigned_by: '',
+      follow_up_1: '',
+      follow_up_2: '',
+      follow_up_3: '',
+      remarks: ''
+    });
+    setIsMobileEditOpen(true);
   };
 
   // Delete lead API call
@@ -2092,7 +2136,13 @@ export default function CRMPage() {
       <BottomSheet
         isOpen={isMobileEditOpen}
         onClose={() => setIsMobileEditOpen(false)}
-        title={mobileEditForm ? `Edit Lead Details: ${mobileEditForm.ref_no || 'New'}` : 'Edit Lead Details'}
+        title={
+          mobileEditForm
+            ? mobileEditForm.id
+              ? `Edit Lead Details: ${mobileEditForm.ref_no || ''}`
+              : 'Add New Lead'
+            : 'Lead Details'
+        }
         footer={
           <div className="flex items-center justify-end gap-2">
             <button
@@ -2103,9 +2153,19 @@ export default function CRMPage() {
             </button>
             <button
               onClick={handleSaveMobileEdit}
-              className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg text-xs font-bold active:scale-95 transition-all"
+              disabled={syncStatus === 'syncing'}
+              className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg text-xs font-bold active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
             >
-              Save Changes
+              {syncStatus === 'syncing' ? (
+                <>
+                  <FiRefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Saving...
+                </>
+              ) : mobileEditForm?.id ? (
+                'Save Changes'
+              ) : (
+                'Create Lead'
+              )}
             </button>
           </div>
         }
