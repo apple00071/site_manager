@@ -158,22 +158,6 @@ export class NotificationService {
 
       const deepLinkRoute = this.getNotificationUrl(params.type, params.relatedId, params.relatedType, params.metadata);
 
-      // 3. WhatsApp Notification
-      if (user?.phone_number) {
-        try {
-          const waMessage = `*${params.title}*\n\n${params.message}${deepLinkRoute ? `\n\nOpen: ${process.env.NEXT_PUBLIC_APP_URL || ''}${deepLinkRoute}` : ''}`;
-          const waResult = await sendCustomWhatsAppNotification(user.phone_number, waMessage);
-          
-          if (waResult) {
-            console.log('✅ WhatsApp sent to:', user.phone_number);
-          } else {
-            console.error('❌ WhatsApp failed to send to:', user.phone_number);
-          }
-        } catch (waError) {
-          console.error('❌ WhatsApp failed:', waError);
-        }
-      }
-
       // 4. OneSignal Push Notification
       try {
         const { sendPushNotificationByUserId } = await import('@/lib/onesignal');

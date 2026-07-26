@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
-import { sendTaskWhatsAppNotification } from '@/lib/whatsapp';
+
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 
 // Force dynamic rendering - never cache task data
@@ -242,28 +242,6 @@ export async function POST(request: NextRequest) {
         });
         console.log('Task creation notification sent to admin:', project.created_by);
 
-        // WhatsApp to project admin
-        try {
-          const { data: adminUser } = await supabaseAdmin
-            .from('users')
-            .select('phone_number')
-            .eq('id', project.created_by)
-            .single();
-
-          if (adminUser?.phone_number) {
-            const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-            const link = `${origin}/dashboard/projects/${project.id || stepData.project_id}`;
-            await sendTaskWhatsAppNotification(
-              adminUser.phone_number,
-              parsed.data.title,
-              project.title,
-              'todo',
-              link
-            );
-          }
-        } catch (waError) {
-          console.error('Failed to send WhatsApp to project admin on task creation:', waError);
-        }
       }
     } catch (notificationError) {
       console.error('Failed to send task creation notification:', notificationError);
@@ -397,29 +375,6 @@ export async function PATCH(request: NextRequest) {
             relatedType: 'project_step'
           });
           console.log('Task update notification sent to admin:', project.created_by);
-
-          // WhatsApp to project admin
-          try {
-            const { data: adminUser } = await supabaseAdmin
-              .from('users')
-              .select('phone_number')
-              .eq('id', project.created_by)
-              .single();
-
-            if (adminUser?.phone_number) {
-              const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-              const link = project.id ? `${origin}/dashboard/projects/${project.id}` : `${origin}/dashboard/my-tasks`;
-              await sendTaskWhatsAppNotification(
-                adminUser.phone_number,
-                task.title,
-                project.title,
-                task.status,
-                link
-              );
-            }
-          } catch (waError) {
-            console.error('Failed to send WhatsApp to project admin on task update:', waError);
-          }
         }
       } catch (notificationError) {
         console.error('Failed to send task update notification:', notificationError);
@@ -427,41 +382,11 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    // WhatsApp to assigned users on status change
+    // In-App/Push notification to assigned users on status change
     try {
       const assignedIds = Array.isArray(task.assigned_to) ? task.assigned_to : (task.assigned_to ? [task.assigned_to] : []);
       if (parsed.data.status && assignedIds.length > 0) {
-        const { data: stepData } = await supabaseAdmin
-          .from('project_steps')
-          .select('project_id, project:projects(id, title)')
-          .eq('id', task.step_id)
-          .single();
-        const stepDataAny: any = stepData;
-        const projectObj = Array.isArray(stepDataAny?.project)
-          ? stepDataAny?.project?.[0]
-          : stepDataAny?.project;
-        const projectName = projectObj?.title;
-        const projectId = projectObj?.id || stepDataAny?.project_id;
-        const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-        const link = projectId ? `${origin}/dashboard/projects/${projectId}` : `${origin}/dashboard/my-tasks`;
-
         for (const assigneeId of assignedIds) {
-          const { data: assignedUser } = await supabaseAdmin
-            .from('users')
-            .select('phone_number')
-            .eq('id', assigneeId)
-            .single();
-            
-          if (assignedUser?.phone_number) {
-            await sendTaskWhatsAppNotification(
-              assignedUser.phone_number,
-              task.title || existingTask.title,
-              projectName,
-              task.status,
-              link
-            );
-          }
-
           // Trigger in-app/push notification for assigned user
           await NotificationService.createNotification({
             userId: assigneeId,
@@ -473,8 +398,8 @@ export async function PATCH(request: NextRequest) {
           });
         }
       }
-    } catch (waError) {
-      console.error('Failed to send WhatsApp on task status change:', waError);
+    } catch (notifError) {
+      console.error('Failed to send notification on task status change:', notifError);
     }
 
     return NextResponse.json({ task }, { status: 200 });

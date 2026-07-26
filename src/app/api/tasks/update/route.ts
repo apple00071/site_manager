@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
-import { sendTaskWhatsAppNotification } from '@/lib/whatsapp';
 import { NotificationService } from '@/lib/notificationService';
 
 export async function PATCH(request: NextRequest) {

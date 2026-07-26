@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
-import { sendTaskWhatsAppNotification } from '@/lib/whatsapp';
+
 import { NotificationService } from '@/lib/notificationService';
 
 export const dynamic = 'force-dynamic';
@@ -253,22 +253,7 @@ export async function POST(request: NextRequest) {
           : `${origin}/dashboard/tasks`;
 
         for (const assigneeId of assignedTo) {
-          const { data: assignedUser } = await supabaseAdmin
-            .from('users')
-            .select('phone_number, full_name')
-            .eq('id', assigneeId)
-            .single();
 
-          if (assignedUser?.phone_number) {
-            await sendTaskWhatsAppNotification(
-              assignedUser.phone_number,
-              (inserted.title as string) || data.title,
-              projectData?.title ?? undefined,
-              // For new assignments, status is always effectively TODO, so omit it from the message
-              undefined,
-              link,
-            );
-          }
 
           console.log('🔔 DEBUG: About to call NotificationService for user:', assigneeId);
           // Trigger OneSignal push notification via NotificationService
@@ -451,24 +436,7 @@ export async function PATCH(request: NextRequest) {
       // Notify newly added assignees
       const newlyAdded = newAssigned.filter(id => !prevAssigned.includes(id));
       for (const assigneeId of newlyAdded) {
-        const { data: assignedUser } = await supabaseAdmin
-          .from('users')
-          .select('phone_number, full_name')
-          .eq('id', assigneeId)
-          .single();
 
-        if (assignedUser?.phone_number) {
-          const rawStatus = (updated.status as string) || (existing.status as string);
-          const statusForMessage = rawStatus && rawStatus !== 'todo' ? rawStatus : undefined;
-
-          await sendTaskWhatsAppNotification(
-            assignedUser.phone_number,
-            (updated.title as string) || (existing.title as string),
-            projectDataForUpdate?.title ?? undefined,
-            statusForMessage,
-            link,
-          );
-        }
 
         await NotificationService.notifyTaskAssigned(
           assigneeId,
@@ -484,21 +452,7 @@ export async function PATCH(request: NextRequest) {
           // If we already notified them because they were newly added, skip
           if (newlyAdded.includes(assigneeId)) continue;
 
-          const { data: assignedUser } = await supabaseAdmin
-            .from('users')
-            .select('phone_number, full_name')
-            .eq('id', assigneeId)
-            .single();
 
-          if (assignedUser?.phone_number) {
-            await sendTaskWhatsAppNotification(
-              assignedUser.phone_number,
-              (updated.title as string) || (existing.title as string),
-              projectDataForUpdate?.title ?? undefined,
-              (updated.status as string) || (existing.status as string),
-              link,
-            );
-          }
 
           await NotificationService.createNotification({
             userId: assigneeId,
