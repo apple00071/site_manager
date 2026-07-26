@@ -96,6 +96,7 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
   }, [rateCard, customSections]);
 
   const [selectedSections, setSelectedSections] = useState<string[]>([]);
+  const [draggedSectionIndex, setDraggedSectionIndex] = useState<number | null>(null);
   const [items, setItems] = useState<QuotationItem[]>([]);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
@@ -229,6 +230,26 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
     });
   }, [rateCard]);
 
+  // ── Drag & Drop reorder section ───────────────────────────────────────────
+  const handleDragStartSection = useCallback((e: React.DragEvent, index: number) => {
+    setDraggedSectionIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    if (e.dataTransfer.setData) {
+      e.dataTransfer.setData('text/plain', String(index));
+    }
+  }, []);
+
+  const handleDropSection = useCallback((targetIndex: number) => {
+    if (draggedSectionIndex === null || draggedSectionIndex === targetIndex) return;
+    setSelectedSections(prev => {
+      const next = [...prev];
+      const [movedItem] = next.splice(draggedSectionIndex, 1);
+      next.splice(targetIndex, 0, movedItem);
+      return next;
+    });
+    setDraggedSectionIndex(null);
+  }, [draggedSectionIndex]);
+
   // ── Item mutations ────────────────────────────────────────────────────────
   const updateItem = useCallback((key: string, patch: Partial<QuotationItem>) => {
     setItems(cur => cur.map(item => {
@@ -289,12 +310,17 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
     if (items.length === 0) return alert('Add at least one item.');
     setSaving(true);
     try {
+      // Order items matching custom room section sequence
+      const orderedItems = selectedSections.flatMap(sec => items.filter(i => i.section === sec));
+      const orphanItems = items.filter(i => !selectedSections.includes(i.section));
+      const finalOrderedItems = [...orderedItems, ...orphanItems];
+
       const res = await fetch('/api/quotations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           lead_id: lead.id,
-          items: items.map(({ _key, ...rest }) => rest),
+          items: finalOrderedItems.map(({ _key, ...rest }) => rest),
           discount_type: discountType,
           discount_value: parseFloat(discountValue) || 0,
           notes,
@@ -604,15 +630,62 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
               {selectedSections.length === 0 && (
                 <div style={styles.emptyHint}>← Select sections first</div>
               )}
-              {selectedSections.map(section => {
+              {selectedSections.map((section, secIdx) => {
                 const sectionItems = items.filter(i => i.section === section);
                 const collapsed = collapsedSections[section];
+                const isDragging = draggedSectionIndex === secIdx;
                 return (
-                  <div key={section} style={styles.sectionBlock}>
-                    <div style={styles.sectionHeader} onClick={() => setCollapsedSections(p => ({ ...p, [section]: !p[section] }))}>
-                      <span style={styles.sectionHeaderName}>{section}</span>
-                      <span style={styles.sectionHeaderTotal}>{fmt(sectionTotals[section] || 0)}</span>
-                      {collapsed ? <FiChevronDown size={14} /> : <FiChevronUp size={14} />}
+                  <div 
+                    key={section} 
+                    draggable={true}
+                    onDragStart={(e) => handleDragStartSection(e, secIdx)}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                    }}
+                    onDrop={() => handleDropSection(secIdx)}
+                    style={{
+                      ...styles.sectionBlock,
+                      opacity: isDragging ? 0.4 : 1,
+                      border: isDragging ? '2px dashed #f5c518' : undefined,
+                      transition: 'opacity 0.2s'
+                    }}
+                  >
+                    <div style={styles.sectionHeader}>
+                      {/* Drag Grip Handle */}
+                      <span
+                        title="Drag to reorder room section"
+                        style={{
+                          cursor: 'grab',
+                          color: '#f5c518',
+                          fontSize: '16px',
+                          fontWeight: 'bold',
+                          paddingRight: '8px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          userSelect: 'none'
+                        }}
+                      >
+                        ⠿
+                      </span>
+
+                      <div 
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, cursor: 'pointer' }}
+                        onClick={() => setCollapsedSections(p => ({ ...p, [section]: !p[section] }))}
+                      >
+                        <span style={styles.sectionHeaderName}>{section}</span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={styles.sectionHeaderTotal}>{fmt(sectionTotals[section] || 0)}</span>
+
+                        <div 
+                          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                          onClick={() => setCollapsedSections(p => ({ ...p, [section]: !p[section] }))}
+                        >
+                          {collapsed ? <FiChevronDown size={14} /> : <FiChevronUp size={14} />}
+                        </div>
+                      </div>
                     </div>
                     {!collapsed && (
                       <>

@@ -6,12 +6,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { 
   FiSearch, FiPlus, FiTrash2, FiRefreshCw, 
   FiAlertTriangle, FiCloud,
-  FiDownload, FiUpload, FiEdit, FiPrinter
+  FiDownload, FiUpload, FiEdit, FiPrinter, FiSend
 } from 'react-icons/fi';
+import { FaWhatsapp } from 'react-icons/fa';
 import { TbCurrencyRupee } from 'react-icons/tb';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import * as XLSX from 'xlsx';
 import dynamic from 'next/dynamic';
+import { buildQuotationHtmlString } from '@/lib/reports/quotationHtmlBuilder';
 const QuotationBuilder = dynamic(() => import('@/components/crm/QuotationBuilder'), { ssr: false });
 
 interface Lead {
@@ -209,7 +211,7 @@ export default function CRMPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   
   // Active Cell Selection for Sheet Grid
-  const [selectedCell, setSelectedCell] = useState<{ rowIndex: number; colIndex: number } | null>(null);
+  const [selectedCell, setSelectedCell] = useState<{ rowIndex: number; colIndex?: number; colId?: string } | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   
@@ -221,6 +223,40 @@ export default function CRMPage() {
   const [employees, setEmployees] = useState<{ id: string; full_name: string }[]>([]);
   const [isMobileEditOpen, setIsMobileEditOpen] = useState(false);
   const [mobileEditForm, setMobileEditForm] = useState<Lead | null>(null);
+  const [sendingWhatsappLeadId, setSendingWhatsappLeadId] = useState<string | null>(null);
+  const [isWhatsAppMenuOpen, setIsWhatsAppMenuOpen] = useState(false);
+  const [isDataMenuOpen, setIsDataMenuOpen] = useState(false);
+  const [mobileViewType, setMobileViewType] = useState<'cards' | 'table'>('cards');
+
+  const handleSendWhatsAppMessage = async (lead: Lead, actionType: 'quotation' | 'followup') => {
+    if (!lead.phone) {
+      alert('No phone number specified for this client lead.');
+      return;
+    }
+    setSendingWhatsappLeadId(lead.id);
+    setSyncStatus('syncing');
+    try {
+      const response = await fetch('/api/crm/send-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: lead.id, actionType })
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        alert(`WhatsApp ${actionType === 'quotation' ? 'Quotation PDF' : 'Follow-up'} sent successfully to ${lead.client_name}!`);
+        setSyncStatus('synced');
+      } else {
+        alert(`WhatsApp dispatch failed: ${data.error || 'Check Wasender API key configuration'}`);
+        setSyncStatus('error');
+      }
+    } catch (err: any) {
+      console.error('Error sending WhatsApp message:', err);
+      alert('Failed to send WhatsApp message. Please check API settings.');
+      setSyncStatus('error');
+    } finally {
+      setSendingWhatsappLeadId(null);
+    }
+  };
   
   // Collapsible month groups
   const [collapsedMonths, setCollapsedMonths] = useState<Record<string, boolean>>({});
@@ -793,7 +829,7 @@ export default function CRMPage() {
   const finishEditCell = useCallback(() => {
     if (!selectedCell || !isEditing) return;
     const lead = filteredLeads[selectedCell.rowIndex];
-    const col = columns[selectedCell.colIndex];
+    const col = selectedCell.colIndex !== undefined ? columns[selectedCell.colIndex] : (selectedCell.colId ? columns.find(c => c.id === selectedCell.colId) : undefined);
     if (!lead || !col) return;
 
     let newValue: string | number = editValue;
@@ -838,8 +874,9 @@ export default function CRMPage() {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const { rowIndex, colIndex } = selectedCell;
+      const currentColIdx = colIndex ?? (selectedCell.colId ? columns.findIndex(c => c.id === selectedCell.colId) : 0);
       let newRow = rowIndex;
-      let newCol = colIndex;
+      let newCol = currentColIdx;
 
       if (e.key === 'ArrowUp') {
         e.preventDefault();
@@ -849,20 +886,20 @@ export default function CRMPage() {
         newRow = Math.min(filteredLeads.length - 1, rowIndex + 1);
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        newCol = Math.max(0, colIndex - 1);
+        newCol = Math.max(0, currentColIdx - 1);
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        newCol = Math.min(columns.length - 1, colIndex + 1);
+        newCol = Math.min(columns.length - 1, currentColIdx + 1);
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        startEditCell(rowIndex, colIndex);
+        startEditCell(rowIndex, currentColIdx);
         return;
       } else if (e.key === 'Tab') {
         e.preventDefault();
         if (e.shiftKey) {
-          newCol = Math.max(0, colIndex - 1);
+          newCol = Math.max(0, currentColIdx - 1);
         } else {
-          newCol = Math.min(columns.length - 1, colIndex + 1);
+          newCol = Math.min(columns.length - 1, currentColIdx + 1);
         }
       } else {
         return;
@@ -897,15 +934,16 @@ export default function CRMPage() {
 
   const activeCellAddress = useMemo(() => {
     if (!selectedCell) return '';
-    const colLetter = String.fromCharCode(65 + selectedCell.colIndex); // A, B, C...
+    const colIdx = selectedCell.colIndex ?? (selectedCell.colId ? columns.findIndex(c => c.id === selectedCell.colId) : 0);
+    const colLetter = String.fromCharCode(65 + (colIdx >= 0 ? colIdx : 0)); // A, B, C...
     const rowNum = selectedCell.rowIndex + 1;
     return `${colLetter}${rowNum}`;
-  }, [selectedCell]);
+  }, [selectedCell, columns]);
 
   const activeCellValue = useMemo(() => {
     if (!selectedCell) return '';
     const lead = filteredLeads[selectedCell.rowIndex];
-    const col = columns[selectedCell.colIndex];
+    const col = selectedCell.colIndex !== undefined ? columns[selectedCell.colIndex] : (selectedCell.colId ? columns.find(c => c.id === selectedCell.colId) : undefined);
     if (!lead || !col) return '';
     return String(lead[col.id as keyof Lead] ?? '');
   }, [selectedCell, filteredLeads, columns]);
@@ -1094,7 +1132,7 @@ export default function CRMPage() {
               </div>
 
               {/* Kanban Columns container */}
-              <div className="grid grid-cols-5 gap-3 overflow-x-auto pb-2 min-h-[300px]">
+              <div className="flex md:grid md:grid-cols-5 gap-3 overflow-x-auto pb-3 min-h-[300px] snap-x snap-mandatory">
                 {(['Draft', 'Sent', 'Follow-up', 'On Hold', 'Approved'] as const).map((colStatus) => {
                   const colLeads = dashboardFilteredLeads.filter(l => l.status === colStatus);
                   const colLabels: Record<string, string> = {
@@ -1124,7 +1162,7 @@ export default function CRMPage() {
                       key={colStatus}
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={(e) => handleDropKanban(e, colStatus)}
-                      className={`flex flex-col gap-3 p-2.5 rounded-xl border border-gray-100 min-w-[150px] ${colColorClasses[colStatus]}`}
+                      className={`flex flex-col gap-3 p-3 rounded-xl border border-gray-100 min-w-[270px] sm:min-w-[280px] md:min-w-0 snap-center shrink-0 md:shrink ${colColorClasses[colStatus]}`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-black uppercase tracking-wider text-gray-500">
@@ -1182,16 +1220,47 @@ export default function CRMPage() {
                               {lead.phone && (
                                 <div className="flex items-center justify-between border-t border-gray-50 pt-2 text-[9px] font-bold">
                                   <span className="text-gray-400">{lead.created_date ? parseLocalDate(lead.created_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''}</span>
-                                  <a
-                                    href={`https://api.whatsapp.com/send?phone=${String(lead.phone).replace(/[^\d]/g, '').length === 10 ? '91' + String(lead.phone).replace(/[^\d]/g, '') : String(lead.phone).replace(/[^\d]/g, '')}&text=${encodeURIComponent(
-                                      `Hi ${lead.client_name || 'Customer'},\n\nThis is Apple Interior Manager following up regarding the quotation ${lead.ref_no} for your project at ${lead.site_project || 'your site'}.\n\nPlease let us know if you have any questions or feedback. Thanks!`
-                                    )}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-[9px] text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 px-1.5 py-0.5 rounded-md transition-colors flex items-center gap-0.5"
-                                  >
-                                    WhatsApp
-                                  </a>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSendWhatsAppMessage(lead, 'quotation')}
+                                      disabled={sendingWhatsappLeadId === lead.id}
+                                      className="text-[9px] text-emerald-700 bg-emerald-100 hover:bg-emerald-200 border border-emerald-200 px-1.5 py-0.5 rounded-md transition-colors flex items-center gap-1 font-bold cursor-pointer disabled:opacity-50"
+                                      title="Send Quotation PDF via Wasender API"
+                                    >
+                                      {sendingWhatsappLeadId === lead.id ? (
+                                        <FiRefreshCw className="w-2.5 h-2.5 animate-spin" />
+                                      ) : (
+                                        <FaWhatsapp className="w-2.5 h-2.5" />
+                                      )}
+                                      Quotation PDF
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSendWhatsAppMessage(lead, 'followup')}
+                                      disabled={sendingWhatsappLeadId === lead.id}
+                                      className="text-[9px] text-blue-700 bg-blue-100 hover:bg-blue-200 border border-blue-200 px-1.5 py-0.5 rounded-md transition-colors flex items-center gap-1 font-bold cursor-pointer disabled:opacity-50"
+                                      title="Send Follow-up Message via Wasender API"
+                                    >
+                                      {sendingWhatsappLeadId === lead.id ? (
+                                        <FiRefreshCw className="w-2.5 h-2.5 animate-spin" />
+                                      ) : (
+                                        <FaWhatsapp className="w-2.5 h-2.5" />
+                                      )}
+                                      Follow-up
+                                    </button>
+                                    <a
+                                      href={`https://api.whatsapp.com/send?phone=${String(lead.phone).replace(/[^\d]/g, '').length === 10 ? '91' + String(lead.phone).replace(/[^\d]/g, '') : String(lead.phone).replace(/[^\d]/g, '')}&text=${encodeURIComponent(
+                                        `Hi ${lead.client_name || 'Customer'},\n\nThis is Apple Interior Manager following up regarding the quotation for your project at ${lead.site_project || 'your site'}.\n\nPlease let us know if you have any questions or feedback. Thanks!`
+                                      )}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-[9px] text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-1 py-0.5 rounded-md transition-colors flex items-center gap-0.5"
+                                      title="Open WhatsApp Web"
+                                    >
+                                      Web
+                                    </a>
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -1244,15 +1313,32 @@ export default function CRMPage() {
                         : '16';
 
                       return (
-                        <div key={lead.id} className="flex items-start gap-3 p-2.5 rounded-xl border border-gray-50 hover:bg-gray-50/50 transition-colors">
-                          <div className="w-10 h-10 rounded-lg bg-yellow-50 border border-yellow-100 flex flex-col items-center justify-center shrink-0">
-                            <span className="text-[8px] font-black text-yellow-600 leading-none">{monthStr}</span>
-                            <span className="text-xs font-black text-yellow-800 mt-0.5 leading-none">{dayStr}</span>
+                        <div key={lead.id} className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-gray-50 hover:bg-gray-50/50 transition-colors">
+                          <div className="flex items-start gap-3 min-w-0 flex-1">
+                            <div className="w-10 h-10 rounded-lg bg-yellow-50 border border-yellow-100 flex flex-col items-center justify-center shrink-0">
+                              <span className="text-[8px] font-black text-yellow-600 leading-none">{monthStr}</span>
+                              <span className="text-xs font-black text-yellow-800 mt-0.5 leading-none">{dayStr}</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-xs font-bold text-gray-900 truncate">{lead.client_name}</h4>
+                              <p className="text-[9px] text-gray-400 font-bold truncate mt-0.5">{latestFollowUp}</p>
+                            </div>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-xs font-bold text-gray-900 truncate">{lead.client_name}</h4>
-                            <p className="text-[9px] text-gray-400 font-bold truncate mt-0.5">{latestFollowUp}</p>
-                          </div>
+                          {lead.phone && (
+                            <button
+                              type="button"
+                              onClick={() => handleSendWhatsAppMessage(lead, 'followup')}
+                              disabled={sendingWhatsappLeadId === lead.id}
+                              className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 transition-colors shrink-0 cursor-pointer disabled:opacity-50"
+                              title="Send WhatsApp Follow-up"
+                            >
+                              {sendingWhatsappLeadId === lead.id ? (
+                                <FiRefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <FaWhatsapp className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          )}
                         </div>
                       );
                     })
@@ -1325,39 +1411,15 @@ export default function CRMPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                onClick={exportToExcel}
-                className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-bold rounded-lg text-xs transition-colors flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
-              >
-                <FiDownload className="h-3.5 w-3.5" /> Export
-              </button>
-
               {hasPermission('crm.manage') && (
                 <>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleImportExcel}
-                    accept=".xlsx,.xls,.csv"
-                    className="hidden"
-                  />
                   <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-3 py-1.5 bg-green-50 hover:bg-green-100 border border-green-200 text-green-700 font-bold rounded-lg text-xs transition-colors flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+                    onClick={handleAddLead}
+                    className="hidden md:flex px-3.5 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg text-xs transition-colors items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
                   >
-                    <FiUpload className="h-3.5 w-3.5" /> Import
+                    <FiPlus className="h-4 w-4" /> Add Lead
                   </button>
-                  <button
-                    onClick={handleOpenMobileEdit}
-                    disabled={!selectedCell}
-                    className={`px-3 py-1.5 font-bold rounded-lg text-xs flex items-center gap-1.5 border transition-all ${
-                      selectedCell 
-                        ? 'bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-700 cursor-pointer active:scale-95' 
-                        : 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed'
-                    }`}
-                  >
-                    <FiEdit className="h-3.5 w-3.5" /> Edit Details
-                  </button>
+
                   <button
                     onClick={() => {
                       if (!selectedCell) return;
@@ -1365,28 +1427,83 @@ export default function CRMPage() {
                       if (lead) setQuotationLead(lead);
                     }}
                     disabled={!selectedCell}
-                    className={`px-3 py-1.5 font-bold rounded-lg text-xs flex items-center gap-1.5 border transition-all ${
+                    className={`hidden md:flex px-3 py-1.5 font-bold rounded-lg text-xs items-center gap-1.5 border transition-all ${
                       selectedCell 
                         ? 'bg-yellow-50 hover:bg-yellow-100 border-yellow-200 text-yellow-700 cursor-pointer active:scale-95 shadow-sm font-black' 
                         : 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed'
                     }`}
                   >
-                    📄 {(() => {
+                    {'📄 '} {(() => {
                       if (!selectedCell) return 'Quotation';
                       const lead = filteredLeads[selectedCell.rowIndex];
                       return lead?.latest_quotation_id ? `Quotation (v${lead.quote_version || 1})` : 'Create Quotation';
                     })()}
                   </button>
+
+                  <div className="hidden md:block relative text-left">
+                    <button
+                      onClick={() => setIsWhatsAppMenuOpen(prev => !prev)}
+                      disabled={!selectedCell || (selectedCell && !filteredLeads[selectedCell.rowIndex]?.phone) || sendingWhatsappLeadId !== null}
+                      title={selectedCell && !filteredLeads[selectedCell.rowIndex]?.phone ? 'Selected lead has no phone number' : 'Send WhatsApp message'}
+                      className={`px-3 py-1.5 font-bold rounded-lg text-xs flex items-center gap-1.5 border transition-all ${
+                        selectedCell && filteredLeads[selectedCell.rowIndex]?.phone
+                          ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-700 cursor-pointer active:scale-95 shadow-sm font-black' 
+                          : 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed'
+                      }`}
+                    >
+                      {sendingWhatsappLeadId && selectedCell && filteredLeads[selectedCell.rowIndex]?.id === sendingWhatsappLeadId ? (
+                        <FiRefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <FaWhatsapp className="h-4 w-4 text-emerald-600" />
+                      )}
+                      Send WhatsApp ▾
+                    </button>
+
+                    {isWhatsAppMenuOpen && selectedCell && filteredLeads[selectedCell.rowIndex]?.phone && (
+                      <div 
+                        className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50 animate-in fade-in zoom-in-95 duration-100"
+                        onMouseLeave={() => setIsWhatsAppMenuOpen(false)}
+                      >
+                        <button
+                          onClick={() => {
+                            setIsWhatsAppMenuOpen(false);
+                            const lead = filteredLeads[selectedCell.rowIndex];
+                            if (lead) handleSendWhatsAppMessage(lead, 'quotation');
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2 cursor-pointer transition-colors"
+                        >
+                          {'📄 '} Send Quotation PDF
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsWhatsAppMenuOpen(false);
+                            const lead = filteredLeads[selectedCell.rowIndex];
+                            if (lead) handleSendWhatsAppMessage(lead, 'followup');
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 cursor-pointer transition-colors border-t border-gray-100"
+                        >
+                          {'💬 '} Send Follow-Up
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
                   <button
-                    onClick={handleAddLead}
-                    className="px-3.5 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg text-xs transition-colors flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+                    onClick={handleOpenMobileEdit}
+                    disabled={!selectedCell}
+                    className={`hidden md:flex px-3 py-1.5 font-bold rounded-lg text-xs items-center gap-1.5 border transition-all ${
+                      selectedCell 
+                        ? 'bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-700 cursor-pointer active:scale-95' 
+                        : 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed'
+                    }`}
                   >
-                    <FiPlus className="h-4 w-4" /> Add Lead
+                    <FiEdit className="h-3.5 w-3.5" /> Edit Details
                   </button>
+
                   <button
                     onClick={handleDeleteLead}
                     disabled={!selectedCell}
-                    className={`px-3 py-1.5 font-bold rounded-lg text-xs flex items-center gap-1.5 border transition-all ${
+                    className={`hidden md:flex px-3 py-1.5 font-bold rounded-lg text-xs items-center gap-1.5 border transition-all ${
                       selectedCell 
                         ? 'bg-red-50 hover:bg-red-100 border-red-200 text-red-600 cursor-pointer active:scale-95' 
                         : 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed'
@@ -1394,13 +1511,62 @@ export default function CRMPage() {
                   >
                     <FiTrash2 className="h-3.5 w-3.5" /> Delete Row
                   </button>
+
+                  {/* Excel Tools Dropdown */}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImportExcel}
+                    accept=".xlsx,.xls,.csv"
+                    className="hidden"
+                  />
+                  <div className="relative inline-block text-left border-l border-gray-200 pl-2">
+                    <button
+                      onClick={() => setIsDataMenuOpen(prev => !prev)}
+                      className="px-3 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 font-bold rounded-lg text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                      title="Export or Import Excel files"
+                    >
+                      <FiDownload className="h-3.5 w-3.5 text-gray-600" /> <span className="hidden md:inline">Excel Tools</span> ▾
+                    </button>
+                    {isDataMenuOpen && (
+                      <>
+                        {/* Backdrop to close on tap (mobile) */}
+                        <div 
+                          className="fixed inset-0 z-40" 
+                          onClick={() => setIsDataMenuOpen(false)} 
+                        />
+                        <div 
+                          className="absolute left-0 top-full mt-1 w-44 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50"
+                        >
+                          <button
+                            onClick={() => {
+                              setIsDataMenuOpen(false);
+                              exportToExcel();
+                            }}
+                            className="w-full px-3 py-2 text-left text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 cursor-pointer transition-colors"
+                          >
+                            <FiDownload className="h-3.5 w-3.5 text-blue-600" /> Export Excel
+                          </button>
+                          <button
+                            onClick={() => {
+                              setIsDataMenuOpen(false);
+                              fileInputRef.current?.click();
+                            }}
+                            className="w-full px-3 py-2 text-left text-xs font-bold text-gray-700 hover:bg-green-50 hover:text-green-700 flex items-center gap-2 cursor-pointer transition-colors border-t border-gray-100"
+                          >
+                            <FiUpload className="h-3.5 w-3.5 text-green-600" /> Import Excel
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </>
               )}
             </div>
           </div>
 
           {/* FORMULA BAR (Like Google Sheets) */}
-          <div className="flex items-center border-b border-gray-200 bg-white text-xs px-2.5 py-1.5">
+          <div className="hidden md:flex items-center border-b border-gray-200 bg-white text-xs px-2.5 py-1.5">
             <div className="flex items-center bg-gray-100 border border-gray-200 px-2 py-1 rounded font-bold text-gray-500 w-36 text-center select-none shrink-0 shadow-inner">
               <span className="text-[10px] text-gray-400 mr-1.5 font-black uppercase">Cell:</span>
               <span className="text-gray-800 text-[11px]">{selectedCell ? activeCellAddress : 'None'}</span>
@@ -1430,8 +1596,139 @@ export default function CRMPage() {
             />
           </div>
 
+          {/* MOBILE CARDS VIEW (< md screens when cards view is active) */}
+          {mobileViewType === 'cards' && (
+            <div className="block md:hidden p-3 space-y-3 bg-gray-50 overflow-y-auto max-h-[calc(100vh-210px)]">
+              {filteredLeads.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 font-medium text-xs bg-white rounded-xl border border-gray-200">
+                  No matching leads found
+                </div>
+              ) : (
+                filteredLeads.map((lead, idx) => {
+                  const initials = lead.client_name ? lead.client_name.substring(0, 2).toUpperCase() : 'LE';
+                  const colorHash = (lead.client_name || '').charCodeAt(0) % 5;
+                  const badgeColors = [
+                    'bg-amber-100 text-amber-700',
+                    'bg-blue-100 text-blue-700',
+                    'bg-green-100 text-green-700',
+                    'bg-purple-100 text-purple-700',
+                    'bg-rose-100 text-rose-700'
+                  ][colorHash];
+
+                  return (
+                    <div 
+                      key={lead.id || idx}
+                      onClick={() => setSelectedCell({ rowIndex: idx, colId: 'client_name' })}
+                      className={`bg-white rounded-xl p-3.5 border transition-all text-left shadow-xs ${
+                        selectedCell?.rowIndex === idx ? 'border-yellow-500 ring-2 ring-yellow-200' : 'border-gray-200'
+                      }`}
+                    >
+                      {/* Card Header: Client Name, Avatar, Ref No, Status */}
+                      <div className="flex items-start justify-between gap-2 border-b border-gray-100 pb-2.5 mb-2.5">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-black ${badgeColors}`}>
+                            {initials}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <h3 className="font-bold text-sm text-gray-900 truncate">{lead.client_name}</h3>
+                              {lead.ref_no && (
+                                <span className="text-[9px] bg-gray-100 text-gray-500 font-bold px-1.5 py-0.5 rounded">
+                                  {lead.ref_no}
+                                </span>
+                              )}
+                            </div>
+                            {lead.site_project && (
+                              <p className="text-xs text-gray-500 mt-0.5 truncate font-medium">
+                                {'📍 '} {lead.site_project} {lead.area_sqft ? `(${lead.area_sqft} sq.ft)` : ''}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Status Badge */}
+                        <span className={`px-2 py-0.5 text-[10px] font-black border uppercase rounded-md shadow-2xs shrink-0 ${getStatusBadgeClass(lead.status)}`}>
+                          {lead.status || 'Draft'}
+                        </span>
+                      </div>
+
+                      {/* Financial Metrics Summary */}
+                      <div className="grid grid-cols-2 gap-2 text-xs mb-3 bg-gray-50/80 p-2.5 rounded-lg border border-gray-100">
+                        <div>
+                          <span className="text-[10px] text-gray-400 font-bold block uppercase">Quote Value</span>
+                          <span className="font-black text-gray-800 text-sm">
+                            ₹{lead.quote_value ? Number(lead.quote_value).toLocaleString('en-IN') : '0'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-gray-400 font-bold block uppercase">Approved Value</span>
+                          <span className="font-black text-emerald-700 text-sm">
+                            {lead.approved_value ? `₹${Number(lead.approved_value).toLocaleString('en-IN')}` : '—'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Contact Bar */}
+                      {lead.phone && (
+                        <div className="flex items-center justify-between text-xs text-gray-600 mb-3 px-0.5">
+                          <span className="font-bold flex items-center gap-1.5 text-gray-700">
+                            {'📞 '} {lead.phone}
+                          </span>
+                          <a 
+                            href={`tel:${lead.phone}`}
+                            className="text-[11px] bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-2.5 py-1 rounded-md border border-blue-200 transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Call Client
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Action Bar */}
+                      <div className="flex items-center gap-1.5 pt-2 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => setQuotationLead(lead)}
+                          className="flex-1 py-1.5 px-2 bg-yellow-500 hover:bg-yellow-600 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-1 shadow-xs cursor-pointer active:scale-95"
+                        >
+                          {'📄 '} {lead.latest_quotation_id ? `Quotation (v${lead.quote_version || 1})` : 'Create Quote'}
+                        </button>
+
+                        {lead.phone && (
+                          <button
+                            onClick={() => handleSendWhatsAppMessage(lead, 'quotation')}
+                            disabled={sendingWhatsappLeadId === lead.id}
+                            className="py-1.5 px-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 font-bold text-xs rounded-lg flex items-center justify-center gap-1 cursor-pointer active:scale-95 disabled:opacity-50"
+                            title="Send WhatsApp PDF"
+                          >
+                            {sendingWhatsappLeadId === lead.id ? (
+                              <FiRefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <FaWhatsapp className="w-3.5 h-3.5 text-emerald-600" />
+                            )}
+                            WhatsApp
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => {
+                            setMobileEditForm(lead);
+                            setIsMobileEditOpen(true);
+                          }}
+                          className="py-1.5 px-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-lg flex items-center justify-center gap-1 cursor-pointer active:scale-95 border border-gray-200"
+                          title="Edit Lead Details"
+                        >
+                          <FiEdit className="w-3.5 h-3.5" /> Edit
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
           {/* SHEET GRID CONTAINER */}
-          <div className="flex-1 overflow-auto max-w-full">
+          <div className={`${mobileViewType === 'table' ? 'block' : 'hidden md:block'} flex-1 overflow-auto max-w-full`}>
             <table 
               ref={tableRef}
               className="w-full text-left border-collapse border-spacing-0 text-xs select-none"
@@ -1637,20 +1934,40 @@ export default function CRMPage() {
                                      <div className="flex items-center justify-between group/phone min-w-[80px]">
                                        <span className="text-gray-800 font-medium">{cellValue || '-'}</span>
                                        {cellValue && (
-                                         <a
-                                           href={`https://api.whatsapp.com/send?phone=${String(cellValue).replace(/[^\d]/g, '').length === 10 ? '91' + String(cellValue).replace(/[^\d]/g, '') : String(cellValue).replace(/[^\d]/g, '')}&text=${encodeURIComponent(
-                                             `Hi ${lead.client_name || 'Customer'},\n\nThis is Apple Interior Manager following up regarding the quotation ${lead.ref_no} for your project at ${lead.site_project || 'your site'}.\n\nPlease let us know if you have any questions or feedback. Thanks!`
-                                           )}`}
-                                           target="_blank"
-                                           rel="noopener noreferrer"
-                                           title="Send WhatsApp Follow-up"
-                                           onClick={(e) => e.stopPropagation()}
-                                           className="text-emerald-500 hover:text-emerald-600 transition-colors p-1 rounded hover:bg-emerald-50 opacity-0 group-hover/phone:opacity-100 focus:opacity-100 shrink-0"
-                                         >
-                                           <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                                             <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.89 9.884-.001 2.224.587 4.393 1.697 6.14l-.998 3.645 3.791-.984zm11.033-5.74c-.26-.13-1.534-.757-1.771-.842-.236-.085-.408-.13-.578.13-.171.26-.66.842-.81 1.01-.15.17-.3.19-.56.06-.26-.13-1.097-.404-2.09-1.288-.773-.69-1.295-1.543-1.447-1.802-.152-.26-.016-.4.117-.53.12-.117.26-.305.39-.457.13-.15.172-.26.26-.43.089-.17.044-.325-.022-.455-.067-.13-.578-1.393-.792-1.907-.21-.5-.436-.43-.598-.43h-.514c-.17 0-.447.064-.68.314-.233.25-.89.87-8.9 2.12s.93 2.47 1.056 2.64c.127.17 1.83 2.796 4.434 3.92.62.268 1.103.428 1.481.548.624.2 1.193.171 1.642.105.502-.075 1.534-.627 1.749-1.233.215-.607.215-1.127.151-1.233-.064-.105-.236-.17-.497-.3z"/>
-                                           </svg>
-                                         </a>
+                                         <div className="flex items-center gap-0.5 opacity-0 group-hover/phone:opacity-100 focus-within:opacity-100 shrink-0">
+                                           <button
+                                             type="button"
+                                             title="Send Quotation PDF via WhatsApp"
+                                             onClick={(e) => {
+                                               e.stopPropagation();
+                                               handleSendWhatsAppMessage(lead, 'quotation');
+                                             }}
+                                             disabled={sendingWhatsappLeadId === lead.id}
+                                             className="text-emerald-600 hover:text-emerald-700 transition-colors p-1 rounded hover:bg-emerald-100 cursor-pointer disabled:opacity-50"
+                                           >
+                                             {sendingWhatsappLeadId === lead.id ? (
+                                               <FiRefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                             ) : (
+                                               <FaWhatsapp className="w-3.5 h-3.5 text-emerald-600" />
+                                             )}
+                                           </button>
+                                           <button
+                                             type="button"
+                                             title="Send Follow-up Message via WhatsApp"
+                                             onClick={(e) => {
+                                               e.stopPropagation();
+                                               handleSendWhatsAppMessage(lead, 'followup');
+                                             }}
+                                             disabled={sendingWhatsappLeadId === lead.id}
+                                             className="text-blue-600 hover:text-blue-700 transition-colors p-1 rounded hover:bg-blue-100 cursor-pointer disabled:opacity-50"
+                                           >
+                                             {sendingWhatsappLeadId === lead.id ? (
+                                               <FiRefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                             ) : (
+                                               <FaWhatsapp className="w-3.5 h-3.5 text-blue-600" />
+                                             )}
+                                           </button>
+                                         </div>
                                        )}
                                      </div>
                                    ) : col.id === 'ref_no' ? (
@@ -1748,8 +2065,8 @@ export default function CRMPage() {
             {selectedCell && (
               <div className="flex items-center gap-4 bg-white border border-gray-200 px-3 py-0.5 rounded-lg shadow-2xs">
                 {(() => {
-                  const col = columns[selectedCell.colIndex];
-                  if (col.type === 'number') {
+                  const col = columns.find(c => c.id === selectedCell.colId);
+                  if (col && col.type === 'number') {
                     const colLeads = filteredLeads.map(l => Number(l[col.id as keyof Lead]) || 0);
                     const sum = colLeads.reduce((a, b) => a + b, 0);
                     const avg = colLeads.length > 0 ? sum / colLeads.length : 0;
@@ -1965,6 +2282,17 @@ export default function CRMPage() {
             setQuotationLead(null);
           }}
         />
+      )}
+
+      {/* Floating Action Button (FAB) for Lead Creation on Mobile */}
+      {hasPermission('crm.manage') && (
+        <button
+          onClick={handleAddLead}
+          className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-yellow-500 hover:bg-yellow-600 text-white rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 transition-transform cursor-pointer border-2 border-white"
+          title="Add New Lead"
+        >
+          <FiPlus className="w-7 h-7" />
+        </button>
       )}
     </div>
   );

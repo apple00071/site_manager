@@ -24,45 +24,91 @@ class WhatsAppNotificationService {
   private async ensureSdk(): Promise<boolean> {
     if (this.api) return true;
     try {
-      // Attempt to load the SDK at runtime
+      // Load Wasender SDK
       const mod: any = await import('wasenderapi');
-      const Ctor = mod?.default || (mod as any)?.WhatsAppAPI || (mod as any)?.WasenderAPI;
-      if (!Ctor) {
-        console.warn('Wasender SDK loaded but API constructor not found');
-        // Use direct REST API fallback
+      const createWasender = mod?.createWasender || mod?.default?.createWasender;
+
+      if (typeof createWasender === 'function') {
+        const client = createWasender(this.config.apiKey, this.config.instanceId || undefined);
         this.api = {
-          sendMessage: async (params: any) => {
-            const url = `https://www.wasenderapi.com/api/send-message`;
-
-            const payload = {
-              to: `+${params.to}`,
-              text: params.message
+          sendDocument: async (params: { to: string; documentUrl: string; fileName?: string; text?: string }) => {
+            const formattedTo = params.to.startsWith('+') ? params.to : `+${params.to}`;
+            const sendPayload: any = {
+              to: formattedTo,
+              documentUrl: params.documentUrl,
+              text: params.text
             };
-
-            const response = await fetch(url, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${this.config.apiKey}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-              const errorText = await response.text();
-              throw new Error(`WhatsApp API error: ${response.status} ${errorText}`);
+            if (params.fileName) {
+              sendPayload.fileName = params.fileName;
+              sendPayload.filename = params.fileName;
+              sendPayload.name = params.fileName;
             }
-
-            return await response.json();
+            const res = await client.sendDocument(sendPayload);
+            return res.response || res;
+          },
+          sendMessage: async (params: any) => {
+            const formattedTo = params.to.startsWith('+') ? params.to : `+${params.to}`;
+            if (params.documentUrl || params.mediaUrl) {
+              const sendPayload: any = {
+                to: formattedTo,
+                documentUrl: params.documentUrl || params.mediaUrl,
+                text: params.message || params.text
+              };
+              if (params.fileName || params.filename) {
+                sendPayload.fileName = params.fileName || params.filename;
+                sendPayload.filename = params.fileName || params.filename;
+                sendPayload.name = params.fileName || params.filename;
+              }
+              const res = await client.sendDocument(sendPayload);
+              return res.response || res;
+            }
+            const res = await client.sendText({
+              to: formattedTo,
+              text: params.message || params.text
+            });
+            return res.response || res;
           }
         };
         return true;
       }
 
-      this.api = new Ctor({
-        apiKey: this.config.apiKey,
-        instanceId: this.config.instanceId
-      });
+      console.warn('createWasender SDK factory function not found, using REST API fallback');
+      // Use direct REST API fallback
+      this.api = {
+        sendMessage: async (params: any) => {
+          const url = `https://www.wasenderapi.com/api/send-message`;
+
+          const payload: any = {
+            to: `+${params.to}`,
+            text: params.message || params.text
+          };
+
+          if (params.documentUrl || params.mediaUrl || params.document) {
+            payload.documentUrl = params.documentUrl || params.mediaUrl || params.document;
+            payload.mediaUrl = params.documentUrl || params.mediaUrl || params.document;
+            payload.messageType = 'document';
+          }
+          if (params.fileName) {
+            payload.fileName = params.fileName;
+          }
+
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${this.config.apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`WhatsApp API error: ${response.status} ${errorText}`);
+          }
+
+          return await response.json();
+        }
+      };
       return true;
     } catch (error) {
       console.error('Failed to initialize WhatsApp SDK:', error);
@@ -178,7 +224,7 @@ class WhatsAppNotificationService {
         return false;
       }
 
-      const cleanPhone = phoneNumber.replace(/[^\d]/g, '');
+      const cleanPhone = formatPhone(phoneNumber);
 
       const result = await this.api.sendMessage({
         to: cleanPhone,
@@ -213,6 +259,88 @@ class WhatsAppNotificationService {
       return false;
     }
   }
+
+  async sendCRMQuotationNotification(phoneNumber: string, clientName: string, refNo: string, quoteValue: number, siteProject?: string, quotationUrl?: string): Promise<boolean> {
+    try {
+      const sdkReady = await this.ensureSdk();
+      if (!sdkReady) return false;
+      let message = `📋 *Quotation Update - Apple Interior*\n\n`;
+      message += `Dear *${clientName}*,\n\n`;
+      message += `Thank you for choosing Apple Interior.\n\n`;
+      if (siteProject) message += `🏡 *Project/Site:* ${siteProject}\n`;
+      message += `\nPlease find attached the official PDF quotation. Feel free to reach out if you have any questions or require modifications.`;
+
+      const targetPhone = formatPhone(phoneNumber);
+      const cleanName = (clientName || 'Client').trim().replace(/[^\w\s-]/g, '').replace(/\s+/g, '_');
+      const pdfFileName = `Apple Interior Quotation_${cleanName}.pdf`;
+
+      // 1. Try SDK sendDocument method if available
+      if (quotationUrl && typeof this.api?.sendDocument === 'function') {
+        try {
+          const result = await this.api.sendDocument({
+            to: targetPhone,
+            documentUrl: quotationUrl,
+            fileName: pdfFileName,
+            text: message
+          });
+          console.log('WhatsApp CRM quotation document sent via SDK sendDocument:', result);
+          return true;
+        } catch (sdkDocErr) {
+          console.warn('sendDocument SDK call failed, attempting generic sendMessage fallback:', sdkDocErr);
+        }
+      }
+
+      // 2. Generic payload fallback
+      const sendPayload: any = {
+        to: targetPhone,
+        message: message,
+        text: message,
+        documentUrl: quotationUrl,
+        mediaUrl: quotationUrl,
+        type: quotationUrl ? 'document' : 'text',
+        fileName: pdfFileName
+      };
+
+      const result = await this.api.sendMessage(sendPayload);
+      console.log('WhatsApp CRM quotation notification sent:', result);
+      return true;
+    } catch (error: any) {
+      console.error('Error sending WhatsApp CRM quotation notification:', error);
+      if (error?.message?.includes('429')) {
+        throw new Error('Wasender Free Trial limit reached: You can send 1 message per minute.');
+      }
+      throw error;
+    }
+  }
+
+  async sendCRMFollowUpNotification(phoneNumber: string, clientName: string, refNo: string, remarks?: string, siteProject?: string): Promise<boolean> {
+    try {
+      const sdkReady = await this.ensureSdk();
+      if (!sdkReady) return false;
+      let message = `👋 *Follow-up Reminder - Apple Interior*\n\n`;
+      message += `Dear *${clientName}*,\n\n`;
+      message += `We hope you are doing well! We are following up regarding your interior design project proposal.\n`;
+      if (siteProject) message += `🏡 *Project:* ${siteProject}\n`;
+      if (remarks) message += `💬 *Note:* ${remarks}\n`;
+      message += `\nPlease let us know your availability for a quick discussion or if you need any adjustments to the proposal.`;
+
+      const result = await this.api.sendMessage({
+        to: formatPhone(phoneNumber),
+        message: message,
+        type: 'text'
+      });
+
+      console.log('WhatsApp CRM follow-up notification sent:', result);
+      return true;
+    } catch (error: any) {
+      console.error('Error sending WhatsApp CRM follow-up notification:', error);
+      if (error?.message?.includes('429')) {
+        throw new Error('Wasender Free Trial limit reached: You can send 1 message per minute.');
+      }
+      throw error;
+    }
+  }
+
 
   private formatTaskMessage(taskTitle: string, projectName?: string, status?: string, link?: string): string {
     let message = `📋 *Task Update*\n\n`;
@@ -329,15 +457,23 @@ class WhatsAppNotificationService {
   }
 }
 
+const formatPhone = (phone: string): string => {
+  let digits = (phone || '').replace(/[^\d]/g, '');
+  if (digits.length === 10) {
+    digits = '91' + digits;
+  }
+  return digits;
+};
+
 // Singleton instance
 let whatsappService: WhatsAppNotificationService | null = null;
 
 export function getWhatsAppService(): WhatsAppNotificationService | null {
   if (!whatsappService) {
     const apiKey = process.env.WHATSAPP_API_KEY;
-    const instanceId = process.env.WHATSAPP_INSTANCE_ID;
+    const instanceId = process.env.WHATSAPP_INSTANCE_ID || '';
 
-    if (!apiKey || !instanceId) {
+    if (!apiKey || apiKey.includes('your-whatsapp')) {
       console.warn('WhatsApp API credentials not configured');
       return null;
     }
@@ -426,3 +562,29 @@ export async function sendDPRWhatsAppNotification(
   if (!service) return false;
   return await service.sendDPRNotification(phoneNumber, pdfUrl, projectName, date);
 }
+
+export async function sendCRMQuotationWhatsAppNotification(
+  phoneNumber: string,
+  clientName: string,
+  refNo: string,
+  quoteValue: number,
+  siteProject?: string,
+  quotationUrl?: string
+): Promise<boolean> {
+  const service = getWhatsAppService();
+  if (!service) return false;
+  return await service.sendCRMQuotationNotification(phoneNumber, clientName, refNo, quoteValue, siteProject, quotationUrl);
+}
+
+export async function sendCRMFollowUpWhatsAppNotification(
+  phoneNumber: string,
+  clientName: string,
+  refNo: string,
+  remarks?: string,
+  siteProject?: string
+): Promise<boolean> {
+  const service = getWhatsAppService();
+  if (!service) return false;
+  return await service.sendCRMFollowUpNotification(phoneNumber, clientName, refNo, remarks, siteProject);
+}
+

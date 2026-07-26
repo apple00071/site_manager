@@ -1,6 +1,8 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
+import fs from 'fs';
+import path from 'path';
 import { getViewpointName } from './viewpoints';
 
 // Helper to fetch image and convert to base64 for embedding
@@ -120,7 +122,6 @@ export async function generateDPR(report: any, project: any) {
 
     // Viewpoint Photos Section
     if (report.viewpoint_photos && report.viewpoint_photos.length > 0) {
-        // Check if we need a new page
         if (currentY > 200) {
             doc.addPage();
             currentY = 20;
@@ -139,7 +140,6 @@ export async function generateDPR(report: any, project: any) {
         let photosInRow = 0;
 
         for (const vp of report.viewpoint_photos) {
-            // Check if we need a new page
             if (currentY + photoHeight + 20 > 280) {
                 doc.addPage();
                 currentY = 20;
@@ -147,21 +147,18 @@ export async function generateDPR(report: any, project: any) {
                 photosInRow = 0;
             }
 
-            // Try to fetch and embed the image
             const imageData = await fetchImageAsBase64(vp.photo_url);
 
             if (imageData) {
                 try {
                     doc.addImage(imageData, 'JPEG', xPos, currentY, photoWidth, photoHeight);
                 } catch (imgError) {
-                    // If image fails, draw a placeholder
                     doc.setDrawColor(200, 200, 200);
                     doc.rect(xPos, currentY, photoWidth, photoHeight);
                     doc.setFontSize(8);
                     doc.text('Image unavailable', xPos + 20, currentY + 30);
                 }
             } else {
-                // Draw placeholder for missing image
                 doc.setDrawColor(200, 200, 200);
                 doc.rect(xPos, currentY, photoWidth, photoHeight);
                 doc.setFontSize(8);
@@ -170,27 +167,22 @@ export async function generateDPR(report: any, project: any) {
                 doc.setTextColor(0, 0, 0);
             }
 
-            // Add viewpoint name below image
             doc.setFontSize(9);
             doc.setFont('helvetica', 'bold');
             const vpName = vp.viewpoint?.name || getViewpointName(vp.viewpoint_id) || 'Viewpoint';
             doc.text(vpName, xPos, currentY + photoHeight + 5);
             doc.setFont('helvetica', 'normal');
 
-            // Move to next position
             photosInRow++;
             if (photosInRow >= 2) {
-                // Move to next row
                 xPos = margin;
                 currentY += photoHeight + 15;
                 photosInRow = 0;
             } else {
-                // Move to next column
                 xPos += photoWidth + gutter;
             }
         }
 
-        // Add space after last row if we didn't complete a full row
         if (photosInRow > 0) {
             currentY += photoHeight + 15;
         }
@@ -204,6 +196,372 @@ export async function generateDPR(report: any, project: any) {
         doc.text(`Page ${i} of ${pageCount}`, 190, 285, { align: 'right' });
     }
 
-    return doc.output('arraybuffer');
+    return Buffer.from(doc.output('arraybuffer'));
 }
 
+export async function generateQuotationPDF(quotation: any, lead: any): Promise<Buffer> {
+    const doc = new jsPDF() as any;
+
+    // 0. TOP ACCENT BAR (#f5c518 Amber Gold)
+    doc.setFillColor(245, 197, 24);
+    doc.rect(14, 10, 182, 2, 'F');
+
+    // 1. TOP HEADER BANNER (Dark Slate Bar matching App Layout #2b2b2b)
+    doc.setFillColor(43, 43, 43);
+    doc.rect(14, 12, 182, 28, 'F');
+
+    // White Logo Box on Left
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(17, 13.5, 54, 25, 3, 3, 'F');
+    
+    try {
+      const logoPath = path.join(process.cwd(), 'public', 'New-logo.png');
+      if (fs.existsSync(logoPath)) {
+        const logoBuffer = fs.readFileSync(logoPath);
+        const logoBase64 = `data:image/png;base64,${logoBuffer.toString('base64')}`;
+        doc.addImage(logoBase64, 'PNG', 18.5, 15, 51, 22);
+      } else {
+        doc.setFontSize(15);
+        doc.setTextColor(43, 43, 43);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Apple', 22, 26);
+        doc.setFontSize(8.5);
+        doc.setTextColor(120, 120, 120);
+        doc.text('INTERIORS', 38, 26);
+        doc.setFontSize(6);
+        doc.setTextColor(245, 197, 24);
+        doc.text('We build your Dream', 24, 32);
+      }
+    } catch (e) {
+      doc.setFontSize(15);
+      doc.setTextColor(43, 43, 43);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Apple', 22, 26);
+      doc.setFontSize(8.5);
+      doc.setTextColor(120, 120, 120);
+      doc.text('INTERIORS', 38, 26);
+      doc.setFontSize(6);
+      doc.setTextColor(245, 197, 24);
+      doc.text('We build your Dream', 24, 32);
+    }
+
+    // Right Header Info
+    doc.setFontSize(9.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(245, 197, 24); // Amber Gold
+    doc.text('Kukatpally, Hyderabad', 190, 20, { align: 'right' });
+    
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(190, 190, 190);
+    doc.text('+91 96039 60337 · +91 91606 77899', 190, 26, { align: 'right' });
+    doc.text('www.appleinteriors.in', 190, 32, { align: 'right' });
+
+    // 2. MAIN TITLE
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(43, 43, 43);
+    doc.text('INTERIOR DESIGN QUOTATION', 105, 48, { align: 'center' });
+
+    // 3. CLIENT & METADATA GRID
+    const printDate = quotation?.created_at 
+      ? new Date(quotation.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      : new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(75, 85, 99);
+
+    // Column 1 (Left)
+    doc.text(`Client Name : `, 14, 57);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(17, 24, 39);
+    doc.text(`${lead?.client_name || 'Customer'}`, 38, 57);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(75, 85, 99);
+    doc.text(`Phone : `, 14, 63);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(17, 24, 39);
+    doc.text(`${lead?.phone || '-'}`, 38, 63);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(75, 85, 99);
+    doc.text(`Site Location : `, 14, 69);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(17, 24, 39);
+    doc.text(`${lead?.site_project || '-'}`, 38, 69);
+
+    // Column 2 (Right)
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(75, 85, 99);
+    doc.text(`Date : `, 120, 57);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(17, 24, 39);
+    doc.text(`${printDate}`, 134, 57);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(75, 85, 99);
+    doc.text(`Ref No : `, 120, 63);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(17, 24, 39);
+    doc.text(`${lead?.ref_no || '-'}`, 134, 63);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(75, 85, 99);
+    doc.text(`Version : `, 120, 69);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(17, 24, 39);
+    doc.text(`v${quotation?.version || 1}`, 134, 69);
+
+    // Amber Divider Line (#f5c518)
+    doc.setDrawColor(245, 197, 24);
+    doc.setLineWidth(1);
+    doc.line(14, 74, 196, 74);
+
+    let currentY = 78;
+
+    // 4. ITEMS TABLE (GROUPED BY SECTION WITH SECTION SUBTOTALS)
+    const rawItems: any[] = quotation?.quotation_items || quotation?.items || [];
+    
+    if (rawItems.length > 0) {
+      const sections: Record<string, any[]> = {};
+      rawItems.forEach(item => {
+        const sec = item.section || 'GENERAL';
+        if (!sections[sec]) sections[sec] = [];
+        sections[sec].push(item);
+      });
+
+      const tableBody: any[] = [];
+      let itemCounter = 1;
+
+      Object.entries(sections).forEach(([secName, secItems]) => {
+        // Section Header Row (#f5c518)
+        tableBody.push([
+          { 
+            content: secName.toUpperCase(), 
+            colSpan: 7, 
+            styles: { 
+              fillColor: [245, 197, 24], 
+              textColor: [43, 43, 43], 
+              fontStyle: 'bold',
+              fontSize: 8.5
+            } 
+          }
+        ]);
+
+        let secSubtotal = 0;
+        secItems.forEach(item => {
+          const amt = Number(item.amount || item.total_amount || 0);
+          secSubtotal += amt;
+          tableBody.push([
+            itemCounter++,
+            item.item_name || item.title || 'Item',
+            item.length ? item.length : '—',
+            item.height || item.width ? (item.height || item.width) : '—',
+            item.area_sqft || item.area || 0,
+            item.rate ? `Rs. ${Math.round(Number(item.rate)).toLocaleString('en-IN')}` : '—',
+            `Rs. ${Math.round(amt).toLocaleString('en-IN')}`
+          ]);
+        });
+
+        // Section Subtotal Row (#f0ebe0)
+        tableBody.push([
+          {
+            content: `${secName} Subtotal:`,
+            colSpan: 6,
+            styles: {
+              fillColor: [240, 235, 224],
+              textColor: [43, 43, 43],
+              fontStyle: 'bold',
+              halign: 'right',
+              fontSize: 8
+            }
+          },
+          {
+            content: `Rs. ${Math.round(secSubtotal).toLocaleString('en-IN')}`,
+            styles: {
+              fillColor: [240, 235, 224],
+              textColor: [43, 43, 43],
+              fontStyle: 'bold',
+              halign: 'right',
+              fontSize: 8
+            }
+          }
+        ]);
+      });
+
+      autoTable(doc, {
+        startY: currentY,
+        head: [['#', 'Description of Work', 'L (ft)', 'W (ft)', 'Area (sq.ft)', 'Rate (Rs.)', 'Amount (Rs.)']],
+        body: tableBody,
+        theme: 'grid',
+        headStyles: { 
+          fillColor: [43, 43, 43], 
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 8,
+          halign: 'left'
+        },
+        columnStyles: {
+          0: { cellWidth: 10, halign: 'center' },
+          1: { cellWidth: 70 },
+          2: { cellWidth: 14, halign: 'center' },
+          3: { cellWidth: 14, halign: 'center' },
+          4: { cellWidth: 18, halign: 'center' },
+          5: { cellWidth: 28, halign: 'right' },
+          6: { cellWidth: 28, halign: 'right' }
+        },
+        styles: {
+          fontSize: 8,
+          cellPadding: 2
+        }
+      });
+      currentY = (doc as any).lastAutoTable.finalY + 10;
+    } else {
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Estimated Quotation Amount: Rs. ${Math.round(Number(lead?.quote_value || quotation?.final_amount || 0)).toLocaleString('en-IN')}`, 14, currentY);
+      currentY += 15;
+    }
+
+    // 5. TOTAL & SUMMARY
+    const subtotal = quotation?.subtotal || lead?.quote_value || 0;
+    const finalVal = quotation?.final_amount || subtotal;
+
+    doc.setFontSize(10.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(43, 43, 43);
+    doc.text(`Subtotal: Rs. ${Math.round(Number(subtotal)).toLocaleString('en-IN')}`, 196, currentY, { align: 'right' });
+    currentY += 6;
+
+    if (quotation?.discount_value && quotation.discount_value > 0) {
+      doc.setFontSize(9);
+      doc.setTextColor(220, 38, 38);
+      doc.text(`Discount: -Rs. ${Math.round(Number(subtotal - finalVal)).toLocaleString('en-IN')}`, 196, currentY, { align: 'right' });
+      currentY += 6;
+    }
+
+    doc.setFontSize(11.5);
+    doc.setTextColor(245, 197, 24);
+    doc.text(`Grand Total: Rs. ${Math.round(Number(finalVal)).toLocaleString('en-IN')}`, 196, currentY, { align: 'right' });
+    currentY += 14;
+
+    // 6. PAYMENT SCHEDULE TABLE
+    if (currentY + 60 > 275) {
+      doc.addPage();
+      currentY = 20;
+    }
+
+    doc.setFillColor(43, 43, 43);
+    doc.rect(14, currentY, 182, 6, 'F');
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(245, 197, 24);
+    doc.text('PAYMENT SCHEDULE', 18, currentY + 4.5);
+    currentY += 8;
+
+    const milestones = [
+      ['Stage 1', 'Token Advance', '10%'],
+      ['Stage 2', 'Before Start of Work', '40%'],
+      ['Stage 3', 'Completion of Boxes & Inside Laminate', '30%'],
+      ['Stage 4', 'Completion of Outside Laminate', '15%'],
+      ['Stage 5', 'At Handover', '5%']
+    ];
+
+    autoTable(doc, {
+      startY: currentY,
+      head: [['Stage', 'Milestone Description', 'Payment %']],
+      body: milestones,
+      theme: 'grid',
+      headStyles: { fillColor: [245, 197, 24], textColor: [43, 43, 43], fontStyle: 'bold', fontSize: 8 },
+      styles: { fontSize: 7.5, cellPadding: 2 }
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 10;
+
+    // 7. MATERIAL SPECIFICATIONS TABLE
+    if (currentY + 70 > 275) {
+      doc.addPage();
+      currentY = 20;
+    }
+
+    doc.setFillColor(43, 43, 43);
+    doc.rect(14, currentY, 182, 6, 'F');
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(245, 197, 24);
+    doc.text('MATERIAL SPECIFICATIONS', 18, currentY + 4.5);
+    currentY += 8;
+
+    const specs = [
+      ['Plywood', '18mm BWP Ply — DT Platinum'],
+      ['Outer Laminate', '1.0mm thick up to Rs. 1,600/sheet — Glossy or Matt finish'],
+      ['Inner Laminate', '0.8mm Fabric Liner'],
+      ['Edge Finish', '2mm thick PVC edge tape'],
+      ['Hinges', 'Hettich'],
+      ['Channels', 'Hettich'],
+      ['Handles', 'SS finish — small up to Rs. 100, big up to Rs. 250'],
+      ['Glass', 'Modi Guard / Saint Gobain'],
+      ['Kitchen Ply', 'Royale Touche (lifetime warranty) for base; 710 Gurjan BWP elsewhere'],
+      ['False Ceiling Board', 'Saint Gobain Gyproc 12mm Gypsum'],
+      ['Wiring', 'Finolex or equivalent grade, flexible piping']
+    ];
+
+    autoTable(doc, {
+      startY: currentY,
+      head: [['Material / Category', 'Approved Specification / Brand']],
+      body: specs,
+      theme: 'grid',
+      headStyles: { fillColor: [245, 197, 24], textColor: [43, 43, 43], fontStyle: 'bold', fontSize: 8 },
+      columnStyles: { 0: { cellWidth: 50, fontStyle: 'bold' }, 1: { cellWidth: 132 } },
+      styles: { fontSize: 7.5, cellPadding: 1.5 }
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 10;
+
+    // 8. TERMS & CONDITIONS
+    if (currentY + 40 > 275) {
+      doc.addPage();
+      currentY = 20;
+    }
+
+    doc.setFillColor(43, 43, 43);
+    doc.rect(14, currentY, 182, 6, 'F');
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(245, 197, 24);
+    doc.text('TERMS & CONDITIONS', 18, currentY + 4.5);
+    currentY += 8;
+
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(70, 70, 70);
+    const termsList = [
+      '1. Main power supply will be under customer scope of work.',
+      '2. Any additional works requested will be charged extra.',
+      '3. Material once purchased cannot be cancelled or returned.',
+      '4. Final price may vary ±5–10% based on actual site measurements.',
+      '5. Changes in design, materials or finishes will result in a corresponding revision of quote.',
+      '6. GST will be charged extra as applicable.',
+      '7. Validity of this quotation is 30 days from date of issue.'
+    ];
+    termsList.forEach(term => {
+      doc.text(term, 14, currentY);
+      currentY += 4.5;
+    });
+
+    // 9. FOOTER BAR
+    currentY += 4;
+    doc.setFillColor(43, 43, 43);
+    doc.rect(14, currentY, 182, 6, 'F');
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(245, 197, 24);
+    doc.text('APPLE INTERIORS', 18, currentY + 4.2);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(187, 187, 187);
+    doc.text('· Interior Design & Execution · Kukatpally, Hyderabad', 46, currentY + 4.2);
+
+    return Buffer.from(doc.output('arraybuffer'));
+}

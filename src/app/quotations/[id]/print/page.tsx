@@ -51,6 +51,7 @@ export default function QuotationPrintPage() {
   
   const [pdfReadyFile, setPdfReadyFile] = useState<File | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
 
   const lead = quotation?.quotation_leads;
 
@@ -116,7 +117,7 @@ export default function QuotationPrintPage() {
 
     const opt = {
       margin:       0,
-      filename:     `Quotation_${lead?.client_name || 'Client'}.pdf`,
+      filename:     `Apple Interior Quotation_${lead?.client_name || 'Client'}.pdf`,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2.2, useCORS: true, logging: false },
       jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
@@ -151,6 +152,82 @@ export default function QuotationPrintPage() {
       alert('Failed to generate PDF. Please try again.');
     } finally {
       setIsGeneratingPdf(false);
+    }
+  };
+
+  const handleSendWhatsApp = async () => {
+    const element = document.querySelector('.page');
+    if (!element) return;
+
+    const html2pdf = (window as any).html2pdf;
+    if (!html2pdf) {
+      alert('PDF utility is loading. Please try again in a second...');
+      return;
+    }
+
+    if (!lead?.phone) {
+      alert('Client phone number is missing for this lead.');
+      return;
+    }
+
+    setIsSendingWhatsApp(true);
+
+    const noPrint = document.querySelector('.no-print') as HTMLElement;
+    if (noPrint) noPrint.style.display = 'none';
+
+    try {
+      const opt = {
+        margin: 0,
+        filename: `Apple Interior Quotation_${lead?.client_name || 'Client'}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2.2, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      const worker = html2pdf().from(element).set(opt);
+      const pdfBlob = await worker.output('blob');
+
+      if (noPrint) noPrint.style.display = '';
+
+      // Upload exact rendered PDF to Supabase Storage
+      const formData = new FormData();
+      formData.append('file', pdfBlob, opt.filename);
+      formData.append('lead_id', quotation.lead_id);
+      formData.append('ref_no', lead?.ref_no || '');
+      formData.append('client_name', lead?.client_name || 'Client');
+      formData.append('version', String(quotation.version || 1));
+
+      const uploadRes = await fetch('/api/crm/upload-quotation-pdf', {
+        method: 'POST',
+        body: formData
+      });
+      const uploadData = await uploadRes.json();
+
+      if (!uploadRes.ok || !uploadData.url) {
+        throw new Error(uploadData.error || 'Failed to upload PDF');
+      }
+
+      // Send PDF via WhatsApp Wasender API
+      const sendRes = await fetch('/api/crm/send-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          leadId: quotation.lead_id,
+          actionType: 'quotation',
+          quotationUrl: uploadData.url
+        })
+      });
+
+      const sendData = await sendRes.json();
+      if (!sendRes.ok) throw new Error(sendData.error || 'Failed to send WhatsApp quotation');
+
+      alert('✅ Exact Quotation PDF sent successfully via WhatsApp!');
+    } catch (err: any) {
+      console.error('Send WhatsApp error:', err);
+      if (noPrint) noPrint.style.display = '';
+      alert(err?.message || 'Failed to send WhatsApp quotation.');
+    } finally {
+      setIsSendingWhatsApp(false);
     }
   };
 
@@ -234,15 +311,15 @@ export default function QuotationPrintPage() {
         body { font-family: 'Inter', Arial, sans-serif; font-size: 9pt; color: #1a1a1a; background: #f5f5f5; }
         .page { width: 210mm; margin: 0 auto; background: #fff; padding: 10mm 12mm; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
         .header-bar { background: #f5c518; height: 6px; }
-        .header { background: #2b2b2b; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; }
+        .header { background: #2b2b2b; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; border-radius: 4px; }
         .header-title { color: #f5c518; font-size: 18pt; font-weight: 800; }
-        .header-contact { color: #bbb; font-size: 7.5pt; text-align: right; line-height: 1.6; }
-        .header-contact b { color: #f5c518; }
-        .client-section { padding: 10px 0 6px; border-bottom: 2px solid #f5c518; margin-bottom: 10px; }
-        .doc-title { text-align: center; font-size: 13pt; font-weight: 700; color: #2b2b2b; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
-        .client-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; }
-        .client-row { display: flex; gap: 6px; font-size: 9pt; }
-        .client-label { font-weight: 600; color: #555; white-space: nowrap; }
+        .header-contact { color: #ccc; font-size: 8.5pt; text-align: right; line-height: 1.65; }
+        .header-contact b { color: #f5c518; font-size: 10.5pt; display: block; margin-bottom: 2px; }
+        .client-section { padding: 14px 0 10px; border-bottom: 3px solid #f5c518; margin-bottom: 14px; }
+        .doc-title { text-align: center; font-size: 15pt; font-weight: 800; color: #2b2b2b; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 12px; }
+        .client-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; }
+        .client-row { display: flex; gap: 8px; font-size: 9.5pt; padding: 2px 0; }
+        .client-label { font-weight: 700; color: #333; white-space: nowrap; }
         table { width: 100%; border-collapse: collapse; }
         thead tr th { background: #2b2b2b; color: #fff; padding: 6px; font-size: 8.5pt; font-weight: 600; border-bottom: 2px solid #f5c518; }
         .col-no { width: 28px; text-align: center; }
@@ -319,6 +396,13 @@ export default function QuotationPrintPage() {
 
       <div className="no-print print-header-actions" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', padding: '10px 16px', background: '#fff', borderBottom: '1px solid #eee', maxWidth: '794px', margin: '0 auto' }}>
         <button
+          onClick={handleSendWhatsApp}
+          disabled={isSendingWhatsApp}
+          style={{ background: '#25D366', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 20px', fontWeight: 700, cursor: isSendingWhatsApp ? 'not-allowed' : 'pointer', fontSize: '13px', opacity: isSendingWhatsApp ? 0.7 : 1 }}
+        >
+          {isSendingWhatsApp ? '⏳ Sending...' : '💬 Send WhatsApp PDF'}
+        </button>
+        <button
           onClick={handleDownloadPDF}
           style={{ background: '#4caf50', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 20px', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
         >
@@ -349,11 +433,11 @@ export default function QuotationPrintPage() {
         <div className="page" ref={pageRef}>
           <div className="header-bar" />
           <div className="header">
-            <div style={{ background: '#ffffff', padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center' }}>
+            <div style={{ background: '#ffffff', padding: '12px 24px', borderRadius: '12px', display: 'flex', alignItems: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
               <img 
                 src="/New-logo.png" 
                 alt="Apple Interiors" 
-                style={{ height: '50px', width: 'auto', objectFit: 'contain' }} 
+                style={{ height: '62px', width: 'auto', objectFit: 'contain', display: 'block' }} 
               />
             </div>
             <div className="header-contact">

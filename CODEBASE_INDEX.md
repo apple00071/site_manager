@@ -30,10 +30,10 @@ The workspace is organized into standard folders for database migrations, source
     *   📂 [`app/`](file:///d:/site_manager/src/app) — Next.js routing pages, layouts, and REST API routes.
     *   📂 [`components/`](file:///d:/site_manager/src/components) — Custom reusable React components.
         *   📂 [`ui/`](file:///d:/site_manager/src/components/ui) — Base UI elements (Modals, Panels, Tables, Bottom Sheets).
-        *   📂 [`attendance/`](file:///d:/site_manager/src/components/attendance), [`boq/`](file:///d:/site_manager/src/components/boq), [`chatbot/`](file:///d:/site_manager/src/components/chatbot), [`leaves/`](file:///d:/site_manager/src/components/leaves), [`notepad/`](file:///d:/site_manager/src/components/notepad), [`office-expenses/`](file:///d:/site_manager/src/components/office-expenses), [`payroll/`](file:///d:/site_manager/src/components/payroll), [`projects/`](file:///d:/site_manager/src/components/projects), [`tasks/`](file:///d:/site_manager/src/components/tasks) — Feature-specific component libraries.
+        *   📂 [`attendance/`](file:///d:/site_manager/src/components/attendance), [`boq/`](file:///d:/site_manager/src/components/boq), [`chatbot/`](file:///d:/site_manager/src/components/chatbot), [`crm/`](file:///d:/site_manager/src/components/crm), [`leaves/`](file:///d:/site_manager/src/components/leaves), [`notepad/`](file:///d:/site_manager/src/components/notepad), [`office-expenses/`](file:///d:/site_manager/src/components/office-expenses), [`payroll/`](file:///d:/site_manager/src/components/payroll), [`projects/`](file:///d:/site_manager/src/components/projects), [`tasks/`](file:///d:/site_manager/src/components/tasks) — Feature-specific component libraries.
     *   📂 [`contexts/`](file:///d:/site_manager/src/contexts) — React state providers for auth and title controls.
     *   📂 [`hooks/`](file:///d:/site_manager/src/hooks) — Custom React hooks (e.g., authorization checks).
-    *   📂 [`lib/`](file:///d:/site_manager/src/lib) — Core service wrappers, helpers, and authorization constants.
+    *   📂 [`lib/`](file:///d:/site_manager/src/lib) — Core service wrappers, helpers, notification services, and authorization constants.
     *   📂 [`types/`](file:///d:/site_manager/src/types) — Custom type files and overrides.
 *   📂 [`public/`](file:///d:/site_manager/public) — Static visual and application assets.
 
@@ -51,6 +51,7 @@ Client routes are partitioned by permissions using Next.js route groups and dire
 *   ` /privacy-policy ` — Application privacy terms.
 *   ` /account-deletion ` — Account deletion requests.
 *   ` /public/project/[id] ` — Shared read-only pages for clients to view project milestones.
+*   ` /quotations/[id] ` — Public proposal/quotation review & approval portal.
 
 ### Admin-Only Area (`/admin`)
 *   ` /admin/login ` — Admin authentication gateway.
@@ -62,7 +63,8 @@ Client routes are partitioned by permissions using Next.js route groups and dire
 *   ` /dashboard/projects ` — Project management list.
 *   ` /dashboard/projects/[id] ` — Detailed project screen containing milestones, logs, files, BOQs.
 *   ` /dashboard/projects/[id]/edit ` — Edit project specifications.
-*   ` /dashboard/projects/[id]/members` — Control access permissions of assigned team members.
+*   ` /dashboard/projects/[id]/members ` — Control access permissions of assigned team members.
+*   ` /dashboard/crm ` — CRM leads pipeline and client onboarding stage tracker.
 *   ` /dashboard/attendance ` — Personal and team daily attendance check-ins.
 *   ` /dashboard/payroll ` — Monthly payslip calculations, allowances, and tracking.
 *   ` /dashboard/tasks ` — Interactive task calendars and scheduling tools.
@@ -70,7 +72,7 @@ Client routes are partitioned by permissions using Next.js route groups and dire
 *   ` /dashboard/organization ` — Team listings, structures, and documents.
 *   ` /dashboard/settings ` — User settings.
 *   ` /dashboard/snags ` — Issue tracking list.
-*   ` /dashboard/telemetry` — Analytics interface.
+*   ` /dashboard/telemetry ` — Analytics interface.
 
 ### Client Portal (`/portal`)
 *   ` /portal/login ` — Direct login interface for design clients.
@@ -88,17 +90,26 @@ API handlers are grouped logically by functionality. Standard response/request v
 | `/api/auth` | User sessions & security | Logs in, logs out, handles password overrides. |
 | `/api/admin` | System level admin operations | User provisioning, auditing logs, managing app global state. |
 | `/api/projects` | Project workspaces | Creating/editing projects, managing BOQ details, snag items. |
-| `/api/tasks` | Workspace assignments | Standardizing and creating milestone checklist tasks. |
+| `/api/project-members` | Project team assignments | Member role scoping and project-level permissions. |
+| `/api/project-steps` | Milestone workflow steps | Defining project execution steps and phase completions. |
+| `/api/project-updates` | Daily site/work updates | Logging site progress feeds and image attachments. |
+| `/api/tasks`, `/api/calendar-tasks` | Workspace assignments & scheduling | Standardizing checklist tasks & interactive calendar scheduling. |
 | `/api/attendance` | Attendance operations | Punch in/out actions, tracking geolocation, handling appeals. |
 | `/api/leaves` | Leave workflows | Custom request processing, administrative approvals/denials. |
 | `/api/payroll` | Financial payroll structures | Salary slips compilation, tracking deduction history. |
-| `/api/design-files` | Digital file versioning | Freezing files, client commenting flow, version validation. |
-| `/api/boq` | Bills of Quantities | Managing materials budgets and items procurement states. |
-| `/api/snags` | Defect tracking system | Issue logs, resolving states, client/admin signatures. |
-| `/api/office-expenses`| Petty cash records | Documenting and uploading expense receipts. |
+| `/api/design-files`, `/api/design-comments` | Digital file versioning | Freezing files, client commenting flow, version validation. |
+| `/api/boq`, `/api/quotations`, `/api/rate-card` | Bills of Quantities & Commercial Pricing | Materials budgets, client quotation workflows, standardized rate cards. |
+| `/api/proposals`, `/api/invoices`, `/api/payments`, `/api/purchase-orders` | Financial transactions | Sales proposals, billing invoices, payment tracking, vendor POs. |
+| `/api/suppliers`, `/api/inventory-items` | Procurement & Inventory | Supplier catalog management & stock inventory control. |
+| `/api/snags`, `/api/site-logs` | Field Quality & Log Journals | Issue logs, resolving states, client sign-offs, site logs. |
+| `/api/office-expenses` | Petty cash records | Documenting and uploading expense receipts. |
+| `/api/crm` | Lead Management | Sales pipeline tracking, lead stages, communication history. |
+| `/api/notepad` | Quick Notes | Personal and project scratchpad notes. |
+| `/api/chat` | Chatbot & Messaging | Internal communication tools and AI chatbot support. |
+| `/api/org`, `/api/reports`, `/api/telemetry` | Organizational Telemetry | Team structures, analytical reporting exports, app usage metrics. |
+| `/api/upload` | File Storage | Supabase Storage file uploads and metadata creation. |
 | `/api/cron` | Vercel Cron-driven workflows | Running routine reminders and data cleanup loops. |
-| `/api/whatsapp` | Direct messenger hooks | Notification routing to employees/clients via wasenderapi. |
-| `/api/onesignal` | System push messages | Subscriptions updates, sending broad mobile notifications. |
+| `/api/whatsapp`, `/api/onesignal`, `/api/push-subscription`, `/api/notifications` | Messaging & Notifications | WhatsApp messaging, OneSignal push notifications, web push & in-app alerts. |
 | `/api/rbac` | Security policies | Reading/syncing dynamic permissions on roles. |
 
 ---
@@ -184,3 +195,4 @@ These core components establish the application's mobile-friendly layout and int
 *   📄 [`AdminAuthContext.tsx`](file:///d:/site_manager/src/contexts/AdminAuthContext.tsx) — Context dedicated to authentication workflows of administrators.
 *   📄 [`HeaderTitleContext.tsx`](file:///d:/site_manager/src/contexts/HeaderTitleContext.tsx) — Dynamic header title updater to change navbar labels on page transition.
 *   📄 [`useUserPermissions.ts`](file:///d:/site_manager/src/hooks/useUserPermissions.ts) — Analyzes user permissions based on logged-in RBAC credentials. Enables/disables component actions.
+
