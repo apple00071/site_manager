@@ -1287,153 +1287,76 @@ export default function CRMPage() {
 
           </div>
 
-          {/* Visual Stage Progress Funnel & Distribution Bar */}
-          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FiTarget className="w-4 h-4 text-yellow-600" />
-                <h3 className="text-xs uppercase font-black text-gray-700 tracking-wider">Pipeline Stage Telemetry</h3>
-              </div>
-              <span className="text-[11px] font-bold text-gray-400">
-                Total Volume: {dashboardFilteredLeads.length} Leads
-              </span>
-            </div>
 
-            {/* Stage Progress Segment Bar */}
-            <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden flex shadow-inner">
-              {(['Draft', 'Sent', 'Follow-up', 'On Hold', 'Approved', 'Rejected'] as const).map((stage) => {
-                const count = statusSummary[stage] || 0;
-                const pct = dashboardFilteredLeads.length > 0 ? (count / dashboardFilteredLeads.length) * 100 : 0;
-                if (pct === 0) return null;
-                const colors: Record<string, string> = {
-                  'Draft': 'bg-gray-400',
-                  'Sent': 'bg-blue-500',
-                  'Follow-up': 'bg-orange-500',
-                  'On Hold': 'bg-amber-400',
-                  'Approved': 'bg-emerald-500',
-                  'Rejected': 'bg-rose-400'
-                };
-                return (
-                  <div
-                    key={stage}
-                    style={{ width: `${pct}%` }}
-                    className={`${colors[stage]} transition-all duration-300 relative group cursor-pointer`}
-                    title={`${stage}: ${count} leads (${pct.toFixed(1)}%)`}
-                  ></div>
-                );
-              })}
-            </div>
-
-            {/* Stage Cards Row */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-1">
-              {(['Draft', 'Sent', 'Follow-up', 'On Hold', 'Approved', 'Rejected'] as const).map((stage) => {
-                const count = statusSummary[stage] || 0;
-                const stageSum = dashboardFilteredLeads
-                  .filter(l => l.status === stage)
-                  .reduce((acc, l) => acc + (stage === 'Approved' ? (l.approved_value || 0) : (l.quote_value || 0)), 0);
-
-                const stageBadges: Record<string, { bg: string; text: string; border: string }> = {
-                  'Draft': { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200' },
-                  'Sent': { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
-                  'Follow-up': { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
-                  'On Hold': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
-                  'Approved': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
-                  'Rejected': { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' }
-                };
-
-                const badge = stageBadges[stage];
-
-                return (
-                  <button
-                    key={stage}
-                    onClick={() => { setStatusFilter(stage); setActiveTab('log'); }}
-                    className={`${badge.bg} ${badge.border} border p-2.5 rounded-xl hover:shadow-xs transition-all text-left group cursor-pointer`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className={`text-[10px] font-black uppercase tracking-wider ${badge.text}`}>
-                        {stage}
-                      </span>
-                      <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${badge.bg} ${badge.text} border ${badge.border}`}>
-                        {count}
-                      </span>
-                    </div>
-                    <p className="text-xs font-black text-gray-900 mt-1 truncate">
-                      {formatLakhs(stageSum)}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
           {/* Main Grid: Kanban Pipeline Board (3 cols) + Analytics Sidebar (1 col) */}
           <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
             
-            {/* Left 3 Columns: High-Fidelity Drag & Drop Kanban Pipeline */}
-            <div className="xl:col-span-3 bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col gap-4 overflow-hidden">
+            {/* Left 3 Columns: Ultra-Clean & Spacious Kanban Pipeline */}
+            <div className="xl:col-span-3 bg-white p-5 sm:p-6 rounded-3xl border border-gray-200/80 shadow-xs flex flex-col gap-5 overflow-hidden">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-black text-gray-900 flex items-center gap-2">
-                    <FiLayers className="w-4 h-4 text-yellow-600" /> Lead Pipeline Board
+                  <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                    <FiLayers className="w-4 h-4 text-amber-500" /> Lead Pipeline Board
                   </h3>
-                  <p className="text-[11px] text-gray-400 font-medium mt-0.5">
+                  <p className="text-xs text-gray-400 font-medium mt-0.5">
                     Drag and drop lead cards across stages to automatically update lead status
                   </p>
                 </div>
                 <button
                   onClick={() => setActiveTab('log')}
-                  className="text-xs text-yellow-600 hover:text-yellow-700 font-black flex items-center gap-1 hover:underline cursor-pointer"
+                  className="text-xs text-amber-600 hover:text-amber-700 font-black flex items-center gap-1 hover:underline cursor-pointer"
                 >
-                  Full Sheet View <FiChevronRight className="w-3.5 h-3.5" />
+                  Full Sheet View <FiChevronRight className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Kanban Stage Columns */}
-              <div className="flex md:grid md:grid-cols-5 gap-3.5 overflow-x-auto pb-2 min-h-[420px] snap-x snap-mandatory">
+              {/* Kanban Stage Columns Grid */}
+              <div className="flex md:grid md:grid-cols-5 gap-4 overflow-x-auto pb-3 pt-1 scrollbar-none snap-x snap-mandatory">
                 {(['Draft', 'Sent', 'Follow-up', 'On Hold', 'Approved'] as const).map((colStatus) => {
                   const colLeads = dashboardFilteredLeads.filter(l => l.status === colStatus);
                   const colSum = colLeads.reduce((acc, l) => acc + (colStatus === 'Approved' ? (l.approved_value || 0) : (l.quote_value || 0)), 0);
 
-                  const colStyles: Record<string, { topBorder: string; headerBg: string; headerText: string }> = {
-                    'Draft': { topBorder: 'border-t-4 border-t-gray-400 bg-gray-50/40', headerBg: 'bg-gray-100/70', headerText: 'text-gray-700' },
-                    'Sent': { topBorder: 'border-t-4 border-t-blue-500 bg-blue-50/20', headerBg: 'bg-blue-100/70', headerText: 'text-blue-800' },
-                    'Follow-up': { topBorder: 'border-t-4 border-t-orange-500 bg-orange-50/20', headerBg: 'bg-orange-100/70', headerText: 'text-orange-800' },
-                    'On Hold': { topBorder: 'border-t-4 border-t-amber-500 bg-amber-50/20', headerBg: 'bg-amber-100/70', headerText: 'text-amber-800' },
-                    'Approved': { topBorder: 'border-t-4 border-t-emerald-500 bg-emerald-50/20', headerBg: 'bg-emerald-100/70', headerText: 'text-emerald-800' }
+                  const colBadgeStyles: Record<string, { bg: string; text: string; dot: string; border: string }> = {
+                    'Draft': { bg: 'bg-slate-50', text: 'text-slate-700', dot: 'bg-slate-400', border: 'border-slate-200/80' },
+                    'Sent': { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500', border: 'border-blue-200/80' },
+                    'Follow-up': { bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-500', border: 'border-orange-200/80' },
+                    'On Hold': { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500', border: 'border-amber-200/80' },
+                    'Approved': { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500', border: 'border-emerald-200/80' }
                   };
 
-                  const style = colStyles[colStatus];
+                  const badgeStyle = colBadgeStyles[colStatus];
 
                   return (
                     <div
                       key={colStatus}
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={(e) => handleDropKanban(e, colStatus)}
-                      className={`flex flex-col gap-3 p-3 rounded-2xl border border-gray-200/80 min-w-[270px] sm:min-w-[280px] md:min-w-0 snap-center shrink-0 md:shrink ${style.topBorder}`}
+                      className={`flex flex-col gap-3 p-3.5 rounded-2xl border ${badgeStyle.border} ${badgeStyle.bg} min-w-[280px] sm:min-w-[290px] md:min-w-0 snap-center shrink-0 md:shrink transition-all`}
                     >
                       {/* Column Header */}
-                      <div className="flex items-center justify-between pb-1 border-b border-gray-100">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`w-2 h-2 rounded-full ${colStatus === 'Draft' ? 'bg-gray-400' : colStatus === 'Sent' ? 'bg-blue-500' : colStatus === 'Follow-up' ? 'bg-orange-500' : colStatus === 'On Hold' ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
-                          <span className="text-[11px] font-black uppercase tracking-wider text-gray-700">
+                      <div className="flex items-center justify-between pb-2 border-b border-gray-200/60">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2.5 h-2.5 rounded-full ${badgeStyle.dot}`}></span>
+                          <span className={`text-xs font-black uppercase tracking-wider ${badgeStyle.text}`}>
                             {colStatus}
                           </span>
                         </div>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${style.headerBg} ${style.headerText}`}>
+                        <span className={`text-xs font-black px-2 py-0.5 rounded-full bg-white ${badgeStyle.text} border ${badgeStyle.border} shadow-2xs`}>
                           {colLeads.length}
                         </span>
                       </div>
 
-                      {/* Column Sum */}
-                      <div className="text-[10px] font-bold text-gray-500 flex items-center justify-between bg-white/70 px-2 py-1 rounded-lg border border-gray-100">
+                      {/* Column Deal Volume Total */}
+                      <div className="text-[11px] font-bold text-gray-600 flex items-center justify-between bg-white px-2.5 py-1.5 rounded-xl border border-gray-200/60 shadow-2xs">
                         <span>Total:</span>
                         <span className="font-black text-gray-900">{formatLakhs(colSum)}</span>
                       </div>
 
                       {/* Lead Cards List */}
-                      <div className="flex-1 flex flex-col gap-2.5 overflow-y-auto max-h-[520px] min-h-[140px] pr-0.5">
+                      <div className="flex-1 flex flex-col gap-3 overflow-y-auto max-h-[560px] min-h-[160px] pr-0.5">
                         {colLeads.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center py-10 border border-dashed border-gray-200 rounded-xl text-[11px] text-gray-400 font-medium">
+                          <div className="flex flex-col items-center justify-center py-12 border border-dashed border-gray-200/80 rounded-2xl text-xs text-gray-400 font-bold bg-white/50">
                             <span>No leads</span>
                           </div>
                         ) : (
@@ -1455,94 +1378,93 @@ export default function CRMPage() {
                                 key={lead.id}
                                 draggable={hasPermission('crm.manage')}
                                 onDragStart={(e) => handleDragStartKanban(e, lead.id)}
-                                className="bg-white p-3.5 rounded-xl border border-gray-200/80 shadow-2xs hover:shadow-md hover:border-yellow-400/80 transition-all duration-200 cursor-grab active:cursor-grabbing flex flex-col gap-2.5 relative group text-left"
+                                className="bg-white p-3 rounded-2xl border border-gray-200/90 shadow-2xs hover:shadow-md hover:border-amber-400 transition-all duration-200 cursor-grab active:cursor-grabbing flex flex-col gap-2.5 relative group text-left w-full overflow-hidden box-border"
                               >
-                                {/* Header: Client Name & Avatar */}
-                                <div className="flex items-start justify-between gap-2">
+                                {/* Row 1: Avatar + Client Name & Site + Ref No & Date */}
+                                <div className="flex items-start justify-between gap-2 min-w-0">
                                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                                    <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${avatarGradients} text-white flex items-center justify-center text-[10px] font-black shadow-2xs shrink-0`}>
+                                    <div className={`w-7 h-7 rounded-xl bg-gradient-to-br ${avatarGradients} text-white flex items-center justify-center text-[10px] font-black shadow-2xs shrink-0`}>
                                       {initials}
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                      <h4 className="text-xs font-black text-gray-900 truncate leading-tight">{lead.client_name}</h4>
-                                      <p className="text-[9px] font-bold text-gray-400 truncate mt-0.5">
-                                        {lead.site_project || 'No project site specs'}
+                                      <h4 className="text-xs font-black text-gray-900 truncate leading-tight">
+                                        {lead.client_name || 'Unnamed Client'}
+                                      </h4>
+                                      <p className="text-[10px] font-bold text-gray-400 truncate mt-0.5">
+                                        {lead.site_project || 'No site specified'}
                                       </p>
                                     </div>
                                   </div>
-                                  <span className="text-[8px] font-black bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200/60 shrink-0">
-                                    {lead.ref_no}
-                                  </span>
+                                  <div className="flex flex-col items-end shrink-0">
+                                    <span className="text-[9px] font-black bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-md border border-gray-200/70">
+                                      {lead.ref_no ? (lead.ref_no.includes('/') ? `#${lead.ref_no.split('/').pop()}` : lead.ref_no) : ''}
+                                    </span>
+                                    {lead.created_date && (
+                                      <span className="text-[8px] font-bold text-gray-400 mt-1">
+                                        {parseLocalDate(lead.created_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
 
-                                {/* Value & Specs Tag */}
-                                <div className="flex items-center justify-between text-[11px] bg-gray-50/70 p-2 rounded-lg border border-gray-100">
-                                  <div>
-                                    <span className="text-[9px] text-gray-400 uppercase font-black block leading-none">Quote Value</span>
-                                    <span className="font-black text-gray-950 text-xs">
-                                      {formatLakhs(lead.quote_value)}
-                                    </span>
-                                  </div>
+                                {/* Row 2: Quote Value & Sq.ft Specs */}
+                                <div className="flex items-center justify-between text-xs bg-gray-50/90 px-2.5 py-1.5 rounded-xl border border-gray-100">
+                                  <span className="font-black text-gray-950 text-xs">
+                                    {formatLakhs(lead.quote_value)}
+                                  </span>
                                   {lead.area_sqft ? (
-                                    <span className="text-[10px] font-bold text-gray-500 bg-white px-1.5 py-0.5 rounded border border-gray-200/60">
+                                    <span className="text-[10px] font-bold text-gray-500 bg-white px-1.5 py-0.5 rounded-md border border-gray-200/60 shrink-0">
                                       {lead.area_sqft} sq.ft
                                     </span>
                                   ) : null}
                                 </div>
 
-                                {/* Action Toolbar Buttons on Card */}
-                                <div className="flex items-center justify-between border-t border-gray-100 pt-2">
-                                  <span className="text-[9px] font-bold text-gray-400">
-                                    {lead.created_date ? parseLocalDate(lead.created_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''}
-                                  </span>
+                                {/* Row 3: Dedicated Action Buttons Toolbar */}
+                                <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-gray-100">
+                                  {lead.phone && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSendWhatsAppMessage(lead, 'quotation')}
+                                        disabled={sendingWhatsappLeadId === lead.id}
+                                        className="flex-1 py-1 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 transition-colors flex items-center justify-center gap-1 text-[10px] font-bold cursor-pointer disabled:opacity-50"
+                                        title="Send Quotation PDF via WhatsApp"
+                                      >
+                                        {sendingWhatsappLeadId === lead.id ? (
+                                          <FiRefreshCw className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <FaWhatsapp className="w-3.5 h-3.5 text-emerald-600" />
+                                        )}
+                                        <span>PDF</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSendWhatsAppMessage(lead, 'followup')}
+                                        disabled={sendingWhatsappLeadId === lead.id}
+                                        className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/80 transition-colors flex items-center justify-center gap-1 text-[10px] font-bold cursor-pointer disabled:opacity-50"
+                                        title="Send Follow-up Message via WhatsApp"
+                                      >
+                                        {sendingWhatsappLeadId === lead.id ? (
+                                          <FiRefreshCw className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <FaWhatsapp className="w-3.5 h-3.5 text-blue-600" />
+                                        )}
+                                      </button>
+                                    </>
+                                  )}
 
-                                  <div className="flex items-center gap-1">
-                                    {lead.phone && (
-                                      <>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleSendWhatsAppMessage(lead, 'quotation')}
-                                          disabled={sendingWhatsappLeadId === lead.id}
-                                          className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/60 transition-colors flex items-center gap-1 text-[9px] font-bold cursor-pointer disabled:opacity-50"
-                                          title="Send Quotation PDF via WhatsApp"
-                                        >
-                                          {sendingWhatsappLeadId === lead.id ? (
-                                            <FiRefreshCw className="w-3 h-3 animate-spin" />
-                                          ) : (
-                                            <FaWhatsapp className="w-3 h-3" />
-                                          )}
-                                          <span>PDF</span>
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleSendWhatsAppMessage(lead, 'followup')}
-                                          disabled={sendingWhatsappLeadId === lead.id}
-                                          className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/60 transition-colors flex items-center gap-1 text-[9px] font-bold cursor-pointer disabled:opacity-50"
-                                          title="Send Follow-up Message via WhatsApp"
-                                        >
-                                          {sendingWhatsappLeadId === lead.id ? (
-                                            <FiRefreshCw className="w-3 h-3 animate-spin" />
-                                          ) : (
-                                            <FaWhatsapp className="w-3 h-3" />
-                                          )}
-                                          <span>Remind</span>
-                                        </button>
-                                      </>
-                                    )}
-
-                                    {/* Edit Lead Details Form */}
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setMobileEditForm({ ...lead });
-                                        setIsMobileEditOpen(true);
-                                      }}
-                                      className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/60 transition-colors text-[9px] font-bold cursor-pointer"
-                                      title="Edit Lead Details"
-                                    >
-                                      <FiEdit className="w-3 h-3" />
-                                    </button>
-                                  </div>
+                                  {/* Edit Lead Details Form */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setMobileEditForm({ ...lead });
+                                      setIsMobileEditOpen(true);
+                                    }}
+                                    className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/80 transition-colors text-[10px] font-bold cursor-pointer shrink-0"
+                                    title="Edit Lead Details"
+                                  >
+                                    <FiEdit className="w-3.5 h-3.5" />
+                                  </button>
                                 </div>
                               </div>
                             );
@@ -1638,39 +1560,7 @@ export default function CRMPage() {
                 </div>
               </div>
 
-              {/* Lead Source & Assignee Velocity */}
-              <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col text-left space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs uppercase font-black text-gray-700 tracking-wider flex items-center gap-1.5">
-                    <FiUsers className="w-3.5 h-3.5 text-blue-500" /> Source & Assignees
-                  </h3>
-                  <span className="text-[10px] text-gray-400 font-bold">{assigneeBreakdown.length} Sources</span>
-                </div>
 
-                <div className="space-y-3 max-h-[260px] overflow-y-auto pr-0.5">
-                  {assigneeBreakdown.slice(0, 5).map((item) => {
-                    const maxVal = assigneeBreakdown[0]?.value || 1;
-                    const pct = Math.min(100, (item.value / maxVal) * 100);
-                    return (
-                      <div key={item.name} className="space-y-1">
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="font-bold text-gray-800 truncate">{item.name}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-gray-400 font-bold">{item.count} leads</span>
-                            <span className="font-black text-gray-900">{formatLakhs(item.value)}</span>
-                          </div>
-                        </div>
-                        <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                          <div
-                            className="bg-gradient-to-r from-blue-500 to-amber-500 h-full rounded-full transition-all duration-300"
-                            style={{ width: `${pct}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
 
               {/* Compact Monthly Revenue Velocity Card */}
               <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs text-left space-y-3">

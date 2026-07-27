@@ -627,8 +627,54 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
           {/* ── ITEMS TAB ── */}
           {tab === 'items' && (
             <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => {
+                    const name = prompt('Enter new Room / Section name (e.g. Balcony, Home Theatre, Servant Room):');
+                    if (name && name.trim()) {
+                      const trimmed = name.trim();
+                      if (selectedSections.includes(trimmed)) {
+                        return alert('This room section is already added.');
+                      }
+                      setCustomSections(prev => [...prev, trimmed]);
+                      setSelectedSections(prev => [...prev, trimmed]);
+                    }
+                  }}
+                  style={{
+                    background: '#f5c518',
+                    color: '#2b2b2b',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '6px 14px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <FiPlus size={14} /> Add Another Room / Section
+                </button>
+                <button
+                  onClick={() => setTab('sections')}
+                  style={{
+                    background: 'none',
+                    border: '1px solid #ddd',
+                    color: '#666',
+                    borderRadius: '6px',
+                    padding: '5px 10px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Manage All Rooms ({selectedSections.length})
+                </button>
+              </div>
+
               {selectedSections.length === 0 && (
-                <div style={styles.emptyHint}>← Select sections first</div>
+                <div style={styles.emptyHint}>← Select or add room sections first</div>
               )}
               {selectedSections.map((section, secIdx) => {
                 const sectionItems = items.filter(i => i.section === section);
@@ -692,11 +738,11 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                         {/* Column headers */}
                         <div className="qb-desktop-headers" style={styles.itemRow}>
                           <div style={{ ...styles.col, ...styles.colDesc, fontWeight: 600, fontSize: '11px', color: '#888' }}>Description</div>
-                          <div style={{ ...styles.col, ...styles.colLW, fontWeight: 600, fontSize: '11px', color: '#888', textAlign: 'center' }}>L (ft)</div>
-                          <div style={{ ...styles.col, ...styles.colLW, fontWeight: 600, fontSize: '11px', color: '#888', textAlign: 'center' }}>W (ft)</div>
-                          <div style={{ ...styles.col, ...styles.colArea, fontWeight: 600, fontSize: '11px', color: '#888', textAlign: 'center' }}>Area</div>
-                          <div style={{ ...styles.col, ...styles.colRate, fontWeight: 600, fontSize: '11px', color: '#888', textAlign: 'right' }}>Rate ₹</div>
-                          <div style={{ ...styles.col, ...styles.colAmt, fontWeight: 600, fontSize: '11px', color: '#888', textAlign: 'right' }}>Amount ₹</div>
+                          <div style={{ ...styles.col, ...styles.colLW, justifyContent: 'center', fontWeight: 600, fontSize: '11px', color: '#888' }}>L (ft)</div>
+                          <div style={{ ...styles.col, ...styles.colLW, justifyContent: 'center', fontWeight: 600, fontSize: '11px', color: '#888' }}>W (ft)</div>
+                          <div style={{ ...styles.col, ...styles.colArea, justifyContent: 'center', fontWeight: 600, fontSize: '11px', color: '#888' }}>Area</div>
+                          <div style={{ ...styles.col, ...styles.colRate, justifyContent: 'flex-end', fontWeight: 600, fontSize: '11px', color: '#888' }}>Rate ₹</div>
+                          <div style={{ ...styles.col, ...styles.colAmt, justifyContent: 'flex-end', fontWeight: 600, fontSize: '11px', color: '#888' }}>Amount ₹</div>
                           <div style={{ width: '28px' }} />
                         </div>
 
@@ -711,55 +757,52 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                                 onChange={e => updateItem(item._key, { item_name: e.target.value })}
                               />
                             </div>
-                            {/* Inputs row */}
-                            <div className="qb-row-inputs" style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
-                              {/* L */}
-                              <div className="qb-cell" style={{ ...styles.col, ...styles.colLW, flexDirection: 'column', alignItems: 'stretch' }}>
-                                <span className="qb-label-hint" style={{ display: 'none' }}>L (ft)</span>
-                                {item.is_lumpsum
-                                  ? <span style={styles.dash}>—</span>
-                                  : <input style={{ ...styles.input, textAlign: 'center' }} value={item.length_ft} placeholder="0" onChange={e => updateItem(item._key, { length_ft: e.target.value })} />
-                                }
+                            {/* L */}
+                            <div className="qb-cell" style={{ ...styles.col, ...styles.colLW, flexDirection: 'column', alignItems: 'stretch' }}>
+                              <span className="qb-label-hint" style={{ display: 'none' }}>L (ft)</span>
+                              {item.is_lumpsum
+                                ? <span style={styles.dash}>—</span>
+                                : <input style={{ ...styles.input, textAlign: 'center' }} value={item.length_ft} placeholder="0" onChange={e => updateItem(item._key, { length_ft: e.target.value })} />
+                              }
+                            </div>
+                            {/* W */}
+                            <div className="qb-cell" style={{ ...styles.col, ...styles.colLW, flexDirection: 'column', alignItems: 'stretch' }}>
+                              <span className="qb-label-hint" style={{ display: 'none' }}>W (ft)</span>
+                              {item.is_lumpsum
+                                ? <span style={styles.dash}>—</span>
+                                : <input style={{ ...styles.input, textAlign: 'center' }} value={item.width_ft} placeholder="0" onChange={e => updateItem(item._key, { width_ft: e.target.value })} />
+                              }
+                            </div>
+                            {/* Area */}
+                            <div className="qb-cell" style={{ ...styles.col, ...styles.colArea, flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                              <span className="qb-label-hint" style={{ display: 'none' }}>Area</span>
+                              <div style={{ fontSize: '12px', color: item.is_lumpsum ? '#aaa' : '#333', textAlign: 'center', padding: '4px 0' }}>
+                                {item.is_lumpsum ? <span style={styles.lsmTag}>LSM</span> : item.area_sqft}
                               </div>
-                              {/* W */}
-                              <div className="qb-cell" style={{ ...styles.col, ...styles.colLW, flexDirection: 'column', alignItems: 'stretch' }}>
-                                <span className="qb-label-hint" style={{ display: 'none' }}>W (ft)</span>
-                                {item.is_lumpsum
-                                  ? <span style={styles.dash}>—</span>
-                                  : <input style={{ ...styles.input, textAlign: 'center' }} value={item.width_ft} placeholder="0" onChange={e => updateItem(item._key, { width_ft: e.target.value })} />
-                                }
+                            </div>
+                            {/* Rate */}
+                            <div className="qb-cell" style={{ ...styles.col, ...styles.colRate, flexDirection: 'column', alignItems: 'stretch' }}>
+                              <span className="qb-label-hint" style={{ display: 'none' }}>Rate (₹)</span>
+                              <input
+                                style={{ ...styles.input, textAlign: 'right' }}
+                                value={item.rate}
+                                type="number"
+                                onChange={e => updateItem(item._key, { rate: parseFloat(e.target.value) || 0 })}
+                              />
+                            </div>
+                            {/* Amount */}
+                            <div className="qb-cell" style={{ ...styles.col, ...styles.colAmt, flexDirection: 'column', alignItems: 'stretch' }}>
+                              <span className="qb-label-hint" style={{ display: 'none' }}>Amount (₹)</span>
+                              <div style={{ textAlign: 'right', fontSize: '12px', fontWeight: 600, color: '#2b2b2b', padding: '4px 0' }}>
+                                {fmt(item.amount)}
                               </div>
-                              {/* Area */}
-                              <div className="qb-cell" style={{ ...styles.col, ...styles.colArea, flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                                <span className="qb-label-hint" style={{ display: 'none' }}>Area</span>
-                                <div style={{ fontSize: '12px', color: item.is_lumpsum ? '#aaa' : '#333', textAlign: 'center', padding: '4px 0' }}>
-                                  {item.is_lumpsum ? <span style={styles.lsmTag}>LSM</span> : item.area_sqft}
-                                </div>
-                              </div>
-                              {/* Rate */}
-                              <div className="qb-cell" style={{ ...styles.col, ...styles.colRate, flexDirection: 'column', alignItems: 'stretch' }}>
-                                <span className="qb-label-hint" style={{ display: 'none' }}>Rate (₹)</span>
-                                <input
-                                  style={{ ...styles.input, textAlign: 'right' }}
-                                  value={item.rate}
-                                  type="number"
-                                  onChange={e => updateItem(item._key, { rate: parseFloat(e.target.value) || 0 })}
-                                />
-                              </div>
-                              {/* Amount */}
-                              <div className="qb-cell" style={{ ...styles.col, ...styles.colAmt, flexDirection: 'column', alignItems: 'stretch' }}>
-                                <span className="qb-label-hint" style={{ display: 'none' }}>Amount (₹)</span>
-                                <div style={{ textAlign: 'right', fontSize: '12px', fontWeight: 600, color: '#2b2b2b', padding: '4px 0' }}>
-                                  {fmt(item.amount)}
-                                </div>
-                              </div>
-                              {/* Delete */}
-                              <div className="qb-cell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <span className="qb-label-hint" style={{ display: 'none' }}>&nbsp;</span>
-                                <button onClick={() => removeItem(item._key)} style={styles.deleteBtn} title="Remove">
-                                  <FiTrash2 size={13} />
-                                </button>
-                              </div>
+                            </div>
+                            {/* Delete */}
+                            <div className="qb-cell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px' }}>
+                              <span className="qb-label-hint" style={{ display: 'none' }}>&nbsp;</span>
+                              <button onClick={() => removeItem(item._key)} style={styles.deleteBtn} title="Remove">
+                                <FiTrash2 size={13} />
+                              </button>
                             </div>
                           </div>
                         ))}
