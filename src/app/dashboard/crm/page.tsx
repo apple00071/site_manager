@@ -6,7 +6,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { 
   FiSearch, FiPlus, FiTrash2, FiRefreshCw, 
   FiAlertTriangle, FiCloud,
-  FiDownload, FiUpload, FiEdit, FiPrinter, FiSend
+  FiDownload, FiUpload, FiEdit, FiPrinter, FiSend,
+  FiTrendingUp, FiCheckCircle, FiClock, FiXCircle, FiFilter,
+  FiChevronRight, FiUsers, FiDollarSign, FiArrowUpRight, FiZap, FiTarget, FiLayers
 } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
 import { TbCurrencyRupee } from 'react-icons/tb';
@@ -469,6 +471,25 @@ export default function CRMPage() {
     });
     
     return summary;
+  }, [dashboardFilteredLeads]);
+
+  // Group leads by assigned_by for Source & Assignee breakdown
+  const assigneeBreakdown = useMemo(() => {
+    const map: Record<string, { count: number; value: number; approved: number }> = {};
+    dashboardFilteredLeads.forEach(l => {
+      const source = l.assigned_by || 'Unassigned / Direct';
+      if (!map[source]) {
+        map[source] = { count: 0, value: 0, approved: 0 };
+      }
+      map[source].count += 1;
+      map[source].value += (l.quote_value || 0);
+      if (l.status === 'Approved') {
+        map[source].approved += 1;
+      }
+    });
+    return Object.entries(map)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.value - a.value);
   }, [dashboardFilteredLeads]);
 
   // Overall statistics for Dashboard
@@ -1034,68 +1055,125 @@ export default function CRMPage() {
         </div>
       )}
 
-      {/* Tabs Menu */}
-      <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-gray-200">
-        <div className="flex items-center gap-1">
+      {/* Modern Header & Tab Navigation Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4 pb-3 border-b border-gray-200/80">
+        {/* Navigation Tabs */}
+        <div className="flex items-center gap-2 bg-gray-200/60 p-1 rounded-xl w-fit">
           <button
             onClick={() => { setActiveTab('dashboard'); setSelectedCell(null); setIsEditing(false); }}
-            className={`px-3 py-1 text-xs font-bold rounded-lg transition-all duration-200 ${
+            className={`px-4 py-1.5 text-xs font-black rounded-lg transition-all duration-200 flex items-center gap-1.5 ${
               activeTab === 'dashboard' 
-                ? 'bg-yellow-500 text-white shadow-sm' 
-                : 'text-gray-600 hover:bg-gray-200/50'
+                ? 'bg-white text-gray-900 shadow-sm border border-gray-100' 
+                : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
             }`}
           >
-            🏡 Dashboard
+            <span>🏡</span>
+            <span>Dashboard</span>
           </button>
           <button
             onClick={() => { setActiveTab('log'); }}
-            className={`px-3 py-1 text-xs font-bold rounded-lg transition-all duration-200 ${
+            className={`px-4 py-1.5 text-xs font-black rounded-lg transition-all duration-200 flex items-center gap-1.5 ${
               activeTab === 'log' 
-                ? 'bg-yellow-500 text-white shadow-sm' 
-                : 'text-gray-600 hover:bg-gray-200/50'
+                ? 'bg-white text-gray-900 shadow-sm border border-gray-100' 
+                : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
             }`}
           >
-            📋 Quotation Log
+            <span>📋</span>
+            <span>Quotation Log</span>
           </button>
         </div>
 
-        <div className="flex items-center gap-3 pr-2">
-          {/* Time Filter Dropdown (Dashboard tab only) */}
+        {/* Right Toolbar Controls (Dashboard View) */}
+        <div className="flex items-center flex-wrap gap-2">
           {activeTab === 'dashboard' && (
-            <select
-              value={dashboardTimeFilter}
-              onChange={(e) => setDashboardTimeFilter(e.target.value as 'all' | 'month' | '3months' | '6months')}
-              className="px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-[10px] text-gray-700 focus:outline-none focus:border-yellow-500 font-bold"
-            >
-              <option value="all">📅 All Time</option>
-              <option value="month">📅 This Month</option>
-              <option value="3months">📅 Last 3 Months</option>
-              <option value="6months">📅 Last 6 Months</option>
-            </select>
+            <>
+              {/* Time Range Pills */}
+              <div className="flex items-center gap-1 bg-white border border-gray-200/80 rounded-xl p-1 shadow-2xs">
+                {(['all', 'month', '3months', '6months'] as const).map((filterOpt) => {
+                  const labels: Record<string, string> = {
+                    all: 'All Time',
+                    month: 'This Month',
+                    '3months': '3 Months',
+                    '6months': '6 Months'
+                  };
+                  const isActive = dashboardTimeFilter === filterOpt;
+                  return (
+                    <button
+                      key={filterOpt}
+                      onClick={() => setDashboardTimeFilter(filterOpt)}
+                      className={`px-2.5 py-1 text-[10px] font-black rounded-lg transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-yellow-500 text-white shadow-2xs'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {labels[filterOpt]}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Action Buttons */}
+              {hasPermission('crm.manage') && (
+                <button
+                  onClick={handleAddLead}
+                  className="px-3.5 py-1.5 bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 text-white font-black rounded-xl text-xs transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
+                >
+                  <FiPlus className="w-4 h-4" /> Add Lead
+                </button>
+              )}
+
+              <a
+                href="/dashboard/crm/rate-card"
+                className="px-3 py-1.5 bg-white border border-gray-200/80 hover:bg-gray-50 text-gray-700 font-bold rounded-xl text-xs transition-all shadow-2xs flex items-center gap-1.5"
+              >
+                <span>🏷️</span> Rate Card
+              </a>
+
+              {/* Export / Import Excel */}
+              <button
+                onClick={exportToExcel}
+                title="Export Quotations to Excel"
+                className="p-1.5 bg-white border border-gray-200/80 hover:bg-gray-50 text-gray-600 rounded-xl text-xs transition-all cursor-pointer shadow-2xs"
+              >
+                <FiDownload className="w-4 h-4 text-emerald-600" />
+              </button>
+
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImportExcel}
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+              />
+              {hasPermission('crm.manage') && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Import Quotations from Excel"
+                  className="p-1.5 bg-white border border-gray-200/80 hover:bg-gray-50 text-gray-600 rounded-xl text-xs transition-all cursor-pointer shadow-2xs"
+                >
+                  <FiUpload className="w-4 h-4 text-blue-600" />
+                </button>
+              )}
+            </>
           )}
 
-          {/* Sync Status Icon (Google Sheets Style) */}
-          <div className="flex items-center gap-1" title={
-            syncStatus === 'synced' ? 'All changes saved to database' :
-            syncStatus === 'syncing' ? 'Saving changes...' : 'Error saving changes'
-          }>
+          {/* Sync Status Badge */}
+          <div className="flex items-center gap-1.5 bg-white border border-gray-200/80 px-2.5 py-1.5 rounded-xl shadow-2xs text-[10px] font-bold">
             {syncStatus === 'synced' && (
-              <div className="flex items-center gap-1 text-gray-400 text-xs font-medium">
-                <FiCloud className="h-4 w-4 text-green-500" />
-                <span className="text-[10px] text-gray-500 font-bold">Saved</span>
-              </div>
+              <span className="flex items-center gap-1 text-emerald-600">
+                <FiCloud className="h-3.5 w-3.5" /> Saved
+              </span>
             )}
             {syncStatus === 'syncing' && (
-              <div className="flex items-center gap-1 text-blue-500 text-xs font-medium">
-                <FiRefreshCw className="h-3.5 w-3.5 animate-spin" />
-                <span className="text-[10px] font-bold">Saving...</span>
-              </div>
+              <span className="flex items-center gap-1 text-blue-600">
+                <FiRefreshCw className="h-3.5 w-3.5 animate-spin" /> Saving...
+              </span>
             )}
             {syncStatus === 'error' && (
-              <div className="flex items-center gap-1 text-red-500 text-xs font-medium">
-                <FiAlertTriangle className="h-4 w-4" />
-                <span className="text-[10px] font-bold">Error</span>
-              </div>
+              <span className="flex items-center gap-1 text-rose-600">
+                <FiAlertTriangle className="h-3.5 w-3.5" /> Error
+              </span>
             )}
           </div>
         </div>
@@ -1104,212 +1182,372 @@ export default function CRMPage() {
       {loading ? (
         <div className="flex flex-col items-center justify-center flex-1 min-h-[50vh]">
           <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-yellow-500 mb-2"></div>
-          <span className="text-xs text-gray-500 font-bold">Loading Quotation Logs...</span>
+          <span className="text-xs text-gray-500 font-bold">Loading Quotation Telemetry...</span>
         </div>
       ) : activeTab === 'dashboard' ? (
-        // REDESIGNED HIGH-FIDELITY DASHBOARD VIEW
-        <div className="space-y-6 p-2 sm:p-4 text-xs">
-          {/* KPI Dashboard Cards Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {/* Card 1: New leads */}
-            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-              <div>
-                <span className="text-[10px] uppercase font-black text-gray-400 tracking-wider">New Leads</span>
-                <p className="text-3xl font-black text-gray-900 mt-2">{stats.thisMonthQuotes}</p>
+        // HIGH-FIDELITY REDESIGNED DASHBOARD VIEW
+        <div className="space-y-6 text-xs text-left">
+          
+          {/* Executive KPI Telemetry Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            {/* Card 1: Active Pipeline Value */}
+            <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs hover:shadow-md transition-all duration-200 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full -mr-8 -mt-8 group-hover:scale-110 transition-transform"></div>
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-[10px] uppercase font-black tracking-wider text-gray-400">Total Pipeline</span>
+                  <h3 className="text-2xl font-black text-gray-900 mt-1 tracking-tight">
+                    {formatLakhs(stats.totalPipeline)}
+                  </h3>
+                </div>
+                <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600 border border-amber-100/60 shadow-2xs">
+                  <TbCurrencyRupee className="w-5 h-5" />
+                </div>
               </div>
-              <div className="text-[10px] text-gray-500 font-bold mt-2 flex items-center gap-1">
-                <span className="text-green-600 font-black">↑ {dashboardFilteredLeads.filter(l => l.status === 'Draft').length}</span> drafts active
-              </div>
-            </div>
-
-            {/* Card 2: Active Follow-ups */}
-            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-              <div>
-                <span className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Active Follow-ups</span>
-                <p className="text-3xl font-black text-blue-600 mt-2">{stats.pendingCount}</p>
-              </div>
-              <div className="text-[10px] text-gray-500 font-bold mt-2 flex items-center gap-1">
-                <span className="text-blue-600 font-black">↑ {stats.onHoldCount}</span> on hold
-              </div>
-            </div>
-
-            {/* Card 3: Quotation Value */}
-            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-              <div>
-                <span className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Quotation Value</span>
-                <p className="text-3xl font-black text-yellow-600 mt-2">
-                  {formatLakhs(stats.totalPipeline)}
-                </p>
-              </div>
-              <div className="text-[10px] text-gray-500 font-bold mt-2 flex items-center gap-1">
-                <span className="text-yellow-600 font-black">↑ {stats.activePipeline}</span> under discussion
+              <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between text-[11px]">
+                <span className="text-gray-500 font-medium">Active Leads</span>
+                <span className="font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-100">
+                  {stats.activePipeline} Leads Under Discussion
+                </span>
               </div>
             </div>
 
-            {/* Card 4: Conversion Rate */}
-            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-              <div>
-                <span className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Conversion Rate</span>
-                <p className="text-3xl font-black text-green-600 mt-2">{stats.conversionRate.toFixed(1)}%</p>
+            {/* Card 2: Closed Approved Revenue */}
+            <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs hover:shadow-md transition-all duration-200 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -mr-8 -mt-8 group-hover:scale-110 transition-transform"></div>
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-[10px] uppercase font-black tracking-wider text-gray-400">Approved Revenue</span>
+                  <h3 className="text-2xl font-black text-emerald-600 mt-1 tracking-tight">
+                    {formatLakhs(stats.totalApprovedVal)}
+                  </h3>
+                </div>
+                <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100/60 shadow-2xs">
+                  <FiCheckCircle className="w-5 h-5" />
+                </div>
               </div>
-              <div className="text-[10px] text-gray-500 font-bold mt-2 flex items-center gap-1">
-                <span className="text-green-600 font-black">↑ {stats.approvedCount}</span> approved leads
+              <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between text-[11px]">
+                <span className="text-gray-500 font-medium">Deals Won</span>
+                <span className="font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                  ↑ {stats.approvedCount} Deals Closed
+                </span>
               </div>
+            </div>
+
+            {/* Card 3: Win Rate / Conversion */}
+            <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs hover:shadow-md transition-all duration-200 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full -mr-8 -mt-8 group-hover:scale-110 transition-transform"></div>
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-[10px] uppercase font-black tracking-wider text-gray-400">Conversion Rate</span>
+                  <h3 className="text-2xl font-black text-blue-600 mt-1 tracking-tight">
+                    {stats.conversionRate.toFixed(1)}%
+                  </h3>
+                </div>
+                <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100/60 shadow-2xs">
+                  <FiTrendingUp className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5">
+                <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                  <div 
+                    className="bg-gradient-to-r from-blue-500 to-emerald-500 h-full rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, Math.max(0, stats.conversionRate))}%` }}
+                  ></div>
+                </div>
+                <div className="flex items-center justify-between text-[10px] text-gray-500 font-bold">
+                  <span>{stats.approvedCount} Won</span>
+                  <span>{stats.totalQuotes} Total Quotes</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 4: Avg Ticket Size & Activity */}
+            <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs hover:shadow-md transition-all duration-200 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full -mr-8 -mt-8 group-hover:scale-110 transition-transform"></div>
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-[10px] uppercase font-black tracking-wider text-gray-400">Avg. Deal Size</span>
+                  <h3 className="text-2xl font-black text-purple-600 mt-1 tracking-tight">
+                    {formatLakhs(stats.avgQuoteVal)}
+                  </h3>
+                </div>
+                <div className="p-2.5 rounded-xl bg-purple-50 text-purple-600 border border-purple-100/60 shadow-2xs">
+                  <FiZap className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between text-[11px]">
+                <span className="text-gray-500 font-medium">New This Month</span>
+                <span className="font-black text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100">
+                  +{stats.thisMonthQuotes} New Leads
+                </span>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Visual Stage Progress Funnel & Distribution Bar */}
+          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FiTarget className="w-4 h-4 text-yellow-600" />
+                <h3 className="text-xs uppercase font-black text-gray-700 tracking-wider">Pipeline Stage Telemetry</h3>
+              </div>
+              <span className="text-[11px] font-bold text-gray-400">
+                Total Volume: {dashboardFilteredLeads.length} Leads
+              </span>
+            </div>
+
+            {/* Stage Progress Segment Bar */}
+            <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden flex shadow-inner">
+              {(['Draft', 'Sent', 'Follow-up', 'On Hold', 'Approved', 'Rejected'] as const).map((stage) => {
+                const count = statusSummary[stage] || 0;
+                const pct = dashboardFilteredLeads.length > 0 ? (count / dashboardFilteredLeads.length) * 100 : 0;
+                if (pct === 0) return null;
+                const colors: Record<string, string> = {
+                  'Draft': 'bg-gray-400',
+                  'Sent': 'bg-blue-500',
+                  'Follow-up': 'bg-orange-500',
+                  'On Hold': 'bg-amber-400',
+                  'Approved': 'bg-emerald-500',
+                  'Rejected': 'bg-rose-400'
+                };
+                return (
+                  <div
+                    key={stage}
+                    style={{ width: `${pct}%` }}
+                    className={`${colors[stage]} transition-all duration-300 relative group cursor-pointer`}
+                    title={`${stage}: ${count} leads (${pct.toFixed(1)}%)`}
+                  ></div>
+                );
+              })}
+            </div>
+
+            {/* Stage Cards Row */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-1">
+              {(['Draft', 'Sent', 'Follow-up', 'On Hold', 'Approved', 'Rejected'] as const).map((stage) => {
+                const count = statusSummary[stage] || 0;
+                const stageSum = dashboardFilteredLeads
+                  .filter(l => l.status === stage)
+                  .reduce((acc, l) => acc + (stage === 'Approved' ? (l.approved_value || 0) : (l.quote_value || 0)), 0);
+
+                const stageBadges: Record<string, { bg: string; text: string; border: string }> = {
+                  'Draft': { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200' },
+                  'Sent': { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+                  'Follow-up': { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
+                  'On Hold': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+                  'Approved': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+                  'Rejected': { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' }
+                };
+
+                const badge = stageBadges[stage];
+
+                return (
+                  <button
+                    key={stage}
+                    onClick={() => { setStatusFilter(stage); setActiveTab('log'); }}
+                    className={`${badge.bg} ${badge.border} border p-2.5 rounded-xl hover:shadow-xs transition-all text-left group cursor-pointer`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[10px] font-black uppercase tracking-wider ${badge.text}`}>
+                        {stage}
+                      </span>
+                      <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${badge.bg} ${badge.text} border ${badge.border}`}>
+                        {count}
+                      </span>
+                    </div>
+                    <p className="text-xs font-black text-gray-900 mt-1 truncate">
+                      {formatLakhs(stageSum)}
+                    </p>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Main Layout: Pipeline & Sidebar widgets */}
+          {/* Main Grid: Kanban Pipeline Board (3 cols) + Analytics Sidebar (1 col) */}
           <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-            {/* Left 3 cols: Lead Pipeline (Kanban Board) */}
-            <div className="xl:col-span-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-4 overflow-hidden">
+            
+            {/* Left 3 Columns: High-Fidelity Drag & Drop Kanban Pipeline */}
+            <div className="xl:col-span-3 bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col gap-4 overflow-hidden">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-black text-gray-900">Lead pipeline</h3>
-                  <p className="text-[10px] text-gray-400 font-bold mt-0.5">Drag and drop leads to progress them</p>
+                  <h3 className="text-sm font-black text-gray-900 flex items-center gap-2">
+                    <FiLayers className="w-4 h-4 text-yellow-600" /> Lead Pipeline Board
+                  </h3>
+                  <p className="text-[11px] text-gray-400 font-medium mt-0.5">
+                    Drag and drop lead cards across stages to automatically update lead status
+                  </p>
                 </div>
                 <button
                   onClick={() => setActiveTab('log')}
-                  className="text-xs text-yellow-600 hover:text-yellow-700 font-black flex items-center gap-0.5 hover:underline cursor-pointer"
+                  className="text-xs text-yellow-600 hover:text-yellow-700 font-black flex items-center gap-1 hover:underline cursor-pointer"
                 >
-                  View all leads →
+                  Full Sheet View <FiChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              {/* Kanban Columns container */}
-              <div className="flex md:grid md:grid-cols-5 gap-3 overflow-x-auto pb-3 min-h-[300px] snap-x snap-mandatory">
+              {/* Kanban Stage Columns */}
+              <div className="flex md:grid md:grid-cols-5 gap-3.5 overflow-x-auto pb-2 min-h-[420px] snap-x snap-mandatory">
                 {(['Draft', 'Sent', 'Follow-up', 'On Hold', 'Approved'] as const).map((colStatus) => {
                   const colLeads = dashboardFilteredLeads.filter(l => l.status === colStatus);
-                  const colLabels: Record<string, string> = {
-                    'Draft': 'Draft',
-                    'Sent': 'Sent',
-                    'Follow-up': 'Follow-up',
-                    'On Hold': 'On Hold',
-                    'Approved': 'Approved'
+                  const colSum = colLeads.reduce((acc, l) => acc + (colStatus === 'Approved' ? (l.approved_value || 0) : (l.quote_value || 0)), 0);
+
+                  const colStyles: Record<string, { topBorder: string; headerBg: string; headerText: string }> = {
+                    'Draft': { topBorder: 'border-t-4 border-t-gray-400 bg-gray-50/40', headerBg: 'bg-gray-100/70', headerText: 'text-gray-700' },
+                    'Sent': { topBorder: 'border-t-4 border-t-blue-500 bg-blue-50/20', headerBg: 'bg-blue-100/70', headerText: 'text-blue-800' },
+                    'Follow-up': { topBorder: 'border-t-4 border-t-orange-500 bg-orange-50/20', headerBg: 'bg-orange-100/70', headerText: 'text-orange-800' },
+                    'On Hold': { topBorder: 'border-t-4 border-t-amber-500 bg-amber-50/20', headerBg: 'bg-amber-100/70', headerText: 'text-amber-800' },
+                    'Approved': { topBorder: 'border-t-4 border-t-emerald-500 bg-emerald-50/20', headerBg: 'bg-emerald-100/70', headerText: 'text-emerald-800' }
                   };
-                  const colColorClasses: Record<string, string> = {
-                    'Draft': 'border-t-4 border-t-gray-400 bg-gray-50/50',
-                    'Sent': 'border-t-4 border-t-blue-500 bg-blue-50/20',
-                    'Follow-up': 'border-t-4 border-t-orange-500 bg-orange-50/20',
-                    'On Hold': 'border-t-4 border-t-yellow-500 bg-yellow-50/20',
-                    'Approved': 'border-t-4 border-t-green-500 bg-green-50/20'
-                  };
-                  const colHeaderColorClasses: Record<string, string> = {
-                    'Draft': 'text-gray-500 bg-gray-100',
-                    'Sent': 'text-blue-700 bg-blue-100/60',
-                    'Follow-up': 'text-orange-700 bg-orange-100/60',
-                    'On Hold': 'text-yellow-700 bg-yellow-100/60',
-                    'Approved': 'text-green-700 bg-green-100/60'
-                  };
+
+                  const style = colStyles[colStatus];
 
                   return (
                     <div
                       key={colStatus}
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={(e) => handleDropKanban(e, colStatus)}
-                      className={`flex flex-col gap-3 p-3 rounded-xl border border-gray-100 min-w-[270px] sm:min-w-[280px] md:min-w-0 snap-center shrink-0 md:shrink ${colColorClasses[colStatus]}`}
+                      className={`flex flex-col gap-3 p-3 rounded-2xl border border-gray-200/80 min-w-[270px] sm:min-w-[280px] md:min-w-0 snap-center shrink-0 md:shrink ${style.topBorder}`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-gray-500">
-                          {colLabels[colStatus]}
-                        </span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${colHeaderColorClasses[colStatus]}`}>
+                      {/* Column Header */}
+                      <div className="flex items-center justify-between pb-1 border-b border-gray-100">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`w-2 h-2 rounded-full ${colStatus === 'Draft' ? 'bg-gray-400' : colStatus === 'Sent' ? 'bg-blue-500' : colStatus === 'Follow-up' ? 'bg-orange-500' : colStatus === 'On Hold' ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
+                          <span className="text-[11px] font-black uppercase tracking-wider text-gray-700">
+                            {colStatus}
+                          </span>
+                        </div>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${style.headerBg} ${style.headerText}`}>
                           {colLeads.length}
                         </span>
                       </div>
 
-                      {/* Column Cards Container */}
-                      <div className="flex-1 flex flex-col gap-2 overflow-y-auto max-h-[480px] min-h-[120px]">
-                        {colLeads.map((lead) => {
-                          const initials = lead.client_name
-                            ? lead.client_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
-                            : '?';
-                          
-                          // Dynamic initials color
-                          const colorHash = lead.client_name.charCodeAt(0) % 5;
-                          const badgeColors = [
-                            'bg-amber-100 text-amber-700',
-                            'bg-blue-100 text-blue-700',
-                            'bg-green-100 text-green-700',
-                            'bg-purple-100 text-purple-700',
-                            'bg-rose-100 text-rose-700'
-                          ][colorHash];
+                      {/* Column Sum */}
+                      <div className="text-[10px] font-bold text-gray-500 flex items-center justify-between bg-white/70 px-2 py-1 rounded-lg border border-gray-100">
+                        <span>Total:</span>
+                        <span className="font-black text-gray-900">{formatLakhs(colSum)}</span>
+                      </div>
 
-                          return (
-                            <div
-                              key={lead.id}
-                              draggable={hasPermission('crm.manage')}
-                              onDragStart={(e) => handleDragStartKanban(e, lead.id)}
-                              className="bg-white p-3 rounded-xl border border-gray-100 shadow-xs hover:shadow-sm hover:border-gray-200 transition-all cursor-grab active:cursor-grabbing flex flex-col gap-2.5 relative group text-left"
-                            >
-                              <div className="flex items-start justify-between gap-1.5">
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="text-xs font-bold text-gray-800 truncate leading-snug">{lead.client_name}</h4>
-                                  <p className="text-[9px] text-gray-400 font-bold truncate mt-0.5">
-                                    {lead.site_project || 'No project site details'}
-                                  </p>
+                      {/* Lead Cards List */}
+                      <div className="flex-1 flex flex-col gap-2.5 overflow-y-auto max-h-[520px] min-h-[140px] pr-0.5">
+                        {colLeads.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center py-10 border border-dashed border-gray-200 rounded-xl text-[11px] text-gray-400 font-medium">
+                            <span>No leads</span>
+                          </div>
+                        ) : (
+                          colLeads.map((lead) => {
+                            const initials = lead.client_name
+                              ? lead.client_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+                              : 'CL';
+                            
+                            const avatarGradients = [
+                              'from-amber-400 to-yellow-600',
+                              'from-blue-400 to-indigo-600',
+                              'from-emerald-400 to-teal-600',
+                              'from-purple-400 to-indigo-600',
+                              'from-rose-400 to-pink-600'
+                            ][(lead.client_name || '').charCodeAt(0) % 5];
+
+                            return (
+                              <div
+                                key={lead.id}
+                                draggable={hasPermission('crm.manage')}
+                                onDragStart={(e) => handleDragStartKanban(e, lead.id)}
+                                className="bg-white p-3.5 rounded-xl border border-gray-200/80 shadow-2xs hover:shadow-md hover:border-yellow-400/80 transition-all duration-200 cursor-grab active:cursor-grabbing flex flex-col gap-2.5 relative group text-left"
+                              >
+                                {/* Header: Client Name & Avatar */}
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${avatarGradients} text-white flex items-center justify-center text-[10px] font-black shadow-2xs shrink-0`}>
+                                      {initials}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <h4 className="text-xs font-black text-gray-900 truncate leading-tight">{lead.client_name}</h4>
+                                      <p className="text-[9px] font-bold text-gray-400 truncate mt-0.5">
+                                        {lead.site_project || 'No project site specs'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <span className="text-[8px] font-black bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200/60 shrink-0">
+                                    {lead.ref_no}
+                                  </span>
                                 </div>
-                                <div className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[9px] font-black ${badgeColors}`}>
-                                  {initials}
+
+                                {/* Value & Specs Tag */}
+                                <div className="flex items-center justify-between text-[11px] bg-gray-50/70 p-2 rounded-lg border border-gray-100">
+                                  <div>
+                                    <span className="text-[9px] text-gray-400 uppercase font-black block leading-none">Quote Value</span>
+                                    <span className="font-black text-gray-950 text-xs">
+                                      {formatLakhs(lead.quote_value)}
+                                    </span>
+                                  </div>
+                                  {lead.area_sqft ? (
+                                    <span className="text-[10px] font-bold text-gray-500 bg-white px-1.5 py-0.5 rounded border border-gray-200/60">
+                                      {lead.area_sqft} sq.ft
+                                    </span>
+                                  ) : null}
                                 </div>
-                              </div>
 
-                              <div className="flex items-center justify-between text-[9px] text-gray-500 font-bold">
-                                <span>₹{lead.quote_value ? (lead.quote_value / 100000).toFixed(1) + 'L' : '0'}</span>
-                                <span className="text-[8px] bg-gray-50 border border-gray-100 px-1 py-0.5 rounded text-gray-400">
-                                  {lead.ref_no}
-                                </span>
-                              </div>
+                                {/* Action Toolbar Buttons on Card */}
+                                <div className="flex items-center justify-between border-t border-gray-100 pt-2">
+                                  <span className="text-[9px] font-bold text-gray-400">
+                                    {lead.created_date ? parseLocalDate(lead.created_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''}
+                                  </span>
 
-                              {/* WhatsApp / Action badge */}
-                              {lead.phone && (
-                                <div className="flex items-center justify-between border-t border-gray-50 pt-2 text-[9px] font-bold">
-                                  <span className="text-gray-400">{lead.created_date ? parseLocalDate(lead.created_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''}</span>
                                   <div className="flex items-center gap-1">
+                                    {lead.phone && (
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSendWhatsAppMessage(lead, 'quotation')}
+                                          disabled={sendingWhatsappLeadId === lead.id}
+                                          className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/60 transition-colors flex items-center gap-1 text-[9px] font-bold cursor-pointer disabled:opacity-50"
+                                          title="Send Quotation PDF via WhatsApp"
+                                        >
+                                          {sendingWhatsappLeadId === lead.id ? (
+                                            <FiRefreshCw className="w-3 h-3 animate-spin" />
+                                          ) : (
+                                            <FaWhatsapp className="w-3 h-3" />
+                                          )}
+                                          <span>PDF</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSendWhatsAppMessage(lead, 'followup')}
+                                          disabled={sendingWhatsappLeadId === lead.id}
+                                          className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/60 transition-colors flex items-center gap-1 text-[9px] font-bold cursor-pointer disabled:opacity-50"
+                                          title="Send Follow-up Message via WhatsApp"
+                                        >
+                                          {sendingWhatsappLeadId === lead.id ? (
+                                            <FiRefreshCw className="w-3 h-3 animate-spin" />
+                                          ) : (
+                                            <FaWhatsapp className="w-3 h-3" />
+                                          )}
+                                          <span>Remind</span>
+                                        </button>
+                                      </>
+                                    )}
+
+                                    {/* Edit Lead Details Form */}
                                     <button
                                       type="button"
-                                      onClick={() => handleSendWhatsAppMessage(lead, 'quotation')}
-                                      disabled={sendingWhatsappLeadId === lead.id}
-                                      className="text-[9px] text-emerald-700 bg-emerald-100 hover:bg-emerald-200 border border-emerald-200 px-1.5 py-0.5 rounded-md transition-colors flex items-center gap-1 font-bold cursor-pointer disabled:opacity-50"
-                                      title="Send Quotation PDF via Wasender API"
+                                      onClick={() => {
+                                        setMobileEditForm({ ...lead });
+                                        setIsMobileEditOpen(true);
+                                      }}
+                                      className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/60 transition-colors text-[9px] font-bold cursor-pointer"
+                                      title="Edit Lead Details"
                                     >
-                                      {sendingWhatsappLeadId === lead.id ? (
-                                        <FiRefreshCw className="w-2.5 h-2.5 animate-spin" />
-                                      ) : (
-                                        <FaWhatsapp className="w-2.5 h-2.5" />
-                                      )}
-                                      Quotation PDF
+                                      <FiEdit className="w-3 h-3" />
                                     </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleSendWhatsAppMessage(lead, 'followup')}
-                                      disabled={sendingWhatsappLeadId === lead.id}
-                                      className="text-[9px] text-blue-700 bg-blue-100 hover:bg-blue-200 border border-blue-200 px-1.5 py-0.5 rounded-md transition-colors flex items-center gap-1 font-bold cursor-pointer disabled:opacity-50"
-                                      title="Send Follow-up Message via Wasender API"
-                                    >
-                                      {sendingWhatsappLeadId === lead.id ? (
-                                        <FiRefreshCw className="w-2.5 h-2.5 animate-spin" />
-                                      ) : (
-                                        <FaWhatsapp className="w-2.5 h-2.5" />
-                                      )}
-                                      Follow-up
-                                    </button>
-                                    <a
-                                      href={`https://api.whatsapp.com/send?phone=${String(lead.phone).replace(/[^\d]/g, '').length === 10 ? '91' + String(lead.phone).replace(/[^\d]/g, '') : String(lead.phone).replace(/[^\d]/g, '')}&text=${encodeURIComponent(
-                                        `Hi ${lead.client_name || 'Customer'},\n\nThis is Apple Interior Manager following up regarding the quotation for your project at ${lead.site_project || 'your site'}.\n\nPlease let us know if you have any questions or feedback. Thanks!`
-                                      )}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-[9px] text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-1 py-0.5 rounded-md transition-colors flex items-center gap-0.5"
-                                      title="Open WhatsApp Web"
-                                    >
-                                      Web
-                                    </a>
                                   </div>
                                 </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                              </div>
+                            );
+                          })
+                        )}
                       </div>
                     </div>
                   );
@@ -1317,15 +1555,18 @@ export default function CRMPage() {
               </div>
             </div>
 
-            {/* Right 1 col: Today's follow-ups sidebar widget */}
+            {/* Right 1 Column: Analytics Sidebar */}
             <div className="flex flex-col gap-6">
-              {/* Today's Follow-ups */}
-              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col min-h-[280px] text-left">
-                <div className="flex items-center justify-between mb-3.5">
+              
+              {/* Today's High Priority Follow-ups Stream */}
+              <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col min-h-[300px] text-left">
+                <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-xs uppercase font-black text-gray-400 tracking-widest">Today's follow-ups</h3>
-                    <p className="text-[9px] text-gray-400 font-bold mt-0.5">
-                      {dashboardFilteredLeads.filter(l => l.status === 'Follow-up').length} pending follow-ups
+                    <h3 className="text-xs uppercase font-black text-gray-700 tracking-wider flex items-center gap-1.5">
+                      <FiClock className="w-3.5 h-3.5 text-orange-500" /> Active Follow-ups
+                    </h3>
+                    <p className="text-[10px] text-gray-400 font-bold mt-0.5">
+                      {dashboardFilteredLeads.filter(l => l.status === 'Follow-up').length} pending client check-ins
                     </p>
                   </div>
                   <button
@@ -1339,11 +1580,12 @@ export default function CRMPage() {
                   </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto space-y-3 max-h-[320px]">
+                <div className="flex-1 overflow-y-auto space-y-3 max-h-[340px] pr-0.5">
                   {dashboardFilteredLeads.filter(l => l.status === 'Follow-up').length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                      <span className="text-lg">🎉</span>
-                      <p className="text-[10px] text-gray-400 font-bold mt-1">All follow-ups completed!</p>
+                    <div className="flex flex-col items-center justify-center py-10 text-center">
+                      <span className="text-2xl">🎉</span>
+                      <p className="text-xs font-bold text-gray-700 mt-2">All follow-ups completed!</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">No pending follow-ups in active pipeline.</p>
                     </div>
                   ) : (
                     dashboardFilteredLeads.filter(l => l.status === 'Follow-up').map((lead) => {
@@ -1357,32 +1599,38 @@ export default function CRMPage() {
                         : '16';
 
                       return (
-                        <div key={lead.id} className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-gray-50 hover:bg-gray-50/50 transition-colors">
-                          <div className="flex items-start gap-3 min-w-0 flex-1">
-                            <div className="w-10 h-10 rounded-lg bg-yellow-50 border border-yellow-100 flex flex-col items-center justify-center shrink-0">
-                              <span className="text-[8px] font-black text-yellow-600 leading-none">{monthStr}</span>
-                              <span className="text-xs font-black text-yellow-800 mt-0.5 leading-none">{dayStr}</span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-xs font-bold text-gray-900 truncate">{lead.client_name}</h4>
-                              <p className="text-[9px] text-gray-400 font-bold truncate mt-0.5">{latestFollowUp}</p>
+                        <div key={lead.id} className="p-3 rounded-xl border border-gray-100 hover:border-gray-200 bg-gray-50/50 hover:bg-white transition-all space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                              <div className="w-9 h-9 rounded-xl bg-orange-100/70 border border-orange-200/80 flex flex-col items-center justify-center shrink-0">
+                                <span className="text-[8px] font-black text-orange-700 leading-none">{monthStr}</span>
+                                <span className="text-xs font-black text-orange-900 mt-0.5 leading-none">{dayStr}</span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-xs font-black text-gray-900 truncate">{lead.client_name}</h4>
+                                <p className="text-[10px] text-gray-500 font-medium truncate mt-0.5">{latestFollowUp}</p>
+                              </div>
                             </div>
                           </div>
-                          {lead.phone && (
-                            <button
-                              type="button"
-                              onClick={() => handleSendWhatsAppMessage(lead, 'followup')}
-                              disabled={sendingWhatsappLeadId === lead.id}
-                              className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 transition-colors shrink-0 cursor-pointer disabled:opacity-50"
-                              title="Send WhatsApp Follow-up"
-                            >
-                              {sendingWhatsappLeadId === lead.id ? (
-                                <FiRefreshCw className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <FaWhatsapp className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-                          )}
+
+                          <div className="flex items-center justify-between pt-1 text-[10px] font-bold">
+                            <span className="text-gray-900 font-black">{formatLakhs(lead.quote_value)}</span>
+                            {lead.phone && (
+                              <button
+                                type="button"
+                                onClick={() => handleSendWhatsAppMessage(lead, 'followup')}
+                                disabled={sendingWhatsappLeadId === lead.id}
+                                className="px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                              >
+                                {sendingWhatsappLeadId === lead.id ? (
+                                  <FiRefreshCw className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <FaWhatsapp className="w-3 h-3" />
+                                )}
+                                <span>Remind</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
                       );
                     })
@@ -1390,13 +1638,49 @@ export default function CRMPage() {
                 </div>
               </div>
 
-              {/* Compact Monthly Breakdown Table */}
-              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm text-left">
-                <h3 className="text-xs uppercase font-black text-gray-400 tracking-widest mb-3">🗓️ Monthly Breakdown</h3>
+              {/* Lead Source & Assignee Velocity */}
+              <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col text-left space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs uppercase font-black text-gray-700 tracking-wider flex items-center gap-1.5">
+                    <FiUsers className="w-3.5 h-3.5 text-blue-500" /> Source & Assignees
+                  </h3>
+                  <span className="text-[10px] text-gray-400 font-bold">{assigneeBreakdown.length} Sources</span>
+                </div>
+
+                <div className="space-y-3 max-h-[260px] overflow-y-auto pr-0.5">
+                  {assigneeBreakdown.slice(0, 5).map((item) => {
+                    const maxVal = assigneeBreakdown[0]?.value || 1;
+                    const pct = Math.min(100, (item.value / maxVal) * 100);
+                    return (
+                      <div key={item.name} className="space-y-1">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-bold text-gray-800 truncate">{item.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-gray-400 font-bold">{item.count} leads</span>
+                            <span className="font-black text-gray-900">{formatLakhs(item.value)}</span>
+                          </div>
+                        </div>
+                        <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className="bg-gradient-to-r from-blue-500 to-amber-500 h-full rounded-full transition-all duration-300"
+                            style={{ width: `${pct}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Compact Monthly Revenue Velocity Card */}
+              <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs text-left space-y-3">
+                <h3 className="text-xs uppercase font-black text-gray-700 tracking-wider flex items-center gap-1.5">
+                  <FiTrendingUp className="w-3.5 h-3.5 text-emerald-500" /> Monthly Performance
+                </h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="border-b border-gray-200 text-gray-400 uppercase font-black text-[9px]">
+                      <tr className="border-b border-gray-100 text-gray-400 uppercase font-black text-[9px]">
                         <th className="py-2">Month</th>
                         <th className="py-2 text-center">Quotes</th>
                         <th className="py-2 text-right">Value (₹)</th>
@@ -1405,8 +1689,8 @@ export default function CRMPage() {
                     <tbody className="divide-y divide-gray-100 text-[11px]">
                       {monthlyBreakdown.slice(0, 4).map((row) => (
                         <tr key={row.monthStr} className="hover:bg-gray-50/50 transition-colors">
-                          <td className="py-2 font-bold text-gray-700">{row.monthStr}</td>
-                          <td className="py-2 text-center font-medium text-gray-900">{row.quotes}</td>
+                          <td className="py-2 font-bold text-gray-800">{row.monthStr}</td>
+                          <td className="py-2 text-center font-bold text-gray-600">{row.quotes}</td>
                           <td className="py-2 text-right font-black text-gray-950">
                             {formatLakhs(row.value)}
                           </td>
@@ -1416,8 +1700,11 @@ export default function CRMPage() {
                   </table>
                 </div>
               </div>
+
             </div>
+
           </div>
+
         </div>
       ) : (
         // QUOTATION LOG SHEET VIEW
