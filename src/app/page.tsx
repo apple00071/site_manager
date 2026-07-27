@@ -35,34 +35,34 @@ export default function Home() {
   }, [router]);
 
   return (
-    <div className="min-h-screen w-full bg-slate-950 flex flex-col items-center justify-center p-6 text-center select-none safe-area-inset-top safe-area-inset-bottom">
+    <div className="min-h-screen w-full bg-white flex flex-col items-center justify-center p-6 text-center select-none safe-area-inset-top safe-area-inset-bottom">
       {/* Brand Splash Container */}
       <div className="flex flex-col items-center gap-6">
-        <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-3xl bg-white/10 p-4 backdrop-blur-md border border-white/15 shadow-2xl flex items-center justify-center relative overflow-hidden animate-pulse">
+        <div className="w-36 h-36 sm:w-48 sm:h-48 p-2 flex items-center justify-center relative overflow-hidden animate-pulse">
           <Image
             src="/New-logo.png"
             alt="Apple Interior Manager Logo"
-            width={128}
-            height={128}
+            width={180}
+            height={180}
             priority
-            className="object-contain w-full h-full drop-shadow-md"
+            className="object-contain w-full h-full"
           />
         </div>
 
         <div className="space-y-1.5">
-          <h1 className="text-xl sm:text-2xl font-black text-white tracking-wider uppercase">
+          <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-wider uppercase">
             Apple Interiors
           </h1>
-          <p className="text-xs font-bold text-amber-400/90 tracking-widest uppercase">
+          <p className="text-xs font-black text-amber-500 tracking-widest uppercase">
             Project Manager
           </p>
         </div>
 
         {/* Pulsing Dots Loader */}
         <div className="flex items-center gap-2 mt-4">
-          <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-          <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-          <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+          <div className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+          <div className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+          <div className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-bounce" style={{ animationDelay: '300ms' }} />
         </div>
       </div>
     </div>
