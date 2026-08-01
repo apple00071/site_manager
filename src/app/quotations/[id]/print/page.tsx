@@ -3,6 +3,7 @@
 import { useEffect, useState, Fragment, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Script from 'next/script';
+import { LOGO_BASE64 } from '@/lib/reports/logoBase64';
 
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
@@ -435,7 +436,7 @@ export default function QuotationPrintPage() {
           <div className="header">
             <div style={{ background: '#ffffff', padding: '12px 24px', borderRadius: '12px', display: 'flex', alignItems: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
               <img 
-                src="/New-logo.png" 
+                src={LOGO_BASE64} 
                 alt="Apple Interiors" 
                 style={{ height: '62px', width: 'auto', objectFit: 'contain', display: 'block' }} 
               />

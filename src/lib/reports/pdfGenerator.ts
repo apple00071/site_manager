@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import fs from 'fs';
 import path from 'path';
 import { getViewpointName } from './viewpoints';
+import { LOGO_BASE64 } from './logoBase64';
 
 // Helper to fetch image and convert to base64 for embedding
 async function fetchImageAsBase64(url: string): Promise<string | null> {
@@ -215,24 +216,9 @@ export async function generateQuotationPDF(quotation: any, lead: any): Promise<B
     doc.roundedRect(17, 13.5, 54, 25, 3, 3, 'F');
     
     try {
-      const logoPath = path.join(process.cwd(), 'public', 'New-logo.png');
-      if (fs.existsSync(logoPath)) {
-        const logoBuffer = fs.readFileSync(logoPath);
-        const logoBase64 = `data:image/png;base64,${logoBuffer.toString('base64')}`;
-        doc.addImage(logoBase64, 'PNG', 18.5, 15, 51, 22);
-      } else {
-        doc.setFontSize(15);
-        doc.setTextColor(43, 43, 43);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Apple', 22, 26);
-        doc.setFontSize(8.5);
-        doc.setTextColor(120, 120, 120);
-        doc.text('INTERIORS', 38, 26);
-        doc.setFontSize(6);
-        doc.setTextColor(245, 197, 24);
-        doc.text('We build your Dream', 24, 32);
-      }
+      doc.addImage(LOGO_BASE64, 'PNG', 18.5, 15, 51, 22);
     } catch (e) {
+      console.error('Error rendering embedded logo in PDF:', e);
       doc.setFontSize(15);
       doc.setTextColor(43, 43, 43);
       doc.setFont('helvetica', 'bold');

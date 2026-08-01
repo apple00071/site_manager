@@ -1,3 +1,5 @@
+import { LOGO_BASE64 } from './logoBase64';
+
 export function buildQuotationHtmlString(quotation: any, lead: any): string {
   const items: any[] = (quotation?.quotation_items || quotation?.items || []).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
 
@@ -109,7 +111,7 @@ export function buildQuotationHtmlString(quotation: any, lead: any): string {
         <div class="header-bar"></div>
         <div class="header">
           <div style="background: #ffffff; padding: 12px 24px; border-radius: 12px; display: flex; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
-            <img src="/New-logo.png" alt="Apple Interiors" style="height: 62px; width: auto; object-fit: contain; display: block;" />
+            <img src="${LOGO_BASE64}" alt="Apple Interiors" style="height: 62px; width: auto; object-fit: contain; display: block;" />
           </div>
           <div class="header-contact">
             <b>Kukatpally, Hyderabad</b><br />
