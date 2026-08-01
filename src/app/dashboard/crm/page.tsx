@@ -612,6 +612,31 @@ export default function CRMPage() {
     return new Date().toISOString().split('T')[0];
   };
 
+  // Flexible helper to extract values by multiple alias column names
+  const getColVal = (row: Record<string, unknown>, aliases: string[]): any => {
+    const keys = Object.keys(row);
+    for (const alias of aliases) {
+      const target = alias.toLowerCase().replace(/[^a-z0-9]/g, '');
+      for (const key of keys) {
+        const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (normalizedKey === target) {
+          const val = row[key];
+          if (val !== undefined && val !== null && val !== '') return val;
+        }
+      }
+    }
+    return undefined;
+  };
+
+  // Helper to check if row is a month banner / section header / empty row
+  const isIgnorableRow = (clientName: string, phone: string, site: string, quoteVal: number) => {
+    if (!clientName && !phone && !site && quoteVal === 0) return true;
+    const norm = clientName.trim().toUpperCase();
+    if (/^(JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER)\s+\d{4}$/.test(norm)) return true;
+    if (norm === 'TOTAL' || norm === 'SUB-TOTAL' || norm === 'SUBTOTAL' || norm.startsWith('REF NO')) return true;
+    return false;
+  };
+
   // Excel/CSV Import
   const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -622,11 +647,23 @@ export default function CRMPage() {
 
     reader.onload = async (evt) => {
       try {
-        const bstr = evt.target?.result;
-        const workbook = XLSX.read(bstr, { type: 'binary' });
+        const arrayBuffer = evt.target?.result;
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet);
+
+        // Detect header row by scanning first 15 rows
+        const rawRows = XLSX.utils.sheet_to_json<unknown[]>(worksheet, { header: 1 });
+        let headerRowIndex = 0;
+        for (let i = 0; i < Math.min(rawRows.length, 15); i++) {
+          const rowStr = JSON.stringify(rawRows[i] || '').toLowerCase();
+          if (rowStr.includes('client') || rowStr.includes('name') || rowStr.includes('phone') || rowStr.includes('quote') || rowStr.includes('site')) {
+            headerRowIndex = i;
+            break;
+          }
+        }
+
+        const jsonData = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { range: headerRowIndex });
 
         if (jsonData.length === 0) {
           alert('No records found in the uploaded file.');
@@ -636,21 +673,39 @@ export default function CRMPage() {
         setSyncStatus('syncing');
         let successCount = 0;
         let errorCount = 0;
+        let skippedCount = 0;
 
         for (const row of jsonData) {
-          const client_name = row['Client Name'] || row['client_name'] || 'Imported Customer';
-          const phone = String(row['Phone'] || row['phone'] || '');
-          const site_project = row['Site / Project'] || row['site_project'] || row['Site Project'] || '';
-          const area_sqft = Number(row['Area (sq.ft)'] || row['area_sqft'] || row['Area'] || 0);
-          const quote_value = Number(row['Quote Value (₹)'] || row['quote_value'] || row['Quote Value'] || 0);
-          const status = row['Status'] || row['status'] || 'Draft';
-          const approved_value = Number(row['Approved Value (₹)'] || row['approved_value'] || row['Approved Value'] || 0);
-          const assigned_by = row['Assigned By'] || row['assigned_by'] || '';
-          const follow_up_1 = row['Follow-up 1'] || row['follow_up_1'] || '';
-          const follow_up_2 = row['Follow-up 2'] || row['follow_up_2'] || '';
-          const follow_up_3 = row['Follow-up 3'] || row['follow_up_3'] || '';
-          const remarks = row['Remarks'] || row['remarks'] || '';
-          const created_date = parseExcelDate(row['Date'] || row['created_date'] || row['created_at']);
+          const rawClient = String(getColVal(row, ['client_name', 'client name', 'client', 'customer', 'customer name', 'name', 'clientname', 'customername']) || '').trim();
+          const phone = String(getColVal(row, ['phone', 'phone number', 'phone no', 'phoneno', 'mobile', 'contact', 'cell', 'phone_number', 'mobile number', 'contact number']) || '').trim();
+          const site_project = String(getColVal(row, ['site_project', 'site / project', 'site/project', 'site project', 'site', 'project', 'location', 'site location', 'project location', 'address']) || '').trim();
+          
+          const rawArea = getColVal(row, ['area_sqft', 'area (sq.ft)', 'area (sq ft)', 'area sqft', 'area', 'sqft', 'sq.ft', 'square feet', 'size']);
+          const area_sqft = Number(rawArea || 0);
+
+          const rawQuote = getColVal(row, ['quote_value', 'quote value (₹)', 'quote value (rs)', 'quote value', 'quote amount', 'quote', 'amount', 'value', 'price', 'total', 'estimated value', 'est value']);
+          const quote_value = Number(rawQuote || 0);
+
+          const status = String(getColVal(row, ['status', 'lead status', 'stage', 'quotation status']) || 'Draft').trim();
+
+          const rawApproved = getColVal(row, ['approved_value', 'approved value (₹)', 'approved value (rs)', 'approved value', 'approved amount', 'final value', 'final amount', 'approved']);
+          const approved_value = Number(rawApproved || 0);
+
+          const assigned_by = String(getColVal(row, ['assigned_by', 'assigned by', 'assigned to', 'assigned', 'sales executive', 'executive', 'agent']) || '').trim();
+          const follow_up_1 = String(getColVal(row, ['follow_up_1', 'follow-up 1', 'followup 1', 'follow up 1', 'fup1', 'followup1']) || '').trim();
+          const follow_up_2 = String(getColVal(row, ['follow_up_2', 'follow-up 2', 'followup 2', 'follow up 2', 'fup2', 'followup2']) || '').trim();
+          const follow_up_3 = String(getColVal(row, ['follow_up_3', 'follow-up 3', 'followup 3', 'follow up 3', 'fup3', 'followup3']) || '').trim();
+          const remarks = String(getColVal(row, ['remarks', 'notes', 'comment', 'comments', 'remark']) || '').trim();
+          const rawDate = getColVal(row, ['date', 'created_date', 'created_at', 'created date', 'quote date', 'ref date']);
+          const created_date = parseExcelDate(rawDate);
+
+          // Check if this row should be skipped (e.g. section header like "AUGUST 2026" or empty row)
+          if (isIgnorableRow(rawClient, phone, site_project, quote_value)) {
+            skippedCount++;
+            continue;
+          }
+
+          const client_name = rawClient || 'Imported Customer';
 
           try {
             const response = await fetch('/api/crm', {
@@ -687,7 +742,7 @@ export default function CRMPage() {
         }
 
         setSyncStatus('synced');
-        alert(`Import completed! Successfully imported ${successCount} leads. Errors: ${errorCount}`);
+        alert(`Import completed! Successfully imported ${successCount} leads.${skippedCount > 0 ? ` (Skipped ${skippedCount} header/blank rows)` : ''}${errorCount > 0 ? ` Errors: ${errorCount}` : ''}`);
         if (fileInputRef.current) fileInputRef.current.value = '';
       } catch (err) {
         console.error('Error reading file:', err);
@@ -696,7 +751,7 @@ export default function CRMPage() {
       }
     };
 
-    reader.readAsBinaryString(file);
+    reader.readAsArrayBuffer(file);
   };
 
   // Open mobile / layout editor Bottom Sheet
