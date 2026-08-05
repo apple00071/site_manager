@@ -178,6 +178,38 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     fetchProjectUsers();
   }, [projectId, user]);
 
+  // Restore draft if WebView reloads on mobile
+  useEffect(() => {
+    if (typeof window !== 'undefined' && projectId) {
+      const saved = sessionStorage.getItem(`update_draft_${projectId}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed && (parsed.description || (parsed.photos && parsed.photos.length > 0))) {
+            setForm(prev => ({
+              ...prev,
+              description: parsed.description || '',
+              photos: Array.isArray(parsed.photos) ? parsed.photos : [],
+            }));
+          }
+        } catch (e) {
+          console.warn('Failed to restore draft:', e);
+        }
+      }
+    }
+  }, [projectId]);
+
+  // Auto-save form draft on change
+  useEffect(() => {
+    if (typeof window !== 'undefined' && projectId) {
+      if (form.description.trim() || form.photos.length > 0) {
+        sessionStorage.setItem(`update_draft_${projectId}`, JSON.stringify(form));
+      } else {
+        sessionStorage.removeItem(`update_draft_${projectId}`);
+      }
+    }
+  }, [form, projectId]);
+
   // Removed auto-scrolling to prevent jumping to bottom
 
   const fetchUpdates = async () => {
@@ -768,6 +800,9 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         description: '',
         photos: [],
       });
+      if (typeof window !== 'undefined' && projectId) {
+        sessionStorage.removeItem(`update_draft_${projectId}`);
+      }
       clearAudio();
     } catch (error: any) {
       console.error('Error creating update:', error);
