@@ -149,6 +149,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
   const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [showCameraModal, setShowCameraModal] = useState(false);
 
   // Refs for audio recording
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -177,6 +178,36 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     fetchStages();
     fetchProjectUsers();
   }, [projectId, user]);
+
+  // Load draft on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined' && projectId) {
+      const saved = localStorage.getItem(`update_draft_${projectId}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === 'object') {
+            setForm(prev => ({
+              ...prev,
+              description: parsed.description || '',
+              photos: Array.isArray(parsed.photos) ? parsed.photos : [],
+            }));
+          }
+        } catch (e) {
+          console.warn('Failed to restore update draft:', e);
+        }
+      }
+    }
+  }, [projectId]);
+
+  // Auto-save draft on form change
+  useEffect(() => {
+    if (typeof window !== 'undefined' && projectId) {
+      if (form.description.trim() || form.photos.length > 0) {
+        localStorage.setItem(`update_draft_${projectId}`, JSON.stringify(form));
+      }
+    }
+  }, [form, projectId]);
 
   // Removed auto-scrolling to prevent jumping to bottom
 
@@ -350,8 +381,16 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     }
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const handlePhotoUpload = async (input: React.ChangeEvent<HTMLInputElement> | FileList | File[]) => {
+    let files: File[] = [];
+    if (input && 'target' in input && (input.target as HTMLInputElement).files) {
+      files = Array.from((input.target as HTMLInputElement).files!);
+    } else if (input && Array.isArray(input)) {
+      files = input;
+    } else if (input && 'length' in input) {
+      files = Array.from(input as FileList);
+    }
+
     if (!files || files.length === 0) return;
 
     setUploadingPhotos(true);
@@ -360,7 +399,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
       const { uploadFile } = await import('@/lib/uploadUtils');
       const folder = user?.id || 'anonymous';
 
-      const uploadPromises = Array.from(files).map(async (file) => {
+      const uploadPromises = files.map(async (file) => {
         try {
           const url = await uploadFile(file, 'project-update-photos', folder);
           return { url, error: null };
@@ -388,8 +427,9 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
       alert(`Failed to upload files: ${error?.message || 'Unknown error'}`);
     } finally {
       setUploadingPhotos(false);
-      // Clear input so same files can be re-selected if needed
-      e.target.value = '';
+      if (input && 'target' in input && input.target) {
+        (input.target as HTMLInputElement).value = '';
+      }
     }
   };
 
@@ -1107,7 +1147,13 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                 </button>
               )}
               {/* Camera upload */}
-              <label className="relative flex items-center justify-center w-10 h-10 rounded-lg border border-gray-300 bg-white cursor-pointer hover:bg-gray-50 transition-colors" title="Take Photo">
+              <button
+                type="button"
+                onClick={() => setShowCameraModal(true)}
+                disabled={uploadingPhotos}
+                className="flex items-center justify-center w-10 h-10 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50"
+                title="Take Photo"
+              >
                 <svg
                   className="w-5 h-5 text-gray-700"
                   fill="none"
@@ -1117,17 +1163,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                <input
-                  id="camera-upload-input"
-                  name="photos"
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handlePhotoUpload}
-                  disabled={uploadingPhotos}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-              </label>
+              </button>
               {/* Photo upload from gallery */}
               <label className="relative flex items-center justify-center w-10 h-10 rounded-lg border border-gray-300 bg-white cursor-pointer hover:bg-gray-50 transition-colors" title="Choose from Gallery">
                 <svg
@@ -1388,6 +1424,183 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
           setSelectedImage(currentImages[index]);
         }}
       />
+
+      {/* In-App Camera Modal (Prevents Android OS app restarts/reloads) */}
+      <InAppCameraModal
+        isOpen={showCameraModal}
+        onClose={() => setShowCameraModal(false)}
+        onCapture={(file) => handlePhotoUpload([file])}
+      />
+    </div>
+  );
+}
+
+function InAppCameraModal({
+  isOpen,
+  onClose,
+  onCapture,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onCapture: (file: File) => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [capturing, setCapturing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      stopCamera();
+      return;
+    }
+    startCamera();
+    return () => {
+      stopCamera();
+    };
+  }, [isOpen, facingMode]);
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+      setStream(null);
+    }
+  };
+
+  const startCamera = async () => {
+    setCameraError(null);
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+    }
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Camera not supported on this browser');
+      }
+      let mediaStream: MediaStream;
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: facingMode }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        });
+      } catch {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+        });
+      }
+      setStream(mediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+    } catch (err: any) {
+      console.error('In-app camera error:', err);
+      setCameraError(err?.message || 'Could not access camera. Please grant permission.');
+    }
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current || capturing) return;
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    setCapturing(true);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      setCapturing(false);
+      if (blob) {
+        const file = new File([blob], `camera_${Date.now()}.jpg`, {
+          type: 'image/jpeg',
+          lastModified: Date.now(),
+        });
+        onCapture(file);
+      }
+    }, 'image/jpeg', 0.85);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black bg-opacity-95 flex flex-col items-center justify-between p-4">
+      <div className="w-full max-w-md flex items-center justify-between text-white py-2">
+        <span className="font-semibold text-sm">Take Photo</span>
+        <button
+          onClick={onClose}
+          type="button"
+          className="p-2 rounded-full bg-gray-800 text-white hover:bg-gray-700"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className="relative w-full max-w-md flex-1 my-2 bg-gray-900 rounded-xl overflow-hidden flex items-center justify-center">
+        {cameraError ? (
+          <div className="p-6 text-center text-red-400 text-sm">
+            <p className="font-medium">{cameraError}</p>
+            <p className="text-xs text-gray-400 mt-2 mb-4">You can use system camera or gallery fallback below.</p>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="px-4 py-2 bg-yellow-500 text-white rounded-lg text-xs font-semibold"
+            >
+              Use System Camera
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  onCapture(e.target.files[0]);
+                  onClose();
+                }
+              }}
+            />
+          </div>
+        ) : (
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover"
+          />
+        )}
+      </div>
+
+      <div className="w-full max-w-md flex items-center justify-around py-4">
+        <button
+          type="button"
+          onClick={() => setFacingMode((prev) => (prev === 'environment' ? 'user' : 'environment'))}
+          className="p-3 rounded-full bg-gray-800 text-white hover:bg-gray-700"
+          title="Switch Camera"
+        >
+          🔄
+        </button>
+
+        <button
+          type="button"
+          onClick={capturePhoto}
+          disabled={!!cameraError || capturing}
+          className="w-16 h-16 rounded-full border-4 border-white bg-red-600 hover:bg-red-700 active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
+          title="Capture"
+        >
+          <div className="w-12 h-12 rounded-full bg-white opacity-80" />
+        </button>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 py-2 text-xs font-semibold rounded-lg bg-gray-800 text-white hover:bg-gray-700"
+        >
+          Done
+        </button>
+      </div>
     </div>
   );
 }
