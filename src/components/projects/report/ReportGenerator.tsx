@@ -362,7 +362,6 @@ export function ReportGenerator({ projectId, onClose, onSuccess }: ReportGenerat
                                                 <input
                                                     type="file"
                                                     accept="image/*"
-                                                    capture="environment"
                                                     ref={el => { fileInputRefs.current[vp.id] = el; }}
                                                     onChange={(e) => handleViewpointPhotoUpload(vp.id, e)}
                                                     className="hidden"

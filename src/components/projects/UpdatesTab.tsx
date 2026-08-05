@@ -1166,7 +1166,6 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                   name="photos"
                   type="file"
                   accept="image/*"
-                  capture="environment"
                   onChange={handlePhotoUpload}
                   disabled={uploadingPhotos}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
