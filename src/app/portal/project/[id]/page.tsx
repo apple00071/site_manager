@@ -491,7 +491,7 @@ export default function SecureProjectPortal({ params }: { params: Promise<{ id: 
                 <div className="flex items-center gap-2">
                   <label className="p-2 text-gray-400 hover:text-yellow-600 hover:bg-gray-50 rounded-lg transition-all cursor-pointer" title="Take Photo">
                     <FiCamera size={18}/>
-                    <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                    <input type="file" accept="image/*" capture="environment" onChange={handlePhotoUpload} className="hidden" />
                   </label>
                   <label className="p-2 text-gray-400 hover:text-yellow-600 hover:bg-gray-50 rounded-lg transition-all cursor-pointer" title="Attach Gallery Photos">
                     <FiImage size={18}/>
