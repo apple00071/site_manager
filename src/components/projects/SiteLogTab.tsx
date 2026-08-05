@@ -365,21 +365,9 @@ export const SiteLogTab = forwardRef<SiteLogTabHandle, SiteLogTabProps>(({ proje
                     ))}
                 </div>
                 <div className="flex items-center gap-4 flex-wrap">
-                    <label className={`flex items-center gap-2 text-yellow-600 hover:text-yellow-700 text-sm font-medium ${isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`} title="Take Photo">
+                    <label className={`flex items-center gap-2 text-yellow-600 hover:text-yellow-700 text-sm font-medium ${isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`} title="Attach Photos or Take Photo">
                         {isUploading ? <FiLoader className="animate-spin" /> : <FiCamera />}
-                        {isUploading ? 'Uploading...' : 'Take Photo'}
-                        <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handlePhotoUpload}
-                            disabled={isUploading}
-                        />
-                    </label>
-
-                    <label className={`flex items-center gap-2 text-yellow-600 hover:text-yellow-700 text-sm font-medium ${isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`} title="Attach Photos/Files">
-                        {isUploading ? <FiLoader className="animate-spin" /> : <FiImage />}
-                        {isUploading ? 'Uploading...' : 'Attach Photos/Files'}
+                        {isUploading ? 'Uploading...' : 'Attach Photos / Camera'}
                         <input
                             type="file"
                             multiple
