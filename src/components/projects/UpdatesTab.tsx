@@ -1121,12 +1121,9 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                   id="camera-upload-input"
                   name="photos"
                   type="file"
-                  accept="image/jpeg, image/png, image/webp, image/gif"
+                  accept="image/*"
                   capture="environment"
                   onChange={handlePhotoUpload}
-                  onClick={(e) => {
-                    (e.target as HTMLInputElement).value = '';
-                  }}
                   disabled={uploadingPhotos}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
@@ -1145,12 +1142,9 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                   id="photo-upload-input"
                   name="photos"
                   type="file"
-                  accept="image/jpeg, image/png, image/webp, image/gif, application/pdf"
+                  accept="image/*,application/pdf"
                   multiple
                   onChange={handlePhotoUpload}
-                  onClick={(e) => {
-                    (e.target as HTMLInputElement).value = '';
-                  }}
                   disabled={uploadingPhotos}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
