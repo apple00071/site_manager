@@ -361,8 +361,7 @@ export function ReportGenerator({ projectId, onClose, onSuccess }: ReportGenerat
                                                 {/* Hidden file input */}
                                                 <input
                                                     type="file"
-                                                    accept="image/jpeg, image/png, image/webp, image/gif"
-                                                    capture="environment"
+                                                    accept="image/*"
                                                     ref={el => { fileInputRefs.current[vp.id] = el; }}
                                                     onChange={(e) => handleViewpointPhotoUpload(vp.id, e)}
                                                     className="hidden"

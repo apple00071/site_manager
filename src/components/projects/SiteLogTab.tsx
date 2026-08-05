@@ -371,7 +371,6 @@ export const SiteLogTab = forwardRef<SiteLogTabHandle, SiteLogTabProps>(({ proje
                         <input
                             type="file"
                             accept="image/*"
-                            capture="environment"
                             className="hidden"
                             onChange={handlePhotoUpload}
                             disabled={isUploading}
