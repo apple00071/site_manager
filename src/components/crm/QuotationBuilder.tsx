@@ -306,7 +306,7 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
   }, [items]);
 
   // ── Save ──────────────────────────────────────────────────────────────────
-  const handleSave = async () => {
+  const handleSave = async (asNewVersion = false) => {
     if (items.length === 0) return alert('Add at least one item.');
     setSaving(true);
     try {
@@ -315,20 +315,34 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
       const orphanItems = items.filter(i => !selectedSections.includes(i.section));
       const finalOrderedItems = [...orderedItems, ...orphanItems];
 
+      const isUpdate = existingQuotation && !asNewVersion;
+      const method = isUpdate ? 'PUT' : 'POST';
+
+      const payload: any = {
+        lead_id: lead.id,
+        items: finalOrderedItems.map(({ _key, ...rest }) => rest),
+        discount_type: discountType,
+        discount_value: parseFloat(discountValue) || 0,
+        notes,
+        material_specs: materialSpecs,
+      };
+
+      if (isUpdate) {
+        payload.id = existingQuotation.id;
+      }
+
       const res = await fetch('/api/quotations', {
-        method: 'POST',
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lead_id: lead.id,
-          items: finalOrderedItems.map(({ _key, ...rest }) => rest),
-          discount_type: discountType,
-          discount_value: parseFloat(discountValue) || 0,
-          notes,
-          material_specs: materialSpecs,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Save failed');
+
+      if (data.data) {
+        setExistingQuotation(data.data);
+      }
+
       onSaved(finalAmount);
       // Open print in new tab
       window.open(`/quotations/${data.data.id}/print`, '_blank');
@@ -916,22 +930,48 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
             {discountAmount > 0 && ` − ${fmt(discountAmount)} disc`}
             {discountAmount > 0 && ` = ${fmt(finalAmount)}`}
           </div>
-          <div className="qb-footer-actions" style={{ display: 'flex', gap: '8px' }}>
+          <div className="qb-footer-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {existingQuotation && (
               <button
+                type="button"
                 style={styles.printBtn}
                 onClick={() => window.open(`/quotations/${existingQuotation.id}/print`, '_blank')}
               >
                 <FiPrinter size={14} /> Print v{existingQuotation.version}
               </button>
             )}
-            <button
-              style={{ ...styles.saveBtn, opacity: saving ? 0.7 : 1 }}
-              onClick={handleSave}
-              disabled={saving}
-            >
-              <FiSave size={14} /> {saving ? 'Saving…' : existingQuotation ? 'Save New Version' : 'Save & Print'}
-            </button>
+
+            {existingQuotation ? (
+              <>
+                <button
+                  type="button"
+                  style={{ ...styles.saveBtn, opacity: saving ? 0.7 : 1 }}
+                  onClick={() => handleSave(false)}
+                  disabled={saving}
+                  title="Save edits directly to current quotation version"
+                >
+                  <FiSave size={14} /> {saving ? 'Saving…' : `Update v${existingQuotation.version}`}
+                </button>
+                <button
+                  type="button"
+                  style={{ ...styles.saveBtn, background: '#374151', color: '#fff', opacity: saving ? 0.7 : 1 }}
+                  onClick={() => handleSave(true)}
+                  disabled={saving}
+                  title="Create a new version (v+1)"
+                >
+                  <FiPlus size={14} /> {saving ? 'Saving…' : `New Version (v${(existingQuotation.version || 1) + 1})`}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                style={{ ...styles.saveBtn, opacity: saving ? 0.7 : 1 }}
+                onClick={() => handleSave(false)}
+                disabled={saving}
+              >
+                <FiSave size={14} /> {saving ? 'Saving…' : 'Save & Print'}
+              </button>
+            )}
           </div>
         </div>
       </div>

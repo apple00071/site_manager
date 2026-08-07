@@ -103,6 +103,78 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ data: { ...quotation, quotation_items: itemRows } });
 }
 
+// PUT /api/quotations — update existing quotation version in-place
+export async function PUT(request: NextRequest) {
+  const { user, error: authError } = await getAuthUser();
+  if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const body = await request.json();
+  const { id, lead_id, items, discount_type, discount_value, notes, material_specs } = body;
+
+  if (!id || !lead_id || !Array.isArray(items)) {
+    return NextResponse.json({ error: 'id, lead_id and items required' }, { status: 400 });
+  }
+
+  // Compute totals
+  const subtotal = items.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+  const discType = discount_type || 'none';
+  const discVal = Number(discount_value) || 0;
+  let finalAmount = subtotal;
+  if (discType === 'percent') finalAmount = subtotal - (subtotal * discVal) / 100;
+  else if (discType === 'flat') finalAmount = subtotal - discVal;
+  finalAmount = Math.max(0, finalAmount);
+
+  // Update existing quotation
+  const { data: quotation, error: qErr } = await supabaseAdmin
+    .from('quotations')
+    .update({
+      subtotal,
+      discount_type: discType,
+      discount_value: discVal,
+      final_amount: finalAmount,
+      notes: notes || '',
+      material_specs: material_specs || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (qErr) return NextResponse.json({ error: qErr.message }, { status: 500 });
+
+  // Replace item rows
+  await supabaseAdmin.from('quotation_items').delete().eq('quotation_id', id);
+
+  const itemRows = items.map((item: any, idx: number) => ({
+    quotation_id: id,
+    section: item.section,
+    item_name: item.item_name,
+    is_lumpsum: !!item.is_lumpsum,
+    length_ft: item.is_lumpsum ? null : (Number(item.length_ft) || null),
+    width_ft: item.is_lumpsum ? null : (Number(item.width_ft) || null),
+    area_sqft: Number(item.area_sqft) || 0,
+    unit: item.unit || 'sqft',
+    rate: Number(item.rate) || 0,
+    amount: Number(item.amount) || 0,
+    sort_order: idx,
+  }));
+
+  const { error: itemErr } = await supabaseAdmin.from('quotation_items').insert(itemRows);
+  if (itemErr) return NextResponse.json({ error: itemErr.message }, { status: 500 });
+
+  // Update lead
+  await supabaseAdmin
+    .from('quotation_leads')
+    .update({
+      quote_value: finalAmount,
+      latest_quotation_id: quotation.id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', lead_id);
+
+  return NextResponse.json({ data: { ...quotation, quotation_items: itemRows } });
+}
+
 // DELETE /api/quotations?id=xxx — delete a specific quotation version
 export async function DELETE(request: NextRequest) {
   const { user, error: authError } = await getAuthUser();

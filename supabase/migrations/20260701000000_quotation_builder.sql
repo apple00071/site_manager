@@ -136,20 +136,20 @@ INSERT INTO public.rate_card (section, item_name, unit, default_rate, is_lumpsum
   ('Miscellaneous', 'Floor Protection Mat', 'lumpsum', 13000, true, 6),
 
   -- Kitchen Platform
-  ('Kitchen Platform', 'Quartz Top', 'nos', 50000, false, 1),
-  ('Kitchen Platform', 'Dado Tiles', 'lumpsum', 12000, true, 2),
-  ('Kitchen Platform', 'Labour Charges — Granite & Tile Laying', 'lumpsum', 35000, true, 3),
+  ('Kitchen Platform', 'Granite Top — Kitchen, Hand Wash, Crockery, Pooja (base ₹220)', 'sqft', 300, false, 1),
+  ('Kitchen Platform', 'Dado Tiles (LSM)', 'lumpsum', 12000, true, 2),
+  ('Kitchen Platform', 'Labour Charges — Granite & Tile Laying (LSM)', 'lumpsum', 30000, true, 3),
 
   -- False Ceiling
-  ('False Ceiling', 'Gypsum False Ceiling', 'sqft', 67, false, 1),
+  ('False Ceiling', 'False Ceiling — Entire Flat except Washrooms', 'sqft', 67, false, 1),
   ('False Ceiling', 'PVC Ceiling', 'sqft', 220, false, 2),
 
   -- Painting
-  ('Painting', 'False Ceiling Paint (Birla Putty + Primer + Premium)', 'sqft', 34, false, 1),
-  ('Painting', 'Wall Paint — Asian Royal Aspira (touch-ups)', 'lumpsum', 40000, true, 2),
+  ('Painting', 'False Ceiling Paint — 2 coat Birla Putty, 1 coat Primer, 2 coat Premium Paint', 'sqft', 34, false, 1),
+  ('Painting', 'Wall Paint — Touch-ups & 2 coat Asian Royal Aspira (LSM)', 'lumpsum', 40000, true, 2),
 
   -- Electrical
-  ('Electrical', 'Wiring — Full Scope (Finolex)', 'lumpsum', 95000, true, 1),
+  ('Electrical', 'Wiring — False Ceiling, Kitchen Cabinets, TV, Pooja, Crockery, Vanity, Dressing, Chipping & Plastering, Lighting & Labour (LSM)', 'lumpsum', 85000, true, 1),
   ('Electrical', 'Profile Lights (Rope / Spot / Scale)', 'lumpsum', 35000, true, 2)
 
 ON CONFLICT DO NOTHING;

@@ -359,16 +359,16 @@ export default function CRMPage() {
       return matchesSearch && matchesStatus;
     });
 
-    // ponytail: sort by date descending and secondary by ref_no descending to ensure month wise data are grouped together
+    // ponytail: sort by date ascending and secondary by ref_no ascending for chronological 1-down series order
     return [...filtered].sort((a, b) => {
       const dateA = a.created_date ? parseLocalDate(a.created_date).getTime() : 0;
       const dateB = b.created_date ? parseLocalDate(b.created_date).getTime() : 0;
       
       if (dateA !== dateB) {
-        return dateB - dateA;
+        return dateA - dateB;
       }
       
-      return (b.ref_no || '').localeCompare(a.ref_no || '', undefined, { numeric: true, sensitivity: 'base' });
+      return (a.ref_no || '').localeCompare(b.ref_no || '', undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [leads, searchQuery, statusFilter]);
 

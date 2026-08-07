@@ -26,8 +26,8 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabaseAdmin
       .from('quotation_leads')
       .select('*')
-      .order('created_date', { ascending: false })
-      .order('ref_no', { ascending: false });
+      .order('created_date', { ascending: true })
+      .order('ref_no', { ascending: true });
 
     if (error) {
       console.error('Error fetching quotation_leads:', error.message);

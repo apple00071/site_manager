@@ -191,6 +191,38 @@ export function buildQuotationHtmlString(quotation: any, lead: any): string {
           </tbody>
         </table>
 
+        <div class="section-heading">MATERIAL & HARDWARE SPECIFICATIONS</div>
+        <table class="spec-table" style="width: 100%; margin-top: 4px;">
+          <tbody>
+            ${Object.entries(quotation?.material_specs || {
+              'Plywood': '18mm BWP Ply — DT Platinum',
+              'Outer Laminate': '1.0mm thick up to ₹1,600/sheet — Glossy or Matt finish',
+              'Inner Laminate': '0.8mm Fabric Liner',
+              'Edge Finish': '2mm thick PVC edge tape',
+              'Hinges': 'Hettich',
+              'Channels': 'Hettich',
+              'Handles': 'SS finish — small up to ₹100, big up to ₹250',
+              'Glass': 'Modi Guard / Saint Gobain',
+              'Drawers': '2 per bedroom wardrobe — ₹3,000 extra per drawer',
+              'Kitchen Ply': 'Royale Touche (lifetime warranty) for base; 710 Gurjan BWP elsewhere',
+              'Kitchen Shutters': '1mm High Glossy Laminate; 0.8mm Fabric Liner inside',
+              'Kitchen Accessories': 'Sleek brand tandem baskets',
+              'False Ceiling Board': 'Saint Gobain Gyproc 12mm Gypsum',
+              'FC Channels': 'Ultra channels 0.4 & 0.6mm',
+              'Wiring': 'Finolex or equivalent grade, flexible piping',
+            }).map(([label, value], idx) => `
+              <tr class="${idx % 2 !== 0 ? 'spec-odd' : ''}">
+                <td class="spec-label">${label}</td>
+                <td>${value}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div style="padding: 8px 10px; font-weight: 700; color: #b45309; font-size: 8.5pt; background: #fffbeb; border: 1px solid #fde68a; border-radius: 4px; margin-top: 14px; margin-bottom: 10px; line-height: 1.4;">
+          NOTE : Any Civil works, Plumbing works, Extra switches &amp; Boards, Decorative lighting, Accessories, Designer Glass works &amp; Wallpaper, Kitchen Sink, Handwash Bowl cost not included in the above quote
+        </div>
+
         <div class="section-heading">TERMS & CONDITIONS</div>
         <ol class="terms-list" style="margin-top: 8px;">
           <li>Main power supply will be under customer scope of work.</li>
@@ -201,6 +233,12 @@ export function buildQuotationHtmlString(quotation: any, lead: any): string {
           <li>GST will be charged extra as applicable.</li>
           <li>Validity of this quotation is 30 days from the date of issue.</li>
         </ol>
+
+        ${quotation?.notes ? `
+          <div style="padding: 6px 10px; font-style: italic; color: #666; font-size: 8pt; margin-top: 6px;">
+            Note: ${quotation.notes}
+          </div>
+        ` : ''}
 
         <div class="footer-bar">
           <b>APPLE INTERIORS</b> · Interior Design & Execution · Kukatpally, Hyderabad

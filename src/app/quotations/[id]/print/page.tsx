@@ -562,6 +562,10 @@ export default function QuotationPrintPage() {
             </tbody>
           </table>
 
+          <div style={{ padding: '8px 10px', fontWeight: 700, color: '#b45309', fontSize: '8.5pt', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', marginTop: '14px', marginBottom: '10px', lineHeight: '1.4' }}>
+            NOTE : Any Civil works, Plumbing works, Extra switches &amp; Boards, Decorative lighting, Accessories, Designer Glass works &amp; Wallpaper, Kitchen Sink, Handwash Bowl cost not included in the above quote
+          </div>
+
           <div className="section-heading">TERMS & CONDITIONS</div>
           <div style={{ padding: '8px 10px' }}>
             <ol className="terms-list">
@@ -570,7 +574,7 @@ export default function QuotationPrintPage() {
           </div>
 
           {quotation.notes && (
-            <div style={{ padding: '8px 10px', fontStyle: 'italic', color: '#888', fontSize: '8pt' }}>
+            <div style={{ padding: '8px 10px', fontStyle: 'italic', color: '#888', fontSize: '8pt', marginTop: '6px' }}>
               Note: {quotation.notes}
             </div>
           )}
