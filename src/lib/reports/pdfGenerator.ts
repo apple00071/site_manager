@@ -240,7 +240,7 @@ export async function generateQuotationPDF(quotation: any, lead: any): Promise<B
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(190, 190, 190);
-    doc.text('+91 96039 60337 · +91 91606 77899', 190, 26, { align: 'right' });
+    doc.text('+91 9603 9603 37 · +91 91606 77899', 190, 26, { align: 'right' });
     doc.text('www.appleinteriors.in', 190, 32, { align: 'right' });
 
     // 2. MAIN TITLE

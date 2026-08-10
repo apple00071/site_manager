@@ -115,7 +115,7 @@ export function buildQuotationHtmlString(quotation: any, lead: any): string {
           </div>
           <div class="header-contact">
             <b>Kukatpally, Hyderabad</b><br />
-            +91 96039 60337 · +91 91606 77899<br />
+            +91 9603 9603 37 · +91 91606 77899<br />
             www.appleinteriors.in
           </div>
         </div>
@@ -241,7 +241,7 @@ export function buildQuotationHtmlString(quotation: any, lead: any): string {
         ` : ''}
 
         <div class="footer-bar">
-          <b>APPLE INTERIORS</b> · Interior Design & Execution · Kukatpally, Hyderabad
+          <b>APPLE INTERIORS</b> · Interior Design & Execution · Kukatpally, Hyderabad · +91 9603 9603 37 · +91 91606 77899
         </div>
       </div>
     </body>

@@ -489,7 +489,7 @@ export default function QuotationPrintPage() {
             </div>
             <div className="header-contact">
               <b>Kukatpally, Hyderabad</b><br />
-              +91 96039 60337 · +91 91606 77899<br />
+              +91 9603 9603 37 · +91 91606 77899<br />
               www.appleinteriors.in
             </div>
           </div>
@@ -626,7 +626,7 @@ export default function QuotationPrintPage() {
           )}
 
           <div className="footer-bar">
-            <b>Apple Interiors</b> · Kukatpally, Hyderabad · +91 96039 60337 · www.appleinteriors.in
+            <b>Apple Interiors</b> · Kukatpally, Hyderabad · +91 9603 9603 37 · +91 91606 77899 · www.appleinteriors.in
           </div>
         </div>
       </div>
