@@ -117,11 +117,12 @@ export default function QuotationPrintPage() {
     setIsGeneratingPdf(true);
 
     const opt = {
-      margin:       0,
+      margin:       [8, 0, 8, 0],
       filename:     `Apple Interior Quotation_${lead?.client_name || 'Client'}.pdf`,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2.2, useCORS: true, logging: false },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak:    { mode: ['avoid-all', 'css', 'legacy'], avoid: ['tr', '.section-row', '.subtotal-row', '.section-heading', '.grand-total', '.payment-table', '.spec-table', '.client-section'] }
     };
 
     try {
@@ -178,11 +179,12 @@ export default function QuotationPrintPage() {
 
     try {
       const opt = {
-        margin: 0,
+        margin: [8, 0, 8, 0],
         filename: `Apple Interior Quotation_${lead?.client_name || 'Client'}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2.2, useCORS: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: ['tr', '.section-row', '.subtotal-row', '.section-heading', '.grand-total', '.payment-table', '.spec-table', '.client-section'] }
       };
 
       const worker = html2pdf().from(element).set(opt);
@@ -370,6 +372,50 @@ export default function QuotationPrintPage() {
           .print-header-actions button:last-child {
             grid-column: span 2 !important;
           }
+        }
+
+        /* Page break prevention rules for PDF generation & print */
+        tr {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+        .section-row {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          page-break-after: avoid !important;
+          break-after: avoid !important;
+        }
+        .section-row td {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+        .subtotal-row {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          page-break-before: avoid !important;
+          break-before: avoid !important;
+        }
+        .subtotal-row td {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+        .grand-total {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+        .section-heading {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          page-break-after: avoid !important;
+          break-after: avoid !important;
+        }
+        .payment-table, .spec-table, .terms-list, .client-section, .header {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+        .payment-table tr, .spec-table tr {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
         }
 
         @media print {

@@ -129,6 +129,11 @@ export function POViewModal({ po, onClose, onUpdateStatus, projectAddress }: POV
                     overflow: visible !important;
                 }
                 
+                tr {
+                    page-break-inside: avoid !important;
+                    break-inside: avoid !important;
+                }
+                
                 ::-webkit-scrollbar { display: none; }
                 `}
             </style>

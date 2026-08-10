@@ -128,6 +128,11 @@ export function ProposalViewModal({ proposal, onClose, projectAddress }: Proposa
                     overflow: visible !important;
                 }
                 
+                tr {
+                    page-break-inside: avoid !important;
+                    break-inside: avoid !important;
+                }
+                
                 ::-webkit-scrollbar { display: none; }
                 `}
             </style>
