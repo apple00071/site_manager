@@ -526,15 +526,17 @@ export async function generateQuotationPDF(quotation: any, lead: any): Promise<B
     const termsList = [
       '1. Main power supply will be under customer scope of work.',
       '2. Any additional works requested will be charged extra.',
-      '3. Material once purchased cannot be cancelled or returned.',
-      '4. Final price may vary ±5–10% based on actual site measurements.',
-      '5. Changes in design, materials or finishes will result in a corresponding revision of quote.',
-      '6. GST will be charged extra as applicable.',
-      '7. Validity of this quotation is 30 days from date of issue.'
+      '3. A maximum of 2 revisions of the 3D design are included in the project scope. Any additional revisions requested beyond this will be charged separately.',
+      '4. Material once purchased cannot be cancelled or returned.',
+      '5. Final price may vary ±5–10% based on actual site measurements.',
+      '6. Changes in design, materials or finishes will result in a corresponding revision of quote.',
+      '7. GST will be charged extra as applicable.',
+      '8. Validity of this quotation is 30 days from date of issue.'
     ];
     termsList.forEach(term => {
-      doc.text(term, 14, currentY);
-      currentY += 4.5;
+      const lines = doc.splitTextToSize(term, 180);
+      doc.text(lines, 14, currentY);
+      currentY += (lines.length * 4.5);
     });
 
     // 9. FOOTER BAR

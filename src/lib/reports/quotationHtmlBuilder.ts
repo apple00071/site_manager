@@ -227,6 +227,7 @@ export function buildQuotationHtmlString(quotation: any, lead: any): string {
         <ol class="terms-list" style="margin-top: 8px;">
           <li>Main power supply will be under customer scope of work.</li>
           <li>Any additional works will be charged extra.</li>
+          <li>A maximum of 2 revisions of the 3D design are included in the project scope. Any additional revisions requested beyond this will be charged separately.</li>
           <li>Material once purchased cannot be cancelled.</li>
           <li>Final price may vary ±5–10% based on actual site measurements.</li>
           <li>Changes in design, materials or finishes will result in a corresponding revision of quote.</li>

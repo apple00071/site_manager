@@ -36,6 +36,7 @@ const MATERIAL_SPECS: [string, string][] = [
 const TERMS = [
   'Main power supply will be under customer scope of work.',
   'Any additional works will be charged extra.',
+  'A maximum of 2 revisions of the 3D design are included in the project scope. Any additional revisions requested beyond this will be charged separately.',
   'Material once purchased cannot be cancelled.',
   'Final price may vary ±5–10% based on actual site measurements.',
   'Changes in design, materials or finishes will result in a corresponding revision of quote.',
