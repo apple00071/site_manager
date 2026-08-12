@@ -23,16 +23,8 @@ const formatProjectCode = (project: any): string => {
   const dateObj = dateStr ? new Date(dateStr) : new Date();
   const yearShort = !isNaN(dateObj.getTime()) ? dateObj.getFullYear().toString().slice(-2) : new Date().getFullYear().toString().slice(-2);
 
-  let seq = '01';
-  if (project.id) {
-    const hex = project.id.replace(/[^0-9a-fA-F]/g, '');
-    if (hex.length >= 2) {
-      const num = (parseInt(hex.slice(-4), 16) % 99) + 1;
-      seq = String(num).padStart(2, '0');
-    }
-  }
-
-  return `AI/PRJ/${yearShort}/${seq}`;
+  // ponytail: Fallback for unassigned project codes without random hashing
+  return `AI/PRJ/${yearShort}/01`;
 };
 
 export const VisitTab: React.FC<VisitTabProps> = ({ 

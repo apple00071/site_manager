@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { attachProjectCodes } from '@/lib/projectUtils';
 import { ProjectDetailsClient, Project } from '@/components/projects/ProjectDetailsClient';
 import { ProjectSkeleton } from '@/components/projects/ProjectSkeleton';
 
@@ -42,7 +43,8 @@ async function ProjectDataFetcher({ id }: { id: string }) {
   // 3. Simple permission check (can be expanded)
   // For now, we trust the server fetching logic but we could verify roles/members here
   
-  return <ProjectDetailsClient initialProject={projectData as unknown as Project} />;
+  const projectWithCode = await attachProjectCodes(projectData);
+  return <ProjectDetailsClient initialProject={projectWithCode as unknown as Project} />;
 }
 
 export default async function ProjectPage({ params, searchParams }: PageProps) {

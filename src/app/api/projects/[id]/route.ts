@@ -4,6 +4,7 @@ import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 import { handleApiError, sanitizeErrorMessage } from '@/lib/errorHandler';
 import { verifyPermission } from '@/lib/rbac';
 import { PERMISSION_NODES } from '@/lib/rbac-constants';
+import { attachProjectCodes } from '@/lib/projectUtils';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -127,7 +128,8 @@ export async function GET(
             return NextResponse.json({ error: 'Project not found' }, { status: 404 });
         }
 
-        return NextResponse.json({ project }, { status: 200 });
+        const projectWithCode = await attachProjectCodes(project);
+        return NextResponse.json({ project: projectWithCode }, { status: 200 });
     } catch (err: any) {
         const handled = handleApiError(err);
         return NextResponse.json(handled.error, { status: handled.status });

@@ -6,6 +6,7 @@ import { supabaseAdmin, getAuthUser } from '@/lib/supabase-server';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
 import { verifyPermission } from '@/lib/rbac';
 import { PERMISSION_NODES } from '@/lib/rbac-constants';
+import { attachProjectCodes } from '@/lib/projectUtils';
 
 // Optimize caching for projects API
 export const dynamic = 'force-dynamic';
@@ -288,42 +289,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Compute continuous sequential project codes (AI/PRJ/YY/SEQ e.g. AI/PRJ/26/01, AI/PRJ/26/02...)
-    try {
-      const { data: allProjectsMeta } = await supabaseAdmin
-        .from('projects')
-        .select('id, created_at, start_date')
-        .order('created_at', { ascending: true });
-
-      const codeMap = new Map<string, string>();
-      if (allProjectsMeta && allProjectsMeta.length > 0) {
-        const yearCounters = new Map<string, number>();
-        allProjectsMeta.forEach((p: any) => {
-          const dateStr = p.start_date || p.created_at;
-          const d = dateStr ? new Date(dateStr) : new Date();
-          const yy = !isNaN(d.getTime()) ? d.getFullYear().toString().slice(-2) : new Date().getFullYear().toString().slice(-2);
-
-          const count = (yearCounters.get(yy) || 0) + 1;
-          yearCounters.set(yy, count);
-          const seqStr = String(count).padStart(2, '0');
-          codeMap.set(p.id, `AI/PRJ/${yy}/${seqStr}`);
-        });
-      }
-
-      const attachProjectCode = (p: any) => {
-        if (!p) return p;
-        const code = codeMap.get(p.id) || (p.created_at ? `AI/PRJ/${new Date(p.created_at).getFullYear().toString().slice(-2)}/01` : 'AI/PRJ/26/01');
-        return { ...p, project_code: code, ref_no: code };
-      };
-
-      if (Array.isArray(responseData)) {
-        responseData = responseData.map(attachProjectCode);
-      } else if (responseData && typeof responseData === 'object') {
-        responseData = attachProjectCode(responseData);
-      }
-    } catch (codeErr) {
-      console.warn('Error calculating sequential project codes:', codeErr);
-    }
+    // Compute continuous sequential project codes (AI/PRJ/YY/01, AI/PRJ/YY/02...)
+    responseData = await attachProjectCodes(responseData);
 
     return NextResponse.json(responseData);
 
@@ -515,11 +482,12 @@ export async function POST(req: Request) {
       }
     }
 
-    console.log('Project created successfully:', project);
+    const projectWithCode = await attachProjectCodes(project);
+    console.log('Project created successfully:', projectWithCode);
     return NextResponse.json(
       {
         success: true,
-        project: project
+        project: projectWithCode
       },
       { status: 201 }
     );
