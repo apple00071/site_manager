@@ -37,13 +37,17 @@ export function buildQuotationHtmlString(quotation: any, lead: any): string {
       secSubtotal += amt;
       const rowClass = idx % 2 === 0 ? 'item-even' : 'item-odd';
 
+      const lVal = item.length_ft != null && item.length_ft !== '' ? item.length_ft : (item.length || '—');
+      const wVal = item.width_ft != null && item.width_ft !== '' ? item.width_ft : (item.width || item.height || '—');
+      const areaVal = item.is_lumpsum ? 'LSM' : (item.area_sqft != null ? item.area_sqft : item.area || 0);
+
       rowsHtml += `
         <tr class="${rowClass}">
           <td class="col-no">${itemCounter++}</td>
           <td>${item.item_name || item.title || 'Item'}</td>
-          <td class="col-l">${item.length ? item.length : '—'}</td>
-          <td class="col-w">${item.height || item.width ? (item.height || item.width) : '—'}</td>
-          <td class="col-area">${item.area_sqft || item.area || 0}</td>
+          <td class="col-l">${lVal}</td>
+          <td class="col-w">${wVal}</td>
+          <td class="col-area">${areaVal}</td>
           <td class="col-rate">${item.rate ? fmt(Number(item.rate)) : '—'}</td>
           <td class="col-amt">${fmt(amt)}</td>
         </tr>

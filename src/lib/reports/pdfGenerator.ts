@@ -308,7 +308,8 @@ export async function generateQuotationPDF(quotation: any, lead: any): Promise<B
     let currentY = 78;
 
     // 4. ITEMS TABLE (GROUPED BY SECTION WITH SECTION SUBTOTALS)
-    const rawItems: any[] = quotation?.quotation_items || quotation?.items || [];
+    const rawItems: any[] = (quotation?.quotation_items || quotation?.items || [])
+      .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
     
     if (rawItems.length > 0) {
       const sections: Record<string, any[]> = {};
@@ -340,12 +341,17 @@ export async function generateQuotationPDF(quotation: any, lead: any): Promise<B
         secItems.forEach(item => {
           const amt = Number(item.amount || item.total_amount || 0);
           secSubtotal += amt;
+
+          const lVal = item.length_ft != null && item.length_ft !== '' ? String(item.length_ft) : (item.length ? String(item.length) : '—');
+          const wVal = item.width_ft != null && item.width_ft !== '' ? String(item.width_ft) : (item.width || item.height ? String(item.width || item.height) : '—');
+          const areaVal = item.is_lumpsum ? 'LSM' : String(item.area_sqft != null ? item.area_sqft : (item.area || 0));
+
           tableBody.push([
             itemCounter++,
             item.item_name || item.title || 'Item',
-            item.length ? item.length : '—',
-            item.height || item.width ? (item.height || item.width) : '—',
-            item.area_sqft || item.area || 0,
+            lVal,
+            wVal,
+            areaVal,
             item.rate ? `Rs. ${Math.round(Number(item.rate)).toLocaleString('en-IN')}` : '—',
             `Rs. ${Math.round(amt).toLocaleString('en-IN')}`
           ]);
@@ -480,19 +486,28 @@ export async function generateQuotationPDF(quotation: any, lead: any): Promise<B
     doc.text('MATERIAL SPECIFICATIONS', 18, currentY + 4.5);
     currentY += 8;
 
-    const specs = [
-      ['Plywood', '18mm BWP Ply — DT Platinum'],
-      ['Outer Laminate', '1.0mm thick up to Rs. 1,600/sheet — Glossy or Matt finish'],
-      ['Inner Laminate', '0.8mm Fabric Liner'],
-      ['Edge Finish', '2mm thick PVC edge tape'],
-      ['Hinges', 'Hettich'],
-      ['Channels', 'Hettich'],
-      ['Handles', 'SS finish — small up to Rs. 100, big up to Rs. 250'],
-      ['Glass', 'Modi Guard / Saint Gobain'],
-      ['Kitchen Ply', 'Royale Touche (lifetime warranty) for base; 710 Gurjan BWP elsewhere'],
-      ['False Ceiling Board', 'Saint Gobain Gyproc 12mm Gypsum'],
-      ['Wiring', 'Finolex or equivalent grade, flexible piping']
-    ];
+    const defaultSpecsDict: Record<string, string> = {
+      'Plywood': '18mm BWP Ply — DT Platinum',
+      'Outer Laminate': '1.0mm thick up to Rs. 1,600/sheet — Glossy or Matt finish',
+      'Inner Laminate': '0.8mm Fabric Liner',
+      'Edge Finish': '2mm thick PVC edge tape',
+      'Hinges': 'Hettich',
+      'Channels': 'Hettich',
+      'Handles': 'SS finish — small up to Rs. 100, big up to Rs. 250',
+      'Glass': 'Modi Guard / Saint Gobain',
+      'Drawers': '2 per bedroom wardrobe — Rs. 3,000 extra per drawer',
+      'Kitchen Ply': 'Royale Touche (lifetime warranty) for base; 710 Gurjan BWP elsewhere',
+      'Kitchen Shutters': '1mm High Glossy Laminate; 0.8mm Fabric Liner inside',
+      'Kitchen Accessories': 'Sleek brand tandem baskets',
+      'False Ceiling Board': 'Saint Gobain Gyproc 12mm Gypsum',
+      'FC Channels': 'Ultra channels 0.4 & 0.6mm',
+      'Wiring': 'Finolex or equivalent grade, flexible piping',
+    };
+
+    const rawSpecs = quotation?.material_specs || defaultSpecsDict;
+    const specs = Array.isArray(rawSpecs)
+      ? rawSpecs
+      : Object.entries(rawSpecs).map(([label, val]) => [label, String(val)]);
 
     autoTable(doc, {
       startY: currentY,
