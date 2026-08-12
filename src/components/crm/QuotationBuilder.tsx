@@ -63,20 +63,31 @@ function sanitizeItems(items: QuotationItem[]): QuotationItem[] {
   
   items.forEach(item => {
     let name = item.item_name ? item.item_name.trim() : '';
-    if (name.toLowerCase() === 'quartz top') {
+    let section = item.section ? item.section.trim() : '';
+
+    if (name.toLowerCase() === 'quartz top' || name.toLowerCase() === 'quartz') {
       name = 'Granite Top';
     }
     
-    // Deduplicate by section and base item name (stripping trailing LSM / parentheses variants)
-    const baseName = name.toLowerCase().replace(/\s*\([^)]*\)/g, '').trim();
-    const key = `${item.section.trim()}::${baseName}`;
+    // Deduplicate by section and base item name (stripping LSM, parentheses, dashes, extra spaces)
+    const baseSection = section.toLowerCase();
+    const baseName = name
+      .toLowerCase()
+      .replace(/\s*\([^)]*\)/g, '')
+      .replace(/[-—–]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
 
-    const updatedItem = { ...item, item_name: name };
+    const key = `${baseSection}::${baseName}`;
+
+    const updatedItem = { ...item, section, item_name: name };
     if (!seenMap.has(key)) {
       seenMap.set(key, updatedItem);
     } else {
       const existing = seenMap.get(key)!;
-      if (updatedItem.amount > existing.amount || (updatedItem.rate > existing.rate && existing.amount === 0)) {
+      const updatedScore = (updatedItem.amount || 0) + (updatedItem.area_sqft || 0) + (updatedItem.rate || 0);
+      const existingScore = (existing.amount || 0) + (existing.area_sqft || 0) + (existing.rate || 0);
+      if (updatedScore > existingScore) {
         seenMap.set(key, updatedItem);
       }
     }

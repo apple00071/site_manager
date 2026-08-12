@@ -23,20 +23,29 @@ export async function GET() {
 
   (data || []).forEach((item: any) => {
     let itemName = item.item_name ? item.item_name.trim() : '';
-    if (itemName.toLowerCase() === 'quartz top') {
+    let section = item.section ? item.section.trim() : '';
+
+    if (itemName.toLowerCase() === 'quartz top' || itemName.toLowerCase() === 'quartz') {
       itemName = 'Granite Top';
       supabaseAdmin.from('rate_card').update({ item_name: 'Granite Top' }).eq('id', item.id).then();
     }
 
-    const section = item.section ? item.section.trim() : '';
-    const baseKey = `${section}::${itemName.toLowerCase().replace(/\s*\([^)]*\)/g, '').trim()}`;
+    const baseSection = section.toLowerCase();
+    const baseName = itemName
+      .toLowerCase()
+      .replace(/\s*\([^)]*\)/g, '')
+      .replace(/[-—–]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const baseKey = `${baseSection}::${baseName}`;
 
     if (!seenMap.has(baseKey)) {
-      const normalizedItem = { ...item, item_name: itemName };
+      const normalizedItem = { ...item, section, item_name: itemName };
       seenMap.set(baseKey, normalizedItem);
       cleanedData.push(normalizedItem);
     } else {
-      // Deactivate duplicate item in background
+      // Deactivate duplicate entry in background database
       supabaseAdmin.from('rate_card').update({ is_active: false }).eq('id', item.id).then();
     }
   });
