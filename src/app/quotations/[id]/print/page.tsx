@@ -101,15 +101,43 @@ export default function QuotationPrintPage() {
   const items: any[] = (quotation.quotation_items || []).sort((a: any, b: any) => a.sort_order - b.sort_order);
 
   const handleDownloadPDF = async () => {
-    setIsGeneratingPdf(true);
-    try {
-      const res = await fetch(`/api/quotations/pdf?id=${id}`);
-      if (!res.ok) throw new Error('Vector PDF endpoint error');
+    const element = pageRef.current || document.querySelector('.page');
+    if (!element) return;
 
-      const pdfBlob = await res.blob();
+    setIsGeneratingPdf(true);
+
+    const noPrint = document.querySelector('.no-print') as HTMLElement;
+    if (noPrint) noPrint.style.display = 'none';
+
+    try {
+      const html2pdf = (window as any).html2pdf;
+      if (!html2pdf) {
+        alert('PDF utility is loading. Please try again in a second...');
+        return;
+      }
+
       const cleanClientName = (lead?.client_name || 'Client').trim().replace(/[^\w\s-]/g, '').replace(/\s+/g, '_');
-      const fileName = `Apple_Interior_Quotation_${cleanClientName}_v${quotation?.version || 1}.pdf`;
-      const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+      const filename = `Apple_Interior_Quotation_${cleanClientName}_v${quotation?.version || 1}.pdf`;
+
+      const opt = {
+        margin: [6, 6, 6, 6],
+        filename: filename,
+        image: { type: 'jpeg', quality: 1.0 },
+        html2canvas: { 
+          scale: 3.5, 
+          useCORS: true, 
+          logging: false, 
+          dpi: 300, 
+          letterRendering: true
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: ['tr', '.section-row', '.subtotal-row', '.section-heading', '.grand-total', '.payment-table', '.spec-table', '.client-section', '.section-block'] }
+      };
+
+      const worker = html2pdf().from(element).set(opt);
+      const pdfBlob = await worker.output('blob');
+
+      const file = new File([pdfBlob], filename, { type: 'application/pdf' });
 
       if (window.innerWidth < 800) {
         setPdfReadyFile(file);
@@ -118,35 +146,16 @@ export default function QuotationPrintPage() {
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = url;
-        a.download = fileName;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         URL.revokeObjectURL(url);
       }
     } catch (err) {
-      console.warn('Vector PDF fetch failed, using fallback high-DPI canvas engine:', err);
-      const element = document.querySelector('.page');
-      if (element) {
-        const html2pdf = (window as any).html2pdf;
-        if (html2pdf) {
-          const opt = {
-            margin: [8, 0, 8, 0],
-            filename: `Apple_Interior_Quotation_${lead?.client_name || 'Client'}.pdf`,
-            image: { type: 'jpeg', quality: 1.0 },
-            html2canvas: { scale: 3.5, useCORS: true, logging: false, dpi: 300, letterRendering: true },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-          };
-          const worker = html2pdf().from(element).set(opt);
-          const pdfBlob = await worker.output('blob');
-          const url = URL.createObjectURL(pdfBlob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = opt.filename;
-          a.click();
-          URL.revokeObjectURL(url);
-        }
-      }
+      console.error('PDF generation error:', err);
+      alert('Failed to generate PDF. Please try again.');
     } finally {
+      if (noPrint) noPrint.style.display = '';
       setIsGeneratingPdf(false);
     }
   };
