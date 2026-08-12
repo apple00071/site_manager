@@ -2207,45 +2207,7 @@ export default function CRMPage() {
                                       {cellValue ? parseLocalDate(cellValue as string).toLocaleDateString('en-GB') : '-'}
                                     </span>
                                   ) : col.id === 'phone' ? (
-                                     <div className="flex items-center justify-between group/phone min-w-[80px]">
-                                       <span className="text-gray-800 font-medium">{cellValue || '-'}</span>
-                                       {cellValue && (
-                                         <div className="flex items-center gap-0.5 opacity-0 group-hover/phone:opacity-100 focus-within:opacity-100 shrink-0">
-                                           <button
-                                             type="button"
-                                             title="Send Quotation PDF via WhatsApp"
-                                             onClick={(e) => {
-                                               e.stopPropagation();
-                                               handleSendWhatsAppMessage(lead, 'quotation');
-                                             }}
-                                             disabled={sendingWhatsappLeadId === lead.id}
-                                             className="text-emerald-600 hover:text-emerald-700 transition-colors p-1 rounded hover:bg-emerald-100 cursor-pointer disabled:opacity-50"
-                                           >
-                                             {sendingWhatsappLeadId === lead.id ? (
-                                               <FiRefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                             ) : (
-                                               <FaWhatsapp className="w-3.5 h-3.5 text-emerald-600" />
-                                             )}
-                                           </button>
-                                           <button
-                                             type="button"
-                                             title="Send Follow-up Message via WhatsApp"
-                                             onClick={(e) => {
-                                               e.stopPropagation();
-                                               handleSendWhatsAppMessage(lead, 'followup');
-                                             }}
-                                             disabled={sendingWhatsappLeadId === lead.id}
-                                             className="text-blue-600 hover:text-blue-700 transition-colors p-1 rounded hover:bg-blue-100 cursor-pointer disabled:opacity-50"
-                                           >
-                                             {sendingWhatsappLeadId === lead.id ? (
-                                               <FiRefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                             ) : (
-                                               <FaWhatsapp className="w-3.5 h-3.5 text-blue-600" />
-                                             )}
-                                           </button>
-                                         </div>
-                                       )}
-                                     </div>
+                                    <span className="text-gray-800 font-medium">{cellValue || '-'}</span>
                                    ) : col.id === 'ref_no' ? (
                                      <div className="flex items-center justify-between group/ref w-full px-1">
                                        <span className="text-gray-400 font-bold">{cellValue || '-'}</span>

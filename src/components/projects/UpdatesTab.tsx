@@ -151,10 +151,12 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [showMediaMenu, setShowMediaMenu] = useState(false);
 
-  // Refs for audio recording
+  // Refs for audio recording & photo inputs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioBlobRef = useRef<Blob | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
 
   // Project state
   const [selectedStageId, setSelectedStageId] = useState('all');
@@ -1171,44 +1173,56 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                   </svg>
                 </button>
 
+                {/* Persistent hidden inputs so they stay mounted when menu closes */}
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="user"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                />
+                <input
+                  ref={galleryInputRef}
+                  type="file"
+                  accept="image/*,application/pdf"
+                  multiple
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                />
+
                 {showMediaMenu && (
                   <div className="absolute bottom-12 left-0 z-30 w-52 bg-white rounded-lg shadow-lg border border-gray-200 py-1 flex flex-col text-sm">
                     {/* Option 1: Camera */}
-                    <label
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer text-gray-700 font-medium"
-                      onClick={() => setShowMediaMenu(false)}
+                    <button
+                      type="button"
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer text-gray-700 font-medium text-left w-full"
+                      onClick={() => {
+                        setShowMediaMenu(false);
+                        cameraInputRef.current?.click();
+                      }}
                     >
                       <svg className="w-5 h-5 text-yellow-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
                       <span>Take Photo</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="user"
-                        onChange={handlePhotoUpload}
-                        className="hidden"
-                      />
-                    </label>
+                    </button>
 
                     {/* Option 2: Gallery */}
-                    <label
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer text-gray-700 font-medium border-t border-gray-100"
-                      onClick={() => setShowMediaMenu(false)}
+                    <button
+                      type="button"
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer text-gray-700 font-medium border-t border-gray-100 text-left w-full"
+                      onClick={() => {
+                        setShowMediaMenu(false);
+                        galleryInputRef.current?.click();
+                      }}
                     >
                       <svg className="w-5 h-5 text-yellow-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                       <span>Choose from Gallery</span>
-                      <input
-                        type="file"
-                        accept="image/*,application/pdf"
-                        multiple
-                        onChange={handlePhotoUpload}
-                        className="hidden"
-                      />
-                    </label>
+                    </button>
                   </div>
                 )}
               </div>
