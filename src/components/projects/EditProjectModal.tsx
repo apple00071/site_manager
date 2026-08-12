@@ -193,7 +193,8 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                     <input
                                         type="text"
                                         readOnly
-                                        value={formData.id || ''}
+                                        value={formData.id ? `AI/PRJ-${formData.id.slice(-6).toUpperCase()}` : ''}
+                                        title={`Full UUID: ${formData.id || ''}`}
                                         className="w-full px-3 py-2 border border-gray-200 bg-gray-100 rounded-lg text-xs font-mono text-gray-600 cursor-not-allowed select-all"
                                     />
                                 </div>

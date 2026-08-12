@@ -44,8 +44,8 @@ export const VisitTab: React.FC<VisitTabProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   <div>
                     <dt className="text-sm font-medium text-gray-500 mb-1">Project ID</dt>
-                    <dd className="text-xs font-mono font-bold text-gray-800 bg-gray-100 px-2.5 py-1 rounded-md border border-gray-200 inline-flex items-center gap-2 select-all break-all">
-                      {project.id}
+                    <dd className="text-xs font-mono font-bold text-gray-800 bg-gray-100 px-2.5 py-1 rounded-md border border-gray-200 inline-flex items-center gap-2 select-all break-all" title={`Full UUID: ${project.id}`}>
+                      {project.id ? `AI/PRJ-${project.id.slice(-6).toUpperCase()}` : '-'}
                     </dd>
                   </div>
                   <div>
