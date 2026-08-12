@@ -120,10 +120,10 @@ export default function QuotationPrintPage() {
     const opt = {
       margin:       [8, 0, 8, 0],
       filename:     `Apple Interior Quotation_${lead?.client_name || 'Client'}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2.2, useCORS: true, logging: false },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak:    { mode: ['avoid-all', 'css', 'legacy'], avoid: ['tr', '.section-row', '.subtotal-row', '.section-heading', '.grand-total', '.payment-table', '.spec-table', '.client-section'] }
+      image:        { type: 'jpeg', quality: 1.0 },
+      html2canvas:  { scale: 3.5, useCORS: true, logging: false, dpi: 300, letterRendering: true, allowTaint: true },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+      pagebreak:    { mode: ['avoid-all', 'css', 'legacy'], avoid: ['tr', '.section-row', '.subtotal-row', '.section-heading', '.grand-total', '.payment-table', '.spec-table', '.client-section', '.section-block'] }
     };
 
     try {
@@ -182,10 +182,10 @@ export default function QuotationPrintPage() {
       const opt = {
         margin: [8, 0, 8, 0],
         filename: `Apple Interior Quotation_${lead?.client_name || 'Client'}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2.2, useCORS: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: ['tr', '.section-row', '.subtotal-row', '.section-heading', '.grand-total', '.payment-table', '.spec-table', '.client-section'] }
+        image: { type: 'jpeg', quality: 1.0 },
+        html2canvas: { scale: 3.5, useCORS: true, logging: false, dpi: 300, letterRendering: true, allowTaint: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: ['tr', '.section-row', '.subtotal-row', '.section-heading', '.grand-total', '.payment-table', '.spec-table', '.client-section', '.section-block'] }
       };
 
       const worker = html2pdf().from(element).set(opt);
