@@ -43,6 +43,12 @@ export const VisitTab: React.FC<VisitTabProps> = ({
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   <div>
+                    <dt className="text-sm font-medium text-gray-500 mb-1">Project ID</dt>
+                    <dd className="text-xs font-mono font-bold text-gray-800 bg-gray-100 px-2.5 py-1 rounded-md border border-gray-200 inline-flex items-center gap-2 select-all break-all">
+                      {project.id}
+                    </dd>
+                  </div>
+                  <div>
                     <dt className="text-sm font-medium text-gray-500 mb-1">Description</dt>
                     <dd className="text-sm text-gray-900">{project.description || 'No description provided.'}</dd>
                   </div>

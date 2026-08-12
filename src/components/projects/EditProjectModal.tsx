@@ -189,6 +189,15 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                         {section === 'info' && (
                             <>
                                 <div className="sm:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Project ID</label>
+                                    <input
+                                        type="text"
+                                        readOnly
+                                        value={formData.id || ''}
+                                        className="w-full px-3 py-2 border border-gray-200 bg-gray-100 rounded-lg text-xs font-mono text-gray-600 cursor-not-allowed select-all"
+                                    />
+                                </div>
+                                <div className="sm:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Project Title</label>
                                     <input
                                         type="text"
