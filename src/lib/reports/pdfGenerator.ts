@@ -440,7 +440,7 @@ export async function generateQuotationPDF(quotation: any, lead: any): Promise<B
     currentY += 14;
 
     // 6. PAYMENT SCHEDULE TABLE
-    if (currentY + 60 > 275) {
+    if (currentY + 65 > 260) {
       doc.addPage();
       currentY = 20;
     }
@@ -473,7 +473,7 @@ export async function generateQuotationPDF(quotation: any, lead: any): Promise<B
     currentY = (doc as any).lastAutoTable.finalY + 10;
 
     // 7. MATERIAL SPECIFICATIONS TABLE
-    if (currentY + 70 > 275) {
+    if (currentY + 110 > 260) {
       doc.addPage();
       currentY = 20;
     }
@@ -522,7 +522,7 @@ export async function generateQuotationPDF(quotation: any, lead: any): Promise<B
     currentY = (doc as any).lastAutoTable.finalY + 10;
 
     // 8. TERMS & CONDITIONS
-    if (currentY + 40 > 275) {
+    if (currentY + 60 > 260) {
       doc.addPage();
       currentY = 20;
     }

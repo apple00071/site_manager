@@ -176,74 +176,80 @@ export function buildQuotationHtmlString(quotation: any, lead: any): string {
           </tbody>
         </table>
 
-        <div class="section-heading">PAYMENT SCHEDULE</div>
-        <table class="payment-table">
-          <thead>
-            <tr>
-              <th style="width: 60px;">Stage</th>
-              <th>Milestone Description</th>
-              <th style="width: 90px; text-align: right;">Payment %</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr class="pay-even"><td>Stage 1</td><td>Token Advance</td><td style="text-align: right; font-weight: 600;">10%</td></tr>
-            <tr class="pay-odd"><td>Stage 2</td><td>Before Start of Work</td><td style="text-align: right; font-weight: 600;">40%</td></tr>
-            <tr class="pay-even"><td>Stage 3</td><td>Completion of Boxes & Inside Laminate</td><td style="text-align: right; font-weight: 600;">30%</td></tr>
-            <tr class="pay-odd"><td>Stage 4</td><td>Completion of Outside Laminate</td><td style="text-align: right; font-weight: 600;">15%</td></tr>
-            <tr class="pay-even"><td>Stage 5</td><td>At Handover</td><td style="text-align: right; font-weight: 600;">5%</td></tr>
-            <tr class="pay-total"><td colspan="2">TOTAL</td><td style="text-align: right;">100%</td></tr>
-          </tbody>
-        </table>
-
-        <div class="section-heading">MATERIAL & HARDWARE SPECIFICATIONS</div>
-        <table class="spec-table" style="width: 100%; margin-top: 4px;">
-          <tbody>
-            ${Object.entries(quotation?.material_specs || {
-              'Plywood': '18mm BWP Ply — DT Platinum',
-              'Outer Laminate': '1.0mm thick up to ₹1,600/sheet — Glossy or Matt finish',
-              'Inner Laminate': '0.8mm Fabric Liner',
-              'Edge Finish': '2mm thick PVC edge tape',
-              'Hinges': 'Hettich',
-              'Channels': 'Hettich',
-              'Handles': 'SS finish — small up to ₹100, big up to ₹250',
-              'Glass': 'Modi Guard / Saint Gobain',
-              'Drawers': '2 per bedroom wardrobe — ₹3,000 extra per drawer',
-              'Kitchen Ply': 'Royale Touche (lifetime warranty) for base; 710 Gurjan BWP elsewhere',
-              'Kitchen Shutters': '1mm High Glossy Laminate; 0.8mm Fabric Liner inside',
-              'Kitchen Accessories': 'Sleek brand tandem baskets',
-              'False Ceiling Board': 'Saint Gobain Gyproc 12mm Gypsum',
-              'FC Channels': 'Ultra channels 0.4 & 0.6mm',
-              'Wiring': 'Finolex or equivalent grade, flexible piping',
-            }).map(([label, value], idx) => `
-              <tr class="${idx % 2 !== 0 ? 'spec-odd' : ''}">
-                <td class="spec-label">${label}</td>
-                <td>${value}</td>
+        <div class="section-block" style="page-break-inside: avoid; break-inside: avoid; margin-top: 14px;">
+          <div class="section-heading" style="margin-top: 0;">PAYMENT SCHEDULE</div>
+          <table class="payment-table">
+            <thead>
+              <tr>
+                <th style="width: 60px;">Stage</th>
+                <th>Milestone Description</th>
+                <th style="width: 90px; text-align: right;">Payment %</th>
               </tr>
-            `).join('')}
-          </tbody>
-        </table>
-
-        <div style="padding: 8px 10px; font-weight: 700; color: #b45309; font-size: 8.5pt; background: #fffbeb; border: 1px solid #fde68a; border-radius: 4px; margin-top: 14px; margin-bottom: 10px; line-height: 1.4;">
-          NOTE : Any Civil works, Plumbing works, Extra switches &amp; Boards, Decorative lighting, Accessories, Designer Glass works &amp; Wallpaper, Kitchen Sink, Handwash Bowl cost not included in the above quote
+            </thead>
+            <tbody>
+              <tr class="pay-even"><td>Stage 1</td><td>Token Advance</td><td style="text-align: right; font-weight: 600;">10%</td></tr>
+              <tr class="pay-odd"><td>Stage 2</td><td>Before Start of Work</td><td style="text-align: right; font-weight: 600;">40%</td></tr>
+              <tr class="pay-even"><td>Stage 3</td><td>Completion of Boxes & Inside Laminate</td><td style="text-align: right; font-weight: 600;">30%</td></tr>
+              <tr class="pay-odd"><td>Stage 4</td><td>Completion of Outside Laminate</td><td style="text-align: right; font-weight: 600;">15%</td></tr>
+              <tr class="pay-even"><td>Stage 5</td><td>At Handover</td><td style="text-align: right; font-weight: 600;">5%</td></tr>
+              <tr class="pay-total"><td colspan="2">TOTAL</td><td style="text-align: right;">100%</td></tr>
+            </tbody>
+          </table>
         </div>
 
-        <div class="section-heading">TERMS & CONDITIONS</div>
-        <ol class="terms-list" style="margin-top: 8px;">
-          <li>Main power supply will be under customer scope of work.</li>
-          <li>Any additional works will be charged extra.</li>
-          <li>A maximum of 2 revisions of the 3D design are included in the project scope. Any additional revisions requested beyond this will be charged separately.</li>
-          <li>Material once purchased cannot be cancelled.</li>
-          <li>Final price may vary ±5–10% based on actual site measurements.</li>
-          <li>Changes in design, materials or finishes will result in a corresponding revision of quote.</li>
-          <li>GST will be charged extra as applicable.</li>
-          <li>Validity of this quotation is 30 days from the date of issue.</li>
-        </ol>
+        <div class="section-block" style="page-break-inside: avoid; break-inside: avoid; margin-top: 14px;">
+          <div class="section-heading" style="margin-top: 0;">MATERIAL & HARDWARE SPECIFICATIONS</div>
+          <table class="spec-table" style="width: 100%; margin-top: 4px;">
+            <tbody>
+              ${Object.entries(quotation?.material_specs || {
+                'Plywood': '18mm BWP Ply — DT Platinum',
+                'Outer Laminate': '1.0mm thick up to ₹1,600/sheet — Glossy or Matt finish',
+                'Inner Laminate': '0.8mm Fabric Liner',
+                'Edge Finish': '2mm thick PVC edge tape',
+                'Hinges': 'Hettich',
+                'Channels': 'Hettich',
+                'Handles': 'SS finish — small up to ₹100, big up to ₹250',
+                'Glass': 'Modi Guard / Saint Gobain',
+                'Drawers': '2 per bedroom wardrobe — ₹3,000 extra per drawer',
+                'Kitchen Ply': 'Royale Touche (lifetime warranty) for base; 710 Gurjan BWP elsewhere',
+                'Kitchen Shutters': '1mm High Glossy Laminate; 0.8mm Fabric Liner inside',
+                'Kitchen Accessories': 'Sleek brand tandem baskets',
+                'False Ceiling Board': 'Saint Gobain Gyproc 12mm Gypsum',
+                'FC Channels': 'Ultra channels 0.4 & 0.6mm',
+                'Wiring': 'Finolex or equivalent grade, flexible piping',
+              }).map(([label, value], idx) => `
+                <tr class="${idx % 2 !== 0 ? 'spec-odd' : ''}">
+                  <td class="spec-label">${label}</td>
+                  <td>${value}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
 
-        ${quotation?.notes ? `
-          <div style="padding: 6px 10px; font-style: italic; color: #666; font-size: 8pt; margin-top: 6px;">
-            Note: ${quotation.notes}
+          <div style="padding: 8px 10px; font-weight: 700; color: #b45309; font-size: 8.5pt; background: #fffbeb; border: 1px solid #fde68a; border-radius: 4px; margin-top: 10px; margin-bottom: 4px; line-height: 1.4;">
+            NOTE : Any Civil works, Plumbing works, Extra switches &amp; Boards, Decorative lighting, Accessories, Designer Glass works &amp; Wallpaper, Kitchen Sink, Handwash Bowl cost not included in the above quote
           </div>
-        ` : ''}
+        </div>
+
+        <div class="section-block" style="page-break-inside: avoid; break-inside: avoid; margin-top: 14px;">
+          <div class="section-heading" style="margin-top: 0;">TERMS & CONDITIONS</div>
+          <ol class="terms-list" style="margin-top: 8px;">
+            <li>Main power supply will be under customer scope of work.</li>
+            <li>Any additional works will be charged extra.</li>
+            <li>A maximum of 2 revisions of the 3D design are included in the project scope. Any additional revisions requested beyond this will be charged separately.</li>
+            <li>Material once purchased cannot be cancelled.</li>
+            <li>Final price may vary ±5–10% based on actual site measurements.</li>
+            <li>Changes in design, materials or finishes will result in a corresponding revision of quote.</li>
+            <li>GST will be charged extra as applicable.</li>
+            <li>Validity of this quotation is 30 days from the date of issue.</li>
+          </ol>
+
+          ${quotation?.notes ? `
+            <div style="padding: 6px 10px; font-style: italic; color: #666; font-size: 8pt; margin-top: 6px;">
+              Note: ${quotation.notes}
+            </div>
+          ` : ''}
+        </div>
 
         <div class="footer-bar">
           <b>APPLE INTERIORS</b> · Interior Design & Execution · Kukatpally, Hyderabad · +91 9603 9603 37 · +91 91606 77899

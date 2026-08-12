@@ -568,63 +568,69 @@ export default function QuotationPrintPage() {
             </tbody>
           </table>
 
-          <div className="section-heading">PAYMENT SCHEDULE</div>
-          <table className="payment-table">
-            <thead>
-              <tr>
-                <th>Stage</th>
-                <th>Milestone</th>
-                <th style={{ textAlign: 'center' }}>Percentage</th>
-                <th style={{ textAlign: 'right' }}>Amount (₹)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {PAYMENT_STAGES.map(({ stage, label, pct }, idx) => (
-                <tr key={stage} className={idx % 2 === 0 ? 'pay-even' : 'pay-odd'}>
-                  <td style={{ fontWeight: 600 }}>{stage}</td>
-                  <td>{label}</td>
-                  <td style={{ textAlign: 'center' }}>{pct}%</td>
-                  <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt((quotation.final_amount * pct) / 100)}</td>
+          <div className="section-block" style={{ pageBreakInside: 'avoid', breakInside: 'avoid', marginTop: '14px' }}>
+            <div className="section-heading" style={{ marginTop: 0 }}>PAYMENT SCHEDULE</div>
+            <table className="payment-table">
+              <thead>
+                <tr>
+                  <th>Stage</th>
+                  <th>Milestone</th>
+                  <th style={{ textAlign: 'center' }}>Percentage</th>
+                  <th style={{ textAlign: 'right' }}>Amount (₹)</th>
                 </tr>
-              ))}
-              <tr className="pay-total">
-                <td colSpan={3} style={{ textAlign: 'right' }}>Total</td>
-                <td style={{ textAlign: 'right' }}>{fmt(quotation.final_amount)}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div className="section-heading">MATERIAL & HARDWARE SPECIFICATIONS</div>
-          <table className="spec-table">
-            <tbody>
-              {(quotation.material_specs 
-                ? (Object.entries(quotation.material_specs) as [string, string][])
-                : MATERIAL_SPECS
-              ).map(([label, value], idx) => (
-                <tr key={label} className={idx % 2 !== 0 ? 'spec-odd' : ''}>
-                  <td className="spec-label">{label}</td>
-                  <td>{value}</td>
+              </thead>
+              <tbody>
+                {PAYMENT_STAGES.map(({ stage, label, pct }, idx) => (
+                  <tr key={stage} className={idx % 2 === 0 ? 'pay-even' : 'pay-odd'}>
+                    <td style={{ fontWeight: 600 }}>{stage}</td>
+                    <td>{label}</td>
+                    <td style={{ textAlign: 'center' }}>{pct}%</td>
+                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt((quotation.final_amount * pct) / 100)}</td>
+                  </tr>
+                ))}
+                <tr className="pay-total">
+                  <td colSpan={3} style={{ textAlign: 'right' }}>Total</td>
+                  <td style={{ textAlign: 'right' }}>{fmt(quotation.final_amount)}</td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div style={{ padding: '8px 10px', fontWeight: 700, color: '#b45309', fontSize: '8.5pt', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', marginTop: '14px', marginBottom: '10px', lineHeight: '1.4' }}>
-            NOTE : Any Civil works, Plumbing works, Extra switches &amp; Boards, Decorative lighting, Accessories, Designer Glass works &amp; Wallpaper, Kitchen Sink, Handwash Bowl cost not included in the above quote
+              </tbody>
+            </table>
           </div>
 
-          <div className="section-heading">TERMS & CONDITIONS</div>
-          <div style={{ padding: '8px 10px' }}>
-            <ol className="terms-list">
-              {TERMS.map((t, i) => <li key={i}>{t}</li>)}
-            </ol>
-          </div>
+          <div className="section-block" style={{ pageBreakInside: 'avoid', breakInside: 'avoid', marginTop: '14px' }}>
+            <div className="section-heading" style={{ marginTop: 0 }}>MATERIAL & HARDWARE SPECIFICATIONS</div>
+            <table className="spec-table">
+              <tbody>
+                {(quotation.material_specs 
+                  ? (Object.entries(quotation.material_specs) as [string, string][])
+                  : MATERIAL_SPECS
+                ).map(([label, value], idx) => (
+                  <tr key={label} className={idx % 2 !== 0 ? 'spec-odd' : ''}>
+                    <td className="spec-label">{label}</td>
+                    <td>{value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
-          {quotation.notes && (
-            <div style={{ padding: '8px 10px', fontStyle: 'italic', color: '#888', fontSize: '8pt', marginTop: '6px' }}>
-              Note: {quotation.notes}
+            <div style={{ padding: '8px 10px', fontWeight: 700, color: '#b45309', fontSize: '8.5pt', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', marginTop: '10px', marginBottom: '4px', lineHeight: '1.4' }}>
+              NOTE : Any Civil works, Plumbing works, Extra switches &amp; Boards, Decorative lighting, Accessories, Designer Glass works &amp; Wallpaper, Kitchen Sink, Handwash Bowl cost not included in the above quote
             </div>
-          )}
+          </div>
+
+          <div className="section-block" style={{ pageBreakInside: 'avoid', breakInside: 'avoid', marginTop: '14px' }}>
+            <div className="section-heading" style={{ marginTop: 0 }}>TERMS & CONDITIONS</div>
+            <div style={{ padding: '8px 10px' }}>
+              <ol className="terms-list">
+                {TERMS.map((t, i) => <li key={i}>{t}</li>)}
+              </ol>
+            </div>
+
+            {quotation.notes && (
+              <div style={{ padding: '8px 10px', fontStyle: 'italic', color: '#888', fontSize: '8pt', marginTop: '6px' }}>
+                Note: {quotation.notes}
+              </div>
+            )}
+          </div>
 
           <div className="footer-bar">
             <b>Apple Interiors</b> · Kukatpally, Hyderabad · +91 9603 9603 37 · +91 91606 77899 · www.appleinteriors.in
