@@ -14,6 +14,27 @@ interface VisitTabProps {
   activeSubTab: string;
 }
 
+const formatProjectCode = (project: any): string => {
+  if (!project) return '-';
+  if (project.project_code) return project.project_code;
+  if (project.ref_no) return project.ref_no;
+
+  const dateStr = project.start_date || project.created_at;
+  const dateObj = dateStr ? new Date(dateStr) : new Date();
+  const yearShort = !isNaN(dateObj.getTime()) ? dateObj.getFullYear().toString().slice(-2) : new Date().getFullYear().toString().slice(-2);
+
+  let seq = '01';
+  if (project.id) {
+    const hex = project.id.replace(/[^0-9a-fA-F]/g, '');
+    if (hex.length >= 2) {
+      const num = (parseInt(hex.slice(-4), 16) % 99) + 1;
+      seq = String(num).padStart(2, '0');
+    }
+  }
+
+  return `AI/PRJ/${yearShort}/${seq}`;
+};
+
 export const VisitTab: React.FC<VisitTabProps> = ({ 
   project, 
   canEditProject, 
@@ -45,7 +66,7 @@ export const VisitTab: React.FC<VisitTabProps> = ({
                   <div>
                     <dt className="text-sm font-medium text-gray-500 mb-1">Project ID</dt>
                     <dd className="text-xs font-mono font-bold text-gray-800 bg-gray-100 px-2.5 py-1 rounded-md border border-gray-200 inline-flex items-center gap-2 select-all break-all" title={`Full UUID: ${project.id}`}>
-                      {project.id ? `AI/PRJ-${project.id.slice(-6).toUpperCase()}` : '-'}
+                      {formatProjectCode(project)}
                     </dd>
                   </div>
                   <div>

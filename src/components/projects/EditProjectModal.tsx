@@ -16,6 +16,27 @@ interface EditProjectModalProps {
     initialWorker?: string;
 }
 
+const formatProjectCode = (project: any): string => {
+    if (!project) return '-';
+    if (project.project_code) return project.project_code;
+    if (project.ref_no) return project.ref_no;
+
+    const dateStr = project.start_date || project.created_at;
+    const dateObj = dateStr ? new Date(dateStr) : new Date();
+    const yearShort = !isNaN(dateObj.getTime()) ? dateObj.getFullYear().toString().slice(-2) : new Date().getFullYear().toString().slice(-2);
+
+    let seq = '01';
+    if (project.id) {
+        const hex = project.id.replace(/[^0-9a-fA-F]/g, '');
+        if (hex.length >= 2) {
+            const num = (parseInt(hex.slice(-4), 16) % 99) + 1;
+            seq = String(num).padStart(2, '0');
+        }
+    }
+
+    return `AI/PRJ/${yearShort}/${seq}`;
+};
+
 export function EditProjectModal({ isOpen, onClose, onSave, section, initialData, isSaving, initialWorker }: EditProjectModalProps) {
     const [formData, setFormData] = useState<any>({});
     const [selectedWorker, setSelectedWorker] = useState<string>('carpenter');
@@ -193,7 +214,7 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                     <input
                                         type="text"
                                         readOnly
-                                        value={formData.id ? `AI/PRJ-${formData.id.slice(-6).toUpperCase()}` : ''}
+                                        value={formatProjectCode(formData)}
                                         title={`Full UUID: ${formData.id || ''}`}
                                         className="w-full px-3 py-2 border border-gray-200 bg-gray-100 rounded-lg text-xs font-mono text-gray-600 cursor-not-allowed select-all"
                                     />
