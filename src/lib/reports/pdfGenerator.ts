@@ -505,9 +505,14 @@ export async function generateQuotationPDF(quotation: any, lead: any): Promise<B
     };
 
     const rawSpecs = quotation?.material_specs || defaultSpecsDict;
-    const specs = Array.isArray(rawSpecs)
+    const rawEntries = Array.isArray(rawSpecs)
       ? rawSpecs
       : Object.entries(rawSpecs).map(([label, val]) => [label, String(val)]);
+
+    const specs = rawEntries.map(([label, val]) => [
+      String(label).replace(/₹/g, 'Rs. '),
+      String(val).replace(/₹/g, 'Rs. ')
+    ]);
 
     autoTable(doc, {
       startY: currentY,
@@ -540,13 +545,13 @@ export async function generateQuotationPDF(quotation: any, lead: any): Promise<B
     doc.setTextColor(70, 70, 70);
     const termsList = [
       '1. Main power supply will be under customer scope of work.',
-      '2. Any additional works requested will be charged extra.',
+      '2. Any additional works will be charged extra.',
       '3. A maximum of 2 revisions of the 3D design are included in the project scope. Any additional revisions requested beyond this will be charged separately.',
-      '4. Material once purchased cannot be cancelled or returned.',
-      '5. Final price may vary ±5–10% based on actual site measurements.',
+      '4. Material once purchased cannot be cancelled.',
+      '5. Final price may vary +-5-10% based on actual site measurements.',
       '6. Changes in design, materials or finishes will result in a corresponding revision of quote.',
       '7. GST will be charged extra as applicable.',
-      '8. Validity of this quotation is 30 days from date of issue.'
+      '8. Validity of this quotation is 30 days from the date of issue.'
     ];
     termsList.forEach(term => {
       const lines = doc.splitTextToSize(term, 180);
@@ -564,7 +569,7 @@ export async function generateQuotationPDF(quotation: any, lead: any): Promise<B
     doc.text('APPLE INTERIORS', 18, currentY + 4.2);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(187, 187, 187);
-    doc.text('· Interior Design & Execution · Kukatpally, Hyderabad', 46, currentY + 4.2);
+    doc.text('· Kukatpally, Hyderabad · +91 9603 9603 37 · +91 91606 77899 · www.appleinteriors.in', 46, currentY + 4.2);
 
     return Buffer.from(doc.output('arraybuffer'));
 }
