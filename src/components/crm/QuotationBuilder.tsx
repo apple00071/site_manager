@@ -58,6 +58,33 @@ function computeAmount(item: QuotationItem): number {
 let _keyCounter = 0;
 const newKey = () => `item_${++_keyCounter}_${Date.now()}`;
 
+function sanitizeItems(items: QuotationItem[]): QuotationItem[] {
+  const seenMap = new Map<string, QuotationItem>();
+  
+  items.forEach(item => {
+    let name = item.item_name ? item.item_name.trim() : '';
+    if (name.toLowerCase() === 'quartz top') {
+      name = 'Granite Top';
+    }
+    
+    // Deduplicate by section and base item name (stripping trailing LSM / parentheses variants)
+    const baseName = name.toLowerCase().replace(/\s*\([^)]*\)/g, '').trim();
+    const key = `${item.section.trim()}::${baseName}`;
+
+    const updatedItem = { ...item, item_name: name };
+    if (!seenMap.has(key)) {
+      seenMap.set(key, updatedItem);
+    } else {
+      const existing = seenMap.get(key)!;
+      if (updatedItem.amount > existing.amount || (updatedItem.rate > existing.rate && existing.amount === 0)) {
+        seenMap.set(key, updatedItem);
+      }
+    }
+  });
+
+  return Array.from(seenMap.values());
+}
+
 const DEFAULT_MATERIAL_SPECS: Record<string, string> = {
   'Plywood': '18mm BWP Ply — DT Platinum',
   'Outer Laminate': '1.0mm thick up to ₹1,600/sheet — Glossy or Matt finish',
@@ -134,21 +161,23 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
         setNotes(latest.notes || '');
         setMaterialSpecs(latest.material_specs || DEFAULT_MATERIAL_SPECS);
 
-        // Rebuild items from saved quotation
-        const savedItems: QuotationItem[] = (latest.quotation_items || [])
-          .sort((a: any, b: any) => a.sort_order - b.sort_order)
-          .map((i: any) => ({
-            _key: newKey(),
-            section: i.section,
-            item_name: i.item_name,
-            is_lumpsum: i.is_lumpsum,
-            length_ft: i.length_ft != null ? String(i.length_ft) : '',
-            width_ft: i.width_ft != null ? String(i.width_ft) : '',
-            area_sqft: i.area_sqft,
-            unit: i.unit,
-            rate: i.rate,
-            amount: i.amount,
-          }));
+        // Rebuild items from saved quotation (deduplicate and replace Quartz Top with Granite Top)
+        const savedItems: QuotationItem[] = sanitizeItems(
+          (latest.quotation_items || [])
+            .sort((a: any, b: any) => a.sort_order - b.sort_order)
+            .map((i: any) => ({
+              _key: newKey(),
+              section: i.section,
+              item_name: i.item_name,
+              is_lumpsum: i.is_lumpsum,
+              length_ft: i.length_ft != null ? String(i.length_ft) : '',
+              width_ft: i.width_ft != null ? String(i.width_ft) : '',
+              area_sqft: i.area_sqft,
+              unit: i.unit,
+              rate: i.rate,
+              amount: i.amount,
+            }))
+        );
 
         // Determine custom sections
         const savedSections = [...new Set(savedItems.map(i => i.section))];
@@ -175,20 +204,22 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
     setNotes(selected.notes || '');
     setMaterialSpecs(selected.material_specs || DEFAULT_MATERIAL_SPECS);
 
-    const savedItems: QuotationItem[] = (selected.quotation_items || [])
-      .sort((a: any, b: any) => a.sort_order - b.sort_order)
-      .map((i: any) => ({
-        _key: newKey(),
-        section: i.section,
-        item_name: i.item_name,
-        is_lumpsum: i.is_lumpsum,
-        length_ft: i.length_ft != null ? String(i.length_ft) : '',
-        width_ft: i.width_ft != null ? String(i.width_ft) : '',
-        area_sqft: i.area_sqft,
-        unit: i.unit,
-        rate: i.rate,
-        amount: i.amount,
-      }));
+    const savedItems: QuotationItem[] = sanitizeItems(
+      (selected.quotation_items || [])
+        .sort((a: any, b: any) => a.sort_order - b.sort_order)
+        .map((i: any) => ({
+          _key: newKey(),
+          section: i.section,
+          item_name: i.item_name,
+          is_lumpsum: i.is_lumpsum,
+          length_ft: i.length_ft != null ? String(i.length_ft) : '',
+          width_ft: i.width_ft != null ? String(i.width_ft) : '',
+          area_sqft: i.area_sqft,
+          unit: i.unit,
+          rate: i.rate,
+          amount: i.amount,
+        }))
+    );
 
     // Determine custom sections
     const savedSections = [...new Set(savedItems.map(i => i.section))];
@@ -209,13 +240,13 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
         setItems(cur => cur.filter(i => i.section !== section));
         return prev.filter(s => s !== section);
       } else {
-        // Add section with default items from rate card
+        // Add section with default items from rate card (sanitized & deduplicated)
         const defaults = rateCard
           .filter(r => r.section === section)
           .map(r => ({
             _key: newKey(),
             section: r.section,
-            item_name: r.item_name,
+            item_name: r.item_name.trim().toLowerCase() === 'quartz top' ? 'Granite Top' : r.item_name,
             is_lumpsum: r.is_lumpsum,
             length_ft: '',
             width_ft: '',
@@ -224,7 +255,7 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
             rate: r.default_rate,
             amount: r.is_lumpsum ? r.default_rate : 0,
           }));
-        setItems(cur => [...cur, ...defaults]);
+        setItems(cur => sanitizeItems([...cur, ...defaults]));
         return [...prev, section];
       }
     });

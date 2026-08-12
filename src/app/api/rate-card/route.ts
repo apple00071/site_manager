@@ -16,7 +16,32 @@ export async function GET() {
     .order('sort_order');
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data });
+
+  // Deduplicate items per section and default Quartz Top -> Granite Top
+  const seenMap = new Map<string, any>();
+  const cleanedData: any[] = [];
+
+  (data || []).forEach((item: any) => {
+    let itemName = item.item_name ? item.item_name.trim() : '';
+    if (itemName.toLowerCase() === 'quartz top') {
+      itemName = 'Granite Top';
+      supabaseAdmin.from('rate_card').update({ item_name: 'Granite Top' }).eq('id', item.id).then();
+    }
+
+    const section = item.section ? item.section.trim() : '';
+    const baseKey = `${section}::${itemName.toLowerCase().replace(/\s*\([^)]*\)/g, '').trim()}`;
+
+    if (!seenMap.has(baseKey)) {
+      const normalizedItem = { ...item, item_name: itemName };
+      seenMap.set(baseKey, normalizedItem);
+      cleanedData.push(normalizedItem);
+    } else {
+      // Deactivate duplicate item in background
+      supabaseAdmin.from('rate_card').update({ is_active: false }).eq('id', item.id).then();
+    }
+  });
+
+  return NextResponse.json({ data: cleanedData });
 }
 
 // POST /api/rate-card — admin: add item
