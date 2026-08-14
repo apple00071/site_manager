@@ -124,11 +124,12 @@ export default function QuotationPrintPage() {
         filename: filename,
         image: { type: 'jpeg', quality: 1.0 },
         html2canvas: { 
-          scale: 3.5, 
+          scale: 3, 
           useCORS: true, 
           logging: false, 
           dpi: 300, 
-          letterRendering: true
+          letterRendering: true,
+          windowWidth: 1024
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: ['tr', '.section-row', '.subtotal-row', '.section-heading', '.grand-total', '.payment-table', '.spec-table', '.client-section', '.section-block'] }
@@ -185,7 +186,7 @@ export default function QuotationPrintPage() {
         margin: [8, 0, 8, 0],
         filename: `Apple Interior Quotation_${lead?.client_name || 'Client'}.pdf`,
         image: { type: 'jpeg', quality: 1.0 },
-        html2canvas: { scale: 3.5, useCORS: true, logging: false, dpi: 300, letterRendering: true, allowTaint: true },
+        html2canvas: { scale: 3, useCORS: true, logging: false, dpi: 300, letterRendering: true, allowTaint: true, windowWidth: 1024 },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: ['tr', '.section-row', '.subtotal-row', '.section-heading', '.grand-total', '.payment-table', '.spec-table', '.client-section', '.section-block'] }
       };
@@ -324,22 +325,23 @@ export default function QuotationPrintPage() {
         .client-section { padding: 14px 0 10px; border-bottom: 3px solid #f5c518; margin-bottom: 14px; }
         .doc-title { text-align: center; font-size: 15pt; font-weight: 800; color: #2b2b2b; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 12px; }
         .client-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; }
-        .client-row { display: flex; gap: 8px; font-size: 9.5pt; padding: 2px 0; }
-        .client-label { font-weight: 700; color: #333; white-space: nowrap; }
-        table { width: 100%; border-collapse: collapse; }
+        .client-row { display: flex; gap: 8px; font-size: 9.5pt; padding: 2px 0; align-items: baseline; }
+        .client-label { font-weight: 700; color: #333; white-space: nowrap; min-width: 95px; display: inline-block; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         thead tr th { background: #2b2b2b; color: #fff; padding: 6px; font-size: 8.5pt; font-weight: 600; border-bottom: 2px solid #f5c518; }
-        .col-no { width: 28px; text-align: center; }
-        .col-l, .col-w { width: 46px; text-align: center; }
-        .col-area { width: 56px; text-align: center; }
-        .col-rate { width: 72px; text-align: right; }
-        .col-amt { width: 88px; text-align: right; }
+        .col-no { width: 5%; text-align: center; white-space: nowrap; }
+        .col-desc { width: 41%; text-align: left; }
+        .col-l, .col-w { width: 7%; text-align: center; white-space: nowrap; }
+        .col-area { width: 10%; text-align: center; white-space: nowrap; }
+        .col-rate { width: 14%; text-align: right; white-space: nowrap; }
+        .col-amt { width: 16%; text-align: right; white-space: nowrap; }
         .section-row td { background: #f5c518; color: #2b2b2b; font-weight: 700; font-size: 9pt; padding: 5px 8px; }
-        .item-even td { background: #fff; padding: 4px 6px; border-bottom: 1px solid #ebebeb; }
-        .item-odd td { background: #fafaf7; padding: 4px 6px; border-bottom: 1px solid #ebebeb; }
-        .subtotal-row td { background: #f0ebe0; font-weight: 700; padding: 5px 6px; border-bottom: 2px solid #d4a800; }
+        .item-even td { background: #fff; padding: 4px 6px; border-bottom: 1px solid #ebebeb; word-break: break-word; }
+        .item-odd td { background: #fafaf7; padding: 4px 6px; border-bottom: 1px solid #ebebeb; word-break: break-word; }
+        .subtotal-row td { background: #f0ebe0; font-weight: 700; padding: 5px 6px; border-bottom: 2px solid #d4a800; white-space: nowrap; }
         .grand-total td { background: #2b2b2b; padding: 8px 6px; font-size: 12pt; font-weight: 800; }
-        .grand-total .lbl { color: #ddd; }
-        .grand-total .val { color: #f5c518; text-align: right; }
+        .grand-total .lbl { color: #ddd; text-align: right; padding-right: 8px; }
+        .grand-total .val { color: #f5c518; text-align: right; white-space: nowrap; }
         .section-heading { background: #2b2b2b; color: #f5c518; font-size: 10pt; font-weight: 700; padding: 7px 10px; margin: 14px 0 0; }
         .payment-table th { background: #f5c518; color: #2b2b2b; font-size: 8.5pt; font-weight: 700; padding: 5px 8px; text-align: left; }
         .pay-even td { background: #fff; padding: 4px 8px; border-bottom: 1px solid #eee; font-size: 8.5pt; }
@@ -448,15 +450,22 @@ export default function QuotationPrintPage() {
         <button
           onClick={handleSendWhatsApp}
           disabled={isSendingWhatsApp}
-          style={{ background: '#25D366', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 20px', fontWeight: 700, cursor: isSendingWhatsApp ? 'not-allowed' : 'pointer', fontSize: '13px', opacity: isSendingWhatsApp ? 0.7 : 1 }}
+          style={{ background: '#25D366', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 16px', fontWeight: 700, cursor: isSendingWhatsApp ? 'not-allowed' : 'pointer', fontSize: '13px', opacity: isSendingWhatsApp ? 0.7 : 1 }}
         >
           {isSendingWhatsApp ? '⏳ Sending...' : '💬 Send WhatsApp PDF'}
         </button>
         <button
           onClick={handleDownloadPDF}
-          style={{ background: '#4caf50', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 20px', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
+          style={{ background: '#4caf50', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 16px', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
         >
           📥 Download PDF
+        </button>
+        <button
+          onClick={() => window.open(`/api/quotations/pdf?id=${id}`, '_blank')}
+          style={{ background: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 16px', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
+          title="Download vector PDF directly"
+        >
+          📄 Vector PDF
         </button>
         <button
           onClick={() => {
@@ -467,13 +476,13 @@ export default function QuotationPrintPage() {
               window.print();
             }
           }}
-          style={{ background: '#f5c518', border: 'none', borderRadius: '6px', padding: '8px 20px', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
+          style={{ background: '#f5c518', border: 'none', borderRadius: '6px', padding: '8px 16px', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
         >
           🖨 Print / Save PDF
         </button>
         <button
           onClick={() => window.close()}
-          style={{ background: '#eee', border: 'none', borderRadius: '6px', padding: '8px 16px', cursor: 'pointer', fontSize: '13px' }}
+          style={{ background: '#eee', border: 'none', borderRadius: '6px', padding: '8px 14px', cursor: 'pointer', fontSize: '13px' }}
         >
           Close
         </button>
@@ -483,7 +492,7 @@ export default function QuotationPrintPage() {
         <div className="page" ref={pageRef}>
           <div className="header-bar" />
           <div className="header">
-            <div style={{ background: '#ffffff', padding: '12px 24px', borderRadius: '12px', display: 'flex', alignItems: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+            <div style={{ background: '#ffffff', padding: '10px 20px', borderRadius: '8px', display: 'flex', alignItems: 'center', border: '1px solid #e2e8f0' }}>
               <img 
                 src={LOGO_BASE64} 
                 alt="Apple Interiors" 
@@ -517,7 +526,7 @@ export default function QuotationPrintPage() {
             <thead>
               <tr>
                 <th className="col-no">#</th>
-                <th>Description of Work</th>
+                <th className="col-desc">Description of Work</th>
                 <th className="col-l">L (ft)</th>
                 <th className="col-w">W (ft)</th>
                 <th className="col-area">Area (sq.ft)</th>
@@ -536,7 +545,7 @@ export default function QuotationPrintPage() {
                     {sItems.map((item: any, idx: number) => (
                       <tr key={item.id} className={idx % 2 === 0 ? 'item-even' : 'item-odd'}>
                         <td className="col-no">{idx + 1}</td>
-                        <td>{item.item_name}</td>
+                        <td className="col-desc">{item.item_name}</td>
                         <td className="col-l">{item.is_lumpsum ? '—' : (item.length_ft ?? '—')}</td>
                         <td className="col-w">{item.is_lumpsum ? '—' : (item.width_ft ?? '—')}</td>
                         <td className="col-area">{item.is_lumpsum ? 1 : item.area_sqft}</td>
@@ -557,7 +566,7 @@ export default function QuotationPrintPage() {
                   <td colSpan={6} style={{ textAlign: 'right', padding: '5px 8px', fontStyle: 'italic', color: '#cc4444' }}>
                     Discount {quotation.discount_type === 'percent' ? `(${quotation.discount_value}%)` : '(Flat)'}
                   </td>
-                  <td style={{ textAlign: 'right', padding: '5px 6px', color: '#cc4444', fontWeight: 600 }}>
+                  <td style={{ textAlign: 'right', padding: '5px 6px', color: '#cc4444', fontWeight: 600, whiteSpace: 'nowrap' }}>
                     − {fmt(discountAmt)}
                   </td>
                 </tr>

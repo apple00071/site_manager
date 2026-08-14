@@ -262,21 +262,21 @@ export async function generateQuotationPDF(quotation: any, lead: any): Promise<B
     doc.text(`Client Name : `, 14, 57);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(17, 24, 39);
-    doc.text(`${lead?.client_name || 'Customer'}`, 38, 57);
+    doc.text(`${lead?.client_name || 'Customer'}`, 40, 57);
 
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(75, 85, 99);
     doc.text(`Phone : `, 14, 63);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(17, 24, 39);
-    doc.text(`${lead?.phone || '-'}`, 38, 63);
+    doc.text(`${lead?.phone || '-'}`, 40, 63);
 
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(75, 85, 99);
     doc.text(`Site Location : `, 14, 69);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(17, 24, 39);
-    doc.text(`${lead?.site_project || '-'}`, 38, 69);
+    doc.text(`${lead?.site_project || '-'}`, 40, 69);
 
     // Column 2 (Right)
     doc.setFont('helvetica', 'bold');
@@ -284,21 +284,21 @@ export async function generateQuotationPDF(quotation: any, lead: any): Promise<B
     doc.text(`Date : `, 120, 57);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(17, 24, 39);
-    doc.text(`${printDate}`, 134, 57);
+    doc.text(`${printDate}`, 136, 57);
 
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(75, 85, 99);
     doc.text(`Ref No : `, 120, 63);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(17, 24, 39);
-    doc.text(`${lead?.ref_no || '-'}`, 134, 63);
+    doc.text(`${lead?.ref_no || '-'}`, 136, 63);
 
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(75, 85, 99);
     doc.text(`Version : `, 120, 69);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(17, 24, 39);
-    doc.text(`v${quotation?.version || 1}`, 134, 69);
+    doc.text(`v${quotation?.version || 1}`, 136, 69);
 
     // Amber Divider Line (#f5c518)
     doc.setDrawColor(245, 197, 24);
@@ -311,6 +311,11 @@ export async function generateQuotationPDF(quotation: any, lead: any): Promise<B
     const rawItems: any[] = (quotation?.quotation_items || quotation?.items || [])
       .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
     
+    const subtotal = quotation?.subtotal || lead?.quote_value || 0;
+    const finalVal = quotation?.final_amount || subtotal;
+    const hasDiscountVal = quotation?.discount_value && quotation.discount_value > 0;
+    const discountAmount = subtotal - finalVal;
+
     if (rawItems.length > 0) {
       const sections: Record<string, any[]> = {};
       rawItems.forEach(item => {
@@ -383,6 +388,58 @@ export async function generateQuotationPDF(quotation: any, lead: any): Promise<B
         ]);
       });
 
+      // Discount Row if present
+      if (hasDiscountVal) {
+        tableBody.push([
+          {
+            content: `Discount ${quotation.discount_type === 'percent' ? `(${quotation.discount_value}%)` : '(Flat)'}:`,
+            colSpan: 6,
+            styles: {
+              fillColor: [254, 242, 242],
+              textColor: [220, 38, 38],
+              fontStyle: 'italic',
+              halign: 'right',
+              fontSize: 8
+            }
+          },
+          {
+            content: `- Rs. ${Math.round(discountAmount).toLocaleString('en-IN')}`,
+            styles: {
+              fillColor: [254, 242, 242],
+              textColor: [220, 38, 38],
+              fontStyle: 'bold',
+              halign: 'right',
+              fontSize: 8
+            }
+          }
+        ]);
+      }
+
+      // Grand Total Row
+      tableBody.push([
+        {
+          content: 'GRAND TOTAL (Exclusive of GST):',
+          colSpan: 6,
+          styles: {
+            fillColor: [43, 43, 43],
+            textColor: [255, 255, 255],
+            fontStyle: 'bold',
+            halign: 'right',
+            fontSize: 9.5
+          }
+        },
+        {
+          content: `Rs. ${Math.round(Number(finalVal)).toLocaleString('en-IN')}`,
+          styles: {
+            fillColor: [43, 43, 43],
+            textColor: [245, 197, 24],
+            fontStyle: 'bold',
+            halign: 'right',
+            fontSize: 9.5
+          }
+        }
+      ]);
+
       autoTable(doc, {
         startY: currentY,
         head: [['#', 'Description of Work', 'L (ft)', 'W (ft)', 'Area (sq.ft)', 'Rate (Rs.)', 'Amount (Rs.)']],
@@ -416,28 +473,6 @@ export async function generateQuotationPDF(quotation: any, lead: any): Promise<B
       doc.text(`Estimated Quotation Amount: Rs. ${Math.round(Number(lead?.quote_value || quotation?.final_amount || 0)).toLocaleString('en-IN')}`, 14, currentY);
       currentY += 15;
     }
-
-    // 5. TOTAL & SUMMARY
-    const subtotal = quotation?.subtotal || lead?.quote_value || 0;
-    const finalVal = quotation?.final_amount || subtotal;
-
-    doc.setFontSize(10.5);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(43, 43, 43);
-    doc.text(`Subtotal: Rs. ${Math.round(Number(subtotal)).toLocaleString('en-IN')}`, 196, currentY, { align: 'right' });
-    currentY += 6;
-
-    if (quotation?.discount_value && quotation.discount_value > 0) {
-      doc.setFontSize(9);
-      doc.setTextColor(220, 38, 38);
-      doc.text(`Discount: -Rs. ${Math.round(Number(subtotal - finalVal)).toLocaleString('en-IN')}`, 196, currentY, { align: 'right' });
-      currentY += 6;
-    }
-
-    doc.setFontSize(11.5);
-    doc.setTextColor(245, 197, 24);
-    doc.text(`Grand Total: Rs. ${Math.round(Number(finalVal)).toLocaleString('en-IN')}`, 196, currentY, { align: 'right' });
-    currentY += 14;
 
     // 6. PAYMENT SCHEDULE TABLE
     if (currentY + 65 > 260) {
