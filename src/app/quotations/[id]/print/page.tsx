@@ -120,19 +120,20 @@ export default function QuotationPrintPage() {
       const filename = `Apple_Interior_Quotation_${cleanClientName}_v${quotation?.version || 1}.pdf`;
 
       const opt = {
-        margin: [6, 6, 6, 6],
+        margin: [8, 0, 8, 0],
         filename: filename,
         image: { type: 'jpeg', quality: 1.0 },
         html2canvas: { 
-          scale: 3, 
+          scale: 2.5, 
           useCORS: true, 
           logging: false, 
-          dpi: 300, 
           letterRendering: true,
-          windowWidth: 1024
+          allowTaint: true,
+          scrollX: 0,
+          scrollY: 0
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: ['tr', '.section-row', '.subtotal-row', '.section-heading', '.grand-total', '.payment-table', '.spec-table', '.client-section', '.section-block'] }
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: ['tr', '.section-row', '.subtotal-row', '.section-heading', '.grand-total', '.payment-table', '.spec-table', '.client-section', '.section-block', '.footer-bar', '.terms-list'] }
       };
 
       const worker = html2pdf().from(element).set(opt);
@@ -186,9 +187,17 @@ export default function QuotationPrintPage() {
         margin: [8, 0, 8, 0],
         filename: `Apple Interior Quotation_${lead?.client_name || 'Client'}.pdf`,
         image: { type: 'jpeg', quality: 1.0 },
-        html2canvas: { scale: 3, useCORS: true, logging: false, dpi: 300, letterRendering: true, allowTaint: true, windowWidth: 1024 },
+        html2canvas: { 
+          scale: 2.5, 
+          useCORS: true, 
+          logging: false, 
+          letterRendering: true, 
+          allowTaint: true,
+          scrollX: 0,
+          scrollY: 0
+        },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: ['tr', '.section-row', '.subtotal-row', '.section-heading', '.grand-total', '.payment-table', '.spec-table', '.client-section', '.section-block'] }
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: ['tr', '.section-row', '.subtotal-row', '.section-heading', '.grand-total', '.payment-table', '.spec-table', '.client-section', '.section-block', '.footer-bar', '.terms-list'] }
       };
 
       const worker = html2pdf().from(element).set(opt);
@@ -316,7 +325,7 @@ export default function QuotationPrintPage() {
         @page { size: A4 portrait; margin: 0; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Inter', Arial, sans-serif; font-size: 9pt; color: #1a1a1a; background: #f5f5f5; }
-        .page { width: 210mm; margin: 0 auto; background: #fff; padding: 10mm 12mm; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+        .page { width: 210mm; margin: 0 auto; background: #fff; padding: 4mm 10mm; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
         .header-bar { background: #f5c518; height: 6px; }
         .header { background: #2b2b2b; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; border-radius: 4px; }
         .header-title { color: #f5c518; font-size: 18pt; font-weight: 800; }
@@ -424,10 +433,15 @@ export default function QuotationPrintPage() {
         }
 
         @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm 12mm;
+          }
           html, body {
             height: auto !important;
             overflow: visible !important;
             overflow-x: visible !important;
+            background: #fff !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
@@ -435,9 +449,23 @@ export default function QuotationPrintPage() {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          body { background: #fff; }
+          body { background: #fff !important; }
           .no-print { display: none !important; }
-          .page { box-shadow: none; padding: 10mm 12mm; width: 100% !important; margin: 0 !important; transform: none !important; }
+          .page-scale-wrapper {
+            padding: 0 !important;
+            margin: 0 !important;
+            background: #fff !important;
+            display: block !important;
+            width: 100% !important;
+          }
+          .page { 
+            box-shadow: none !important; 
+            padding: 0 !important; 
+            width: 100% !important; 
+            max-width: 100% !important;
+            margin: 0 !important; 
+            transform: none !important; 
+          }
         }
       `}</style>
 
@@ -456,16 +484,11 @@ export default function QuotationPrintPage() {
         </button>
         <button
           onClick={handleDownloadPDF}
-          style={{ background: '#4caf50', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 16px', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
+          disabled={isGeneratingPdf}
+          style={{ background: '#4caf50', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 16px', fontWeight: 700, cursor: isGeneratingPdf ? 'not-allowed' : 'pointer', fontSize: '13px', opacity: isGeneratingPdf ? 0.7 : 1 }}
+          title="Download identical PDF as seen on screen"
         >
-          📥 Download PDF
-        </button>
-        <button
-          onClick={() => window.open(`/api/quotations/pdf?id=${id}`, '_blank')}
-          style={{ background: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 16px', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
-          title="Download vector PDF directly"
-        >
-          📄 Vector PDF
+          {isGeneratingPdf ? '⏳ Generating...' : '📥 Download PDF'}
         </button>
         <button
           onClick={() => {

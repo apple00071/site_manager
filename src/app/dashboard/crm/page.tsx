@@ -8,7 +8,7 @@ import {
   FiAlertTriangle, FiCloud,
   FiDownload, FiUpload, FiEdit, FiPrinter, FiSend,
   FiTrendingUp, FiCheckCircle, FiClock, FiXCircle, FiFilter,
-  FiChevronRight, FiUsers, FiDollarSign, FiArrowUpRight, FiZap, FiTarget, FiLayers
+  FiChevronRight, FiUsers, FiDollarSign, FiArrowUpRight, FiZap, FiTarget, FiLayers, FiX
 } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
 import { TbCurrencyRupee } from 'react-icons/tb';
@@ -189,22 +189,8 @@ export default function CRMPage() {
     return `₹${value.toLocaleString('en-IN')}`;
   }, []);
 
-  // Row alert color helper for Log spreadsheet view
-  const getRowAlertClass = useCallback((lead: Lead) => {
-    if (lead.status === 'Approved' || lead.status === 'Rejected' || lead.status === 'Draft') return '';
-    if (!lead.created_date) return '';
-    
-    const created = parseLocalDate(lead.created_date);
-    if (isNaN(created.getTime())) return '';
-    
-    const ageInDays = (new Date().getTime() - created.getTime()) / (1000 * 3600 * 24);
-    
-    if (ageInDays > 14) {
-      return 'bg-red-50/40 hover:bg-red-50/60 dark:bg-red-950/10 dark:hover:bg-red-950/20 text-red-900 border-l-4 border-l-red-500';
-    }
-    if (ageInDays > 7) {
-      return 'bg-amber-50/40 hover:bg-amber-50/60 dark:bg-amber-950/10 dark:hover:bg-amber-950/20 text-amber-900 border-l-4 border-l-amber-500';
-    }
+  // Row alert color helper for Log spreadsheet view (disabled to avoid confusing selection highlights)
+  const getRowAlertClass = useCallback((_lead: Lead) => {
     return '';
   }, []);
   
@@ -227,6 +213,7 @@ export default function CRMPage() {
   const [mobileEditForm, setMobileEditForm] = useState<Lead | null>(null);
   const [sendingWhatsappLeadId, setSendingWhatsappLeadId] = useState<string | null>(null);
   const [isWhatsAppMenuOpen, setIsWhatsAppMenuOpen] = useState(false);
+  const [isFloatingWhatsAppOpen, setIsFloatingWhatsAppOpen] = useState(false);
   const [isDataMenuOpen, setIsDataMenuOpen] = useState(false);
   const [mobileViewType, setMobileViewType] = useState<'cards' | 'table'>('cards');
 
@@ -2094,7 +2081,7 @@ export default function CRMPage() {
                           </tr>
                         )}
 
-                        <tr className={`${collapsedMonths[monthGroupName] ? 'hidden' : ''} ${getRowAlertClass(lead) || 'hover:bg-gray-50/30'} transition-colors divide-x divide-gray-200`}>
+                        <tr className={`${collapsedMonths[monthGroupName] ? 'hidden' : ''} ${selectedCell?.rowIndex === rowIndex ? 'bg-amber-50/70 font-medium' : 'hover:bg-gray-50/40'} transition-colors divide-x divide-gray-200`}>
                           {/* Row Index / Sl. No. / Checkbox */}
                           <td 
                             className="w-10 text-center font-black text-gray-400 bg-gray-50 border-r border-gray-300 py-2 select-none align-middle cursor-pointer group/select" 
@@ -2239,6 +2226,121 @@ export default function CRMPage() {
               </tbody>
             </table>
           </div>
+
+          {/* FLOATING ACTION BAR FOR SELECTED SINGLE ROW */}
+          {selectedCell && filteredLeads[selectedCell.rowIndex] && selectedLeadIds.length === 0 && (() => {
+            const activeLead = filteredLeads[selectedCell.rowIndex];
+            return (
+              <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-md text-gray-900 py-2.5 px-4 sm:px-5 rounded-2xl border border-gray-200/90 shadow-2xl ${mobileViewType === 'table' ? 'flex' : 'hidden md:flex'} items-center justify-between gap-3 sm:gap-4 z-50 transition-all max-w-[95vw] sm:max-w-3xl animate-in fade-in slide-in-from-bottom-3 duration-200 ring-1 ring-black/5`}>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="text-[11px] font-black bg-amber-500 text-white px-2.5 py-0.5 rounded-full shrink-0 shadow-2xs">
+                    #{selectedCell.rowIndex + 1}
+                  </span>
+                  <div className="min-w-0 flex items-center gap-2 truncate hidden sm:flex">
+                    <span className="text-xs font-bold text-gray-900 truncate">{activeLead.client_name || 'Unnamed'}</span>
+                    {activeLead.status && (
+                      <span className={`px-2 py-0.5 text-[9px] font-black border uppercase rounded-md shadow-2xs shrink-0 ${getStatusBadgeClass(activeLead.status)}`}>
+                        {activeLead.status}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Quotation Button */}
+                  <button
+                    type="button"
+                    onClick={() => setQuotationLead(activeLead)}
+                    className="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg text-xs transition-all flex items-center gap-1.5 shadow-xs active:scale-95 cursor-pointer"
+                  >
+                    <span>📄</span>
+                    <span>{activeLead.latest_quotation_id ? `Quotation (v${activeLead.quote_version || 1})` : 'Create Quotation'}</span>
+                  </button>
+
+                  {/* WhatsApp Dropdown */}
+                  <div className="relative text-left">
+                    <button
+                      type="button"
+                      onClick={() => setIsFloatingWhatsAppOpen(prev => !prev)}
+                      disabled={!activeLead.phone || sendingWhatsappLeadId !== null}
+                      title={!activeLead.phone ? 'Lead has no phone number' : 'Send WhatsApp message'}
+                      className={`px-3 py-1.5 font-bold rounded-lg text-xs flex items-center gap-1.5 border transition-all shadow-xs ${
+                        activeLead.phone
+                          ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-700 cursor-pointer active:scale-95 font-black'
+                          : 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      {sendingWhatsappLeadId === activeLead.id ? (
+                        <FiRefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <FaWhatsapp className="h-3.5 w-3.5 text-emerald-600" />
+                      )}
+                      <span>WhatsApp ▾</span>
+                    </button>
+
+                    {isFloatingWhatsAppOpen && activeLead.phone && (
+                      <div
+                        className="absolute bottom-full mb-2 right-0 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50 text-gray-800 animate-in fade-in zoom-in-95 duration-100"
+                        onMouseLeave={() => setIsFloatingWhatsAppOpen(false)}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsFloatingWhatsAppOpen(false);
+                            handleSendWhatsAppMessage(activeLead, 'quotation');
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2 cursor-pointer transition-colors"
+                        >
+                          <span>📄</span> Send Quotation PDF
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsFloatingWhatsAppOpen(false);
+                            handleSendWhatsAppMessage(activeLead, 'followup');
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 cursor-pointer transition-colors border-t border-gray-100"
+                        >
+                          <span>💬</span> Send Follow-Up
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Edit Details */}
+                  <button
+                    type="button"
+                    onClick={handleOpenMobileEdit}
+                    className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-bold rounded-lg text-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-xs"
+                    title="Edit Lead Details"
+                  >
+                    <FiEdit className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Edit Details</span>
+                  </button>
+
+                  {/* Delete Row */}
+                  <button
+                    type="button"
+                    onClick={handleDeleteLead}
+                    className="p-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-bold rounded-lg text-xs transition-all flex items-center gap-1 cursor-pointer active:scale-95 shadow-xs"
+                    title="Delete Row"
+                  >
+                    <FiTrash2 className="h-3.5 w-3.5" />
+                  </button>
+
+                  {/* Deselect / Close */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCell(null)}
+                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer ml-1"
+                    title="Deselect Row"
+                  >
+                    <FiX className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* FLOATING BULK ACTIONS BANNER */}
           {selectedLeadIds.length > 0 && (
