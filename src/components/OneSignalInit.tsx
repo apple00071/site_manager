@@ -6,12 +6,53 @@ import { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { Capacitor } from '@capacitor/core';
 
-// Extend window for Median JS Bridge
+// Extend window for Median JS Bridge & Global Push state
 declare global {
     interface Window {
         median: any;
         gonative: any;
+        PENDING_PUSH_PAYLOAD: any;
     }
+}
+
+function extractRouteFromPayload(payload: any): string | null {
+    if (!payload) return null;
+
+    const data =
+        payload?.notification?.additionalData ||
+        payload?.additionalData ||
+        payload?.result?.notification?.additionalData ||
+        payload?.result?.additionalData ||
+        payload?.data ||
+        payload;
+
+    let route =
+        data?.route ||
+        data?.url ||
+        data?.targetUrl ||
+        data?.path ||
+        payload?.notification?.launchURL ||
+        payload?.launchURL ||
+        payload?.result?.url ||
+        null;
+
+    if (typeof route === 'string' && route.trim()) {
+        route = route.trim();
+        // If route is a full URL on our domain or general http URL, extract relative path
+        if (route.startsWith('http://') || route.startsWith('https://')) {
+            try {
+                const parsed = new URL(route);
+                route = parsed.pathname + parsed.search + parsed.hash;
+            } catch (e) {
+                // Ignore parse error
+            }
+        }
+        if (!route.startsWith('/') && !route.startsWith('http')) {
+            route = `/${route}`;
+        }
+        return route;
+    }
+    return null;
 }
 
 export default function OneSignalInit() {
@@ -28,109 +69,93 @@ export default function OneSignalInit() {
 
     const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
 
-    const DEBUG_ALERTS = false; // Set to true to show alerts on the phone for debugging
+    const navigateToRoute = (route: string) => {
+        if (!route) return;
+        console.log('🎯 [OneSignalInit] Navigating to target route:', route);
+        try {
+            localStorage.removeItem('pending_push_route');
+        } catch (e) {}
 
-    async function initCapacitorOneSignal(user: any) {
-        if (!Capacitor.isNativePlatform()) return;
+        try {
+            router.push(route);
+        } catch (e) {
+            window.location.href = route;
+        }
+    };
+
+    const handlePushPayload = (payload: any) => {
+        console.log('📦 [OneSignalInit] Push payload received:', payload);
+        const route = extractRouteFromPayload(payload);
+        if (route) {
+            try {
+                localStorage.setItem('pending_push_route', route);
+            } catch (e) {}
+            navigateToRoute(route);
+        }
+    };
+
+    async function linkCapacitorUser(user: any) {
+        if (!Capacitor.isNativePlatform() || !user?.id) return;
         
         try {
-            console.log("🚀 OneSignalInit: Initializing Native OneSignal");
-            if (DEBUG_ALERTS) alert("🚀 Initializing OneSignal...");
-            
-            // Access the OneSignal native plugin (Cordova plugin via global)
             const OneSignal = (window as any).plugins?.OneSignal 
                            || (window as any).OneSignalCordovaPlugin 
                            || (window as any).OneSignal;
             
             if (!OneSignal) {
-                console.error("❌ OneSignalInit: Plugin not available");
+                console.error("❌ OneSignalInit: Plugin not available for user link");
                 return;
             }
-            
-            const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || 'd800d582-08b8-431c-bb19-59a08f7f5379';
-            console.log("📲 OneSignal App ID:", appId);
 
-            // 1. Initialize
-            console.log("📲 OneSignalInit: Initializing with App ID:", appId);
-            OneSignal.initialize(appId);
+            const externalId = `user_${user.id}`;
+            console.log("📲 [OneSignalInit] Logging into OneSignal with External ID:", externalId);
             
-            // 2. Request Permission (Required for Android 13+ and iOS)
             try {
-                console.log("📲 OneSignalInit: Requesting push permission");
-                const permission = await OneSignal.Notifications.requestPermission(true);
-                console.log("📲 OneSignalInit: Permission result:", permission);
-            } catch (permErr) {
-                console.warn("⚠️ OneSignalInit: Permission request error:", permErr);
+                await OneSignal.login(externalId);
+                console.log("✅ [OneSignalInit] Login success");
+            } catch (loginErr) {
+                console.error("❌ [OneSignalInit] Login error:", loginErr);
             }
 
-            // 3. Clear badge
-            try { OneSignal.Notifications.clearAll(); } catch (e) {}
-
-            // 4. User Login & Linking
-            if (user?.id) {
-                const externalId = `user_${user.id}`;
-                console.log("📲 OneSignalInit: Attempting Login:", externalId);
-                
-                // Reduced delay but ensured SDK has a moment to register the permission state
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                
+            // Force Retrieval and Linking of OneSignal ID
+            const syncSubscription = async (attempt: number) => {
                 try {
-                    await OneSignal.login(externalId);
-                    console.log("✅ OneSignalInit: Login success");
-                } catch (loginErr) {
-                    console.error("❌ OneSignalInit: Login error:", loginErr);
-                }
-
-                // 5. Force Retrieval and Linking of OneSignal ID
-                const syncSubscription = async (attempt: number) => {
-                    try {
-                        console.log(`📲 OneSignalInit: Sync attempt ${attempt}...`);
-                        const onesignalId = await OneSignal.User.getOnesignalId();
+                    console.log(`📲 [OneSignalInit] Sync attempt ${attempt}...`);
+                    const onesignalId = await OneSignal.User.getOnesignalId();
+                    
+                    if (onesignalId) {
+                        console.log(`✅ [OneSignalInit] ID found:`, onesignalId);
                         
-                        if (onesignalId) {
-                            console.log(`✅ OneSignalInit: ID found:`, onesignalId);
-                            
-                            const response = await fetch('/api/onesignal/link', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ oneSignalId: onesignalId }),
-                            });
-                            
-                            if (response.ok) {
-                                console.log("✅ OneSignalInit: Backend Link Success");
-                                return true;
-                            } else {
-                                console.error("❌ OneSignalInit: Backend Link Failed");
-                            }
+                        const response = await fetch('/api/onesignal/link', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ oneSignalId: onesignalId }),
+                        });
+                        
+                        if (response.ok) {
+                            console.log("✅ [OneSignalInit] Backend Link Success");
+                            return true;
                         } else {
-                            console.warn(`⚠️ OneSignalInit: No ID returned in attempt ${attempt}`);
+                            console.error("❌ [OneSignalInit] Backend Link Failed");
                         }
-                        return false;
-                    } catch (e) {
-                        console.error(`❌ OneSignalInit: Sync Error (attempt ${attempt}):`, e);
-                        return false;
+                    } else {
+                        console.warn(`⚠️ [OneSignalInit] No ID returned in attempt ${attempt}`);
                     }
-                };
-
-                // Retry logic for obtaining the OneSignal ID
-                for (let i = 1; i <= 3; i++) {
-                    const success = await syncSubscription(i);
-                    if (success) break;
-                    // Exponential backoff
-                    await new Promise(r => setTimeout(r, 5000 * i));
+                    return false;
+                } catch (e) {
+                    console.error(`❌ [OneSignalInit] Sync Error (attempt ${attempt}):`, e);
+                    return false;
                 }
-            }
-            
-            // 6. Handle Clicks
-            OneSignal.Notifications.addEventListener('click', (event: any) => {
-                const data = event.notification.additionalData;
-                const route = data?.route || data?.url;
-                if (route) router.push(route);
-            });
+            };
 
+            // Retry logic for obtaining the OneSignal ID
+            for (let i = 1; i <= 3; i++) {
+                const success = await syncSubscription(i);
+                if (success) break;
+                await new Promise(r => setTimeout(r, 3000 * i));
+            }
         } catch (error) {
-            console.error("❌ Capacitor OneSignal V5 Error:", error);
-            if (DEBUG_ALERTS) alert("Fatal Error: " + JSON.stringify(error));
+            console.error("❌ Capacitor OneSignal User Link Error:", error);
         }
     }
 
@@ -144,7 +169,6 @@ export default function OneSignalInit() {
             console.error("Capacitor OneSignal Logout Error:", error);
         }
     }
-
 
     // ==========================================
     // LEGACY MEDIAN.CO IMPLEMENTATION
@@ -231,7 +255,6 @@ export default function OneSignalInit() {
         } catch (error: any) {}
     }
 
-
     // ==========================================
     // LIFECYCLE HOOK
     // ==========================================
@@ -239,25 +262,64 @@ export default function OneSignalInit() {
         if (mounted.current) return;
         mounted.current = true;
 
+        // 1. Immediately handle any pending push captured at boot time
+        if (typeof window !== 'undefined' && window.PENDING_PUSH_PAYLOAD) {
+            handlePushPayload(window.PENDING_PUSH_PAYLOAD);
+            window.PENDING_PUSH_PAYLOAD = null;
+        }
+
+        // 2. Check if a route is waiting in localStorage
+        try {
+            const storedRoute = typeof window !== 'undefined' ? localStorage.getItem('pending_push_route') : null;
+            if (storedRoute) {
+                console.log('💾 [OneSignalInit] Found stored pending route on mount:', storedRoute);
+                navigateToRoute(storedRoute);
+            }
+        } catch (e) {}
+
+        // 3. Listen for custom push open events
+        const onCustomPush = (e: any) => {
+            if (e?.detail) handlePushPayload(e.detail);
+        };
+        if (typeof window !== 'undefined') {
+            window.addEventListener('push_notification_opened', onCustomPush);
+        }
+
+        // 4. Immediately initialize Native OneSignal and attach click listener
+        if (Capacitor.isNativePlatform()) {
+            try {
+                const OneSignal = (window as any).plugins?.OneSignal 
+                               || (window as any).OneSignalCordovaPlugin 
+                               || (window as any).OneSignal;
+
+                if (OneSignal) {
+                    const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || 'd800d582-08b8-431c-bb19-59a08f7f5379';
+                    console.log("📲 [OneSignalInit] Early initialize with App ID:", appId);
+                    OneSignal.initialize(appId);
+
+                    // Add click listener immediately so cold-start click replays are never missed
+                    OneSignal.Notifications.addEventListener('click', handlePushPayload);
+
+                    // Request permission (Android 13+ & iOS)
+                    OneSignal.Notifications.requestPermission(true).catch(() => {});
+                    try { OneSignal.Notifications.clearAll(); } catch (e) {}
+                }
+            } catch (err) {
+                console.warn("⚠️ Early OneSignal setup warning:", err);
+            }
+        }
+
+        // 5. Auth State Change Listener (for linking user ID)
         const handleAuthChange = async (authEvent: AuthChangeEvent, session: Session | null) => {
             console.log("🔐 OneSignalInit: Auth state change:", authEvent, session?.user?.id);
 
-            // --- DEEP LINK HANDLING ---
-            const pendingRoute = localStorage.getItem('pending_push_route');
-            if (pendingRoute) {
-                localStorage.removeItem('pending_push_route');
-                router.push(pendingRoute);
-            }
-
-            // --- LOGIN / STARTUP ---
+            // --- LOGIN / STARTUP LINKING ---
             if ((authEvent === "SIGNED_IN" || authEvent === "INITIAL_SESSION") && session?.user) {
                 if (Capacitor.isNativePlatform()) {
-                    // Start Capacitor Native OneSignal
-                    setTimeout(() => initCapacitorOneSignal(session.user), 1000);
+                    linkCapacitorUser(session.user);
                 } else {
-                    // Fallback to Median (if running in legacy wrapper)
                     await waitForMedianOneSignal();
-                    setTimeout(() => registerLegacyMedianPush(session.user, authEvent), 1000);
+                    registerLegacyMedianPush(session.user, authEvent);
                 }
             }
             
@@ -274,10 +336,8 @@ export default function OneSignalInit() {
             }
         };
 
-        // 1. Listen for changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthChange);
 
-        // 2. Immediate check for existing session
         const runImmediateCheck = async () => {
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
@@ -288,6 +348,9 @@ export default function OneSignalInit() {
 
         return () => {
             subscription.unsubscribe();
+            if (typeof window !== 'undefined') {
+                window.removeEventListener('push_notification_opened', onCustomPush);
+            }
         };
     }, []);
 

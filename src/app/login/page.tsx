@@ -49,8 +49,17 @@ export default function LoginPage() {
       const user = sessionData.user;
       const userRole = user?.user_metadata?.role || 'employee';
 
+      // Check for pending push route
+      const pendingRoute = typeof window !== 'undefined' ? localStorage.getItem('pending_push_route') : null;
+      let target = userRole === 'client' ? '/portal' : '/dashboard';
+      if (pendingRoute && userRole !== 'client') {
+        try {
+          localStorage.removeItem('pending_push_route');
+        } catch (e) {}
+        target = pendingRoute;
+      }
+
       // Hard redirect to ensure cookies are included in request
-      const target = userRole === 'client' ? '/portal' : '/dashboard';
       window.location.replace(target);
     } catch (err) {
       setServerError('Unexpected error. Please try again.');

@@ -46,7 +46,8 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
             data: {
                 ...(params.data || {}),
                 route: targetUrl,
-                url: targetUrl
+                url: targetUrl,
+                targetUrl: targetUrl,
             },
             target_channel: "push",
             android_accent_color: "EAB308",        // Branding color (Yellow)
@@ -58,6 +59,7 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
             android_vibration: true,               // Enable vibration to help wake device
             android_group_alert_behavior: 1,       // Alert once for group
             ttl: 259200,                           // 3 days TTL
+            ...(targetUrl ? { app_url: targetUrl } : {}),
         };
 
         // AUTHENTICATION HEADER

@@ -66,6 +66,9 @@ export default function RootLayout({
                 if (route) {
                   localStorage.setItem('pending_push_route', route);
                   console.log('💾 Stored pending route in localStorage:', route);
+                  try {
+                    window.dispatchEvent(new CustomEvent('push_notification_opened', { detail: data }));
+                  } catch (e) {}
                 }
               }
               

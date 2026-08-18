@@ -16,7 +16,14 @@ export default function Home() {
         // Check if there's a pending deep link redirect waiting
         const pendingRoute = typeof window !== 'undefined' ? localStorage.getItem('pending_push_route') : null;
         if (pendingRoute) {
-          console.log('🏁 Deep link detected in page.tsx, allowing OneSignalInit to handle it');
+          console.log('🏁 Deep link detected in page.tsx, navigating to:', pendingRoute);
+          localStorage.removeItem('pending_push_route');
+          if (user) {
+            router.replace(pendingRoute);
+          } else {
+            localStorage.setItem('pending_push_route', pendingRoute);
+            router.replace('/login');
+          }
           return;
         }
 
