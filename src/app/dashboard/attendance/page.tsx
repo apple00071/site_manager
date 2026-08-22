@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
@@ -51,6 +52,7 @@ interface Leave {
 }
 
 export default function AttendancePage() {
+    const searchParams = useSearchParams();
     const { user, isAdmin } = useAuth();
     const { hasPermission } = useUserPermissions();
     const { showToast } = useToast();
@@ -58,6 +60,28 @@ export default function AttendancePage() {
 
     // Tabs
     const [activeTab, setActiveTab] = useState<'attendance' | 'leaves'>('attendance');
+
+    // Sync tab and filterDate from searchParams (Deep link support)
+    useEffect(() => {
+        const tab = searchParams?.get('tab');
+        if (tab === 'leaves') {
+            setActiveTab('leaves');
+        } else if (tab === 'attendance') {
+            setActiveTab('attendance');
+        }
+
+        const dateParam = searchParams?.get('date');
+        if (dateParam) {
+            setFilterDate(dateParam);
+            try {
+                const parsed = new Date(dateParam);
+                if (!isNaN(parsed.getTime())) {
+                    setFilterMonth(parsed.getMonth());
+                    setFilterYear(parsed.getFullYear());
+                }
+            } catch (e) {}
+        }
+    }, [searchParams]);
 
     // Set header title
     useEffect(() => {

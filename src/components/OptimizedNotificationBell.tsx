@@ -57,6 +57,7 @@ const getNotificationUrl = (type: string, relatedId?: string | null, relatedType
     case 'leave_created':
     case 'leave_approved':
     case 'leave_rejected':
+      return `${baseUrl}/attendance?tab=leaves`;
     case 'attendance_appealed':
     case 'attendance_approved':
     case 'attendance_rejected':

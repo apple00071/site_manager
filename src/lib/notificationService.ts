@@ -97,10 +97,12 @@ export class NotificationService {
       case 'leave_created':
       case 'leave_approved':
       case 'leave_rejected':
+        return `${baseUrl}/attendance?tab=leaves`;
       case 'attendance_appealed':
       case 'attendance_approved':
       case 'attendance_rejected':
-        return `${baseUrl}/attendance`;
+        const attDate = metadata?.date;
+        return attDate ? `${baseUrl}/attendance?tab=attendance&date=${attDate}` : `${baseUrl}/attendance`;
       case 'site_log_submitted':
         return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=dlogs` : undefined;
       case 'report_generated':
@@ -584,6 +586,7 @@ export class NotificationService {
       title: 'Attendance Appeal Submitted',
       message: `${employeeName} has submitted an attendance appeal for ${date}. Please review it in the dashboard.`,
       type: 'attendance_appealed',
+      metadata: { date },
     });
   }
 
@@ -593,6 +596,7 @@ export class NotificationService {
       title: 'Attendance Approved',
       message: `Your attendance record for ${date} has been approved.`,
       type: 'attendance_approved',
+      metadata: { date },
     });
   }
 
@@ -602,6 +606,7 @@ export class NotificationService {
       title: 'Attendance Rejected',
       message: `Your attendance record for ${date} has been rejected.${reason ? ` Reason: ${reason}` : ''}`,
       type: 'attendance_rejected',
+      metadata: { date },
     });
   }
 }

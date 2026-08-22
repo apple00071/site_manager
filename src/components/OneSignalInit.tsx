@@ -72,12 +72,24 @@ export default function OneSignalInit() {
     const navigateToRoute = (route: string) => {
         if (!route) return;
         console.log('🎯 [OneSignalInit] Navigating to target route:', route);
-        try {
-            localStorage.removeItem('pending_push_route');
-        } catch (e) {}
+        
+        if (typeof window !== 'undefined') {
+            try {
+                localStorage.setItem('pending_push_route', route);
+            } catch (e) {}
+
+            // If currently at root splash, replace directly
+            if (window.location.pathname === '/') {
+                router.replace(route);
+                return;
+            }
+        }
 
         try {
             router.push(route);
+            setTimeout(() => {
+                try { localStorage.removeItem('pending_push_route'); } catch (e) {}
+            }, 3000);
         } catch (e) {
             window.location.href = route;
         }
