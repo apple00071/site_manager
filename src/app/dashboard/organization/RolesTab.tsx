@@ -131,13 +131,21 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         notifications: ['Payment received', 'Payment approved']
     },
     {
-        module: 'Suppliers',
-        icon: '🏭',
+        module: 'Vendors & Contract Workers',
+        icon: '👷',
         permissions: [
-            { id: 'supplier.view', label: 'View suppliers' },
-            { id: 'supplier.create', label: 'Create suppliers' }
+            { id: 'vendors.view', label: 'View vendors and contract workers' },
+            { id: 'vendors.create', label: 'Register new vendors/subcontractors' },
+            { id: 'vendors.edit', label: 'Edit vendor details' },
+            { id: 'vendors.delete', label: 'Delete vendors' },
+            { id: 'workers.create', label: 'Register contract workers' },
+            { id: 'workers.edit', label: 'Edit worker details & wages' },
+            { id: 'workers.delete', label: 'Delete contract workers' },
+            { id: 'workers.assign', label: 'Assign workers to project sites' },
+            { id: 'supplier.view', label: 'View material suppliers' },
+            { id: 'supplier.create', label: 'Create material suppliers' }
         ],
-        notifications: []
+        notifications: ['Worker assigned', 'Vendor registered']
     },
     {
         module: 'Snag & Audit',
@@ -280,7 +288,7 @@ const MODULE_PREFIX_MAP: Record<string, string[]> = {
     'Orders': ['order.', 'orders.'],
     'Invoices': ['invoice.', 'invoices.'],
     'Payments': ['payment.', 'payments.'],
-    'Suppliers': ['supplier.', 'suppliers.'],
+    'Vendors & Contract Workers': ['vendor.', 'vendors.', 'worker.', 'workers.', 'supplier.', 'suppliers.'],
     'Snag & Audit': ['snag.', 'snags.'],
     'Daily Site Logs': ['site_logs.'],
     'Updates': ['update.', 'updates.'],

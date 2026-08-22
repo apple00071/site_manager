@@ -57,9 +57,20 @@ export const PERMISSION_NODES = {
     PAYMENTS_EDIT: 'payments.edit',
     PAYMENTS_DELETE: 'payments.delete',
 
-    // Supplier Permissions
+    // Supplier & Vendor Permissions
     SUPPLIERS_VIEW: 'suppliers.view',
     SUPPLIERS_CREATE: 'suppliers.create',
+    VENDORS_VIEW: 'vendors.view',
+    VENDORS_CREATE: 'vendors.create',
+    VENDORS_EDIT: 'vendors.edit',
+    VENDORS_DELETE: 'vendors.delete',
+
+    // Contract Workers Permissions
+    WORKERS_VIEW: 'workers.view',
+    WORKERS_CREATE: 'workers.create',
+    WORKERS_EDIT: 'workers.edit',
+    WORKERS_DELETE: 'workers.delete',
+    WORKERS_ASSIGN: 'workers.assign',
 
     // Inventory Permissions
     INVENTORY_VIEW: 'inventory.view',

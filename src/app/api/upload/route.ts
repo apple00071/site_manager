@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate that the bucket is one of our allowed buckets
-    const allowedBuckets = ['project-update-photos', 'inventory-bills', 'design-files', 'project-update-voices'];
+    const allowedBuckets = ['project-update-photos', 'inventory-bills', 'design-files', 'project-update-voices', 'worker-documents', 'employee-documents'];
     if (!allowedBuckets.includes(bucket)) {
       return NextResponse.json({ error: 'Invalid bucket' }, { status: 400 });
     }
