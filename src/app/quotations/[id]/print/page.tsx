@@ -281,8 +281,17 @@ export default function QuotationPrintPage() {
     sections[item.section].push(item);
   });
 
-  const discountAmt = quotation.subtotal - quotation.final_amount;
-  const hasDiscount = quotation.discount_type !== 'none' && quotation.discount_value > 0;
+  const subtotal = Number(quotation.subtotal) || 0;
+  const discType = quotation.discount_type || 'none';
+  const discVal = Number(quotation.discount_value) || 0;
+  let discountAmt = 0;
+  if (discType === 'percent') discountAmt = (subtotal * discVal) / 100;
+  else if (discType === 'flat') discountAmt = discVal;
+  const taxableAmount = Math.max(0, subtotal - discountAmt);
+  const gstRate = Number(quotation.gst_rate) || 0;
+  const gstAmount = Number(quotation.gst_amount) || (gstRate > 0 ? (taxableAmount * gstRate) / 100 : 0);
+  const hasDiscount = discType !== 'none' && (discVal > 0 || discountAmt > 0);
+  const hasGst = gstRate > 0 || gstAmount > 0;
   const printDate = new Date(quotation.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   return (
@@ -584,6 +593,17 @@ export default function QuotationPrintPage() {
                 );
               })}
 
+              {(hasDiscount || hasGst) && (
+                <tr style={{ background: '#f8fafc' }}>
+                  <td colSpan={6} style={{ textAlign: 'right', padding: '5px 8px', fontWeight: 600 }}>
+                    Subtotal
+                  </td>
+                  <td style={{ textAlign: 'right', padding: '5px 6px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    {fmt(subtotal)}
+                  </td>
+                </tr>
+              )}
+
               {hasDiscount && (
                 <tr style={{ background: '#fff8e1' }}>
                   <td colSpan={6} style={{ textAlign: 'right', padding: '5px 8px', fontStyle: 'italic', color: '#cc4444' }}>
@@ -595,8 +615,35 @@ export default function QuotationPrintPage() {
                 </tr>
               )}
 
+              {hasDiscount && hasGst && (
+                <tr style={{ background: '#f8fafc' }}>
+                  <td colSpan={6} style={{ textAlign: 'right', padding: '5px 8px', fontWeight: 600, color: '#555' }}>
+                    Taxable Amount
+                  </td>
+                  <td style={{ textAlign: 'right', padding: '5px 6px', fontWeight: 600, color: '#555', whiteSpace: 'nowrap' }}>
+                    {fmt(taxableAmount)}
+                  </td>
+                </tr>
+              )}
+
+              {hasGst && (
+                <tr style={{ background: '#f0fdf4' }}>
+                  <td colSpan={6} style={{ textAlign: 'right', padding: '5px 8px', fontWeight: 600, color: '#16a34a' }}>
+                    GST ({gstRate}%)
+                  </td>
+                  <td style={{ textAlign: 'right', padding: '5px 6px', color: '#16a34a', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    + {fmt(gstAmount)}
+                  </td>
+                </tr>
+              )}
+
               <tr className="grand-total">
-                <td colSpan={6} className="lbl">GRAND TOTAL &nbsp;<span style={{ fontSize: '8pt', fontWeight: 400 }}>(Exclusive of GST)</span></td>
+                <td colSpan={6} className="lbl">
+                  GRAND TOTAL &nbsp;
+                  <span style={{ fontSize: '8pt', fontWeight: 400 }}>
+                    {hasGst ? `(Inclusive of ${gstRate}% GST)` : '(Exclusive of GST)'}
+                  </span>
+                </td>
                 <td className="val">{fmt(quotation.final_amount)}</td>
               </tr>
             </tbody>
@@ -655,7 +702,11 @@ export default function QuotationPrintPage() {
             <div className="section-heading" style={{ marginTop: 0 }}>TERMS & CONDITIONS</div>
             <div style={{ padding: '8px 10px' }}>
               <ol className="terms-list">
-                {TERMS.map((t, i) => <li key={i}>{t}</li>)}
+                {TERMS.map((t, i) => (
+                  <li key={i}>
+                    {i === 6 ? (hasGst ? `Quotation is inclusive of ${gstRate}% GST.` : t) : t}
+                  </li>
+                ))}
               </ol>
             </div>
 

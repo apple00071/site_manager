@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
-  const { lead_id, items, discount_type, discount_value, notes, material_specs } = body;
+  const { lead_id, items, discount_type, discount_value, gst_rate, gst_amount, notes, material_specs } = body;
 
   if (!lead_id || !Array.isArray(items)) {
     return NextResponse.json({ error: 'lead_id and items required' }, { status: 400 });
@@ -47,10 +47,14 @@ export async function POST(request: NextRequest) {
   const subtotal = items.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
   const discType = discount_type || 'none';
   const discVal = Number(discount_value) || 0;
-  let finalAmount = subtotal;
-  if (discType === 'percent') finalAmount = subtotal - (subtotal * discVal) / 100;
-  else if (discType === 'flat') finalAmount = subtotal - discVal;
-  finalAmount = Math.max(0, finalAmount);
+  let taxableAmount = subtotal;
+  if (discType === 'percent') taxableAmount = subtotal - (subtotal * discVal) / 100;
+  else if (discType === 'flat') taxableAmount = subtotal - discVal;
+  taxableAmount = Math.max(0, taxableAmount);
+
+  const gstR = Number(gst_rate) || 0;
+  const gstAmt = gst_amount !== undefined && gst_amount !== null ? Number(gst_amount) : (gstR > 0 ? Math.round((taxableAmount * gstR) / 100) : 0);
+  const finalAmount = Math.max(0, taxableAmount + gstAmt);
 
   // Insert quotation
   const { data: quotation, error: qErr } = await supabaseAdmin
@@ -61,6 +65,8 @@ export async function POST(request: NextRequest) {
       subtotal,
       discount_type: discType,
       discount_value: discVal,
+      gst_rate: gstR,
+      gst_amount: gstAmt,
       final_amount: finalAmount,
       notes: notes || '',
       material_specs: material_specs || null,
@@ -109,7 +115,7 @@ export async function PUT(request: NextRequest) {
   if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
-  const { id, lead_id, items, discount_type, discount_value, notes, material_specs } = body;
+  const { id, lead_id, items, discount_type, discount_value, gst_rate, gst_amount, notes, material_specs } = body;
 
   if (!id || !lead_id || !Array.isArray(items)) {
     return NextResponse.json({ error: 'id, lead_id and items required' }, { status: 400 });
@@ -119,10 +125,14 @@ export async function PUT(request: NextRequest) {
   const subtotal = items.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
   const discType = discount_type || 'none';
   const discVal = Number(discount_value) || 0;
-  let finalAmount = subtotal;
-  if (discType === 'percent') finalAmount = subtotal - (subtotal * discVal) / 100;
-  else if (discType === 'flat') finalAmount = subtotal - discVal;
-  finalAmount = Math.max(0, finalAmount);
+  let taxableAmount = subtotal;
+  if (discType === 'percent') taxableAmount = subtotal - (subtotal * discVal) / 100;
+  else if (discType === 'flat') taxableAmount = subtotal - discVal;
+  taxableAmount = Math.max(0, taxableAmount);
+
+  const gstR = Number(gst_rate) || 0;
+  const gstAmt = gst_amount !== undefined && gst_amount !== null ? Number(gst_amount) : (gstR > 0 ? Math.round((taxableAmount * gstR) / 100) : 0);
+  const finalAmount = Math.max(0, taxableAmount + gstAmt);
 
   // Update existing quotation
   const { data: quotation, error: qErr } = await supabaseAdmin
@@ -131,6 +141,8 @@ export async function PUT(request: NextRequest) {
       subtotal,
       discount_type: discType,
       discount_value: discVal,
+      gst_rate: gstR,
+      gst_amount: gstAmt,
       final_amount: finalAmount,
       notes: notes || '',
       material_specs: material_specs || null,

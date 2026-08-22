@@ -138,9 +138,11 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
   const [items, setItems] = useState<QuotationItem[]>([]);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
-  // Summary / discount
+  // Summary / discount / GST
   const [discountType, setDiscountType] = useState<'none' | 'percent' | 'flat'>('none');
   const [discountValue, setDiscountValue] = useState('');
+  const [gstRate, setGstRate] = useState<number>(0);
+  const [customGstValue, setCustomGstValue] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [materialSpecs, setMaterialSpecs] = useState<Record<string, string>>(DEFAULT_MATERIAL_SPECS);
 
@@ -169,6 +171,14 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
         setSelectedQuoteId(latest.id);
         setDiscountType(latest.discount_type || 'none');
         setDiscountValue(latest.discount_value ? String(latest.discount_value) : '');
+        const loadedGst = latest.gst_rate != null ? Number(latest.gst_rate) : 0;
+        if (loadedGst && ![0, 5, 12, 18, 28].includes(loadedGst)) {
+          setGstRate(-1);
+          setCustomGstValue(String(loadedGst));
+        } else {
+          setGstRate(loadedGst);
+          setCustomGstValue('');
+        }
         setNotes(latest.notes || '');
         setMaterialSpecs(latest.material_specs || DEFAULT_MATERIAL_SPECS);
 
@@ -212,6 +222,14 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
     setSelectedQuoteId(selected.id);
     setDiscountType(selected.discount_type || 'none');
     setDiscountValue(selected.discount_value ? String(selected.discount_value) : '');
+    const loadedGst = selected.gst_rate != null ? Number(selected.gst_rate) : 0;
+    if (loadedGst && ![0, 5, 12, 18, 28].includes(loadedGst)) {
+      setGstRate(-1);
+      setCustomGstValue(String(loadedGst));
+    } else {
+      setGstRate(loadedGst);
+      setCustomGstValue('');
+    }
     setNotes(selected.notes || '');
     setMaterialSpecs(selected.material_specs || DEFAULT_MATERIAL_SPECS);
 
@@ -339,7 +357,19 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
     return 0;
   }, [subtotal, discountType, discountValue]);
 
-  const finalAmount = Math.max(0, subtotal - discountAmount);
+  const taxableAmount = Math.max(0, subtotal - discountAmount);
+
+  const effectiveGstRate = useMemo(() => {
+    if (gstRate === -1) return parseFloat(customGstValue) || 0;
+    return gstRate;
+  }, [gstRate, customGstValue]);
+
+  const gstAmount = useMemo(() => {
+    if (effectiveGstRate <= 0) return 0;
+    return (taxableAmount * effectiveGstRate) / 100;
+  }, [taxableAmount, effectiveGstRate]);
+
+  const finalAmount = Math.max(0, taxableAmount + gstAmount);
 
   const sectionTotals = useMemo(() => {
     const map: Record<string, number> = {};
@@ -365,6 +395,8 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
         items: finalOrderedItems.map(({ _key, ...rest }) => rest),
         discount_type: discountType,
         discount_value: parseFloat(discountValue) || 0,
+        gst_rate: effectiveGstRate,
+        gst_amount: gstAmount,
         notes,
         material_specs: materialSpecs,
       };
@@ -925,10 +957,93 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                 </div>
               </div>
 
-              {/* Final */}
+              {/* GST Tax Configuration */}
+              <div style={styles.discountBlock}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={styles.discountTitle}>GST Tax Option</div>
+                  {effectiveGstRate > 0 && (
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#16a34a' }}>
+                      {effectiveGstRate === 18 ? '9% CGST + 9% SGST' : `${effectiveGstRate}% GST`}
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                  {[
+                    { label: 'None (0%)', val: 0 },
+                    { label: '5%', val: 5 },
+                    { label: '12%', val: 12 },
+                    { label: '18% (Standard)', val: 18 },
+                    { label: '28%', val: 28 },
+                    { label: 'Custom', val: -1 },
+                  ].map(opt => {
+                    const isSelected = gstRate === opt.val;
+                    return (
+                      <button
+                        key={opt.label}
+                        type="button"
+                        onClick={() => {
+                          setGstRate(opt.val);
+                          if (opt.val !== -1) setCustomGstValue('');
+                        }}
+                        style={{
+                          padding: '5px 10px',
+                          borderRadius: '6px',
+                          border: isSelected ? '2px solid #f5c518' : '1px solid #e2e8f0',
+                          background: isSelected ? '#fffbeb' : '#f8fafc',
+                          color: isSelected ? '#92400e' : '#475569',
+                          fontWeight: isSelected ? 700 : 500,
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {gstRate === -1 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                    <input
+                      style={{ ...styles.discountInput, width: '120px' }}
+                      type="number"
+                      placeholder="Custom %"
+                      value={customGstValue}
+                      onChange={e => setCustomGstValue(e.target.value)}
+                    />
+                    <span style={{ fontSize: '12px', color: '#64748b' }}>% GST</span>
+                  </div>
+                )}
+                {effectiveGstRate > 0 && gstAmount > 0 && (
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: '#16a34a', fontWeight: 600, display: 'flex', justifyContent: 'space-between' }}>
+                    <span>GST ({effectiveGstRate}%):</span>
+                    <span>+ {fmt(gstAmount)}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Final Breakdown */}
               <div style={styles.finalBlock}>
-                <span style={styles.finalLabel}>Grand Total (Ex. GST)</span>
-                <span style={styles.finalAmount}>{fmt(finalAmount)}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
+                  {(discountAmount > 0 || effectiveGstRate > 0) && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#888' }}>
+                      <span>Taxable Value:</span>
+                      <span>{fmt(taxableAmount)}</span>
+                    </div>
+                  )}
+                  {effectiveGstRate > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#16a34a' }}>
+                      <span>GST ({effectiveGstRate}%):</span>
+                      <span>+ {fmt(gstAmount)}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', paddingTop: (discountAmount > 0 || effectiveGstRate > 0) ? '6px' : '0', borderTop: (discountAmount > 0 || effectiveGstRate > 0) ? '1px solid rgba(255,255,255,0.15)' : 'none' }}>
+                    <span style={styles.finalLabel}>
+                      Grand Total {effectiveGstRate > 0 ? `(Incl. ${effectiveGstRate}% GST)` : '(Excl. GST)'}
+                    </span>
+                    <span style={styles.finalAmount}>{fmt(finalAmount)}</span>
+                  </div>
+                </div>
               </div>
 
               {/* Payment schedule preview */}
@@ -970,7 +1085,8 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
           <div style={{ fontSize: '12px', color: '#888' }}>
             {items.length} items · {fmt(subtotal)}
             {discountAmount > 0 && ` − ${fmt(discountAmount)} disc`}
-            {discountAmount > 0 && ` = ${fmt(finalAmount)}`}
+            {effectiveGstRate > 0 && ` + ${fmt(gstAmount)} GST`}
+            {` = ${fmt(finalAmount)}`}
           </div>
           <div className="qb-footer-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {existingQuotation && (

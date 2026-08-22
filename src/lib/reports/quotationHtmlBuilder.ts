@@ -15,9 +15,17 @@ export function buildQuotationHtmlString(quotation: any, lead: any): string {
     : new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   const subtotal = quotation?.subtotal || lead?.quote_value || 0;
-  const finalAmount = quotation?.final_amount || subtotal;
-  const discountAmt = subtotal - finalAmount;
-  const hasDiscount = quotation?.discount_type !== 'none' && (quotation?.discount_value > 0 || discountAmt > 0);
+  const discType = quotation?.discount_type || 'none';
+  const discVal = Number(quotation?.discount_value) || 0;
+  let discountAmt = 0;
+  if (discType === 'percent') discountAmt = (subtotal * discVal) / 100;
+  else if (discType === 'flat') discountAmt = discVal;
+  const taxableAmount = Math.max(0, subtotal - discountAmt);
+  const gstRate = Number(quotation?.gst_rate) || 0;
+  const gstAmount = Number(quotation?.gst_amount) || (gstRate > 0 ? (taxableAmount * gstRate) / 100 : 0);
+  const finalAmount = quotation?.final_amount != null ? Number(quotation.final_amount) : Math.max(0, taxableAmount + gstAmount);
+  const hasDiscount = discType !== 'none' && (discVal > 0 || discountAmt > 0);
+  const hasGst = gstRate > 0 || gstAmount > 0;
 
   const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
@@ -159,18 +167,32 @@ export function buildQuotationHtmlString(quotation: any, lead: any): string {
 
         <table style="margin-top: 10px;">
           <tbody>
-            ${hasDiscount ? `
+            ${(hasDiscount || hasGst) ? `
               <tr>
                 <td style="text-align: right; padding: 4px 6px; font-weight: 600;">Subtotal:</td>
-                <td style="width: 120px; text-align: right; padding: 4px 6px; font-weight: 600;">${fmt(subtotal)}</td>
+                <td style="width: 140px; text-align: right; padding: 4px 6px; font-weight: 600;">${fmt(subtotal)}</td>
               </tr>
+            ` : ''}
+            ${hasDiscount ? `
               <tr>
-                <td style="text-align: right; padding: 4px 6px; color: #e53e3e; font-weight: 600;">Discount:</td>
-                <td style="width: 120px; text-align: right; padding: 4px 6px; color: #e53e3e; font-weight: 600;">-${fmt(discountAmt)}</td>
+                <td style="text-align: right; padding: 4px 6px; color: #e53e3e; font-weight: 600;">Discount ${discType === 'percent' ? `(${discVal}%)` : '(Flat)'}:</td>
+                <td style="width: 140px; text-align: right; padding: 4px 6px; color: #e53e3e; font-weight: 600;">-${fmt(discountAmt)}</td>
+              </tr>
+              ${hasGst ? `
+                <tr>
+                  <td style="text-align: right; padding: 4px 6px; font-weight: 600; color: #555;">Taxable Amount:</td>
+                  <td style="width: 140px; text-align: right; padding: 4px 6px; font-weight: 600; color: #555;">${fmt(taxableAmount)}</td>
+                </tr>
+              ` : ''}
+            ` : ''}
+            ${hasGst ? `
+              <tr>
+                <td style="text-align: right; padding: 4px 6px; color: #16a34a; font-weight: 600;">GST (${gstRate}%):</td>
+                <td style="width: 140px; text-align: right; padding: 4px 6px; color: #16a34a; font-weight: 600;">+${fmt(gstAmount)}</td>
               </tr>
             ` : ''}
             <tr class="grand-total">
-              <td class="lbl">GRAND TOTAL</td>
+              <td class="lbl">GRAND TOTAL ${hasGst ? `<span style="font-size: 8pt; font-weight: 400;">(Inclusive of ${gstRate}% GST)</span>` : `<span style="font-size: 8pt; font-weight: 400;">(Exclusive of GST)</span>`}</td>
               <td class="val">${fmt(finalAmount)}</td>
             </tr>
           </tbody>
@@ -240,7 +262,7 @@ export function buildQuotationHtmlString(quotation: any, lead: any): string {
             <li>Material once purchased cannot be cancelled.</li>
             <li>Final price may vary ±5–10% based on actual site measurements.</li>
             <li>Changes in design, materials or finishes will result in a corresponding revision of quote.</li>
-            <li>GST will be charged extra as applicable.</li>
+            <li>${hasGst ? `Quotation is inclusive of ${gstRate}% GST.` : 'GST will be charged extra as applicable.'}</li>
             <li>Validity of this quotation is 30 days from the date of issue.</li>
           </ol>
 
