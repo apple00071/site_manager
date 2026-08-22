@@ -219,28 +219,20 @@ export async function POST(request: NextRequest) {
                 );
             } else {
                 // If it's a global snag, notify all admins & HR
-                const { data: allUsers } = await supabaseAdmin
-                    .from('users')
-                    .select('id, role, designation')
-                    .eq('is_active', true);
+                const adminAndHrIds = await NotificationService.getAdminAndHrUserIds();
                     
-                const adminsAndHr = allUsers?.filter((u: any) => u.role === 'admin' || u.designation?.toLowerCase().includes('hr')) || [];
+                const notifyIds = adminAndHrIds
+                    .filter((id: string) => id !== user.id && id !== assigned_to_user_id);
                     
-                if (adminsAndHr) {
-                    const notifyIds = adminsAndHr
-                        .map((u: { id: string }) => u.id)
-                        .filter((id: string) => id !== user.id && id !== assigned_to_user_id);
-                        
-                    await Promise.allSettled(
-                        notifyIds.map((id: string) => NotificationService.notifySnagCreated(
-                            id,
-                            description,
-                            contextName,
-                            data.id,
-                            false
-                        ))
-                    );
-                }
+                await Promise.allSettled(
+                    notifyIds.map((id: string) => NotificationService.notifySnagCreated(
+                        id,
+                        description,
+                        contextName,
+                        data.id,
+                        false
+                    ))
+                );
             }
         } catch (notifError) {
             console.error('Error sending snag creation notifications:', notifError);

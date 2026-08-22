@@ -92,12 +92,7 @@ export async function POST(request: NextRequest) {
 
         // Notify admins & HR
         try {
-            const { data: allUsers } = await supabaseAdmin
-                .from('users')
-                .select('id, role, designation')
-                .eq('is_active', true);
-
-            const adminsAndHr = allUsers?.filter((u: any) => u.role === 'admin' || u.designation?.toLowerCase().includes('hr')) || [];
+            const adminAndHrIds = await NotificationService.getAdminAndHrUserIds();
 
             const { data: requester } = await supabaseAdmin
                 .from('users')
@@ -107,10 +102,10 @@ export async function POST(request: NextRequest) {
 
             const requesterName = requester?.full_name || 'Unknown User';
 
-            if (adminsAndHr) {
-                await Promise.all(adminsAndHr.map((u: any) =>
+            if (adminAndHrIds.length > 0) {
+                await Promise.all(adminAndHrIds.map((adminId: string) =>
                     NotificationService.notifyLeaveCreated(
-                        u.id,
+                        adminId,
                         leave_type,
                         start_date,
                         end_date,

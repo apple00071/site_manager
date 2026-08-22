@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { FiPlus, FiFilter, FiSearch, FiMoreVertical, FiEdit2, FiTrash2, FiFileText, FiCheck, FiX, FiEye, FiUser } from 'react-icons/fi';
@@ -42,6 +43,8 @@ const MONTHS = [
 ];
 
 export default function OfficeExpensesPage() {
+    const searchParams = useSearchParams();
+    const expenseIdParam = searchParams?.get('expenseId');
     const { user, isAdmin } = useAuth();
     const { hasPermission } = useUserPermissions();
     const { setTitle, setSubtitle } = useHeaderTitle();
@@ -87,6 +90,27 @@ export default function OfficeExpensesPage() {
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
+
+    // Deep link handling for expenseId
+    useEffect(() => {
+        if (expenseIdParam) {
+            setSelectedMonth('all');
+            setStatusFilter('all');
+        }
+    }, [expenseIdParam]);
+
+    useEffect(() => {
+        if (expenseIdParam && expenses.length > 0) {
+            const targeted = expenses.find(e => e.id === expenseIdParam);
+            if (targeted) {
+                if (canApprove) {
+                    setApprovingExpense(targeted);
+                } else {
+                    setEditingExpense(targeted);
+                }
+            }
+        }
+    }, [expenseIdParam, expenses, canApprove]);
 
     useEffect(() => {
         fetchExpenses();

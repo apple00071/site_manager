@@ -224,13 +224,15 @@ export async function PATCH(request: NextRequest) {
                     await NotificationService.notifyExpenseApproved(
                         existing.user_id,
                         existing.description,
-                        existing.amount
+                        existing.amount,
+                        id
                     );
                 } else if (status === 'rejected') {
                     await NotificationService.notifyExpenseRejected(
                         existing.user_id,
                         existing.description,
-                        existing.amount
+                        existing.amount,
+                        id
                     );
                 }
             }
@@ -337,13 +339,7 @@ export async function POST(request: NextRequest) {
 
         // --- NOTIFICATIONS ---
         try {
-            // Notify all admins & HR
-            const { data: allUsers } = await supabaseAdmin
-                .from('users')
-                .select('id, role, designation')
-                .eq('is_active', true);
-
-            const adminsAndHr = allUsers?.filter((u: any) => u.role === 'admin' || u.designation?.toLowerCase().includes('hr')) || [];
+            const adminAndHrIds = await NotificationService.getAdminAndHrUserIds();
 
             const { data: requester } = await supabaseAdmin
                 .from('users')
@@ -353,14 +349,14 @@ export async function POST(request: NextRequest) {
 
             const requesterName = requester?.full_name || 'Unknown User';
 
-            if (adminsAndHr && adminsAndHr.length > 0) {
-                // Unified notifications
-                await Promise.all(adminsAndHr.map((u: { id: string }) =>
+            if (adminAndHrIds.length > 0) {
+                await Promise.all(adminAndHrIds.map((adminId: string) =>
                     NotificationService.notifyExpenseCreated(
-                        u.id,
+                        adminId,
                         description,
                         amount,
-                        requesterName
+                        requesterName,
+                        expense.id
                     )
                 ));
             }

@@ -62,6 +62,7 @@ export class NotificationService {
       case 'snag_assigned':
       case 'snag_resolved':
       case 'snag_verified':
+      case 'snag_comment':
         if (relatedType === 'project' && relatedId) {
           const snagId = metadata?.snagId;
           return `${baseUrl}/projects/${relatedId}?stage=snag${snagId ? `&snagId=${snagId}` : ''}`;
@@ -84,15 +85,17 @@ export class NotificationService {
       case 'invoice_created':
       case 'invoice_approved':
       case 'invoice_rejected':
+        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=orders&tab=client_invoices` : `${baseUrl}/projects`;
       case 'proposal_sent':
       case 'proposal_approved':
       case 'proposal_rejected':
+        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=orders&tab=proposals` : `${baseUrl}/projects`;
       case 'payment_recorded':
-        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=orders` : `${baseUrl}/tasks?category=proposals`;
+        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=orders&tab=payments_from_client` : `${baseUrl}/projects`;
       case 'expense_created':
       case 'expense_approved':
       case 'expense_rejected':
-        const oId = metadata?.expenseId || metadata?.itemId;
+        const oId = metadata?.expenseId || metadata?.itemId || relatedId;
         return oId ? `${baseUrl}/office-expenses?expenseId=${oId}` : `${baseUrl}/office-expenses`;
       case 'leave_created':
       case 'leave_approved':
@@ -104,9 +107,9 @@ export class NotificationService {
         const attDate = metadata?.date;
         return attDate ? `${baseUrl}/attendance?tab=attendance&date=${attDate}` : `${baseUrl}/attendance`;
       case 'site_log_submitted':
-        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=dlogs` : undefined;
+        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=daily_logs` : undefined;
       case 'report_generated':
-        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=reports` : undefined;
+        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress` : undefined;
       default:
         return undefined;
     }
@@ -281,57 +284,69 @@ export class NotificationService {
     });
   }
 
-  static async notifyProposalSent(userId: string, proposalTitle: string, projectName: string) {
+  static async notifyProposalSent(userId: string, proposalTitle: string, projectName: string, projectId?: string) {
     return this.createNotification({
       userId,
       title: 'Proposal Sent to Client',
       message: `Project: ${projectName}\nProposal: ${proposalTitle}\n\nThe proposal has been successfully shared with the client for review.`,
       type: 'proposal_sent',
+      relatedId: projectId,
+      relatedType: projectId ? 'project' : undefined,
     });
   }
 
-  static async notifyProposalApproved(userId: string, proposalTitle: string, projectName: string) {
+  static async notifyProposalApproved(userId: string, proposalTitle: string, projectName: string, projectId?: string) {
     return this.createNotification({
       userId,
       title: 'Proposal Approved',
       message: `Project: ${projectName}\nProposal: ${proposalTitle}\n\nGreat news! The client has approved the proposal.`,
       type: 'proposal_approved',
+      relatedId: projectId,
+      relatedType: projectId ? 'project' : undefined,
     });
   }
 
-  static async notifyProposalRejected(userId: string, proposalTitle: string, projectName: string) {
+  static async notifyProposalRejected(userId: string, proposalTitle: string, projectName: string, projectId?: string) {
     return this.createNotification({
       userId,
       title: 'Proposal Update',
       message: `Project: ${projectName}\nProposal: ${proposalTitle}\n\nThe client has requested some changes to the proposal. Please review the details.`,
       type: 'proposal_rejected',
+      relatedId: projectId,
+      relatedType: projectId ? 'project' : undefined,
     });
   }
 
-  static async notifyInvoiceCreated(userId: string, invoiceNumber: string, projectName: string, amount: number) {
+  static async notifyInvoiceCreated(userId: string, invoiceNumber: string, projectName: string, amount: number, projectId?: string) {
     return this.createNotification({
       userId,
       title: 'New Invoice Generated',
       message: `Project: ${projectName}\nInvoice: ${invoiceNumber}\nAmount: ₹${amount}\n\nThe invoice is now available for your review.`,
       type: 'invoice_created',
+      relatedId: projectId,
+      relatedType: projectId ? 'project' : undefined,
     });
   }
 
-  static async notifyInvoiceApproved(userId: string, invoiceNumber: string, projectName: string) {
+  static async notifyInvoiceApproved(userId: string, invoiceNumber: string, projectName: string, projectId?: string) {
     return this.createNotification({
       userId,
       title: 'Invoice Approved',
       message: `Invoice ${invoiceNumber} for project "${projectName}" has been approved. Thank you!`,
       type: 'invoice_approved',
+      relatedId: projectId,
+      relatedType: projectId ? 'project' : undefined,
     });
   }
 
-  static async notifyInvoiceRejected(userId: string, invoiceNumber: string, projectName: string) {
+  static async notifyInvoiceRejected(userId: string, invoiceNumber: string, projectName: string, projectId?: string) {
     return this.createNotification({
       userId,
       title: 'Invoice Review Feedback',
       message: `Invoice ${invoiceNumber} for project "${projectName}" requires some corrections. Please review the feedback.`,
       type: 'invoice_rejected',
+      relatedId: projectId,
+      relatedType: projectId ? 'project' : undefined,
     });
   }
 
@@ -477,31 +492,61 @@ export class NotificationService {
     });
   }
 
-  static async notifySiteLogSubmitted(userId: string, projectName: string, creatorName: string) {
+  static async notifySiteLogSubmitted(userId: string, projectName: string, creatorName: string, projectId?: string) {
     return this.createNotification({
       userId,
       title: 'New Site Log Submitted',
       message: `${creatorName} has just submitted the Daily Site Log / DPR for project "${projectName}". You can review it in the dashboard.`,
       type: 'site_log_submitted',
+      relatedId: projectId,
+      relatedType: projectId ? 'project' : undefined,
     });
   }
 
-  static async notifyReportGenerated(userId: string, projectName: string, reportDate: string, pdfUrl?: string) {
+  static async notifyReportGenerated(userId: string, projectName: string, reportDate: string, pdfUrl?: string, projectId?: string) {
     return this.createNotification({
       userId,
       title: 'DPR Report Generated',
       message: `Project: ${projectName}\n\nThe latest progress report for ${reportDate} is now available for review.${pdfUrl ? `\n\nView PDF: ${pdfUrl}` : ''}`,
       type: 'report_generated',
+      relatedId: projectId,
+      relatedType: projectId ? 'project' : undefined,
     });
   }
 
-  static async notifyPaymentRecorded(userId: string, projectName: string, amount: number) {
+  static async notifyPaymentRecorded(userId: string, projectName: string, amount: number, projectId?: string) {
     return this.createNotification({
       userId,
       title: 'Payment Confirmation',
       message: `Project: ${projectName}\nAmount: ₹${amount}\n\nA new payment has been successfully recorded for this project.`,
       type: 'payment_recorded',
+      relatedId: projectId,
+      relatedType: projectId ? 'project' : undefined,
     });
+  }
+
+  /**
+   * Helper to fetch all Admin and HR user IDs across the organization
+   */
+  static async getAdminAndHrUserIds(): Promise<string[]> {
+    try {
+      const { data: allUsers } = await supabaseAdmin
+        .from('users')
+        .select('id, role, designation, roles(name)')
+        .eq('is_active', true);
+
+      const adminsAndHr = allUsers?.filter((u: any) => {
+        const role = u.role?.toLowerCase() || '';
+        const des = u.designation?.toLowerCase() || '';
+        const roleName = u.roles?.name?.toLowerCase() || '';
+        return role === 'admin' || des.includes('admin') || des.includes('hr') || roleName.includes('admin') || roleName.includes('hr');
+      }) || [];
+
+      return adminsAndHr.map((u: any) => u.id);
+    } catch (error) {
+      console.error('Error fetching admin/HR users:', error);
+      return [];
+    }
   }
 
   /**

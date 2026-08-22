@@ -54,21 +54,12 @@ export async function POST(request: NextRequest) {
 
         // Notify Admins & HR
         try {
-            const { data: allUsers } = await supabaseAdmin
-                .from('users')
-                .select('id, role, designation')
-                .eq('is_active', true);
-
-            const adminsAndHr = allUsers?.filter((u: any) => u.role === 'admin' || u.designation?.toLowerCase().includes('hr')) || [];
-
+            const adminAndHrIds = await NotificationService.getAdminAndHrUserIds();
             const employeeName = userResult.user.user_metadata?.full_name || 'An employee';
             const date = data.date;
 
-            if (adminsAndHr) {
-                const recipients = adminsAndHr as { id: string }[];
-                for (const recipient of recipients) {
-                    await NotificationService.notifyAttendanceAppealed(recipient.id, employeeName, date);
-                }
+            for (const adminId of adminAndHrIds) {
+                await NotificationService.notifyAttendanceAppealed(adminId, employeeName, date);
             }
         } catch (notifyError) {
             console.error('Failed to send appeal notification:', notifyError);
