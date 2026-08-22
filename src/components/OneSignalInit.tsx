@@ -94,13 +94,27 @@ export default function OneSignalInit() {
         }
     };
 
+    async function getCapacitorOneSignal(timeoutMs = 6000): Promise<any> {
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+            const OneSignal = (window as any).plugins?.OneSignal 
+                           || (window as any).OneSignalCordovaPlugin 
+                           || (window as any).OneSignal;
+            if (OneSignal) return OneSignal;
+            try {
+                const mod: any = (await import('onesignal-cordova-plugin')).default;
+                if (mod) return mod;
+            } catch (e) {}
+            await new Promise(r => setTimeout(r, 300));
+        }
+        return null;
+    }
+
     async function linkCapacitorUser(user: any) {
         if (!Capacitor.isNativePlatform() || !user?.id) return;
         
         try {
-            const OneSignal = (window as any).plugins?.OneSignal 
-                           || (window as any).OneSignalCordovaPlugin 
-                           || (window as any).OneSignal;
+            const OneSignal = await getCapacitorOneSignal();
             
             if (!OneSignal) {
                 console.error("❌ OneSignalInit: Plugin not available for user link");
@@ -287,26 +301,22 @@ export default function OneSignalInit() {
 
         // 4. Immediately initialize Native OneSignal and attach click listener
         if (Capacitor.isNativePlatform()) {
-            try {
-                const OneSignal = (window as any).plugins?.OneSignal 
-                               || (window as any).OneSignalCordovaPlugin 
-                               || (window as any).OneSignal;
-
+            getCapacitorOneSignal().then((OneSignal) => {
                 if (OneSignal) {
                     const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || 'd800d582-08b8-431c-bb19-59a08f7f5379';
                     console.log("📲 [OneSignalInit] Early initialize with App ID:", appId);
-                    OneSignal.initialize(appId);
-
-                    // Add click listener immediately so cold-start click replays are never missed
-                    OneSignal.Notifications.addEventListener('click', handlePushPayload);
-
-                    // Request permission (Android 13+ & iOS)
-                    OneSignal.Notifications.requestPermission(true).catch(() => {});
-                    try { OneSignal.Notifications.clearAll(); } catch (e) {}
+                    try {
+                        OneSignal.initialize(appId);
+                        OneSignal.Notifications.addEventListener('click', handlePushPayload);
+                        OneSignal.Notifications.requestPermission(true).catch(() => {});
+                        try { OneSignal.Notifications.clearAll(); } catch (e) {}
+                    } catch (err) {
+                        console.warn("⚠️ Early OneSignal setup warning:", err);
+                    }
                 }
-            } catch (err) {
-                console.warn("⚠️ Early OneSignal setup warning:", err);
-            }
+            }).catch((err) => {
+                console.warn("⚠️ Early OneSignal setup error:", err);
+            });
         }
 
         // 5. Auth State Change Listener (for linking user ID)

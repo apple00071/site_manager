@@ -39,6 +39,10 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
         }
 
         const targetUrl = params.targetUrl || params.url;
+        // Only set app_url / url top-level if it's a valid absolute URL (starts with http:// or https://)
+        // OneSignal API rejects notifications with HTTP 400 if app_url is a relative path.
+        const isAbsoluteUrl = targetUrl && (targetUrl.startsWith('http://') || targetUrl.startsWith('https://'));
+
         const basePayload: any = {
             app_id: appId,
             headings: { en: params.title },
@@ -59,7 +63,7 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
             android_vibration: true,               // Enable vibration to help wake device
             android_group_alert_behavior: 1,       // Alert once for group
             ttl: 259200,                           // 3 days TTL
-            ...(targetUrl ? { app_url: targetUrl } : {}),
+            ...(isAbsoluteUrl ? { app_url: targetUrl, url: targetUrl } : {}),
         };
 
         // AUTHENTICATION HEADER
@@ -68,7 +72,7 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
             : `Basic ${apiKey}`;
 
         // Helper to fire a single OneSignal request
-        const fireRequest = async (payload: any, label: string): Promise<{ success: boolean; recipients: number }> => {
+        const fireRequest = async (payload: any, label: string): Promise<{ success: boolean; id?: string }> => {
             if (DEBUG_ENABLED) {
                 console.log(`📲 OneSignal Payload (${label}):`, JSON.stringify(payload, null, 2));
             }
@@ -84,28 +88,26 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
 
             const result = await response.json();
 
-            if (!response.ok) {
+            if (!response.ok || (Array.isArray(result.errors) && result.errors.length > 0)) {
                 console.error(`❌ OneSignal API Error (${label}):`, {
                     status: response.status,
                     statusText: response.statusText,
                     data: result
                 });
-                return { success: false, recipients: 0 };
+                return { success: false };
             }
 
             if (result.errors?.invalid_aliases) {
-                console.warn(`⚠️ OneSignal (${label}): invalid_aliases — device not registered:`,
+                console.warn(`⚠️ OneSignal (${label}): some aliases were inactive or invalid:`,
                     JSON.stringify(result.errors.invalid_aliases));
             }
 
-            const recipients = result.recipients || 0;
-            if (recipients > 0) {
-                console.log(`✅ OneSignal Push Sent (${label}) to ${recipients} device(s):`, result.id);
-            } else {
-                console.warn(`⚠️ OneSignal (${label}): 0 recipients.`);
+            if (result.id) {
+                console.log(`✅ OneSignal Push Accepted (${label}) Notification ID:`, result.id);
+                return { success: true, id: result.id };
             }
 
-            return { success: true, recipients };
+            return { success: false };
         };
 
         // STRATEGY: Try external_id first, fallback to subscription_id.
@@ -114,7 +116,7 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
         const sendRequest = async (targetType: 'external_id' | 'subscription_id', targetIds: string[]) => {
             // Deduplicate and clean IDs
             const cleanIds = Array.from(new Set(targetIds.filter(id => id && typeof id === 'string' && id.trim().length > 0)));
-            if (cleanIds.length === 0) return { success: false, recipients: 0 };
+            if (cleanIds.length === 0) return { success: false };
 
             const payload = {
                 ...basePayload,
@@ -130,8 +132,8 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
         if (params.externalUserIds && params.externalUserIds.length > 0) {
             console.log('🎯 Attempt 1: Targeting via external_id:', params.externalUserIds);
             const result = await sendRequest('external_id', params.externalUserIds);
-            if (result.recipients > 0) {
-                return true; // Delivered successfully, no need to try subscription_id
+            if (result.success) {
+                return true; // Delivered successfully
             }
             console.warn('⚠️ external_id delivery failed, trying subscription_id fallback...');
         }
@@ -140,7 +142,7 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
         if (params.userIds && params.userIds.length > 0) {
             console.log('🎯 Attempt 2: Targeting via subscription_id:', params.userIds);
             const result = await sendRequest('subscription_id', params.userIds);
-            if (result.recipients > 0) {
+            if (result.success) {
                 return true;
             }
         }
