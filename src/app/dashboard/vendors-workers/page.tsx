@@ -1034,6 +1034,11 @@ export default function VendorsWorkersPage() {
                         <span className="bg-yellow-50 text-yellow-800 border border-yellow-200 font-medium px-2 py-0.5 rounded text-[11px]">
                           {vendor.trade_category || 'General'}
                         </span>
+                        {!!vendor.daily_wage && (
+                          <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium px-2 py-0.5 rounded text-[11px]">
+                            ₹{vendor.daily_wage}/{vendor.wage_type?.toLowerCase() || 'day'}
+                          </span>
+                        )}
                         <span className="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-[10px] flex items-center gap-1">
                           <FiUsers className="text-[10px]" /> {linkedWorkersCount} workers
                         </span>
@@ -1154,8 +1159,8 @@ export default function VendorsWorkersPage() {
             phone: '',
             trade: v.trade_category || 'Carpentry',
             skill_level: 'Skilled',
-            wage_type: 'Daily',
-            daily_wage: 800,
+            wage_type: v.wage_type || 'Daily',
+            daily_wage: v.daily_wage || 800,
             is_active: true,
           } as any);
           setWorkerModalOpen(true);

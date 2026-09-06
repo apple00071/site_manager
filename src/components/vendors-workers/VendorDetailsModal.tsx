@@ -145,6 +145,30 @@ export function VendorDetailsModal({
             )}
           </div>
 
+          {/* Wage & Payment Details */}
+          {(vendor.daily_wage || vendor.upi_id || vendor.wage_type) && (
+            <div className="md:col-span-2 p-3.5 rounded-lg border border-yellow-200 bg-yellow-50/40 space-y-2 text-xs">
+              <span className="text-[11px] font-semibold text-yellow-800 uppercase tracking-wider flex items-center gap-1">
+                <TbCurrencyRupee className="text-yellow-600 text-sm" /> Wage & Rate Information
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <span className="text-gray-500 block">Standard Rate / Wage:</span>
+                  <span className="font-bold text-gray-900 text-sm flex items-center gap-0.5">
+                    ₹{vendor.daily_wage || 0}
+                    <span className="text-xs font-normal text-gray-500">
+                      /{vendor.wage_type?.toLowerCase() || 'day'}
+                    </span>
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block">UPI ID (VPA):</span>
+                  <span className="font-mono font-semibold text-gray-800">{vendor.upi_id || '—'}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Banking details */}
           {(vendor.bank_name || vendor.bank_account_number) && (
             <div className="md:col-span-2 p-3.5 rounded-lg border border-gray-200 bg-gray-50/50 space-y-2 text-xs">
