@@ -226,7 +226,10 @@ export function WorkerRegistrationModal({
     try {
       const url = '/api/contract-workers';
       const method = isEditing ? 'PATCH' : 'POST';
-      const payload = isEditing ? { ...formData, id: initialData?.id } : formData;
+      const payload = {
+        ...(isEditing ? { ...formData, id: initialData?.id } : formData),
+        daily_wage: Number(formData.daily_wage) || 0,
+      };
 
       const res = await fetch(url, {
         method,
@@ -471,9 +474,9 @@ export function WorkerRegistrationModal({
                 <input
                   type="number"
                   min="0"
-                  step="50"
-                  value={formData.daily_wage || 0}
-                  onChange={(e) => handleChange('daily_wage', parseFloat(e.target.value) || 0)}
+                  step="any"
+                  value={formData.daily_wage ?? ''}
+                  onChange={(e) => handleChange('daily_wage', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
                   className="w-full pl-7 pr-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
                 />
               </div>
