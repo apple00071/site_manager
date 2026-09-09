@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Try fetching from the database
-    const { data, error } = await supabaseAdmin
+    const { data: leads, error } = await supabaseAdmin
       .from('quotation_leads')
       .select('*')
       .order('created_date', { ascending: true })
@@ -34,7 +34,51 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, data });
+    // Reconcile latest_quotation_id and quote_version from quotations table if missing
+    if (leads && leads.length > 0) {
+      const missingQuoteLeadIds = leads
+        .filter((l: any) => !l.latest_quotation_id)
+        .map((l: any) => l.id);
+
+      if (missingQuoteLeadIds.length > 0) {
+        try {
+          const { data: allQuotes } = await supabaseAdmin
+            .from('quotations')
+            .select('id, lead_id, version')
+            .in('lead_id', missingQuoteLeadIds)
+            .order('version', { ascending: false });
+
+          if (allQuotes && allQuotes.length > 0) {
+            const quoteByLead: Record<string, { id: string; version: number }> = {};
+            for (const q of allQuotes) {
+              if (!quoteByLead[q.lead_id]) {
+                quoteByLead[q.lead_id] = { id: q.id, version: q.version };
+              }
+            }
+
+            for (const l of leads) {
+              if (!l.latest_quotation_id && quoteByLead[l.id]) {
+                l.latest_quotation_id = quoteByLead[l.id].id;
+                l.quote_version = quoteByLead[l.id].version;
+
+                // Backfill in background to persist
+                void supabaseAdmin
+                  .from('quotation_leads')
+                  .update({
+                    latest_quotation_id: quoteByLead[l.id].id,
+                    quote_version: quoteByLead[l.id].version,
+                  })
+                  .eq('id', l.id);
+              }
+            }
+          }
+        } catch (reconcileErr) {
+          console.warn('Error reconciling quotations for CRM leads:', reconcileErr);
+        }
+      }
+    }
+
+    return NextResponse.json({ success: true, data: leads });
   } catch (err: any) {
     console.error('CRM GET API Error:', err);
     return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });

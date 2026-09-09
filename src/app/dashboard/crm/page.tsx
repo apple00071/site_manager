@@ -54,6 +54,17 @@ const parseLocalDate = (dateStr: string) => {
   return d;
 };
 
+// Determine quotation button label: show version if quotation exists, else 'Create Quotation'
+const getQuotationButtonLabel = (l?: Lead | null) => {
+  if (!l) return 'Quotation';
+  const hasExistingQuote = Boolean(
+    l.latest_quotation_id ||
+    (l.quote_version && l.quote_version > 0) ||
+    (l.quote_value && Number(l.quote_value) > 0 && l.status !== 'Draft')
+  );
+  return hasExistingQuote ? `Quotation (v${l.quote_version || 1})` : 'Create Quotation';
+};
+
 export default function CRMPage() {
   const { hasPermission } = useUserPermissions();
   const { user } = useAuth();
@@ -1699,7 +1710,7 @@ export default function CRMPage() {
                     {'📄 '} {(() => {
                       if (!selectedCell) return 'Quotation';
                       const lead = filteredLeads[selectedCell.rowIndex];
-                      return lead?.latest_quotation_id ? `Quotation (v${lead.quote_version || 1})` : 'Create Quotation';
+                      return getQuotationButtonLabel(lead);
                     })()}
                   </button>
 
@@ -2254,7 +2265,7 @@ export default function CRMPage() {
                     className="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg text-xs transition-all flex items-center gap-1.5 shadow-xs active:scale-95 cursor-pointer"
                   >
                     <span>📄</span>
-                    <span>{activeLead.latest_quotation_id ? `Quotation (v${activeLead.quote_version || 1})` : 'Create Quotation'}</span>
+                    <span>{getQuotationButtonLabel(activeLead)}</span>
                   </button>
 
                   {/* WhatsApp Dropdown */}
@@ -2631,11 +2642,19 @@ export default function CRMPage() {
         <QuotationBuilder
           lead={quotationLead}
           onClose={() => setQuotationLead(null)}
-          onSaved={(newQuoteValue) => {
+          onSaved={(newQuoteValue, quoteMeta) => {
+            const finalVal = typeof newQuoteValue === 'number' ? newQuoteValue : (newQuoteValue as any)?.final_amount;
             setLeads(prev => prev.map(l =>
-              l.id === quotationLead.id ? { ...l, quote_value: newQuoteValue } : l
+              l.id === quotationLead.id ? {
+                ...l,
+                quote_value: finalVal,
+                latest_quotation_id: quoteMeta?.id || l.latest_quotation_id,
+                quote_version: quoteMeta?.version || (l.quote_version ? l.quote_version + 1 : 1),
+                status: l.status === 'Draft' ? 'Sent' : l.status,
+              } : l
             ));
             setQuotationLead(null);
+            fetchLeads();
           }}
         />
       )}

@@ -42,7 +42,7 @@ interface Lead {
 interface Props {
   lead: Lead;
   onClose: () => void;
-  onSaved: (newQuoteValue: number) => void;
+  onSaved: (newQuoteValue: number, quotation?: { id: string; version: number }) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -417,7 +417,7 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
         setExistingQuotation(data.data);
       }
 
-      onSaved(finalAmount);
+      onSaved(finalAmount, data.data ? { id: data.data.id, version: data.data.version || 1 } : undefined);
       // Open print in new tab
       window.open(`/quotations/${data.data.id}/print`, '_blank');
     } catch (err: any) {
