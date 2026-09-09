@@ -98,7 +98,17 @@ function uploadToSignedUrl(
             if (xhr.status >= 200 && xhr.status < 300) {
                 resolve();
             } else {
-                reject(new Error(`Storage upload failed with status ${xhr.status}: ${xhr.statusText}`));
+                let errorMsg = `Storage upload failed with status ${xhr.status}: ${xhr.statusText}`;
+                try {
+                    const parsed = JSON.parse(xhr.responseText);
+                    if (parsed.message?.includes('exceeded the maximum allowed size') || parsed.statusCode === '413') {
+                        const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+                        errorMsg = `File "${(file as any).name || 'file'}" (${sizeMb} MB) exceeds the Supabase 50 MB upload limit on the Free Plan. Please compress the file or upgrade Supabase to Pro.`;
+                    } else if (parsed.message) {
+                        errorMsg = parsed.message;
+                    }
+                } catch {}
+                reject(new Error(errorMsg));
             }
         };
 
@@ -205,7 +215,13 @@ export async function uploadFile(
         .from(bucket)
         .upload(fileName, fileToUpload);
 
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+        if (uploadError.message?.includes('exceeded the maximum allowed size') || (uploadError as any)?.statusCode === '413') {
+            const sizeMb = (fileToUpload.size / (1024 * 1024)).toFixed(1);
+            throw new Error(`File "${fileToUpload.name}" (${sizeMb} MB) exceeds the Supabase 50 MB upload limit on the Free Plan. Please compress the file or upgrade Supabase to Pro.`);
+        }
+        throw uploadError;
+    }
 
     const { data: { publicUrl } } = supabase.storage
         .from(bucket)

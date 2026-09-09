@@ -102,19 +102,38 @@ const DesignUploadForm = ({ uploadForm, setUploadForm, onClose, onUpload, upload
       />
       {uploadForm.files.length > 0 && (
         <div className="mt-3 space-y-2">
-          {uploadForm.files.map((file, i) => (
-            <div key={i} className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-100 text-xs">
-              <span className="truncate flex-1 mr-2">{file.name}</span>
-              <button
-                type="button"
-                onClick={() => setUploadForm(prev => ({ ...prev, files: prev.files.filter((_, idx) => idx !== i) }))}
-                className="text-red-500 hover:text-red-700 !p-1 !min-w-0 !min-h-0"
-                style={{ minWidth: '0', minHeight: '0' }}
-              >
-                <FiX className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
+          {uploadForm.files.map((file, i) => {
+            const isTooLarge = file.size > 50 * 1024 * 1024;
+            const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+            return (
+              <div key={i} className={`flex items-center justify-between p-2 rounded border text-xs ${isTooLarge ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-100'}`}>
+                <div className="truncate flex-1 mr-2 flex items-center gap-1.5 min-w-0">
+                  <span className="truncate">{file.name}</span>
+                  <span className={`text-[11px] whitespace-nowrap font-medium ${isTooLarge ? 'text-red-600 font-bold' : 'text-gray-400'}`}>
+                    ({sizeMb} MB)
+                  </span>
+                  {isTooLarge && (
+                    <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap">
+                      Exceeds 50MB Limit
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUploadForm(prev => ({ ...prev, files: prev.files.filter((_, idx) => idx !== i) }))}
+                  className="text-red-500 hover:text-red-700 !p-1 !min-w-0 !min-h-0"
+                  style={{ minWidth: '0', minHeight: '0' }}
+                >
+                  <FiX className="w-4 h-4" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {uploadForm.files.some(f => f.size > 50 * 1024 * 1024) && (
+        <div className="mt-2 p-2.5 bg-amber-50 text-amber-900 rounded-lg text-xs border border-amber-200 leading-relaxed">
+          ⚠️ <strong>File size limit:</strong> Supabase Free Plan has a maximum limit of <strong>50 MB per file</strong>. Please compress PDFs over 50 MB before uploading, or upgrade the Supabase project to the Pro plan (up to 5GB).
         </div>
       )}
     </div>
@@ -167,7 +186,7 @@ const DesignUploadForm = ({ uploadForm, setUploadForm, onClose, onUpload, upload
       <button
         type="button"
         onClick={onUpload}
-        disabled={uploading || uploadForm.files.length === 0}
+        disabled={uploading || uploadForm.files.length === 0 || uploadForm.files.some(f => f.size > 50 * 1024 * 1024)}
         className="flex-1 btn-primary disabled:opacity-50"
       >
         {uploading ? 'Uploading...' : 'Upload'}
@@ -493,6 +512,14 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
 
     if (!uploadForm.category.trim()) {
       setFormError('Please enter a room/category name (e.g. Kitchen, Bedroom)');
+      return;
+    }
+
+    const oversizedFiles = uploadForm.files.filter(f => f.size > 50 * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      const first = oversizedFiles[0];
+      const sizeMb = (first.size / (1024 * 1024)).toFixed(1);
+      setFormError(`File "${first.name}" (${sizeMb} MB) exceeds the 50 MB upload limit on the Supabase Free plan. Please compress the file before uploading.`);
       return;
     }
     setUploading(true);
