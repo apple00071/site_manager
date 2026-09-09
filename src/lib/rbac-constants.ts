@@ -124,6 +124,9 @@ export const PERMISSION_NODES = {
     SETTINGS_EDIT: 'settings.edit',
     SETTINGS_WORKFLOWS: 'settings.workflows',
 
+    // Telemetry Permissions
+    TELEMETRY_VIEW: 'telemetry.view',
+
     // Task Permissions
     TASKS_VIEW: 'tasks.view',
     TASKS_CREATE: 'tasks.create',

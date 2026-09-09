@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
+import { verifyPermission } from '@/lib/rbac';
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET(req: Request) {
   try {
-    const { user: authUser, error: authError } = await getAuthUser();
+    const { user: authUser, error: authError, role } = await getAuthUser();
 
     if (authError || !authUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -20,29 +22,15 @@ export async function GET(req: Request) {
       );
     }
 
-    // Fetch user details including designation from database
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('*')
-      .eq('id', authUser.id)
-      .single();
-
-    if (userError || !user) {
-      return NextResponse.json(
-        { error: 'Forbidden. User profile not found.' },
-        { status: 403 }
-      );
-    }
-
-    // Authorization check: User must have 'IT' in their designation
-    const userDesignation = (user.designation || '').toLowerCase();
-    const isITUser = userDesignation.includes('it');
-
-    if (!isITUser) {
-      return NextResponse.json(
-        { error: 'Forbidden. Access restricted to IT users only.' },
-        { status: 403 }
-      );
+    // Authorization check: Admins always allowed, or check RBAC permission
+    if (role !== 'admin') {
+      const permCheck = await verifyPermission(authUser.id, PERMISSION_NODES.TELEMETRY_VIEW);
+      if (!permCheck.allowed) {
+        return NextResponse.json(
+          { error: 'Forbidden. App Telemetry permission required.' },
+          { status: 403 }
+        );
+      }
     }
 
     // 1. Live Active Users (last 5 minutes)

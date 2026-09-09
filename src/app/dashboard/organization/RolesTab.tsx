@@ -230,7 +230,8 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         permissions: [
             { id: 'settings.view', label: 'View settings' },
             { id: 'settings.edit', label: 'Edit settings' },
-            { id: 'settings.workflows', label: 'Manage workflows' }
+            { id: 'settings.workflows', label: 'Manage workflows' },
+            { id: 'telemetry.view', label: 'View App Telemetry' }
         ],
         notifications: []
     },
@@ -296,7 +297,7 @@ const MODULE_PREFIX_MAP: Record<string, string[]> = {
     'Finance': ['finance.'],
     'Expenses': ['inventory.'],
     'User & Role Management': ['user.', 'users.', 'role.'],
-    'Settings': ['settings.'],
+    'Settings': ['settings.', 'telemetry.'],
     'Office Expenses': ['office_expenses.'],
     'Attendance & Leaves': ['attendance.', 'leaves.'],
     'Payroll': ['payroll.']

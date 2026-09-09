@@ -13,6 +13,7 @@ import HydrationSafe from '@/components/HydrationSafe';
 import { HeaderTitleProvider, useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
 import AttendanceWidget from '@/components/attendance/AttendanceWidget';
 import PasswordChangeModal from '@/components/PasswordChangeModal';
 import NotepadDrawer from '@/components/notepad/NotepadDrawer';
@@ -47,9 +48,6 @@ function DashboardLayoutContent({
   const { user, isLoading, signOut, isAdmin } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Check if current user is an IT user
-  const userDesignation = (user?.designation || '').toLowerCase();
-  const isITUser = userDesignation.includes('it') || (user?.user_metadata?.designation || '').toLowerCase().includes('it');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -57,6 +55,7 @@ function DashboardLayoutContent({
   const router = useRouter();
   const pathname = usePathname();
   const { hasPermission, hasAnyPermission } = useUserPermissions();
+  const canViewTelemetry = isAdmin || hasPermission(PERMISSION_NODES.TELEMETRY_VIEW);
   const [searchQuery, setSearchQuery] = useState('');
   const [projects, setProjects] = useState<any[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -418,7 +417,7 @@ function DashboardLayoutContent({
                   <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Org</span>
                 </Link>
             )}
-            {isITUser && (
+            {canViewTelemetry && (
               <Link
                 href="/dashboard/telemetry"
                 className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"

@@ -28,9 +28,8 @@ export default function AdminTelemetryPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshCountdown, setRefreshCountdown] = useState(15);
 
-  // Check if current user is an IT admin
-  const userDesignation = (user?.user_metadata?.designation || '').toLowerCase();
-  const isITUser = isAdmin && userDesignation.includes('it');
+  // Check if current user is an admin
+  const isITUser = isAdmin;
 
   const fetchTelemetry = useCallback(async () => {
     if (!user || !isITUser) return;

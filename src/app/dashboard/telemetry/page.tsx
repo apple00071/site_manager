@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
 import { getRelativeTime } from '@/lib/dateUtils';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import {
@@ -21,7 +23,9 @@ import {
 } from 'react-icons/fi';
 
 export default function TelemetryPage() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isAdmin } = useAuth();
+  const { hasPermission } = useUserPermissions();
+  const canViewTelemetry = isAdmin || hasPermission(PERMISSION_NODES.TELEMETRY_VIEW);
   const router = useRouter();
   const { setTitle, setSubtitle } = useHeaderTitle();
 
@@ -43,10 +47,6 @@ export default function TelemetryPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshCountdown, setRefreshCountdown] = useState(15);
 
-  // Check if current user is an IT user
-  const userDesignation = (user?.designation || '').toLowerCase();
-  const isITUser = userDesignation.includes('it') || (user?.user_metadata?.designation || '').toLowerCase().includes('it');
-
   // Set header title
   useEffect(() => {
     setTitle('App Telemetry');
@@ -54,7 +54,7 @@ export default function TelemetryPage() {
   }, [setTitle, setSubtitle]);
 
   const fetchTelemetry = useCallback(async () => {
-    if (!user || !isITUser) return;
+    if (!user || !canViewTelemetry) return;
 
     try {
       const response = await fetch('/api/admin/telemetry', {
@@ -73,11 +73,11 @@ export default function TelemetryPage() {
     } finally {
       setLoadingData(false);
     }
-  }, [user, isITUser]);
+  }, [user, canViewTelemetry]);
 
   // Initial fetch and auto refresh
   useEffect(() => {
-    if (isLoading || !user || !isITUser) return;
+    if (isLoading || !user || !canViewTelemetry) return;
 
     fetchTelemetry();
 
@@ -97,7 +97,7 @@ export default function TelemetryPage() {
     return () => {
       if (countdownInterval) clearInterval(countdownInterval);
     };
-  }, [isLoading, user, isITUser, autoRefresh, fetchTelemetry]);
+  }, [isLoading, user, canViewTelemetry, autoRefresh, fetchTelemetry]);
 
   // Manual refresh trigger
   const handleManualRefresh = () => {
@@ -144,8 +144,8 @@ export default function TelemetryPage() {
     );
   }
 
-  // Gate page to IT designation users only
-  if (!isITUser) {
+  // Gate page to Admins or users with telemetry permission
+  if (!canViewTelemetry) {
     return (
       <div className="max-w-md mx-auto my-12 bg-white border border-gray-200 rounded-3xl p-8 shadow-mobile-lg text-center animate-scale-in">
         <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-50 text-red-500 mb-6 border border-red-100">
@@ -153,8 +153,8 @@ export default function TelemetryPage() {
         </div>
         <h1 className="text-xl font-extrabold text-gray-900 mb-2">Access Denied</h1>
         <p className="text-sm text-gray-500 mb-8 leading-relaxed">
-          This secure console is restricted strictly to users with the <strong className="font-semibold text-gray-800">IT Designation</strong>.
-          Your current designation ({user?.designation || 'None'}) does not have permission to view live app telemetry.
+          This secure console is restricted to administrators and users with the <strong className="font-semibold text-gray-800">View App Telemetry</strong> permission.
+          Your current account does not have permission to view live app telemetry.
         </p>
         <button
           onClick={() => router.push('/dashboard')}

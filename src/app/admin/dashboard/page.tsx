@@ -17,9 +17,8 @@ export default function AdminDashboard() {
   const [recentUsers, setRecentUsers] = useState<any[]>([]);
   const [dashboardLoading, setDashboardLoading] = useState(true);
 
-  // Check if current user is an IT admin
-  const userDesignation = (user?.user_metadata?.designation || '').toLowerCase();
-  const isITUser = isAdmin && userDesignation.includes('it');
+  // Check if current user is an admin
+  const isITUser = isAdmin;
 
   useEffect(() => {
     // Redirect if not admin
