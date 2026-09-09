@@ -103,7 +103,7 @@ function uploadToSignedUrl(
                     const parsed = JSON.parse(xhr.responseText);
                     if (parsed.message?.includes('exceeded the maximum allowed size') || parsed.statusCode === '413') {
                         const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
-                        errorMsg = `File "${(file as any).name || 'file'}" (${sizeMb} MB) exceeds the Supabase 50 MB upload limit on the Free Plan. Please compress the file or upgrade Supabase to Pro.`;
+                        errorMsg = `File "${(file as any).name || 'file'}" (${sizeMb} MB) exceeded Supabase's Global File Size Limit. Please increase the Global File Size Limit in Supabase Dashboard → Storage → Configuration.`;
                     } else if (parsed.message) {
                         errorMsg = parsed.message;
                     }
@@ -218,7 +218,7 @@ export async function uploadFile(
     if (uploadError) {
         if (uploadError.message?.includes('exceeded the maximum allowed size') || (uploadError as any)?.statusCode === '413') {
             const sizeMb = (fileToUpload.size / (1024 * 1024)).toFixed(1);
-            throw new Error(`File "${fileToUpload.name}" (${sizeMb} MB) exceeds the Supabase 50 MB upload limit on the Free Plan. Please compress the file or upgrade Supabase to Pro.`);
+            throw new Error(`File "${fileToUpload.name}" (${sizeMb} MB) exceeded Supabase's Global File Size Limit. Please increase the Global File Size Limit in Supabase Dashboard → Storage → Configuration.`);
         }
         throw uploadError;
     }
