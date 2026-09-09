@@ -208,7 +208,8 @@ export async function PATCH(
             );
         }
 
-        return NextResponse.json({ success: true, project: updatedProject }, { status: 200 });
+        const updatedProjectWithCode = await attachProjectCodes(updatedProject);
+        return NextResponse.json({ success: true, project: updatedProjectWithCode }, { status: 200 });
     } catch (err: any) {
         // During build, return a success response to prevent build failures
         if (isBuildContext) {

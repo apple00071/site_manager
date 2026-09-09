@@ -69,6 +69,9 @@ export type Project = {
     designation?: string;
   } | null;
   created_by: string;
+  created_at?: string;
+  project_code?: string | null;
+  ref_no?: string | null;
 };
 
 const UpdatesTab = dynamic(() => import('@/components/projects/UpdatesTab').then(m => m.UpdatesTab), { ssr: false, loading: () => <div className="p-6 space-y-4 animate-pulse"><div className="h-4 bg-gray-200 rounded w-1/4"></div><div className="h-32 bg-gray-100 rounded w-full"></div></div> });

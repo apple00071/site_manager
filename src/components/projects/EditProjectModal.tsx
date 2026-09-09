@@ -21,7 +21,7 @@ const formatProjectCode = (project: any): string => {
     if (project.project_code) return project.project_code;
     if (project.ref_no) return project.ref_no;
 
-    const dateStr = project.start_date || project.created_at;
+    const dateStr = project.created_at || project.start_date;
     const dateObj = dateStr ? new Date(dateStr) : new Date();
     const yearShort = !isNaN(dateObj.getTime()) ? dateObj.getFullYear().toString().slice(-2) : new Date().getFullYear().toString().slice(-2);
 

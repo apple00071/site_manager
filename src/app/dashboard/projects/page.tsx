@@ -159,6 +159,7 @@ export default function ProjectsPage() {
       const query = searchQuery.toLowerCase().trim();
       filtered = filtered.filter(p =>
         p.title?.toLowerCase().includes(query) ||
+        p.project_code?.toLowerCase().includes(query) ||
         p.customer_name?.toLowerCase().includes(query) ||
         p.flat_number?.toLowerCase().includes(query) ||
         p.phone_number?.includes(query)
@@ -339,9 +340,16 @@ export default function ProjectsPage() {
               >
                 <div className="flex flex-col gap-3">
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm sm:text-base font-semibold text-gray-900 truncate leading-tight">
-                      {project.title}
-                    </h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {project.project_code && (
+                        <span className="font-mono text-[11px] font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
+                          {project.project_code}
+                        </span>
+                      )}
+                      <h3 className="text-sm sm:text-base font-semibold text-gray-900 truncate leading-tight">
+                        {project.title}
+                      </h3>
+                    </div>
                     <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm">
                       <div>
                         <span className="text-gray-500">Customer:</span>
@@ -529,7 +537,14 @@ export default function ProjectsPage() {
                   </td>
  
                   <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-4 py-4 max-w-xs xl:max-w-sm whitespace-normal">
-                    <div className="text-sm font-semibold text-gray-900 break-all">{project.title}</div>
+                    <div className="flex items-center gap-2">
+                      {project.project_code && (
+                        <span className="font-mono text-[11px] font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 flex-shrink-0">
+                          {project.project_code}
+                        </span>
+                      )}
+                      <div className="text-sm font-semibold text-gray-900 break-words">{project.title}</div>
+                    </div>
                   </td>
                   <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{project.customer_name || 'N/A'}</div>

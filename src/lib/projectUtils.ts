@@ -15,10 +15,10 @@ export async function attachProjectCodes<T = any>(projectsData: T): Promise<T> {
       .order('created_at', { ascending: true });
 
     const codeMap = new Map<string, string>();
+    const yearCounters = new Map<string, number>();
     if (allProjectsMeta && allProjectsMeta.length > 0) {
-      const yearCounters = new Map<string, number>();
       allProjectsMeta.forEach((p: any) => {
-        const dateStr = p.start_date || p.created_at;
+        const dateStr = p.created_at || p.start_date;
         const d = dateStr ? new Date(dateStr) : new Date();
         const yy = !isNaN(d.getTime()) ? d.getFullYear().toString().slice(-2) : new Date().getFullYear().toString().slice(-2);
 
@@ -31,7 +31,12 @@ export async function attachProjectCodes<T = any>(projectsData: T): Promise<T> {
 
     const attachCode = (p: any) => {
       if (!p || typeof p !== 'object') return p;
-      const code = codeMap.get(p.id) || (p.created_at ? `AI/PRJ/${new Date(p.created_at).getFullYear().toString().slice(-2)}/01` : 'AI/PRJ/26/01');
+      const dateStr = p.created_at || p.start_date;
+      const d = dateStr ? new Date(dateStr) : new Date();
+      const yy = !isNaN(d.getTime()) ? d.getFullYear().toString().slice(-2) : new Date().getFullYear().toString().slice(-2);
+      const nextSeq = (yearCounters.get(yy) || 0) + 1;
+      const fallbackCode = `AI/PRJ/${yy}/${String(nextSeq).padStart(2, '0')}`;
+      const code = codeMap.get(p.id) || fallbackCode;
       return { ...p, project_code: code, ref_no: code };
     };
 
