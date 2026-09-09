@@ -1,4 +1,5 @@
 'use client';
+// ponytail: robust RBAC client hook with user-scoped sessionStorage and bidirectional singular/plural alias normalization
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,24 +19,70 @@ interface UseUserPermissionsReturn extends UserPermissions {
 }
 
 // Cache constants
-const CACHE_KEY = 'user_permissions_cache';
+const CACHE_PREFIX = 'user_permissions_cache_';
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-// Concurrency control: single promise for all in-flight permission requests
+// Concurrency control: single promise for in-flight permission requests
 let pendingPermissionsRequest: Promise<any> | null = null;
 
+// Bidirectional singular <-> plural alias map for permission prefixes
+const ALIAS_PREFIX_MAP: Record<string, string> = {
+    project: 'projects',
+    projects: 'project',
+    design: 'designs',
+    designs: 'design',
+    order: 'orders',
+    orders: 'order',
+    invoice: 'invoices',
+    invoices: 'invoice',
+    payment: 'payments',
+    payments: 'payment',
+    supplier: 'suppliers',
+    suppliers: 'supplier',
+    worker: 'workers',
+    workers: 'worker',
+    vendor: 'vendors',
+    vendors: 'vendor',
+    task: 'tasks',
+    tasks: 'task',
+    user: 'users',
+    users: 'user',
+    update: 'updates',
+    updates: 'update',
+    snag: 'snags',
+    snags: 'snag',
+    holiday: 'holidays',
+    holidays: 'holiday',
+    leave: 'leaves',
+    leaves: 'leave'
+};
+
+function getCodeVariants(code: string): string[] {
+    const variants = [code];
+    const dotIndex = code.indexOf('.');
+    if (dotIndex > 0) {
+        const prefix = code.slice(0, dotIndex);
+        const rest = code.slice(dotIndex + 1);
+        const alternatePrefix = ALIAS_PREFIX_MAP[prefix];
+        if (alternatePrefix) {
+            variants.push(`${alternatePrefix}.${rest}`);
+        }
+    }
+    return variants;
+}
+
 /**
- * Get permissions from sessionStorage
+ * Get permissions from sessionStorage scoped by user ID
  */
-function getCachedPermissions() {
-    if (typeof window === 'undefined') return null;
+function getCachedPermissions(userId?: string) {
+    if (typeof window === 'undefined' || !userId) return null;
     try {
-        const cached = sessionStorage.getItem(CACHE_KEY);
+        const cached = sessionStorage.getItem(`${CACHE_PREFIX}${userId}`);
         if (!cached) return null;
 
         const { data, timestamp } = JSON.parse(cached);
         if (Date.now() - timestamp > CACHE_DURATION) {
-            sessionStorage.removeItem(CACHE_KEY);
+            sessionStorage.removeItem(`${CACHE_PREFIX}${userId}`);
             return null;
         }
         return data;
@@ -45,12 +92,12 @@ function getCachedPermissions() {
 }
 
 /**
- * Save permissions to sessionStorage
+ * Save permissions to sessionStorage scoped by user ID
  */
-function setCachedPermissions(data: any) {
-    if (typeof window === 'undefined') return;
+function setCachedPermissions(userId: string, data: any) {
+    if (typeof window === 'undefined' || !userId) return;
     try {
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+        sessionStorage.setItem(`${CACHE_PREFIX}${userId}`, JSON.stringify({
             data,
             timestamp: Date.now()
         }));
@@ -63,35 +110,36 @@ function setCachedPermissions(data: any) {
  */
 export function useUserPermissions(): UseUserPermissionsReturn {
     const { user, isAdmin: authIsAdmin } = useAuth();
-    
+    const userId = user?.id;
+
     // Initialize state from cache if available for immediate UI response
-    const initialCache = getCachedPermissions();
-    
+    const initialCache = getCachedPermissions(userId);
+
     const [state, setState] = useState<UserPermissions>({
         permissions: initialCache?.permissions || {},
-        isAdmin: initialCache?.isAdmin || authIsAdmin || false,
+        isAdmin: initialCache?.isAdmin ?? authIsAdmin ?? false,
         isLoading: !initialCache && !!user,
         error: null,
     });
 
     const fetchPermissions = useCallback(async (forceRefresh = false) => {
-        if (!user) {
-            setState(prev => ({
-                ...prev,
+        if (!userId) {
+            setState({
                 permissions: {},
                 isAdmin: false,
                 isLoading: false,
-            }));
+                error: null,
+            });
             return;
         }
 
         // 1. Check cache first (unless forced)
         if (!forceRefresh) {
-            const cached = getCachedPermissions();
+            const cached = getCachedPermissions(userId);
             if (cached) {
                 setState({
-                    permissions: cached.permissions,
-                    isAdmin: cached.isAdmin,
+                    permissions: cached.permissions || {},
+                    isAdmin: cached.isAdmin || false,
                     isLoading: false,
                     error: null
                 });
@@ -111,14 +159,13 @@ export function useUserPermissions(): UseUserPermissionsReturn {
                 });
                 return;
             } catch (err) {
-                // If the shared request fails, we'll fall through to our own retry below
+                // If shared request fails, fall through to own fetch
             }
         }
 
         try {
             setState(prev => ({ ...prev, isLoading: true, error: null }));
 
-            // Create the shared promise
             const fetchPromise = fetch('/api/rbac/user-permissions').then(async res => {
                 if (!res.ok) throw new Error('Failed to fetch permissions');
                 return res.json();
@@ -127,8 +174,8 @@ export function useUserPermissions(): UseUserPermissionsReturn {
 
             const data = await fetchPromise;
 
-            // 3. Update cache
-            setCachedPermissions({
+            // 3. Update cache scoped by userId
+            setCachedPermissions(userId, {
                 permissions: data.permissions || {},
                 isAdmin: data.isAdmin || false
             });
@@ -149,25 +196,39 @@ export function useUserPermissions(): UseUserPermissionsReturn {
         } finally {
             pendingPermissionsRequest = null;
         }
-    }, [user]);
+    }, [userId]);
 
     useEffect(() => {
         fetchPermissions();
     }, [fetchPermissions]);
 
+    // Listen for custom permissions-updated event (e.g., when roles/permissions are saved in RolesTab)
+    useEffect(() => {
+        const handleUpdate = () => {
+            fetchPermissions(true);
+        };
+        window.addEventListener('permissions-updated', handleUpdate);
+        return () => window.removeEventListener('permissions-updated', handleUpdate);
+    }, [fetchPermissions]);
+
     /**
      * Check if user has a specific permission.
      * Admin users always return true.
+     * Checks both direct code and singular/plural aliases, as well as wildcards.
      */
     const hasPermission = useCallback((code: string): boolean => {
         if (state.isAdmin || state.permissions['*']) return true;
-        if (state.permissions[code]) return true;
+        if (!code) return false;
 
-        // Check for wildcard permissions (e.g. 'snags.*' matches 'snags.edit')
-        const parts = code.split('.');
-        if (parts.length > 1) {
-            const wildcardCode = `${parts[0]}.*`;
-            if (state.permissions[wildcardCode]) return true;
+        const variants = getCodeVariants(code);
+        for (const variant of variants) {
+            if (state.permissions[variant]) return true;
+
+            const parts = variant.split('.');
+            if (parts.length > 1) {
+                const wildcardCode = `${parts[0]}.*`;
+                if (state.permissions[wildcardCode]) return true;
+            }
         }
 
         return false;
@@ -194,18 +255,28 @@ export function useUserPermissions(): UseUserPermissionsReturn {
         hasPermission,
         hasAnyPermission,
         hasAllPermissions,
-        refetch: fetchPermissions,
+        refetch: () => fetchPermissions(true),
     };
 }
 
 /**
- * Clear the permissions cache.
+ * Clear permissions cache.
  * Call this when user logs out or role changes.
  */
-export function clearPermissionsCache() {
+export function clearPermissionsCache(userId?: string) {
     if (typeof window !== 'undefined') {
         try {
-            sessionStorage.removeItem(CACHE_KEY);
+            if (userId) {
+                sessionStorage.removeItem(`${CACHE_PREFIX}${userId}`);
+            } else {
+                for (let i = sessionStorage.length - 1; i >= 0; i--) {
+                    const key = sessionStorage.key(i);
+                    if (key && (key.startsWith(CACHE_PREFIX) || key === 'user_permissions_cache')) {
+                        sessionStorage.removeItem(key);
+                    }
+                }
+            }
         } catch { }
     }
 }
+

@@ -81,6 +81,7 @@ export const PERMISSION_NODES = {
     INVENTORY_APPROVE_BILL: 'inventory.approve_bill',
     INVENTORY_REJECT_BILL: 'inventory.reject_bill',
     INVENTORY_RESUBMIT_BILL: 'inventory.resubmit_bill',
+    INVENTORY_REMOVE: 'inventory.remove',
 
     // Update Permissions (Work Progress)
     UPDATES_VIEW: 'updates.view',
@@ -97,6 +98,7 @@ export const PERMISSION_NODES = {
     SNAGS_VIEW_ALL: 'snags.view_all',
     SNAGS_CREATE: 'snags.create',
     SNAGS_UPDATE: 'snags.update',
+    SNAGS_EDIT: 'snags.edit',
     SNAGS_RESOLVE: 'snags.resolve',
     SNAGS_VERIFY: 'snags.verify',
 
@@ -147,6 +149,7 @@ export const PERMISSION_NODES = {
     LEAVES_VIEW: 'leaves.view',
     LEAVES_APPLY: 'leaves.apply',
     LEAVES_APPROVE: 'leaves.approve',
+    LEAVES_MANAGE: 'leaves.manage',
 
     // Attendance Approval
     ATTENDANCE_APPROVE: 'attendance.approve',
@@ -156,6 +159,14 @@ export const PERMISSION_NODES = {
     // CRM Permissions
     CRM_VIEW: 'crm.view',
     CRM_MANAGE: 'crm.manage',
+
+    // Procurement (Legacy)
+    PROCUREMENT_VIEW: 'procurement.view',
+    PROCUREMENT_CREATE_PO: 'procurement.create_po',
+    PROCUREMENT_APPROVE_PO: 'procurement.approve_po',
+    PROCUREMENT_CREATE_INVOICE: 'procurement.create_invoice',
+    PROCUREMENT_APPROVE_INVOICE: 'procurement.approve_invoice',
+    PROCUREMENT_CREATE_PAYMENT: 'procurement.create_payment',
 } as const;
 
 export type PermissionNode = typeof PERMISSION_NODES[keyof typeof PERMISSION_NODES];

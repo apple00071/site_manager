@@ -15,10 +15,10 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Get user's role_id from the users table
+        // Get user's role and role_id from the users table
         const { data: userData, error: userError } = await supabaseAdmin
             .from('users')
-            .select('role, role_id')
+            .select('role, role_id, roles(name)')
             .eq('id', user.id)
             .single();
 
@@ -26,8 +26,12 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
-        // Admin users have all permissions
-        if (userData.role === 'admin') {
+        // Admin users have all permissions (check role string or roles table name)
+        const isAdmin = 
+            userData.role?.toLowerCase() === 'admin' || 
+            (userData.roles as any)?.name?.toLowerCase() === 'admin';
+
+        if (isAdmin) {
             return NextResponse.json({
                 permissions: { '*': true },
                 isAdmin: true

@@ -72,10 +72,11 @@ export async function getAuthUser() {
     if (supabaseAdmin) {
       const { data: userData } = await supabaseAdmin
         .from('users')
-        .select('role')
+        .select('role, role_id, roles(name)')
         .eq('id', user.id)
         .single();
-      role = userData?.role || null;
+      const rawRole = userData?.role || (userData?.roles as any)?.name || null;
+      role = rawRole ? rawRole.toLowerCase() : null;
     }
 
     return { user, supabase, error: null, role };

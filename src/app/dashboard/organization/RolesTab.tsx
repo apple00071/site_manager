@@ -33,43 +33,35 @@ interface PermissionLevel {
 }
 
 import { PERMISSION_NODES } from '@/lib/rbac-constants';
+import { clearPermissionsCache } from '@/hooks/useUserPermissions';
 
 // Module permissions based on granular RBAC system
-// Permission IDs map to PERMISSION_NODES in src/lib/rbac-constants.ts
-// NOTE: prefixes array includes both singular and plural forms to match DB permissions
+// Permission IDs map to actual database permission codes (projects.*, designs.*, etc.)
 const MODULE_PERMISSIONS: ModulePermission[] = [
     {
         module: 'Project Management',
         icon: '📋',
         permissions: [
-            { id: 'project.view', label: 'View projects' },
-            { id: 'project.view_all', label: 'View all projects (not just assigned)' },
-            { id: 'project.view_budget', label: 'View project budget and financials' },
-            { id: 'project.edit', label: 'Edit project details' },
-            { id: 'project.create', label: 'Create new projects' },
-            { id: 'project.delete', label: 'Delete projects' }
+            { id: 'projects.view', label: 'View projects' },
+            { id: 'projects.view_all', label: 'View all projects (not just assigned)' },
+            { id: 'projects.view_budget', label: 'View project budget and financials' },
+            { id: 'projects.create', label: 'Create new projects' },
+            { id: 'projects.edit', label: 'Edit project details' },
+            { id: 'projects.delete', label: 'Delete projects' },
+            { id: 'projects.assign', label: 'Assign projects to team members' }
         ],
         notifications: ['Project updates', 'Project comments']
-    },
-    {
-        module: 'Site Visit',
-        icon: '🏗️',
-        permissions: [
-            { id: 'site_visit.view', label: 'View site visit reports' },
-            { id: 'site_visit.create', label: 'Create and upload site visits' },
-            { id: 'site_visit.approve', label: 'Approve site visit reports (without create)' }
-        ],
-        notifications: ['Site visit creation', 'Site visit start', 'Site visit update']
     },
     {
         module: 'Design',
         icon: '🎨',
         permissions: [
-            { id: 'design.view_approved', label: 'View approved designs only' },
-            { id: 'design.view_all', label: 'View all designs' },
-            { id: 'design.upload', label: 'Upload design files' },
-            { id: 'design.approve', label: 'Approve/Reject designs (without upload)' },
-            { id: 'design.freeze', label: 'Freeze/Unfreeze designs' }
+            { id: 'designs.view', label: 'View design files' },
+            { id: 'designs.upload', label: 'Upload design files' },
+            { id: 'designs.approve', label: 'Approve/Reject designs' },
+            { id: 'designs.freeze', label: 'Freeze/Unfreeze designs' },
+            { id: 'designs.comment', label: 'Comment on designs' },
+            { id: 'designs.delete', label: 'Delete design files' }
         ],
         notifications: ['Design approve', 'Design freeze', 'New version uploaded', 'New version external uploaded']
     },
@@ -78,9 +70,10 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         icon: '📊',
         permissions: [
             { id: 'boq.view', label: 'View BOQ items' },
-            { id: 'boq.create', label: 'Create and edit BOQ items' },
-            { id: 'boq.import', label: 'Import BOQ from Excel' },
-            { id: 'boq.approve', label: 'Approve BOQ items (without create)' }
+            { id: 'boq.create', label: 'Create BOQ items' },
+            { id: 'boq.edit', label: 'Edit BOQ items' },
+            { id: 'boq.delete', label: 'Delete BOQ items' },
+            { id: 'boq.import', label: 'Import BOQ from Excel' }
         ],
         notifications: ['BOQ created', 'BOQ updated', 'BOQ approved']
     },
@@ -88,9 +81,12 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         module: 'Proposals',
         icon: '📝',
         permissions: [
-            { id: 'proposal.view', label: 'View proposals' },
-            { id: 'proposal.create', label: 'Create and send proposals' },
-            { id: 'proposal.approve', label: 'Approve/Reject proposals (without create)' }
+            { id: 'proposals.view', label: 'View proposals' },
+            { id: 'proposals.create', label: 'Create proposals' },
+            { id: 'proposals.send', label: 'Send proposals to clients' },
+            { id: 'proposals.approve', label: 'Approve proposals' },
+            { id: 'proposals.reject', label: 'Reject proposals' },
+            { id: 'proposals.delete', label: 'Delete proposals' }
         ],
         notifications: ['Proposal rejected', 'Proposal sent', 'Proposal approved']
     },
@@ -98,11 +94,10 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         module: 'Orders',
         icon: '🛒',
         permissions: [
-            { id: 'order.view', label: 'View orders' },
-            { id: 'order.create', label: 'Create purchase orders' },
-            { id: 'order.edit', label: 'Edit orders' },
-            { id: 'order.delete', label: 'Delete orders' },
-            { id: 'order.approve', label: 'Approve purchase orders' }
+            { id: 'orders.view', label: 'View purchase orders' },
+            { id: 'orders.create', label: 'Create purchase orders' },
+            { id: 'orders.edit', label: 'Edit purchase orders' },
+            { id: 'orders.delete', label: 'Delete purchase orders' }
         ],
         notifications: ['Order created', 'Order approved']
     },
@@ -110,11 +105,11 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         module: 'Invoices',
         icon: '🧾',
         permissions: [
-            { id: 'invoice.view', label: 'View invoices' },
-            { id: 'invoice.create', label: 'Create invoices' },
-            { id: 'invoice.edit', label: 'Edit invoices' },
-            { id: 'invoice.approve', label: 'Approve invoices' },
-            { id: 'invoice.delete', label: 'Delete invoices' }
+            { id: 'invoices.view', label: 'View invoices' },
+            { id: 'invoices.create', label: 'Create invoices' },
+            { id: 'invoices.edit', label: 'Edit invoices' },
+            { id: 'invoices.approve', label: 'Approve invoices' },
+            { id: 'invoices.delete', label: 'Delete invoices' }
         ],
         notifications: ['Invoice created', 'Invoice approved']
     },
@@ -122,13 +117,25 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         module: 'Payments',
         icon: '💰',
         permissions: [
-            { id: 'payment.view', label: 'View payments' },
-            { id: 'payment.create', label: 'Record payments' },
-            { id: 'payment.edit', label: 'Edit payments' },
-            { id: 'payment.delete', label: 'Delete payments' },
-            { id: 'payment.approve', label: 'Approve payments' }
+            { id: 'payments.view', label: 'View payments' },
+            { id: 'payments.create', label: 'Record payments' },
+            { id: 'payments.edit', label: 'Edit payments' },
+            { id: 'payments.delete', label: 'Delete payments' }
         ],
         notifications: ['Payment received', 'Payment approved']
+    },
+    {
+        module: 'Procurement (Legacy)',
+        icon: '📦',
+        permissions: [
+            { id: 'procurement.view', label: 'View procurement data' },
+            { id: 'procurement.create_po', label: 'Create purchase orders (procurement)' },
+            { id: 'procurement.approve_po', label: 'Approve purchase orders (procurement)' },
+            { id: 'procurement.create_invoice', label: 'Create invoices (procurement)' },
+            { id: 'procurement.approve_invoice', label: 'Approve invoices (procurement)' },
+            { id: 'procurement.create_payment', label: 'Record payments (procurement)' }
+        ],
+        notifications: []
     },
     {
         module: 'Vendors & Contract Workers',
@@ -138,12 +145,13 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
             { id: 'vendors.create', label: 'Register new vendors/subcontractors' },
             { id: 'vendors.edit', label: 'Edit vendor details' },
             { id: 'vendors.delete', label: 'Delete vendors' },
+            { id: 'workers.view', label: 'View contract workers' },
             { id: 'workers.create', label: 'Register contract workers' },
             { id: 'workers.edit', label: 'Edit worker details & wages' },
             { id: 'workers.delete', label: 'Delete contract workers' },
             { id: 'workers.assign', label: 'Assign workers to project sites' },
-            { id: 'supplier.view', label: 'View material suppliers' },
-            { id: 'supplier.create', label: 'Create material suppliers' }
+            { id: 'suppliers.view', label: 'View material suppliers' },
+            { id: 'suppliers.create', label: 'Register material suppliers' }
         ],
         notifications: ['Worker assigned', 'Vendor registered']
     },
@@ -152,10 +160,11 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         icon: '🔍',
         permissions: [
             { id: 'snags.view', label: 'View snags' },
-            { id: 'snags.view_all', label: 'View all snags' },
+            { id: 'snags.view_all', label: 'View all snags across sites' },
             { id: 'snags.create', label: 'Create snags' },
-            { id: 'snags.update', label: 'Update snag' },
-            { id: 'snags.resolve', label: 'Resolve snags (without create)' },
+            { id: 'snags.update', label: 'Update snag details' },
+            { id: 'snags.edit', label: 'Edit snags' },
+            { id: 'snags.resolve', label: 'Resolve snags' },
             { id: 'snags.verify', label: 'Verify resolved snags' }
         ],
         notifications: ['Snag created', 'Snag resolved', 'Snag verified']
@@ -175,8 +184,8 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         module: 'Updates',
         icon: '📣',
         permissions: [
-            { id: 'update.view', label: 'View updates' },
-            { id: 'update.create', label: 'Create updates' }
+            { id: 'updates.view', label: 'View project updates' },
+            { id: 'updates.create', label: 'Post project updates' }
         ],
         notifications: ['New update posted']
     },
@@ -184,10 +193,10 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         module: 'Tasks',
         icon: '✅',
         permissions: [
-            { id: 'task.view', label: 'View tasks' },
-            { id: 'task.create', label: 'Create tasks' },
-            { id: 'task.edit', label: 'Edit tasks' },
-            { id: 'task.bulk', label: 'Bulk task operations' }
+            { id: 'tasks.view', label: 'View tasks' },
+            { id: 'tasks.create', label: 'Create tasks' },
+            { id: 'tasks.edit', label: 'Edit tasks' },
+            { id: 'tasks.bulk', label: 'Bulk task operations' }
         ],
         notifications: ['Task assigned', 'Task completed']
     },
@@ -200,40 +209,20 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         notifications: []
     },
     {
-        module: 'Expenses',
+        module: 'Project Expenses & Inventory',
         icon: '📦',
         permissions: [
-            { id: 'inventory.view', label: 'View expenses' },
-            { id: 'inventory.add', label: 'Add expense items' },
+            { id: 'inventory.view', label: 'View project expenses' },
+            { id: 'inventory.add', label: 'Add project expense items' },
             { id: 'inventory.edit', label: 'Edit expense items' },
             { id: 'inventory.delete', label: 'Delete expense items' },
-            { id: 'inventory.approve', label: 'Approve expense bills' }
+            { id: 'inventory.remove', label: 'Remove inventory items' },
+            { id: 'inventory.approve', label: 'Approve expenses' },
+            { id: 'inventory.approve_bill', label: 'Approve expense bills' },
+            { id: 'inventory.reject_bill', label: 'Reject expense bills' },
+            { id: 'inventory.resubmit_bill', label: 'Resubmit expense bills' }
         ],
         notifications: ['Expense added', 'Expense approved']
-    },
-    {
-        module: 'User & Role Management',
-        icon: '👥',
-        permissions: [
-            { id: 'user.view', label: 'View team members' },
-            { id: 'user.create', label: 'Add new users' },
-            { id: 'user.edit', label: 'Edit user details' },
-            { id: 'user.delete', label: 'Remove users' },
-            { id: 'users.manage_roles', label: 'Manage roles and permissions' },
-            { id: 'users.manage_documents', label: 'Upload and manage employee documents' }
-        ],
-        notifications: ['New user added', 'User role changed']
-    },
-    {
-        module: 'Settings',
-        icon: '⚙️',
-        permissions: [
-            { id: 'settings.view', label: 'View settings' },
-            { id: 'settings.edit', label: 'Edit settings' },
-            { id: 'settings.workflows', label: 'Manage workflows' },
-            { id: 'telemetry.view', label: 'View App Telemetry' }
-        ],
-        notifications: []
     },
     {
         module: 'Office Expenses',
@@ -241,7 +230,6 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         permissions: [
             { id: 'office_expenses.view', label: 'View office expenses' },
             { id: 'office_expenses.create', label: 'Add office expenses' },
-            { id: 'office_expenses.edit', label: 'Edit office expenses' },
             { id: 'office_expenses.approve', label: 'Approve office expenses' },
             { id: 'office_expenses.delete', label: 'Delete office expenses' }
         ],
@@ -255,9 +243,11 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
             { id: 'attendance.view_all', label: 'View all employees attendance logs' },
             { id: 'attendance.view_appeals', label: 'View attendance appeal remarks' },
             { id: 'attendance.log', label: 'Punch in/out' },
+            { id: 'attendance.approve', label: 'Approve attendance appeals' },
             { id: 'leaves.view', label: 'View leave requests' },
             { id: 'leaves.apply', label: 'Apply for leaves' },
-            { id: 'leaves.approve', label: 'Approve/Reject leaves' }
+            { id: 'leaves.approve', label: 'Approve/Reject leaves' },
+            { id: 'leaves.manage', label: 'Manage all leave requests' }
         ],
         notifications: ['Leave applied', 'Leave approved', 'Leave rejected']
     },
@@ -270,37 +260,75 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
             { id: 'payroll.config', label: 'Configure employee salaries' }
         ],
         notifications: ['Payroll processed', 'Salary paid']
+    },
+    {
+        module: 'CRM & Leads',
+        icon: '💼',
+        permissions: [
+            { id: 'crm.view', label: 'View CRM leads & quotations' },
+            { id: 'crm.manage', label: 'Manage CRM leads, stages & quotations' }
+        ],
+        notifications: ['New lead created', 'Quotation approved']
+    },
+    {
+        module: 'Holidays',
+        icon: '🏖️',
+        permissions: [
+            { id: 'holidays.view', label: 'View organization holidays' },
+            { id: 'holidays.manage', label: 'Manage holiday calendar' }
+        ],
+        notifications: []
+    },
+    {
+        module: 'User & Role Management',
+        icon: '👥',
+        permissions: [
+            { id: 'users.view', label: 'View team members' },
+            { id: 'users.create', label: 'Add new users' },
+            { id: 'users.edit', label: 'Edit user details' },
+            { id: 'users.delete', label: 'Remove users' },
+            { id: 'users.manage_roles', label: 'Manage roles and permissions' },
+            { id: 'users.manage_documents', label: 'Upload and manage employee documents' }
+        ],
+        notifications: ['New user added', 'User role changed']
+    },
+    {
+        module: 'Settings & System',
+        icon: '⚙️',
+        permissions: [
+            { id: 'settings.view', label: 'View organization settings' },
+            { id: 'settings.edit', label: 'Edit organization settings' },
+            { id: 'settings.workflows', label: 'Manage approval workflows' },
+            { id: 'telemetry.view', label: 'View App Telemetry' }
+        ],
+        notifications: []
     }
 ];
 
-// Helper to get permission code prefix for matching
-const getPermissionPrefix = (code: string): string => {
-    const parts = code.split('.');
-    return parts[0] + '.';
-};
-
-// Map of module names to their permission prefixes (including plural forms from DB)
+// Map of module names to their permission prefixes (including plural and singular forms)
 const MODULE_PREFIX_MAP: Record<string, string[]> = {
     'Project Management': ['project.', 'projects.'],
-    'Site Visit': ['site_visit.'],
     'Design': ['design.', 'designs.'],
     'BOQ': ['boq.'],
     'Proposals': ['proposal.', 'proposals.'],
     'Orders': ['order.', 'orders.'],
     'Invoices': ['invoice.', 'invoices.'],
     'Payments': ['payment.', 'payments.'],
+    'Procurement (Legacy)': ['procurement.'],
     'Vendors & Contract Workers': ['vendor.', 'vendors.', 'worker.', 'workers.', 'supplier.', 'suppliers.'],
     'Snag & Audit': ['snag.', 'snags.'],
-    'Daily Site Logs': ['site_logs.'],
+    'Daily Site Logs': ['site_logs.', 'site_visit.'],
     'Updates': ['update.', 'updates.'],
     'Tasks': ['task.', 'tasks.'],
     'Finance': ['finance.'],
-    'Expenses': ['inventory.'],
-    'User & Role Management': ['user.', 'users.', 'role.'],
-    'Settings': ['settings.', 'telemetry.'],
+    'Project Expenses & Inventory': ['inventory.'],
     'Office Expenses': ['office_expenses.'],
     'Attendance & Leaves': ['attendance.', 'leaves.'],
-    'Payroll': ['payroll.']
+    'Payroll': ['payroll.'],
+    'CRM & Leads': ['crm.'],
+    'Holidays': ['holidays.', 'holiday.'],
+    'User & Role Management': ['user.', 'users.', 'role.'],
+    'Settings & System': ['settings.', 'telemetry.']
 };
 
 export default function RolesTab() {
@@ -455,6 +483,10 @@ export default function RolesTab() {
 
             setShowPanel(false);
             fetchRoles();
+            clearPermissionsCache();
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('permissions-updated'));
+            }
         } finally {
             setSaving(false);
         }
@@ -471,6 +503,10 @@ export default function RolesTab() {
             const res = await fetch(`/api/rbac/roles?id=${roleId}`, { method: 'DELETE' });
             if (res.ok) {
                 fetchRoles();
+                clearPermissionsCache();
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('permissions-updated'));
+                }
             } else {
                 const data = await res.json();
                 alert(data.error || 'Failed to delete role');
@@ -726,20 +762,29 @@ export default function RolesTab() {
                                                                 {isExpanded && (
                                                                     <div className="px-4 pb-4">
                                                                         <div className="space-y-2">
-                                                                            {perms.map((perm) => {
-                                                                                const friendlyLabel = def.permissions.find(p => p.id === perm.code)?.label;
-                                                                                return (
-                                                                                    <label key={perm.id} className="flex items-start gap-2 cursor-pointer">
-                                                                                        <input
-                                                                                            type="checkbox"
-                                                                                            checked={selectedPermissionIds.has(perm.id)}
-                                                                                            onChange={() => handlePermissionChange(perm.id)}
-                                                                                            className="mt-0.5 h-4 w-4 text-yellow-600 rounded border-gray-300 focus:ring-yellow-500"
-                                                                                        />
-                                                                                        <span className="text-sm text-gray-700">{friendlyLabel || perm.description || perm.code}</span>
-                                                                                    </label>
-                                                                                );
-                                                                            })}
+                                                                            {[...perms]
+                                                                                .sort((a, b) => {
+                                                                                    const idxA = def.permissions.findIndex(p => p.id === a.code);
+                                                                                    const idxB = def.permissions.findIndex(p => p.id === b.code);
+                                                                                    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                                                                                    if (idxA !== -1) return -1;
+                                                                                    if (idxB !== -1) return 1;
+                                                                                    return a.code.localeCompare(b.code);
+                                                                                })
+                                                                                .map((perm) => {
+                                                                                    const friendlyLabel = def.permissions.find(p => p.id === perm.code || p.id.replace(/s\./, '.') === perm.code.replace(/s\./, '.'))?.label;
+                                                                                    return (
+                                                                                        <label key={perm.id} className="flex items-start gap-2 cursor-pointer">
+                                                                                            <input
+                                                                                                type="checkbox"
+                                                                                                checked={selectedPermissionIds.has(perm.id)}
+                                                                                                onChange={() => handlePermissionChange(perm.id)}
+                                                                                                className="mt-0.5 h-4 w-4 text-yellow-600 rounded border-gray-300 focus:ring-yellow-500"
+                                                                                            />
+                                                                                            <span className="text-sm text-gray-700">{friendlyLabel || perm.description || perm.code}</span>
+                                                                                        </label>
+                                                                                    );
+                                                                                })}
                                                                         </div>
                                                                     </div>
                                                                 )}

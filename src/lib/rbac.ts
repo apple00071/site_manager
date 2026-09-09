@@ -18,6 +18,52 @@ interface PermissionCheckResult {
     reason?: string;
 }
 
+// Bidirectional singular <-> plural alias map for permission prefixes
+const ALIAS_PREFIX_MAP: Record<string, string> = {
+    project: 'projects',
+    projects: 'project',
+    design: 'designs',
+    designs: 'design',
+    order: 'orders',
+    orders: 'order',
+    invoice: 'invoices',
+    invoices: 'invoice',
+    payment: 'payments',
+    payments: 'payment',
+    supplier: 'suppliers',
+    suppliers: 'supplier',
+    worker: 'workers',
+    workers: 'worker',
+    vendor: 'vendors',
+    vendors: 'vendor',
+    task: 'tasks',
+    tasks: 'task',
+    user: 'users',
+    users: 'user',
+    update: 'updates',
+    updates: 'update',
+    snag: 'snags',
+    snags: 'snag',
+    holiday: 'holidays',
+    holidays: 'holiday',
+    leave: 'leaves',
+    leaves: 'leave'
+};
+
+function getCodeVariants(code: string): string[] {
+    const variants = [code];
+    const dotIndex = code.indexOf('.');
+    if (dotIndex > 0) {
+        const prefix = code.slice(0, dotIndex);
+        const rest = code.slice(dotIndex + 1);
+        const alternatePrefix = ALIAS_PREFIX_MAP[prefix];
+        if (alternatePrefix) {
+            variants.push(`${alternatePrefix}.${rest}`);
+        }
+    }
+    return variants;
+}
+
 /**
  * Check if a user has a specific permission.
  * 
@@ -35,7 +81,7 @@ export async function checkPermission(
         // 1. Get user's role
         const { data: userData, error: userError } = await supabaseAdmin
             .from('users')
-            .select('role, role_id')
+            .select('role, role_id, roles(name)')
             .eq('id', userId)
             .single();
 
@@ -44,9 +90,15 @@ export async function checkPermission(
         }
 
         // 2. Admin bypass - admins have all permissions
-        if (userData.role === 'admin') {
+        const isAdmin = 
+            userData.role?.toLowerCase() === 'admin' || 
+            (userData.roles as any)?.name?.toLowerCase() === 'admin';
+
+        if (isAdmin) {
             return { allowed: true };
         }
+
+        const variants = getCodeVariants(permissionNode);
 
         // 3. Check role-based permissions
         if (userData.role_id) {
@@ -69,13 +121,17 @@ export async function checkPermission(
                 const permCode = rp.permissions?.code;
                 if (!permCode) return false;
 
-                // Direct match
-                if (permCode === permissionNode) return true;
+                if (permCode === '*') return true;
 
-                // Wildcard match (e.g., 'project.*' matches 'project.create')
-                if (permCode.endsWith('.*')) {
-                    const prefix = permCode.slice(0, -2);
-                    return permissionNode.startsWith(prefix + '.');
+                // Check direct and alias match
+                for (const variant of variants) {
+                    if (permCode === variant) return true;
+
+                    // Wildcard match (e.g., 'projects.*' matches 'projects.create')
+                    if (permCode.endsWith('.*')) {
+                        const prefix = permCode.slice(0, -2);
+                        if (variant.startsWith(prefix + '.')) return true;
+                    }
                 }
 
                 return false;
