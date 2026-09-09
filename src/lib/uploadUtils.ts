@@ -56,14 +56,68 @@ export async function compressImage(file: File, maxDimension: number = 1200): Pr
     });
 }
 
+function resolveContentType(file: File): string {
+    if (file.type && file.type !== 'application/octet-stream') {
+        return file.type;
+    }
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    switch (ext) {
+        case 'pdf': return 'application/pdf';
+        case 'jpg':
+        case 'jpeg': return 'image/jpeg';
+        case 'png': return 'image/png';
+        case 'webp': return 'image/webp';
+        case 'gif': return 'image/gif';
+        case 'dwg': return 'application/dwg';
+        case 'dxf': return 'application/dxf';
+        default: return file.type || 'application/octet-stream';
+    }
+}
+
+function uploadToSignedUrl(
+    signedUrl: string,
+    file: File | Blob,
+    contentType: string,
+    onProgress?: (percent: number) => void
+): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', signedUrl);
+        xhr.setRequestHeader('Content-Type', contentType);
+
+        if (onProgress && xhr.upload) {
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const percent = Math.round((event.loaded / event.total) * 100);
+                    onProgress(percent);
+                }
+            };
+        }
+
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                resolve();
+            } else {
+                reject(new Error(`Storage upload failed with status ${xhr.status}: ${xhr.statusText}`));
+            }
+        };
+
+        xhr.onerror = () => reject(new Error('Network error during storage upload'));
+        xhr.onabort = () => reject(new Error('Upload was aborted'));
+        xhr.send(file);
+    });
+}
+
 /**
  * Uploads a single file to Supabase storage.
  * Automatically compresses images before upload.
+ * Uses pre-signed URLs directly to Supabase storage to bypass 4.5MB server limits and RLS issues.
  */
 export async function uploadFile(
     file: File,
     bucket: string,
-    folder: string
+    folder: string,
+    onProgress?: (percent: number) => void
 ): Promise<string> {
     let fileToUpload = file;
 
@@ -98,9 +152,36 @@ export async function uploadFile(
         }
     }
 
-    // Try server-side upload API first to bypass client-side RLS/auth state sync issues in webviews
+    // 1. Primary path: Pre-signed upload URL directly to Supabase storage.
+    // Completely bypasses Next.js / Vercel 4.5MB payload limits (prevents HTTP 413) and bypasses RLS issues.
+    try {
+        const signRes = await fetch('/api/upload/sign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                bucket,
+                folder,
+                filename: fileToUpload.name,
+            }),
+        });
+
+        if (signRes.ok) {
+            const { signedUrl, publicUrl } = await signRes.json();
+            if (signedUrl && publicUrl) {
+                const contentType = resolveContentType(fileToUpload);
+                await uploadToSignedUrl(signedUrl, fileToUpload, contentType, onProgress);
+                return publicUrl;
+            }
+        } else {
+            console.warn('Failed to get signed upload URL:', signRes.status);
+        }
+    } catch (signErr) {
+        console.warn('Signed URL upload failed, attempting fallback:', signErr);
+    }
+
+    // 2. Fallback for smaller files (< 4MB) via server route
     const allowedApiBuckets = ['project-update-photos', 'inventory-bills', 'design-files', 'project-update-voices'];
-    if (allowedApiBuckets.includes(bucket)) {
+    if (allowedApiBuckets.includes(bucket) && fileToUpload.size < 4 * 1024 * 1024) {
         const formData = new FormData();
         formData.append('file', fileToUpload);
         formData.append('bucket', bucket);
@@ -110,16 +191,13 @@ export async function uploadFile(
             body: formData,
         });
 
-        if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            throw new Error(errData.error || `Upload failed with status ${response.status}`);
+        if (response.ok) {
+            const data = await response.json();
+            return data.url;
         }
-
-        const data = await response.json();
-        return data.url;
     }
 
-    // Fallback to client-side upload for other buckets (if any)
+    // 3. Fallback to client-side direct upload
     const fileExt = file.name.split('.').pop();
     const fileName = `${folder}/${crypto.randomUUID()}.${fileExt}`;
 

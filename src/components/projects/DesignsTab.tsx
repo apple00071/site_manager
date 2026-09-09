@@ -512,9 +512,10 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
 
         let publicUrl = '';
         try {
-          // Use server-authenticated upload endpoint to bypass client-side RLS/auth issues
-          publicUrl = await uploadFile(file, 'design-files', `designs/${projectId}`);
-          setUploadProgress(70);
+          publicUrl = await uploadFile(file, 'design-files', `designs/${projectId}`, (percent) => {
+            setUploadProgress(Math.min(90, Math.max(10, percent)));
+          });
+          setUploadProgress(90);
         } catch (uploadErr: any) {
           console.error('Error uploading file to storage:', file.name, uploadErr);
           lastErrorMessage = uploadErr.message || 'File upload failed';
