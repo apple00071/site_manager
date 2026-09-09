@@ -14,78 +14,45 @@ export async function middleware(request: NextRequest) {
   let cookiesModified = false;
 
   try {
+    // Handle explicit logout request parameter immediately
+    if (request.nextUrl.searchParams.get('logout') === 'true') {
+      const logoutResponse = NextResponse.next();
+      request.cookies.getAll().forEach((cookie) => {
+        if (cookie.name.includes('auth-token') || cookie.name.startsWith('sb-') || cookie.name.includes('supabase')) {
+          logoutResponse.cookies.set(cookie.name, '', { maxAge: 0, path: '/' });
+        }
+      });
+      return logoutResponse;
+    }
+
     // Create a Supabase client configured to use cookies
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          get(name: string) {
-            try {
-              return request.cookies.get(name)?.value;
-            } catch (error) {
-              console.warn('Error getting cookie:', name, error);
-              return undefined;
-            }
+          getAll() {
+            return request.cookies.getAll();
           },
-          set(name: string, value: string, options: any) {
-            try {
-              // Only recreate response if not already done
-              if (!cookiesModified) {
-                response = NextResponse.next({
-                  request: {
-                    headers: request.headers,
-                  },
-                });
-                cookiesModified = true;
-              }
-
-              request.cookies.set({
-                name,
-                value,
-                ...options,
-              });
-              response.cookies.set({
-                name,
-                value,
-                ...options,
-              });
-            } catch (error) {
-              console.warn('Error setting cookie:', name, error);
-            }
-          },
-          remove(name: string, options: any) {
-            try {
-              // Only recreate response if not already done
-              if (!cookiesModified) {
-                response = NextResponse.next({
-                  request: {
-                    headers: request.headers,
-                  },
-                });
-                cookiesModified = true;
-              }
-
-              request.cookies.set({
-                name,
-                value: '',
-                ...options,
-              });
-              response.cookies.set({
-                name,
-                value: '',
-                ...options,
-              });
-            } catch (error) {
-              console.warn('Error removing cookie:', name, error);
-            }
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value }) =>
+              request.cookies.set(name, value)
+            );
+            response = NextResponse.next({
+              request: {
+                headers: request.headers,
+              },
+            });
+            cookiesToSet.forEach(({ name, value, options }) =>
+              response.cookies.set(name, value, options)
+            );
           },
         },
       }
     );
 
     // Define public routes that don't require authentication
-    const publicRoutes = ['/', '/login', '/signup', '/forgot-password', '/privacy-policy', '/account-deletion'];
+    const publicRoutes = ['/', '/login', '/signup', '/forgot-password', '/privacy-policy', '/account-deletion', '/admin/login'];
     const isPublicRoute = publicRoutes.some(route =>
       request.nextUrl.pathname === route ||
       request.nextUrl.pathname.startsWith('/auth/')
@@ -101,8 +68,8 @@ export async function middleware(request: NextRequest) {
 
       // Dynamically find and clear auth cookies instead of hardcoding project ID
       request.cookies.getAll().forEach(cookie => {
-        if (cookie.name.includes('auth-token')) {
-          clearResponse.cookies.set(cookie.name, '', { maxAge: 0 });
+        if (cookie.name.includes('auth-token') || cookie.name.startsWith('sb-') || cookie.name.includes('supabase')) {
+          clearResponse.cookies.set(cookie.name, '', { maxAge: 0, path: '/' });
         }
       });
 
@@ -119,15 +86,17 @@ export async function middleware(request: NextRequest) {
 
         // Dynamically find and clear auth cookies
         request.cookies.getAll().forEach(cookie => {
-          if (cookie.name.includes('auth-token')) {
-            clearResponse.cookies.set(cookie.name, '', { maxAge: 0 });
+          if (cookie.name.includes('auth-token') || cookie.name.startsWith('sb-') || cookie.name.includes('supabase')) {
+            clearResponse.cookies.set(cookie.name, '', { maxAge: 0, path: '/' });
           }
         });
 
         return clearResponse;
       }
 
-      const redirectUrl = new URL('/login', request.url);
+      const isForAdmin = request.nextUrl.pathname.startsWith('/admin');
+      const targetLogin = isForAdmin ? '/admin/login' : '/login';
+      const redirectUrl = new URL(targetLogin, request.url);
       redirectUrl.searchParams.set('redirectedFrom', request.nextUrl.pathname);
       return NextResponse.redirect(redirectUrl);
     }

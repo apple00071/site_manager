@@ -217,10 +217,11 @@ function DashboardLayoutContent({
   const handleSignOut = async () => {
     try {
       await signOut();
-      router.replace('/login');
     } catch (error) {
       console.error('Error during logout:', error);
-      router.replace('/login');
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login?logout=true';
+      }
     }
   };
 

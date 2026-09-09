@@ -76,11 +76,34 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   async function signOut() {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setIsAdmin(false);
-    router.push('/admin/login');
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.clear();
+        sessionStorage.clear();
+        try {
+          document.cookie.split(';').forEach((c) => {
+            const name = c.split('=')[0].trim();
+            if (name.includes('sb-') || name.includes('auth-token') || name.includes('supabase')) {
+              document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+            }
+          });
+        } catch {}
+      }
+
+      await Promise.allSettled([
+        fetch('/api/auth/logout', { method: 'POST' }),
+        supabase.auth.signOut(),
+      ]);
+    } catch (e) {
+      console.error('Error during admin sign out:', e);
+    } finally {
+      setUser(null);
+      setSession(null);
+      setIsAdmin(false);
+      if (typeof window !== 'undefined') {
+        window.location.href = '/admin/login?logout=true';
+      }
+    }
   };
 
   const contextValue: AdminAuthContextType = {
@@ -120,7 +143,8 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
             setIsAdmin(isAdminUser);
 
             // If on login page and user is admin, redirect to dashboard
-            if (pathname === '/admin/login') {
+            const isLoggingOut = typeof window !== 'undefined' && window.location.search.includes('logout=true');
+            if (pathname === '/admin/login' && !isLoggingOut) {
               console.log('🔄 Redirecting admin to dashboard');
               router.push('/admin/dashboard');
             }
@@ -163,7 +187,8 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
           setIsAdmin(isAdminUser);
 
           // If on login page and user is admin, redirect to dashboard
-          if (pathname === '/admin/login') {
+          const isLoggingOut = typeof window !== 'undefined' && window.location.search.includes('logout=true');
+          if (pathname === '/admin/login' && !isLoggingOut) {
             console.log('🔄 Redirecting admin to dashboard');
             router.push('/admin/dashboard');
           }

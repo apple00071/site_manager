@@ -386,20 +386,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         sessionStorage.clear();
+
+        // Clear accessible cookies directly on the client
+        try {
+          document.cookie.split(';').forEach((c) => {
+            const name = c.split('=')[0].trim();
+            if (name.includes('sb-') || name.includes('auth-token') || name.includes('supabase')) {
+              document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+            }
+          });
+        } catch {}
       }
 
       clearPermissionsCache();
       clearAuthCache();
 
-      // Cleanups execution helper
+      // Fire OneSignal unsubscribe in the background so it never blocks auth logout
+      fetch('/api/onesignal/subscribe', { method: 'DELETE' }).catch(() => {});
+
+      // Cleanups: server auth logout and supabase client signOut executed in parallel
       const performCleanups = async () => {
         try {
-          // 1. Delete onesignal subscription while still authenticated
-          await fetch('/api/onesignal/subscribe', { method: 'DELETE' }).catch(() => {});
-          // 2. Perform server auth cookies clear
-          await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
-          // 3. supabase signOut
-          await supabase.auth.signOut().catch(() => {});
+          await Promise.allSettled([
+            fetch('/api/auth/logout', { method: 'POST' }),
+            supabase.auth.signOut(),
+          ]);
         } catch (err) {
           if (DEBUG_ENABLED) {
             console.error('Error during signOut cleanups:', err);
@@ -407,21 +418,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       };
 
-      // Race cleanups against a 600ms hard timeout to prevent hanging UI
-      // ponytail: 600ms threshold ensures quick logout redirection even if service worker / networks freeze
+      // Allow up to 1.5s for cleanups to complete before forcing redirect
       await Promise.race([
         performCleanups(),
-        new Promise(resolve => setTimeout(resolve, 600))
+        new Promise((resolve) => setTimeout(resolve, 1500)),
       ]);
 
       // Attempt service worker unregister in background without blocking
       if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations()
-          .then(regs => regs.forEach(r => r.unregister().catch(() => {})))
+          .then((regs) => regs.forEach((r) => r.unregister().catch(() => {})))
           .catch(() => {});
         if (window.caches) {
           caches.keys()
-            .then(names => names.forEach(name => caches.delete(name).catch(() => {})))
+            .then((names) => names.forEach((name) => caches.delete(name).catch(() => {})))
             .catch(() => {});
         }
       }
@@ -434,9 +444,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(null);
       setIsAdmin(false);
 
-      // Force hard reload navigation to login screen to clear memory variables
+      // Navigate to login with logout=true to guarantee middleware doesn't bounce back
       if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+        window.location.href = '/login?logout=true';
       }
     }
   };

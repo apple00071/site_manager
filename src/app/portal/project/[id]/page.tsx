@@ -299,7 +299,6 @@ export default function SecureProjectPortal({ params }: { params: Promise<{ id: 
             <button 
               onClick={async () => {
                 await signOut();
-                router.push('/login');
               }}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-yellow-500 text-white hover:bg-yellow-600 transition-colors text-[10px] font-bold uppercase tracking-wider shadow-sm"
             >

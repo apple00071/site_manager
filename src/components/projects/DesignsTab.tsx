@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/Toast';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { SidePanel } from '@/components/ui/SidePanel';
 import { DesignViewer } from '@/components/projects/DesignViewer';
+import { uploadFile } from '@/lib/uploadUtils';
 import {
   FiUpload, FiFileText, FiPaperclip, FiEye, FiPlus,
   FiMoreVertical, FiEdit, FiTrash2, FiDownload, FiCheck, FiX, FiClock, FiAlertCircle, FiLock, FiUnlock,
@@ -502,36 +503,27 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
     try {
       let successCount = 0;
       let currentIndex = 0;
+      let lastErrorMessage = '';
+
       for (const file of uploadForm.files) {
         currentIndex++;
         setUploadIndex(prev => ({ ...prev, current: currentIndex }));
-        setUploadProgress(0); // Reset for each file
+        setUploadProgress(20);
 
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const filePath = `designs/${projectId}/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('design-files')
-          .upload(filePath, file, {
-            upsert: false,
-            onUploadProgress: (progress: any) => {
-              const percent = Math.round((progress.loaded / progress.total) * 100);
-              setUploadProgress(percent);
-            }
-          });
-
-        if (uploadError) {
-          console.error('Error uploading file:', file.name, uploadError);
+        let publicUrl = '';
+        try {
+          // Use server-authenticated upload endpoint to bypass client-side RLS/auth issues
+          publicUrl = await uploadFile(file, 'design-files', `designs/${projectId}`);
+          setUploadProgress(70);
+        } catch (uploadErr: any) {
+          console.error('Error uploading file to storage:', file.name, uploadErr);
+          lastErrorMessage = uploadErr.message || 'File upload failed';
           continue;
         }
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('design-files')
-          .getPublicUrl(filePath);
-
-        const fileType = file.type.startsWith('image/') ? 'image' :
-          file.type === 'application/pdf' ? 'pdf' : 'other';
+        const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+        const isImage = file.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|svg)$/i.test(file.name);
+        const fileType = isImage ? 'image' : isPdf ? 'pdf' : 'other';
 
         const response = await fetch('/api/design-files', {
           method: 'POST',
@@ -546,12 +538,17 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
         });
 
         if (response.ok) {
+          setUploadProgress(100);
           successCount++;
+        } else {
+          const errPayload = await response.json().catch(() => ({}));
+          lastErrorMessage = errPayload.error || `Failed to save design record (${response.status})`;
+          console.error('Error creating design record:', lastErrorMessage);
         }
       }
 
       if (successCount === 0) {
-        throw new Error('Failed to upload any files');
+        throw new Error(lastErrorMessage || 'Failed to upload any files');
       }
 
       await fetchDesigns();
@@ -563,7 +560,9 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
       showToast('success', `Successfully uploaded ${successCount} design(s)`);
     } catch (error: any) {
       console.error('Error uploading designs:', error);
-      showToast('error', error.message || 'Failed to upload designs');
+      const msg = error.message || 'Failed to upload designs';
+      setFormError(msg);
+      showToast('error', msg);
     } finally {
       setUploading(false);
       setUploadProgress(0);
