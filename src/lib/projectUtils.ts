@@ -15,16 +15,15 @@ export async function attachProjectCodes<T = any>(projectsData: T): Promise<T> {
       .order('created_at', { ascending: true });
 
     const codeMap = new Map<string, string>();
-    const yearCounters = new Map<string, number>();
+    let globalCounter = 0;
     if (allProjectsMeta && allProjectsMeta.length > 0) {
       allProjectsMeta.forEach((p: any) => {
+        globalCounter++;
         const dateStr = p.created_at || p.start_date;
         const d = dateStr ? new Date(dateStr) : new Date();
         const yy = !isNaN(d.getTime()) ? d.getFullYear().toString().slice(-2) : new Date().getFullYear().toString().slice(-2);
 
-        const count = (yearCounters.get(yy) || 0) + 1;
-        yearCounters.set(yy, count);
-        const seqStr = String(count).padStart(2, '0');
+        const seqStr = String(globalCounter).padStart(2, '0');
         codeMap.set(p.id, `AI/PRJ/${yy}/${seqStr}`);
       });
     }
@@ -34,7 +33,7 @@ export async function attachProjectCodes<T = any>(projectsData: T): Promise<T> {
       const dateStr = p.created_at || p.start_date;
       const d = dateStr ? new Date(dateStr) : new Date();
       const yy = !isNaN(d.getTime()) ? d.getFullYear().toString().slice(-2) : new Date().getFullYear().toString().slice(-2);
-      const nextSeq = (yearCounters.get(yy) || 0) + 1;
+      const nextSeq = globalCounter + 1;
       const fallbackCode = `AI/PRJ/${yy}/${String(nextSeq).padStart(2, '0')}`;
       const code = codeMap.get(p.id) || fallbackCode;
       return { ...p, project_code: code, ref_no: code };

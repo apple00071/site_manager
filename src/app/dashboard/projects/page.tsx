@@ -43,7 +43,7 @@ export default function ProjectsPage() {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortConfig, setSortConfig] = useState<{
-    key: 'start_date' | 'estimated_completion_date' | null;
+    key: 'start_date' | 'estimated_completion_date' | 'project_code' | null;
     direction: 'asc' | 'desc';
   }>({ key: null, direction: 'asc' });
   const searchParams = useSearchParams();
@@ -128,7 +128,7 @@ export default function ProjectsPage() {
     }
   };
 
-  const handleSort = (key: 'start_date' | 'estimated_completion_date') => {
+  const handleSort = (key: 'start_date' | 'estimated_completion_date' | 'project_code') => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig.key === key && sortConfig.direction === 'asc') {
       direction = 'desc';
@@ -177,6 +177,13 @@ export default function ProjectsPage() {
     // Apply sorting
     if (sortConfig.key) {
       filtered.sort((a, b) => {
+        if (sortConfig.key === 'project_code') {
+          const codeA = a.project_code || '';
+          const codeB = b.project_code || '';
+          const cmp = codeA.localeCompare(codeB, undefined, { numeric: true });
+          return sortConfig.direction === 'asc' ? cmp : -cmp;
+        }
+
         const aValue = a[sortConfig.key!];
         const bValue = b[sortConfig.key!];
 
@@ -473,8 +480,19 @@ export default function ProjectsPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
-                  #
+                <th
+                  scope="col"
+                  className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 hover:text-gray-700 transition-colors group w-14 select-none"
+                  onClick={() => handleSort('project_code')}
+                  title="Click to sort by Project ID"
+                >
+                  <div className="flex items-center gap-1">
+                    #
+                    <span className="flex flex-col text-[8px] leading-[4px] text-gray-300">
+                      <span className={`${sortConfig.key === 'project_code' && sortConfig.direction === 'asc' ? 'text-gray-700' : 'group-hover:text-gray-400'}`}>▲</span>
+                      <span className={`${sortConfig.key === 'project_code' && sortConfig.direction === 'desc' ? 'text-gray-700' : 'group-hover:text-gray-400'}`}>▼</span>
+                    </span>
+                  </div>
                 </th>
                 <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider max-w-xs xl:max-w-sm">
                   Project Name
