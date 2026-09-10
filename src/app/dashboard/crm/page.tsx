@@ -1365,7 +1365,7 @@ export default function CRMPage() {
               </div>
 
               {/* Kanban Stage Columns Grid */}
-              <div className="flex md:grid md:grid-cols-5 gap-4 overflow-x-auto pb-3 pt-1 scrollbar-none snap-x snap-mandatory">
+              <div className="flex gap-4 overflow-x-auto pb-3 pt-1 modern-scrollbar snap-x snap-mandatory">
                 {(['Draft', 'Sent', 'Follow-up', 'On Hold', 'Approved'] as const).map((colStatus) => {
                   const colLeads = dashboardFilteredLeads.filter(l => l.status === colStatus);
                   const colSum = colLeads.reduce((acc, l) => acc + (colStatus === 'Approved' ? (l.approved_value || 0) : (l.quote_value || 0)), 0);
@@ -1385,7 +1385,7 @@ export default function CRMPage() {
                       key={colStatus}
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={(e) => handleDropKanban(e, colStatus)}
-                      className={`flex flex-col gap-3 p-3.5 rounded-2xl border ${badgeStyle.border} ${badgeStyle.bg} min-w-[280px] sm:min-w-[290px] md:min-w-0 snap-center shrink-0 md:shrink transition-all`}
+                      className={`flex flex-col gap-3 p-3.5 rounded-2xl border ${badgeStyle.border} ${badgeStyle.bg} w-[280px] min-w-[280px] snap-center shrink-0 transition-all`}
                     >
                       {/* Column Header */}
                       <div className="flex items-center justify-between pb-2 border-b border-gray-200/60">
@@ -1407,7 +1407,7 @@ export default function CRMPage() {
                       </div>
 
                       {/* Lead Cards List */}
-                      <div className="flex-1 flex flex-col gap-3 overflow-y-auto max-h-[560px] min-h-[160px] pr-0.5">
+                      <div className="flex-1 flex flex-col gap-2.5 overflow-y-auto max-h-[580px] min-h-[160px] pr-1.5 modern-scrollbar">
                         {colLeads.length === 0 ? (
                           <div className="flex flex-col items-center justify-center py-12 border border-dashed border-gray-200/80 rounded-2xl text-xs text-gray-400 font-bold bg-white/50">
                             <span>No leads</span>
@@ -1431,19 +1431,24 @@ export default function CRMPage() {
                                 key={lead.id}
                                 draggable={hasPermission('crm.manage')}
                                 onDragStart={(e) => handleDragStartKanban(e, lead.id)}
-                                className="bg-white p-3 rounded-2xl border border-gray-200/90 shadow-2xs hover:shadow-md hover:border-amber-400 transition-all duration-200 cursor-grab active:cursor-grabbing flex flex-col gap-2.5 relative group text-left w-full overflow-hidden box-border"
+                                onClick={(e) => {
+                                  if ((e.target as HTMLElement).closest('button')) return;
+                                  setMobileEditForm({ ...lead });
+                                  setIsMobileEditOpen(true);
+                                }}
+                                className="bg-white p-3.5 rounded-xl border border-gray-200/90 shadow-2xs hover:shadow-md hover:border-amber-400 transition-all duration-200 cursor-grab active:cursor-grabbing flex flex-col gap-2.5 relative group text-left w-full shrink-0"
                               >
                                 {/* Row 1: Avatar + Client Name & Site + Ref No & Date */}
                                 <div className="flex items-start justify-between gap-2 min-w-0">
-                                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                                    <div className={`w-7 h-7 rounded-xl bg-gradient-to-br ${avatarGradients} text-white flex items-center justify-center text-[10px] font-black shadow-2xs shrink-0`}>
+                                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                    <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${avatarGradients} text-white flex items-center justify-center text-xs font-black shadow-2xs shrink-0`}>
                                       {initials}
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                      <h4 className="text-xs font-black text-gray-900 truncate leading-tight">
+                                      <h4 className="text-xs font-black text-gray-900 truncate leading-snug">
                                         {lead.client_name || 'Unnamed Client'}
                                       </h4>
-                                      <p className="text-[10px] font-bold text-gray-400 truncate mt-0.5">
+                                      <p className="text-[10px] font-medium text-gray-500 truncate mt-0.5">
                                         {lead.site_project || 'No site specified'}
                                       </p>
                                     </div>
@@ -1453,7 +1458,7 @@ export default function CRMPage() {
                                       {lead.ref_no ? (lead.ref_no.includes('/') ? `#${lead.ref_no.split('/').pop()}` : lead.ref_no) : ''}
                                     </span>
                                     {lead.created_date && (
-                                      <span className="text-[8px] font-bold text-gray-400 mt-1">
+                                      <span className="text-[9px] font-medium text-gray-400 mt-1">
                                         {parseLocalDate(lead.created_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                                       </span>
                                     )}
@@ -1462,62 +1467,78 @@ export default function CRMPage() {
 
                                 {/* Row 2: Quote Value & Sq.ft Specs */}
                                 <div className="flex items-center justify-between text-xs bg-gray-50/90 px-2.5 py-1.5 rounded-xl border border-gray-100">
-                                  <span className="font-black text-gray-950 text-xs">
-                                    {formatLakhs(lead.quote_value)}
-                                  </span>
+                                  <div className="flex items-baseline gap-1">
+                                    <span className="text-[10px] text-gray-400 font-bold">{colStatus === 'Approved' ? 'Approved:' : 'Quote:'}</span>
+                                    <span className="font-black text-gray-950 text-xs">
+                                      {formatLakhs(colStatus === 'Approved' ? (lead.approved_value || lead.quote_value) : lead.quote_value)}
+                                    </span>
+                                  </div>
                                   {lead.area_sqft ? (
-                                    <span className="text-[10px] font-bold text-gray-500 bg-white px-1.5 py-0.5 rounded-md border border-gray-200/60 shrink-0">
+                                    <span className="text-[10px] font-bold text-gray-600 bg-white px-1.5 py-0.5 rounded-md border border-gray-200/60 shrink-0">
                                       {lead.area_sqft} sq.ft
                                     </span>
                                   ) : null}
                                 </div>
 
                                 {/* Row 3: Dedicated Action Buttons Toolbar */}
-                                <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-gray-100">
-                                  {lead.phone && (
-                                    <>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleSendWhatsAppMessage(lead, 'quotation')}
-                                        disabled={sendingWhatsappLeadId === lead.id}
-                                        className="flex-1 py-1 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 transition-colors flex items-center justify-center gap-1 text-[10px] font-bold cursor-pointer disabled:opacity-50"
-                                        title="Send Quotation PDF via WhatsApp"
-                                      >
-                                        {sendingWhatsappLeadId === lead.id ? (
-                                          <FiRefreshCw className="w-3 h-3 animate-spin" />
-                                        ) : (
-                                          <FaWhatsapp className="w-3.5 h-3.5 text-emerald-600" />
-                                        )}
-                                        <span>PDF</span>
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleSendWhatsAppMessage(lead, 'followup')}
-                                        disabled={sendingWhatsappLeadId === lead.id}
-                                        className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/80 transition-colors flex items-center justify-center gap-1 text-[10px] font-bold cursor-pointer disabled:opacity-50"
-                                        title="Send Follow-up Message via WhatsApp"
-                                      >
-                                        {sendingWhatsappLeadId === lead.id ? (
-                                          <FiRefreshCw className="w-3 h-3 animate-spin" />
-                                        ) : (
-                                          <FaWhatsapp className="w-3.5 h-3.5 text-blue-600" />
-                                        )}
-                                      </button>
-                                    </>
-                                  )}
-
-                                  {/* Edit Lead Details Form */}
+                                <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-gray-100">
+                                  {/* Quotation Action Button */}
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      setMobileEditForm({ ...lead });
-                                      setIsMobileEditOpen(true);
-                                    }}
-                                    className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/80 transition-colors text-[10px] font-bold cursor-pointer shrink-0"
-                                    title="Edit Lead Details"
+                                    onClick={() => setQuotationLead(lead)}
+                                    className="px-2 py-1 rounded-lg bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border border-yellow-200/80 transition-colors flex items-center gap-1 text-[10px] font-bold cursor-pointer"
+                                    title={getQuotationButtonLabel(lead)}
                                   >
-                                    <FiEdit className="w-3.5 h-3.5" />
+                                    <span>📄</span>
+                                    <span>{lead.latest_quotation_id ? `v${lead.quote_version || 1}` : 'Quote'}</span>
                                   </button>
+
+                                  <div className="flex items-center gap-1">
+                                    {lead.phone && (
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSendWhatsAppMessage(lead, 'quotation')}
+                                          disabled={sendingWhatsappLeadId === lead.id}
+                                          className="py-1 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 transition-colors flex items-center gap-1 text-[10px] font-bold cursor-pointer disabled:opacity-50"
+                                          title="Send Quotation PDF via WhatsApp"
+                                        >
+                                          {sendingWhatsappLeadId === lead.id ? (
+                                            <FiRefreshCw className="w-3 h-3 animate-spin" />
+                                          ) : (
+                                            <FaWhatsapp className="w-3.5 h-3.5 text-emerald-600" />
+                                          )}
+                                          <span>PDF</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSendWhatsAppMessage(lead, 'followup')}
+                                          disabled={sendingWhatsappLeadId === lead.id}
+                                          className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/80 transition-colors flex items-center justify-center text-[10px] font-bold cursor-pointer disabled:opacity-50"
+                                          title="Send Follow-up Message via WhatsApp"
+                                        >
+                                          {sendingWhatsappLeadId === lead.id ? (
+                                            <FiRefreshCw className="w-3 h-3 animate-spin" />
+                                          ) : (
+                                            <FaWhatsapp className="w-3.5 h-3.5 text-blue-600" />
+                                          )}
+                                        </button>
+                                      </>
+                                    )}
+
+                                    {/* Edit Lead Details Form */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setMobileEditForm({ ...lead });
+                                        setIsMobileEditOpen(true);
+                                      }}
+                                      className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/80 transition-colors text-[10px] font-bold cursor-pointer shrink-0"
+                                      title="Edit Lead Details"
+                                    >
+                                      <FiEdit className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                             );
