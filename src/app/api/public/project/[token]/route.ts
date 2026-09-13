@@ -28,19 +28,40 @@ export async function GET(
     const projectId = access.project_id;
 
     // 2. Fetch Project Details with Site Engineer & Designer
-    const { data: project, error: projectError } = await supabaseAdmin
+    const { data: rawProject, error: projectError } = await supabaseAdmin
       .from('projects')
       .select(`
         *,
         designer:designer_id(id, full_name, role),
-        siteEngineer:assigned_employee_id(id, full_name, role)
+        assigned_employee:assigned_employee_id(id, full_name, role),
+        siteSupervisor:site_supervisor_id(id, full_name, role),
+        project_members(
+          user_id,
+          users:user_id(id, full_name, role, designation)
+        )
       `)
       .eq('id', projectId)
       .single();
 
-    if (projectError || !project) {
+    if (projectError || !rawProject) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
+
+    const supervisorMember = Array.isArray(rawProject.project_members)
+      ? rawProject.project_members.find((pm: any) => {
+          const desig = (pm.users?.designation || '').toLowerCase();
+          return desig.includes('site') || desig.includes('supervisor') || desig.includes('engineer');
+        })
+      : null;
+
+    const resolvedSiteEngineer = rawProject.siteSupervisor || supervisorMember?.users || null;
+    const resolvedDesigner = rawProject.designer || rawProject.assigned_employee || null;
+
+    const project = {
+      ...rawProject,
+      designer: resolvedDesigner,
+      siteEngineer: resolvedSiteEngineer
+    };
 
     // 3. Fetch Site Updates with Employee Names
     const { data: updates, error: updatesError } = await supabaseAdmin

@@ -23,8 +23,22 @@ export async function GET(
         return NextResponse.json({ error: projectError?.message || 'Project not found' }, { status: 404 });
     }
 
-    // 2. Fetch User Details for Designer and Site Engineer Manual Fetch
-    const userIds = [project.designer_id, project.site_engineer_id].filter(Boolean);
+    // 2. Fetch User Details for Designer and Site Engineer
+    const designerUserId = project.designer_id || project.assigned_employee_id;
+    const supervisorUserId = project.site_supervisor_id || project.site_engineer_id;
+
+    // Also check project_members for any site engineer
+    const { data: members } = await supabase
+      .from('project_members')
+      .select('user_id, users:user_id(id, full_name, role, designation)')
+      .eq('project_id', id);
+
+    const supervisorMember = (members || []).find((m: any) => {
+      const desig = (m.users?.designation || '').toLowerCase();
+      return desig.includes('site') || desig.includes('supervisor') || desig.includes('engineer');
+    });
+
+    const userIds = [designerUserId, supervisorUserId, supervisorMember?.user_id].filter(Boolean);
     let userData: any[] = [];
     if (userIds.length > 0) {
         const { data } = await supabase
@@ -34,8 +48,8 @@ export async function GET(
         userData = data || [];
     }
 
-    const designer = userData.find((u: any) => u.id === project.designer_id);
-    const siteEngineer = userData.find((u: any) => u.id === project.site_engineer_id);
+    const designer = userData.find((u: any) => u.id === designerUserId);
+    const siteEngineer = userData.find((u: any) => u.id === (supervisorUserId || supervisorMember?.user_id)) || (supervisorMember?.users ? { id: supervisorMember.users.id, full_name: supervisorMember.users.full_name, role: supervisorMember.users.role } : null);
 
     // 3. Fetch Updates and Designs in Parallel
     const [updatesRes, designsRes] = await Promise.all([

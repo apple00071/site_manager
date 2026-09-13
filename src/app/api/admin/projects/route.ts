@@ -235,12 +235,21 @@ export async function GET(request: NextRequest) {
       const { data: designerProjects, error: designerError } = await supabaseAdmin
         .from('projects')
         .select('id')
-        // Use Maybe single/many? The original used .eq('designer_id', userId) check but the schema query (line 106) doesn't show designer_id. 
-        // Wait, line 204 in the original file uses `designer_id`. I'll keep it if it exists.
         .eq('designer_id', filterId);
 
+      // Get projects assigned via site_supervisor_id field
+      const { data: supervisorProjects } = await supabaseAdmin
+        .from('projects')
+        .select('id')
+        .eq('site_supervisor_id', filterId);
+
       // Combine all lists (remove duplicates)
-      const allProjectIds = [...new Set([...memberProjectIds, ...assignedProjectIds, ...(designerProjects?.map((p: any) => p.id) || [])])];
+      const allProjectIds = [...new Set([
+        ...memberProjectIds,
+        ...assignedProjectIds,
+        ...(designerProjects?.map((p: any) => p.id) || []),
+        ...(supervisorProjects?.map((p: any) => p.id) || [])
+      ])];
 
       if (allProjectIds.length === 0) {
         // User is not assigned to any projects
