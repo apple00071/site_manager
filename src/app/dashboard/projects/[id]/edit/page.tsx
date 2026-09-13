@@ -70,6 +70,7 @@ interface Employee {
   email: string;
   designation: string;
   role: string;
+  role_name?: string;
   is_active?: boolean;
 }
 
@@ -125,6 +126,7 @@ export default function EditProjectPage() {
           email: u.email,
           designation: u.designation,
           role: u.role,
+          role_name: u.roles?.name,
           is_active: u.is_active !== false,
         })));
 
@@ -243,9 +245,12 @@ export default function EditProjectPage() {
         }
       }
 
-      const { error } = await supabase
-        .from('projects')
-        .update({
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           title: data.title,
           description: data.description || null,
           status: data.status,
@@ -258,7 +263,7 @@ export default function EditProjectPage() {
           block_number: data.block_number || null,
           flat_number: data.flat_number || null,
           floor_number: data.floor_number || null,
-          area_sqft: data.area_sqft || null,
+          area_sqft: data.area_sqft ? parseFloat(data.area_sqft) : null,
           start_date: data.start_date,
           estimated_completion_date: data.estimated_completion_date,
           assigned_employee_id: data.assigned_employee_id,
@@ -277,10 +282,13 @@ export default function EditProjectPage() {
           project_budget: data.project_budget ? parseFloat(data.project_budget) : null,
           project_notes: data.project_notes || null,
           requirements_pdf_url: requirementsUrl,
-        })
-        .eq('id', projectId);
+        }),
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error?.message || errData.error || 'Failed to update project');
+      }
 
       router.refresh();
       router.push(`/dashboard/projects/${projectId}`);
@@ -311,11 +319,15 @@ export default function EditProjectPage() {
     );
   }
 
-  // Filter designers from employees: only active ones, or the currently assigned designer (even if inactive)
-  const designers = employees.filter(emp => 
-    (emp.is_active || (project && project.assigned_employee_id === emp.id)) && 
-    emp.designation && emp.designation.toLowerCase().includes('designer')
-  );
+  // Filter designers from employees: active designers, or the currently assigned designer (even if inactive)
+  const designers = employees.filter(emp => {
+    const isCurrent = project && project.assigned_employee_id === emp.id;
+    if (isCurrent) return true;
+    if (!emp.is_active) return false;
+    const desig = (emp.designation || '').toLowerCase();
+    const roleName = (emp.role_name || emp.role || '').toLowerCase();
+    return desig.includes('designer') || roleName.includes('designer');
+  });
 
   return (
     <div className="space-y-4 sm:space-y-6 safe-area-inset-bottom">

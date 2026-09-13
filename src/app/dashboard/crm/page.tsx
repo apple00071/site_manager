@@ -66,8 +66,10 @@ const getQuotationButtonLabel = (l?: Lead | null) => {
 };
 
 export default function CRMPage() {
-  const { hasPermission } = useUserPermissions();
-  const { user } = useAuth();
+  const { hasPermission, isAdmin: permIsAdmin } = useUserPermissions();
+  const { user, isAdmin: authIsAdmin } = useAuth();
+  const isAdmin = Boolean(authIsAdmin || permIsAdmin || user?.role?.toLowerCase() === 'admin');
+  const canEditApproved = Boolean(isAdmin || hasPermission('crm.edit_approved'));
   
   const [activeTab, setActiveTab] = useState<'dashboard' | 'log'>('dashboard');
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -162,6 +164,11 @@ export default function CRMPage() {
     
     const lead = leads.find(l => l.id === id);
     if (!lead || lead.status === targetStatus) return;
+
+    if (lead.status === 'Approved' && targetStatus !== 'Approved' && !canEditApproved) {
+      alert('This lead is approved. Only administrators or authorized users can change an approved lead status.');
+      return;
+    }
 
     setSyncStatus('syncing');
     const updatedLead = {
@@ -937,11 +944,21 @@ export default function CRMPage() {
     const lead = filteredLeads[rowIndex];
     const col = columns[colIndex];
     if (!lead || !col || !col.editable) return;
+
+    if (col.id === 'quote_value' && (lead.latest_quotation_id || (lead.quote_version && lead.quote_version > 0))) {
+      setQuotationLead(lead);
+      return;
+    }
+
+    if (lead.status === 'Approved' && !canEditApproved && (col.id === 'status' || col.id === 'approved_value')) {
+      alert('This lead is approved. Only administrators or authorized users can modify approved status or values.');
+      return;
+    }
     
     setSelectedCell({ rowIndex, colIndex });
     setIsEditing(true);
     setEditValue(String(lead[col.id as keyof Lead] ?? ''));
-  }, [filteredLeads, columns, hasPermission]);
+  }, [filteredLeads, columns, hasPermission, isAdmin, canEditApproved]);
 
   // Close cell editor and save
   const finishEditCell = useCallback(() => {
@@ -2562,8 +2579,11 @@ export default function CRMPage() {
                 <label className="block text-[10px] uppercase font-black text-gray-400 mb-1">Status</label>
                 <select
                   value={mobileEditForm.status || 'Draft'}
-                  onChange={(e) => setMobileEditForm(prev => prev ? { ...prev, status: e.target.value as Lead['status'] } : null)}
-                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-yellow-500 text-gray-700"
+                  disabled={mobileEditForm.status === 'Approved' && !canEditApproved}
+                  onChange={(e) => setMobileEditForm(prev => prev ? { ...prev, status: e.target.value as any } : null)}
+                  className={`w-full p-2 border rounded-lg focus:outline-none focus:border-yellow-500 text-gray-700 ${
+                    mobileEditForm.status === 'Approved' && !canEditApproved ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-50 border-gray-200'
+                  }`}
                 >
                   <option value="Draft">Draft</option>
                   <option value="Sent">Sent</option>
@@ -2578,12 +2598,17 @@ export default function CRMPage() {
             {/* Row 4: Quote Value & Approved Value */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] uppercase font-black text-gray-400 mb-1">Quote Value (₹)</label>
+                <label className="block text-[10px] uppercase font-black text-gray-400 mb-1">
+                  Quote Value (₹) {mobileEditForm.latest_quotation_id && <span className="text-amber-600 font-bold">(From Quotation)</span>}
+                </label>
                 <input
                   type="number"
                   value={mobileEditForm.quote_value || 0}
                   onChange={(e) => setMobileEditForm(prev => prev ? { ...prev, quote_value: Number(e.target.value) || 0 } : null)}
-                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-yellow-500"
+                  disabled={Boolean(mobileEditForm.latest_quotation_id)}
+                  className={`w-full p-2 border rounded-lg focus:outline-none focus:border-yellow-500 ${
+                    mobileEditForm.latest_quotation_id ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed' : 'bg-gray-50 border-gray-200'
+                  }`}
                 />
               </div>
               <div>
@@ -2592,9 +2617,9 @@ export default function CRMPage() {
                   type="number"
                   value={mobileEditForm.approved_value || 0}
                   onChange={(e) => setMobileEditForm(prev => prev ? { ...prev, approved_value: Number(e.target.value) || 0 } : null)}
-                  disabled={mobileEditForm.status !== 'Approved'}
+                  disabled={mobileEditForm.status !== 'Approved' || (!canEditApproved && mobileEditForm.status === 'Approved')}
                   className={`w-full p-2 border rounded-lg focus:outline-none focus:border-yellow-500 ${
-                    mobileEditForm.status === 'Approved' ? 'bg-gray-50 border-gray-200' : 'bg-gray-100 border-gray-100 text-gray-400 cursor-not-allowed'
+                    mobileEditForm.status === 'Approved' && (canEditApproved || !mobileEditForm.id) ? 'bg-gray-50 border-gray-200' : 'bg-gray-100 border-gray-100 text-gray-400 cursor-not-allowed'
                   }`}
                 />
               </div>

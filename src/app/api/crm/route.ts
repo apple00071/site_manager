@@ -34,47 +34,76 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Reconcile latest_quotation_id and quote_version from quotations table if missing
+    // Reconcile latest_quotation_id, quote_version, and quote_value directly from quotations table
     if (leads && leads.length > 0) {
-      const missingQuoteLeadIds = leads
-        .filter((l: any) => !l.latest_quotation_id)
-        .map((l: any) => l.id);
+      const allLeadIds = leads.map((l: any) => l.id);
+      try {
+        const { data: allQuotes } = await supabaseAdmin
+          .from('quotations')
+          .select('id, lead_id, version, final_amount')
+          .in('lead_id', allLeadIds)
+          .order('version', { ascending: false });
 
-      if (missingQuoteLeadIds.length > 0) {
-        try {
-          const { data: allQuotes } = await supabaseAdmin
-            .from('quotations')
-            .select('id, lead_id, version')
-            .in('lead_id', missingQuoteLeadIds)
-            .order('version', { ascending: false });
-
-          if (allQuotes && allQuotes.length > 0) {
-            const quoteByLead: Record<string, { id: string; version: number }> = {};
-            for (const q of allQuotes) {
-              if (!quoteByLead[q.lead_id]) {
-                quoteByLead[q.lead_id] = { id: q.id, version: q.version };
-              }
+        if (allQuotes && allQuotes.length > 0) {
+          const latestQuoteByLead: Record<string, { id: string; version: number; final_amount: number }> = {};
+          for (const q of allQuotes) {
+            // Keep the latest version per lead
+            if (!latestQuoteByLead[q.lead_id]) {
+              latestQuoteByLead[q.lead_id] = {
+                id: q.id,
+                version: q.version,
+                final_amount: Number(q.final_amount) || 0,
+              };
             }
+          }
 
-            for (const l of leads) {
-              if (!l.latest_quotation_id && quoteByLead[l.id]) {
-                l.latest_quotation_id = quoteByLead[l.id].id;
-                l.quote_version = quoteByLead[l.id].version;
+          const leadsToBackfill: { id: string; quote_value: number; latest_quotation_id: string; quote_version: number }[] = [];
 
-                // Backfill in background to persist
-                void supabaseAdmin
-                  .from('quotation_leads')
-                  .update({
-                    latest_quotation_id: quoteByLead[l.id].id,
-                    quote_version: quoteByLead[l.id].version,
-                  })
-                  .eq('id', l.id);
+          for (const l of leads) {
+            const q = latestQuoteByLead[l.id];
+            if (q) {
+              const prevVal = Number(l.quote_value) || 0;
+              const hasDiff =
+                !l.latest_quotation_id ||
+                l.latest_quotation_id !== q.id ||
+                l.quote_version !== q.version ||
+                (q.final_amount > 0 && (prevVal === 0 || prevVal !== q.final_amount));
+
+              l.latest_quotation_id = q.id;
+              l.quote_version = q.version;
+              if (q.final_amount > 0) {
+                l.quote_value = q.final_amount;
+              }
+
+              if (hasDiff) {
+                leadsToBackfill.push({
+                  id: l.id,
+                  quote_value: l.quote_value,
+                  latest_quotation_id: q.id,
+                  quote_version: q.version,
+                });
               }
             }
           }
-        } catch (reconcileErr) {
-          console.warn('Error reconciling quotations for CRM leads:', reconcileErr);
+
+          if (leadsToBackfill.length > 0) {
+            Promise.all(
+              leadsToBackfill.map(bf =>
+                supabaseAdmin
+                  .from('quotation_leads')
+                  .update({
+                    quote_value: bf.quote_value,
+                    latest_quotation_id: bf.latest_quotation_id,
+                    quote_version: bf.quote_version,
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('id', bf.id)
+              )
+            ).catch(err => console.warn('Background backfill error:', err));
+          }
         }
+      } catch (reconcileErr) {
+        console.warn('Error reconciling quotations for CRM leads:', reconcileErr);
       }
     }
 
@@ -188,6 +217,22 @@ export async function PUT(request: NextRequest) {
 
     const ids = Array.isArray(id) ? id : typeof id === 'string' && id.includes(',') ? id.split(',') : [id];
 
+    // Guard against modifying Approved leads without crm.edit_approved permission
+    const { data: currentLeads } = await supabaseAdmin
+      .from('quotation_leads')
+      .select('id, status')
+      .in('id', ids);
+
+    const hasApprovedLead = currentLeads?.some((l: any) => l.status === 'Approved');
+    if (hasApprovedLead) {
+      const editApprovedCheck = await verifyPermission(user.id, 'crm.edit_approved');
+      if (!editApprovedCheck.allowed) {
+        return NextResponse.json({
+          error: 'This lead is approved. Only administrators or users with the "crm.edit_approved" permission can modify approved leads.'
+        }, { status: 403 });
+      }
+    }
+
     let query = supabaseAdmin
       .from('quotation_leads')
       .update({
@@ -235,6 +280,22 @@ export async function DELETE(request: NextRequest) {
     }
 
     const ids = id.split(',');
+
+    // Guard against deleting Approved leads without crm.edit_approved permission
+    const { data: currentLeads } = await supabaseAdmin
+      .from('quotation_leads')
+      .select('id, status')
+      .in('id', ids);
+
+    const hasApprovedLead = currentLeads?.some((l: any) => l.status === 'Approved');
+    if (hasApprovedLead) {
+      const editApprovedCheck = await verifyPermission(user.id, 'crm.edit_approved');
+      if (!editApprovedCheck.allowed) {
+        return NextResponse.json({
+          error: 'Cannot delete an approved lead. Only administrators or users with the "crm.edit_approved" permission can delete approved leads.'
+        }, { status: 403 });
+      }
+    }
 
     const { error } = await supabaseAdmin
       .from('quotation_leads')

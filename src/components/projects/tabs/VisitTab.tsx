@@ -12,6 +12,7 @@ interface VisitTabProps {
   isAdmin: boolean;
   onEdit: (section: 'info' | 'customer' | 'property' | 'workers' | null) => void;
   activeSubTab: string;
+  onProjectUpdated?: () => void;
 }
 
 const formatProjectCode = (project: any): string => {
@@ -32,7 +33,8 @@ export const VisitTab: React.FC<VisitTabProps> = ({
   canEditProject, 
   isAdmin, 
   onEdit,
-  activeSubTab
+  activeSubTab,
+  onProjectUpdated
 }) => {
   return (
     <div className="p-2 sm:p-4 md:p-6 w-full">
@@ -216,7 +218,7 @@ export const VisitTab: React.FC<VisitTabProps> = ({
           )}
         </div>
         <div className="w-full lg:w-80 flex-shrink-0">
-          <ProjectUsersPanel projectId={project.id} assignedEmployee={project.assigned_employee} createdBy={project.created_by} />
+          <ProjectUsersPanel projectId={project.id} assignedEmployee={project.assigned_employee} createdBy={project.created_by} onProjectUpdated={onProjectUpdated} />
         </div>
       </div>
     </div>

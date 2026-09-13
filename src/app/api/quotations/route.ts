@@ -1,7 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { verifyPermission } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
+
+// Helper: Verify if user has permission to modify an approved lead's quotation
+async function checkAdminIfApproved(userId: string, leadId: string): Promise<{ allowed: boolean; error?: string }> {
+  const { data: leadRecord } = await supabaseAdmin
+    .from('quotation_leads')
+    .select('status')
+    .eq('id', leadId)
+    .single();
+
+  if (leadRecord?.status === 'Approved') {
+    const perm = await verifyPermission(userId, 'crm.edit_approved');
+    if (!perm.allowed) {
+      return {
+        allowed: false,
+        error: 'This quotation is approved. Only administrators or users with the "crm.edit_approved" permission can modify approved quotations.',
+      };
+    }
+  }
+
+  return { allowed: true };
+}
 
 // GET /api/quotations?lead_id=xxx — fetch quotations for a lead (with items)
 export async function GET(request: NextRequest) {
@@ -31,6 +53,12 @@ export async function POST(request: NextRequest) {
 
   if (!lead_id || !Array.isArray(items)) {
     return NextResponse.json({ error: 'lead_id and items required' }, { status: 400 });
+  }
+
+  // Once quotation is approved, only admin can create new versions or modify
+  const check = await checkAdminIfApproved(user.id, lead_id);
+  if (!check.allowed) {
+    return NextResponse.json({ error: check.error }, { status: 403 });
   }
 
   // Get current max version for this lead
@@ -121,6 +149,12 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'id, lead_id and items required' }, { status: 400 });
   }
 
+  // Once quotation is approved, only admin can modify
+  const check = await checkAdminIfApproved(user.id, lead_id);
+  if (!check.allowed) {
+    return NextResponse.json({ error: check.error }, { status: 403 });
+  }
+
   // Compute totals
   const subtotal = items.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
   const discType = discount_type || 'none';
@@ -194,6 +228,19 @@ export async function DELETE(request: NextRequest) {
 
   const id = request.nextUrl.searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
+
+  const { data: qData } = await supabaseAdmin
+    .from('quotations')
+    .select('lead_id')
+    .eq('id', id)
+    .single();
+
+  if (qData?.lead_id) {
+    const check = await checkAdminIfApproved(user.id, qData.lead_id);
+    if (!check.allowed) {
+      return NextResponse.json({ error: check.error }, { status: 403 });
+    }
+  }
 
   const { error } = await supabaseAdmin.from('quotations').delete().eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

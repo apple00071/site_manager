@@ -376,6 +376,7 @@ export async function POST(req: Request) {
       start_date: parsed.data.start_date,
       estimated_completion_date: parsed.data.estimated_completion_date,
       assigned_employee_id: parsed.data.assigned_employee_id,
+      designer_id: parsed.data.assigned_employee_id,
       carpenter_name: parsed.data.carpenter_name || null,
       carpenter_phone: parsed.data.carpenter_phone || null,
       electrician_name: parsed.data.electrician_name || null,

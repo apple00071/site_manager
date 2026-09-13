@@ -26,6 +26,8 @@ interface SystemUser {
     full_name: string;
     email: string;
     designation: string | null;
+    role?: string | null;
+    roles?: { id: string; name: string } | null;
 }
 
 interface ProjectUsersPanelProps {
@@ -37,9 +39,10 @@ interface ProjectUsersPanelProps {
         designation?: string;
     } | null;
     createdBy?: string;
+    onProjectUpdated?: () => void;
 }
 
-export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: ProjectUsersPanelProps) {
+export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy, onProjectUpdated }: ProjectUsersPanelProps) {
     const [users, setUsers] = useState<ProjectUser[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -50,6 +53,14 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
     const [error, setError] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
+    // Change Designer Modal State
+    const [showChangeDesignerModal, setShowChangeDesignerModal] = useState(false);
+    const [availableDesigners, setAvailableDesigners] = useState<SystemUser[]>([]);
+    const [selectedDesigner, setSelectedDesigner] = useState<string>('');
+    const [designerSearchQuery, setDesignerSearchQuery] = useState('');
+    const [isChangingDesigner, setIsChangingDesigner] = useState(false);
+    const [changeDesignerError, setChangeDesignerError] = useState<string | null>(null);
+
     // Check if user has permission to manage project users
     const { hasPermission } = useUserPermissions();
     const canManageUsers = hasPermission('projects.edit');
@@ -59,9 +70,10 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
     }, [projectId]);
 
     const overlayRef = useRef<HTMLDivElement>(null);
+    const changeOverlayRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        if (!showAddModal) return;
+        if (!showAddModal && !showChangeDesignerModal) return;
 
         // Prevent body scroll and native pull-to-refresh
         document.body.style.overflow = 'hidden';
@@ -71,7 +83,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
             e.stopPropagation();
         };
 
-        const overlay = overlayRef.current;
+        const overlay = overlayRef.current || changeOverlayRef.current;
         if (overlay) {
             overlay.addEventListener('touchstart', handleTouch, { passive: true });
             overlay.addEventListener('touchmove', handleTouch, { passive: false });
@@ -85,7 +97,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                 overlay.removeEventListener('touchmove', handleTouch);
             }
         };
-    }, [showAddModal]);
+    }, [showAddModal, showChangeDesignerModal]);
 
     const fetchProjectUsers = async () => {
         try {
@@ -226,6 +238,73 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
         }
     };
 
+    const handleOpenChangeDesignerModal = async () => {
+        setShowChangeDesignerModal(true);
+        setSelectedDesigner(assignedEmployee?.id || '');
+        setDesignerSearchQuery('');
+        setChangeDesignerError(null);
+        try {
+            const response = await fetch('/api/admin/users');
+            if (response.ok) {
+                const allUsers = await response.json();
+                const designers = (allUsers || []).filter((u: any) => {
+                    if (u.is_active === false) return false;
+                    const desig = (u.designation || '').toLowerCase();
+                    const roleName = (u.roles?.name || u.role || '').toLowerCase();
+                    return desig.includes('designer') || roleName.includes('designer');
+                });
+                setAvailableDesigners(designers);
+            }
+        } catch (err) {
+            console.error('Error fetching designers:', err);
+        }
+    };
+
+    const handleChangeDesigner = async () => {
+        if (!selectedDesigner) {
+            setChangeDesignerError('Please select a designer');
+            return;
+        }
+        if (selectedDesigner === assignedEmployee?.id) {
+            setShowChangeDesignerModal(false);
+            return;
+        }
+
+        try {
+            setIsChangingDesigner(true);
+            setChangeDesignerError(null);
+
+            const response = await fetch(`/api/projects/${projectId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assigned_employee_id: selectedDesigner }),
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error?.message || errData.error || 'Failed to reassign designer');
+            }
+
+            await fetchProjectUsers();
+            onProjectUpdated?.();
+            setShowChangeDesignerModal(false);
+        } catch (err: any) {
+            console.error('Error reassigning designer:', err);
+            setChangeDesignerError(err.message || 'Failed to reassign designer. Please try again.');
+        } finally {
+            setIsChangingDesigner(false);
+        }
+    };
+
+    const filteredAvailableDesigners = availableDesigners.filter(u => {
+        const query = designerSearchQuery.toLowerCase();
+        return (
+            u.full_name?.toLowerCase().includes(query) ||
+            u.email?.toLowerCase().includes(query) ||
+            u.designation?.toLowerCase().includes(query)
+        );
+    });
+
     // Filter available users based on search
     const filteredAvailableUsers = availableUsers.filter(u => {
         const query = searchQuery.toLowerCase();
@@ -349,6 +428,19 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                                                 {user.designation || 'Team Member'}
                                             </p>
                                         </div>
+
+                                        {/* Change Designer button - for assigned employee */}
+                                        {canManageUsers && assignedEmployee?.id === user.id && (
+                                            <button
+                                                onClick={handleOpenChangeDesignerModal}
+                                                disabled={isChangingDesigner}
+                                                className="px-2.5 py-1 text-xs font-medium text-yellow-700 bg-yellow-50 hover:bg-yellow-100 rounded-lg border border-yellow-200 transition-colors flex items-center gap-1 flex-shrink-0"
+                                                title="Change assigned designer"
+                                            >
+                                                <FiEdit2 className="w-3 h-3" />
+                                                <span>Change</span>
+                                            </button>
+                                        )}
 
                                         {/* Delete button - inline, hide for assigned employee and admin users */}
                                         {canManageUsers && assignedEmployee?.id !== user.id && user.role !== 'admin' && (
@@ -487,6 +579,133 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy }: Pr
                     </div>
                 </div>
                 , document.body)}
+
+            {/* Change Designer Modal */}
+            {showChangeDesignerModal && createPortal(
+                <div
+                    ref={changeOverlayRef}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+                    data-modal="true"
+                    role="dialog"
+                    aria-modal="true"
+                >
+                    <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-hidden">
+                        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                            <h3 className="text-lg font-semibold text-gray-900">
+                                Change Assigned Designer
+                            </h3>
+                            <button
+                                onClick={() => setShowChangeDesignerModal(false)}
+                                className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+                            >
+                                <FiX className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+                            {assignedEmployee && (
+                                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                                    <p className="text-xs text-gray-500 font-medium mb-1">Current Assigned Designer</p>
+                                    <p className="text-sm font-semibold text-gray-900">{assignedEmployee.name}</p>
+                                    <p className="text-xs text-gray-500">{assignedEmployee.email}</p>
+                                </div>
+                            )}
+
+                            {/* Search */}
+                            <div className="relative">
+                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                <input
+                                    type="text"
+                                    placeholder="Search designers..."
+                                    value={designerSearchQuery}
+                                    onChange={(e) => setDesignerSearchQuery(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                                />
+                            </div>
+
+                            {/* Designer Selection */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Select New Designer
+                                </label>
+                                <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                                    {filteredAvailableDesigners.length === 0 ? (
+                                        <p className="text-sm text-gray-500 text-center py-4">
+                                            {availableDesigners.length === 0
+                                                ? 'No active designers found'
+                                                : 'No designers match your search'}
+                                        </p>
+                                    ) : (
+                                        filteredAvailableDesigners.map(designer => (
+                                            <button
+                                                key={designer.id}
+                                                type="button"
+                                                onClick={() => setSelectedDesigner(designer.id)}
+                                                className={`w-full flex items-center gap-3 p-2 rounded-lg text-left transition-colors ${selectedDesigner === designer.id
+                                                    ? 'bg-yellow-50 border-yellow-200 border'
+                                                    : 'hover:bg-gray-50 border border-transparent'
+                                                    }`}
+                                            >
+                                                <div className={`w-8 h-8 rounded-full ${getAvatarColor(designer.full_name || designer.email)} flex items-center justify-center text-white text-xs font-medium`}>
+                                                    {getInitials(designer.full_name || designer.email)}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-gray-900 truncate">
+                                                        {designer.full_name || designer.email.split('@')[0]}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 truncate">
+                                                        {designer.designation || designer.roles?.name || 'Designer'}
+                                                    </p>
+                                                </div>
+                                                {selectedDesigner === designer.id && (
+                                                    <FiCheck className="w-5 h-5 text-yellow-600" />
+                                                )}
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Error */}
+                            {changeDesignerError && (
+                                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                                    {changeDesignerError}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-4 py-3 border-t border-gray-200 flex justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setShowChangeDesignerModal(false)}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleChangeDesigner}
+                                disabled={!selectedDesigner || selectedDesigner === assignedEmployee?.id || isChangingDesigner}
+                                className="px-4 py-2 text-sm font-medium bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                            >
+                                {isChangingDesigner ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        Updating...
+                                    </>
+                                ) : (
+                                    <>
+                                        <FiCheck className="w-4 h-4" />
+                                        Reassign Designer
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
         </>
     );
 }

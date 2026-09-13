@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { FiX, FiPlus, FiTrash2, FiPrinter, FiSave, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { useAuth } from '@/contexts/AuthContext';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -35,6 +37,7 @@ interface Lead {
   phone: string;
   site_project: string;
   quote_value: number;
+  status?: string;
   latest_quotation_id?: string;
   quote_version?: number;
 }
@@ -117,6 +120,15 @@ const DEFAULT_MATERIAL_SPECS: Record<string, string> = {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
+  const { user, isAdmin: authIsAdmin } = useAuth();
+  const { hasPermission, isAdmin: permIsAdmin } = useUserPermissions();
+  const isAdmin = Boolean(authIsAdmin || permIsAdmin || user?.role?.toLowerCase() === 'admin');
+  const canEditApproved = Boolean(isAdmin || hasPermission('crm.edit_approved'));
+
+  // Quotation is approved when the lead status is 'Approved'
+  const isApproved = lead.status === 'Approved';
+  const isApprovedLocked = isApproved && !canEditApproved;
+
   const [tab, setTab] = useState<'sections' | 'items' | 'specs' | 'summary'>('sections');
   const [rateCard, setRateCard] = useState<RateCardItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -379,6 +391,10 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async (asNewVersion = false) => {
+    if (isApprovedLocked) {
+      alert('This quotation is approved. Only administrators can modify approved quotations.');
+      return;
+    }
     if (items.length === 0) return alert('Add at least one item.');
     setSaving(true);
     try {
@@ -570,6 +586,55 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
           <button onClick={onClose} style={styles.closeBtn}><FiX size={20} /></button>
         </div>
 
+        {/* Approved quotation lock notice */}
+        {isApprovedLocked && (
+          <div style={{
+            background: '#78350f',
+            color: '#fef3c7',
+            padding: '10px 18px',
+            fontSize: '12px',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid #92400e',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '16px' }}>🔒</span>
+              <span>
+                <strong>Quotation Approved (Locked):</strong> Only administrators can modify approved quotations. This quotation is in read-only mode.
+              </span>
+            </div>
+            {existingQuotation && (
+              <button
+                type="button"
+                style={{ ...styles.printBtn, padding: '4px 10px', fontSize: '11px' }}
+                onClick={() => window.open(`/quotations/${existingQuotation.id}/print`, '_blank')}
+              >
+                <FiPrinter size={12} /> Print PDF
+              </button>
+            )}
+          </div>
+        )}
+        {isApproved && isAdmin && (
+          <div style={{
+            background: '#1e3a8a',
+            color: '#bfdbfe',
+            padding: '8px 18px',
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            borderBottom: '1px solid #1d4ed8',
+          }}>
+            <span style={{ fontSize: '14px' }}>🛡️</span>
+            <span>
+              <strong>Approved Quotation:</strong> Editing with Administrator privileges.
+            </span>
+          </div>
+        )}
+
         {/* Tabs */}
         <div className="qb-tabs" style={styles.tabs}>
           {(['sections', 'items', 'specs', 'summary'] as const).map(t => (
@@ -592,7 +657,13 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                 return (
                   <button
                     key={section}
-                    onClick={() => toggleSection(section)}
+                    onClick={() => {
+                      if (isApprovedLocked) {
+                        alert('This quotation is approved. Only administrators can modify room sections.');
+                        return;
+                      }
+                      toggleSection(section);
+                    }}
                     style={{ ...styles.sectionCard, ...(selected ? styles.sectionCardActive : {}) }}
                   >
                     <span style={styles.sectionCheck}>{selected ? '✓' : '+'}</span>
@@ -605,33 +676,35 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                   </button>
                 );
               })}
-              <button
-                onClick={() => {
-                  const name = prompt('Enter custom section name (e.g. Balcony, Home Theatre, Bar Area):');
-                  if (name && name.trim()) {
-                    const trimmed = name.trim();
-                    if (sectionsList.includes(trimmed)) {
-                      return alert('Section already exists.');
+              {!isApprovedLocked && (
+                <button
+                  onClick={() => {
+                    const name = prompt('Enter custom section name (e.g. Balcony, Home Theatre, Bar Area):');
+                    if (name && name.trim()) {
+                      const trimmed = name.trim();
+                      if (sectionsList.includes(trimmed)) {
+                        return alert('Section already exists.');
+                      }
+                      setCustomSections(prev => [...prev, trimmed]);
+                      setSelectedSections(prev => [...prev, trimmed]);
                     }
-                    setCustomSections(prev => [...prev, trimmed]);
-                    setSelectedSections(prev => [...prev, trimmed]);
-                  }
-                }}
-                style={{
-                  ...styles.sectionCard,
-                  border: '2px dashed #dcdcdc',
-                  background: '#fafafa',
-                  color: '#666',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                <span style={{ fontSize: '18px', fontWeight: 'bold' }}>+</span>
-                <span style={{ fontSize: '12px', fontWeight: 600 }}>Add Custom Section</span>
-              </button>
+                  }}
+                  style={{
+                    ...styles.sectionCard,
+                    border: '2px dashed #dcdcdc',
+                    background: '#fafafa',
+                    color: '#666',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <span style={{ fontSize: '18px', fontWeight: 'bold' }}>+</span>
+                  <span style={{ fontSize: '12px', fontWeight: 600 }}>Add Custom Section</span>
+                </button>
+              )}
             </div>
           )}
 
@@ -640,33 +713,35 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '55vh', overflowY: 'auto', paddingRight: '6px' }}>
               <div style={{ fontSize: '12px', color: '#666', marginBottom: '6px', fontStyle: 'italic', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>Modify the material and hardware specifications for this quotation:</span>
-                <button
-                  onClick={() => {
-                    const label = prompt('Enter custom specification name (e.g., Plumbing, Paint Brand, Lighting):');
-                    if (label && label.trim()) {
-                      const trimmed = label.trim();
-                      if (materialSpecs[trimmed] !== undefined) {
-                        return alert('Specification already exists.');
+                {!isApprovedLocked && (
+                  <button
+                    onClick={() => {
+                      const label = prompt('Enter custom specification name (e.g., Plumbing, Paint Brand, Lighting):');
+                      if (label && label.trim()) {
+                        const trimmed = label.trim();
+                        if (materialSpecs[trimmed] !== undefined) {
+                          return alert('Specification already exists.');
+                        }
+                        setMaterialSpecs(prev => ({ ...prev, [trimmed]: '' }));
                       }
-                      setMaterialSpecs(prev => ({ ...prev, [trimmed]: '' }));
-                    }
-                  }}
-                  style={{
-                    background: '#f5c518',
-                    color: '#2b2b2b',
-                    border: 'none',
-                    borderRadius: '4px',
-                    padding: '4px 10px',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  <FiPlus size={10} /> Add Spec Row
-                </button>
+                    }}
+                    style={{
+                      background: '#f5c518',
+                      color: '#2b2b2b',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '4px 10px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <FiPlus size={10} /> Add Spec Row
+                  </button>
+                )}
               </div>
               {Object.entries(materialSpecs).map(([label, value]) => (
                 <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid #f5f5f5', paddingBottom: '8px' }}>
@@ -678,35 +753,39 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                       borderRadius: '4px',
                       padding: '5px 8px',
                       fontSize: '12px',
-                      color: '#444',
+                      color: isApprovedLocked ? '#555' : '#444',
+                      background: isApprovedLocked ? '#f5f5f5' : '#fff',
                       outline: 'none',
                     }}
+                    readOnly={isApprovedLocked}
                     value={value}
                     onChange={(e) => setMaterialSpecs(prev => ({ ...prev, [label]: e.target.value }))}
                   />
-                  <button
-                    onClick={() => {
-                      if (confirm(`Remove "${label}" from specifications?`)) {
-                        setMaterialSpecs(prev => {
-                          const copy = { ...prev };
-                          delete copy[label];
-                          return copy;
-                        });
-                      }
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#ef4444',
-                      cursor: 'pointer',
-                      padding: '4px',
-                      display: 'flex',
-                      alignItems: 'center'
-                    }}
-                    title="Delete specification row"
-                  >
-                    <FiTrash2 size={14} />
-                  </button>
+                  {!isApprovedLocked && (
+                    <button
+                      onClick={() => {
+                        if (confirm(`Remove "${label}" from specifications?`)) {
+                          setMaterialSpecs(prev => {
+                            const copy = { ...prev };
+                            delete copy[label];
+                            return copy;
+                          });
+                        }
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#ef4444',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                      title="Delete specification row"
+                    >
+                      <FiTrash2 size={14} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -716,34 +795,36 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
           {tab === 'items' && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', gap: '8px', flexWrap: 'wrap' }}>
-                <button
-                  onClick={() => {
-                    const name = prompt('Enter new Room / Section name (e.g. Balcony, Home Theatre, Servant Room):');
-                    if (name && name.trim()) {
-                      const trimmed = name.trim();
-                      if (selectedSections.includes(trimmed)) {
-                        return alert('This room section is already added.');
+                {!isApprovedLocked && (
+                  <button
+                    onClick={() => {
+                      const name = prompt('Enter new Room / Section name (e.g. Balcony, Home Theatre, Servant Room):');
+                      if (name && name.trim()) {
+                        const trimmed = name.trim();
+                        if (selectedSections.includes(trimmed)) {
+                          return alert('This room section is already added.');
+                        }
+                        setCustomSections(prev => [...prev, trimmed]);
+                        setSelectedSections(prev => [...prev, trimmed]);
                       }
-                      setCustomSections(prev => [...prev, trimmed]);
-                      setSelectedSections(prev => [...prev, trimmed]);
-                    }
-                  }}
-                  style={{
-                    background: '#f5c518',
-                    color: '#2b2b2b',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '6px 14px',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  <FiPlus size={14} /> Add Another Room / Section
-                </button>
+                    }}
+                    style={{
+                      background: '#f5c518',
+                      color: '#2b2b2b',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '6px 14px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <FiPlus size={14} /> Add Another Room / Section
+                  </button>
+                )}
                 <button
                   onClick={() => setTab('sections')}
                   style={{
@@ -839,9 +920,10 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                             {/* Description */}
                             <div className="qb-cell qb-desc-col" style={{ ...styles.col, ...styles.colDesc }}>
                               <input
-                                style={styles.input}
+                                style={{ ...styles.input, ...(isApprovedLocked ? { background: '#f5f5f5', color: '#555', cursor: 'default' } : {}) }}
                                 value={item.item_name}
                                 placeholder="Item name"
+                                readOnly={isApprovedLocked}
                                 onChange={e => updateItem(item._key, { item_name: e.target.value })}
                               />
                             </div>
@@ -850,7 +932,7 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                               <span className="qb-label-hint" style={{ display: 'none' }}>L (ft)</span>
                               {item.is_lumpsum
                                 ? <span style={styles.dash}>—</span>
-                                : <input style={{ ...styles.input, textAlign: 'center' }} value={item.length_ft} placeholder="0" onChange={e => updateItem(item._key, { length_ft: e.target.value })} />
+                                : <input style={{ ...styles.input, textAlign: 'center', ...(isApprovedLocked ? { background: '#f5f5f5', color: '#555', cursor: 'default' } : {}) }} value={item.length_ft} placeholder="0" readOnly={isApprovedLocked} onChange={e => updateItem(item._key, { length_ft: e.target.value })} />
                               }
                             </div>
                             {/* W */}
@@ -858,7 +940,7 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                               <span className="qb-label-hint" style={{ display: 'none' }}>W (ft)</span>
                               {item.is_lumpsum
                                 ? <span style={styles.dash}>—</span>
-                                : <input style={{ ...styles.input, textAlign: 'center' }} value={item.width_ft} placeholder="0" onChange={e => updateItem(item._key, { width_ft: e.target.value })} />
+                                : <input style={{ ...styles.input, textAlign: 'center', ...(isApprovedLocked ? { background: '#f5f5f5', color: '#555', cursor: 'default' } : {}) }} value={item.width_ft} placeholder="0" readOnly={isApprovedLocked} onChange={e => updateItem(item._key, { width_ft: e.target.value })} />
                               }
                             </div>
                             {/* Area */}
@@ -872,9 +954,10 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                             <div className="qb-cell" style={{ ...styles.col, ...styles.colRate, flexDirection: 'column', alignItems: 'stretch' }}>
                               <span className="qb-label-hint" style={{ display: 'none' }}>Rate (₹)</span>
                               <input
-                                style={{ ...styles.input, textAlign: 'right' }}
+                                style={{ ...styles.input, textAlign: 'right', ...(isApprovedLocked ? { background: '#f5f5f5', color: '#555', cursor: 'default' } : {}) }}
                                 value={item.rate}
                                 type="number"
+                                readOnly={isApprovedLocked}
                                 onChange={e => updateItem(item._key, { rate: parseFloat(e.target.value) || 0 })}
                               />
                             </div>
@@ -888,17 +971,21 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                             {/* Delete */}
                             <div className="qb-cell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px' }}>
                               <span className="qb-label-hint" style={{ display: 'none' }}>&nbsp;</span>
-                              <button onClick={() => removeItem(item._key)} style={styles.deleteBtn} title="Remove">
-                                <FiTrash2 size={13} />
-                              </button>
+                              {!isApprovedLocked && (
+                                <button onClick={() => removeItem(item._key)} style={styles.deleteBtn} title="Remove">
+                                  <FiTrash2 size={13} />
+                                </button>
+                              )}
                             </div>
                           </div>
                         ))}
 
                         {/* Add custom item */}
-                        <button onClick={() => addCustomItem(section)} style={styles.addItemBtn}>
-                          <FiPlus size={12} /> Add item
-                        </button>
+                        {!isApprovedLocked && (
+                          <button onClick={() => addCustomItem(section)} style={styles.addItemBtn}>
+                            <FiPlus size={12} /> Add item
+                          </button>
+                        )}
                       </>
                     )}
                   </div>
@@ -934,8 +1021,9 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                 <div style={styles.discountTitle}>Discount</div>
                 <div style={styles.discountRow}>
                   <select
-                    style={styles.discountSelect}
+                    style={{ ...styles.discountSelect, ...(isApprovedLocked ? { background: '#f5f5f5', cursor: 'default' } : {}) }}
                     value={discountType}
+                    disabled={isApprovedLocked}
                     onChange={e => setDiscountType(e.target.value as any)}
                   >
                     <option value="none">No discount</option>
@@ -944,10 +1032,11 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                   </select>
                   {discountType !== 'none' && (
                     <input
-                      style={styles.discountInput}
+                      style={{ ...styles.discountInput, ...(isApprovedLocked ? { background: '#f5f5f5', cursor: 'default' } : {}) }}
                       type="number"
                       placeholder={discountType === 'percent' ? 'e.g. 5' : 'e.g. 20000'}
                       value={discountValue}
+                      readOnly={isApprovedLocked}
                       onChange={e => setDiscountValue(e.target.value)}
                     />
                   )}
@@ -981,7 +1070,9 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                       <button
                         key={opt.label}
                         type="button"
+                        disabled={isApprovedLocked}
                         onClick={() => {
+                          if (isApprovedLocked) return;
                           setGstRate(opt.val);
                           if (opt.val !== -1) setCustomGstValue('');
                         }}
@@ -993,7 +1084,8 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                           color: isSelected ? '#92400e' : '#475569',
                           fontWeight: isSelected ? 700 : 500,
                           fontSize: '12px',
-                          cursor: 'pointer',
+                          cursor: isApprovedLocked ? 'default' : 'pointer',
+                          opacity: isApprovedLocked && !isSelected ? 0.6 : 1,
                           transition: 'all 0.15s ease',
                         }}
                       >
@@ -1005,10 +1097,11 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                 {gstRate === -1 && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
                     <input
-                      style={{ ...styles.discountInput, width: '120px' }}
+                      style={{ ...styles.discountInput, width: '120px', ...(isApprovedLocked ? { background: '#f5f5f5' } : {}) }}
                       type="number"
                       placeholder="Custom %"
                       value={customGstValue}
+                      readOnly={isApprovedLocked}
                       onChange={e => setCustomGstValue(e.target.value)}
                     />
                     <span style={{ fontSize: '12px', color: '#64748b' }}>% GST</span>
@@ -1069,9 +1162,10 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
               <div style={{ marginTop: '16px' }}>
                 <label style={styles.notesLabel}>Notes (internal)</label>
                 <textarea
-                  style={styles.notesArea}
+                  style={{ ...styles.notesArea, ...(isApprovedLocked ? { background: '#f5f5f5', color: '#555' } : {}) }}
                   rows={3}
                   value={notes}
+                  readOnly={isApprovedLocked}
                   placeholder="Any notes for this quotation…"
                   onChange={e => setNotes(e.target.value)}
                 />
@@ -1088,7 +1182,7 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
             {effectiveGstRate > 0 && ` + ${fmt(gstAmount)} GST`}
             {` = ${fmt(finalAmount)}`}
           </div>
-          <div className="qb-footer-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="qb-footer-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
             {existingQuotation && (
               <button
                 type="button"
@@ -1099,7 +1193,20 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
               </button>
             )}
 
-            {existingQuotation ? (
+            {isApprovedLocked ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '12px', color: '#f59e0b', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  🔒 Approved (Read-Only)
+                </span>
+                <button
+                  type="button"
+                  style={{ ...styles.saveBtn, background: '#4b5563', color: '#fff', cursor: 'pointer' }}
+                  onClick={onClose}
+                >
+                  Close
+                </button>
+              </div>
+            ) : existingQuotation ? (
               <>
                 <button
                   type="button"

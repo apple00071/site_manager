@@ -159,6 +159,7 @@ export const PERMISSION_NODES = {
     // CRM Permissions
     CRM_VIEW: 'crm.view',
     CRM_MANAGE: 'crm.manage',
+    CRM_EDIT_APPROVED: 'crm.edit_approved',
 
     // Procurement (Legacy)
     PROCUREMENT_VIEW: 'procurement.view',

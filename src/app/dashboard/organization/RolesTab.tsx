@@ -266,7 +266,8 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         icon: '💼',
         permissions: [
             { id: 'crm.view', label: 'View CRM leads & quotations' },
-            { id: 'crm.manage', label: 'Manage CRM leads, stages & quotations' }
+            { id: 'crm.manage', label: 'Manage CRM leads, stages & quotations' },
+            { id: 'crm.edit_approved', label: 'Modify approved quotations & leads' }
         ],
         notifications: ['New lead created', 'Quotation approved']
     },
