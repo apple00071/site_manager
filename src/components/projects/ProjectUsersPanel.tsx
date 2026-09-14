@@ -38,11 +38,12 @@ interface ProjectUsersPanelProps {
         email: string;
         designation?: string;
     } | null;
+    siteSupervisorId?: string | null;
     createdBy?: string;
     onProjectUpdated?: () => void;
 }
 
-export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy, onProjectUpdated }: ProjectUsersPanelProps) {
+export function ProjectUsersPanel({ projectId, assignedEmployee, siteSupervisorId, createdBy, onProjectUpdated }: ProjectUsersPanelProps) {
     const [users, setUsers] = useState<ProjectUser[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -61,6 +62,15 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy, onPr
     const [isChangingDesigner, setIsChangingDesigner] = useState(false);
     const [changeDesignerError, setChangeDesignerError] = useState<string | null>(null);
 
+    // Change Engineer Modal State
+    const [showChangeEngineerModal, setShowChangeEngineerModal] = useState(false);
+    const [engineerToReplace, setEngineerToReplace] = useState<ProjectUser | null>(null);
+    const [availableEngineers, setAvailableEngineers] = useState<SystemUser[]>([]);
+    const [selectedEngineer, setSelectedEngineer] = useState<string>('');
+    const [engineerSearchQuery, setEngineerSearchQuery] = useState('');
+    const [isChangingEngineer, setIsChangingEngineer] = useState(false);
+    const [changeEngineerError, setChangeEngineerError] = useState<string | null>(null);
+
     // Check if user has permission to manage project users
     const { hasPermission } = useUserPermissions();
     const canManageUsers = hasPermission('projects.edit');
@@ -71,9 +81,10 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy, onPr
 
     const overlayRef = useRef<HTMLDivElement>(null);
     const changeOverlayRef = useRef<HTMLDivElement>(null);
+    const engineerOverlayRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        if (!showAddModal && !showChangeDesignerModal) return;
+        if (!showAddModal && !showChangeDesignerModal && !showChangeEngineerModal) return;
 
         // Prevent body scroll and native pull-to-refresh
         document.body.style.overflow = 'hidden';
@@ -83,7 +94,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy, onPr
             e.stopPropagation();
         };
 
-        const overlay = overlayRef.current || changeOverlayRef.current;
+        const overlay = overlayRef.current || changeOverlayRef.current || engineerOverlayRef.current;
         if (overlay) {
             overlay.addEventListener('touchstart', handleTouch, { passive: true });
             overlay.addEventListener('touchmove', handleTouch, { passive: false });
@@ -97,7 +108,7 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy, onPr
                 overlay.removeEventListener('touchmove', handleTouch);
             }
         };
-    }, [showAddModal, showChangeDesignerModal]);
+    }, [showAddModal, showChangeDesignerModal, showChangeEngineerModal]);
 
     const fetchProjectUsers = async () => {
         try {
@@ -296,6 +307,128 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy, onPr
         }
     };
 
+    const isSiteEngineer = (user: ProjectUser) => {
+        if (siteSupervisorId && user.id === siteSupervisorId) return true;
+        const desig = (user.designation || '').toLowerCase();
+        const role = (user.role || '').toLowerCase();
+        return (
+            desig.includes('site') ||
+            desig.includes('engineer') ||
+            desig.includes('supervisor') ||
+            role.includes('site') ||
+            role.includes('engineer') ||
+            role.includes('supervisor')
+        );
+    };
+
+    const handleOpenChangeEngineerModal = async (targetUser: ProjectUser) => {
+        setShowChangeEngineerModal(true);
+        setEngineerToReplace(targetUser);
+        setSelectedEngineer('');
+        setEngineerSearchQuery('');
+        setChangeEngineerError(null);
+        try {
+            const response = await fetch('/api/admin/users');
+            if (response.ok) {
+                const allUsers = await response.json();
+                const existingMemberIds = new Set(users.map(u => u.id).filter(id => id !== targetUser.id));
+                if (assignedEmployee) existingMemberIds.add(assignedEmployee.id);
+
+                const engineers = (allUsers || []).filter((u: any) => {
+                    if (u.is_active === false) return false;
+                    if (u.id === targetUser.id) return false;
+                    if (existingMemberIds.has(u.id)) return false;
+                    const desig = (u.designation || '').toLowerCase();
+                    const roleName = (u.roles?.name || u.role || '').toLowerCase();
+                    return (
+                        desig.includes('site') ||
+                        desig.includes('engineer') ||
+                        desig.includes('supervisor') ||
+                        roleName.includes('site') ||
+                        roleName.includes('engineer') ||
+                        roleName.includes('supervisor')
+                    );
+                });
+
+                if (engineers.length === 0) {
+                    const fallback = (allUsers || []).filter((u: any) =>
+                        u.is_active !== false && u.id !== targetUser.id && !existingMemberIds.has(u.id)
+                    );
+                    setAvailableEngineers(fallback);
+                } else {
+                    setAvailableEngineers(engineers);
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching engineers:', err);
+        }
+    };
+
+    const handleChangeEngineer = async () => {
+        if (!selectedEngineer || !engineerToReplace) {
+            setChangeEngineerError('Please select an engineer');
+            return;
+        }
+
+        try {
+            setIsChangingEngineer(true);
+            setChangeEngineerError(null);
+
+            // 1. Add new engineer to project_members
+            const addResponse = await fetch('/api/admin/project-members', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    project_id: projectId,
+                    user_id: selectedEngineer,
+                    permissions: engineerToReplace.permissions || {
+                        view: true,
+                        edit: true,
+                        upload: true,
+                        mark_done: true,
+                    },
+                }),
+            });
+
+            if (!addResponse.ok) {
+                const errData = await addResponse.json().catch(() => ({}));
+                throw new Error(errData.error?.message || errData.error || 'Failed to assign new engineer');
+            }
+
+            // 2. Remove old engineer from project_members
+            await fetch(`/api/admin/project-members?project_id=${projectId}&user_id=${engineerToReplace.id}`, {
+                method: 'DELETE',
+            });
+
+            // 3. Update site_supervisor_id on the project
+            await fetch(`/api/projects/${projectId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ site_supervisor_id: selectedEngineer }),
+            });
+
+            await fetchProjectUsers();
+            onProjectUpdated?.();
+            setShowChangeEngineerModal(false);
+            setEngineerToReplace(null);
+            setSelectedEngineer('');
+        } catch (err: any) {
+            console.error('Error reassigning site engineer:', err);
+            setChangeEngineerError(err.message || 'Failed to reassign site engineer. Please try again.');
+        } finally {
+            setIsChangingEngineer(false);
+        }
+    };
+
+    const filteredAvailableEngineers = availableEngineers.filter(u => {
+        const query = engineerSearchQuery.toLowerCase();
+        return (
+            u.full_name?.toLowerCase().includes(query) ||
+            u.email?.toLowerCase().includes(query) ||
+            u.designation?.toLowerCase().includes(query)
+        );
+    });
+
     const filteredAvailableDesigners = availableDesigners.filter(u => {
         const query = designerSearchQuery.toLowerCase();
         return (
@@ -442,16 +575,34 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy, onPr
                                             </button>
                                         )}
 
-                                        {/* Delete button - inline, hide for assigned employee and admin users */}
-                                        {canManageUsers && assignedEmployee?.id !== user.id && user.role !== 'admin' && (
-                                            <button
-                                                onClick={() => handleRemoveUser(user.id)}
-                                                disabled={isDeleting}
-                                                className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 flex-shrink-0"
-                                                title="Remove user from project"
-                                            >
-                                                <FiTrash2 className="w-4 h-4" />
-                                            </button>
+                                        {/* Actions for other members */}
+                                        {canManageUsers && assignedEmployee?.id !== user.id && (
+                                            <div className="flex items-center gap-1 flex-shrink-0">
+                                                {/* Change Site Engineer button */}
+                                                {isSiteEngineer(user) && (
+                                                    <button
+                                                        onClick={() => handleOpenChangeEngineerModal(user)}
+                                                        disabled={isChangingEngineer}
+                                                        className="px-2.5 py-1 text-xs font-medium text-yellow-700 bg-yellow-50 hover:bg-yellow-100 rounded-lg border border-yellow-200 transition-colors flex items-center gap-1"
+                                                        title="Change site engineer"
+                                                    >
+                                                        <FiEdit2 className="w-3 h-3" />
+                                                        <span>Change</span>
+                                                    </button>
+                                                )}
+
+                                                {/* Delete button - inline, hide for admin users */}
+                                                {user.role !== 'admin' && (
+                                                    <button
+                                                        onClick={() => handleRemoveUser(user.id)}
+                                                        disabled={isDeleting}
+                                                        className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                                                        title="Remove user from project"
+                                                    >
+                                                        <FiTrash2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -698,6 +849,139 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, createdBy, onPr
                                     <>
                                         <FiCheck className="w-4 h-4" />
                                         Reassign Designer
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Change Site Engineer Modal */}
+            {showChangeEngineerModal && createPortal(
+                <div
+                    ref={engineerOverlayRef}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+                    data-modal="true"
+                    role="dialog"
+                    aria-modal="true"
+                >
+                    <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-hidden">
+                        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                            <h3 className="text-lg font-semibold text-gray-900">
+                                Change Site Engineer
+                            </h3>
+                            <button
+                                onClick={() => {
+                                    setShowChangeEngineerModal(false);
+                                    setEngineerToReplace(null);
+                                }}
+                                className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+                            >
+                                <FiX className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+                            {engineerToReplace && (
+                                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                                    <p className="text-xs text-gray-500 font-medium mb-1">Current Site Engineer</p>
+                                    <p className="text-sm font-semibold text-gray-900">{engineerToReplace.name}</p>
+                                    <p className="text-xs text-gray-500">{engineerToReplace.email}</p>
+                                </div>
+                            )}
+
+                            {/* Search */}
+                            <div className="relative">
+                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                <input
+                                    type="text"
+                                    placeholder="Search engineers..."
+                                    value={engineerSearchQuery}
+                                    onChange={(e) => setEngineerSearchQuery(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                                />
+                            </div>
+
+                            {/* Engineer Selection */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Select New Site Engineer
+                                </label>
+                                <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                                    {filteredAvailableEngineers.length === 0 ? (
+                                        <p className="text-sm text-gray-500 text-center py-4">
+                                            {availableEngineers.length === 0
+                                                ? 'No available engineers found'
+                                                : 'No engineers match your search'}
+                                        </p>
+                                    ) : (
+                                        filteredAvailableEngineers.map(engineer => (
+                                            <button
+                                                key={engineer.id}
+                                                type="button"
+                                                onClick={() => setSelectedEngineer(engineer.id)}
+                                                className={`w-full flex items-center gap-3 p-2 rounded-lg text-left transition-colors ${selectedEngineer === engineer.id
+                                                    ? 'bg-yellow-50 border-yellow-200 border'
+                                                    : 'hover:bg-gray-50 border border-transparent'
+                                                    }`}
+                                            >
+                                                <div className={`w-8 h-8 rounded-full ${getAvatarColor(engineer.full_name || engineer.email)} flex items-center justify-center text-white text-xs font-medium`}>
+                                                    {getInitials(engineer.full_name || engineer.email)}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-gray-900 truncate">
+                                                        {engineer.full_name || engineer.email.split('@')[0]}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 truncate">
+                                                        {engineer.designation || engineer.roles?.name || 'Site Engineer'}
+                                                    </p>
+                                                </div>
+                                                {selectedEngineer === engineer.id && (
+                                                    <FiCheck className="w-5 h-5 text-yellow-600" />
+                                                )}
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Error */}
+                            {changeEngineerError && (
+                                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                                    {changeEngineerError}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-4 py-3 border-t border-gray-200 flex justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowChangeEngineerModal(false);
+                                    setEngineerToReplace(null);
+                                }}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleChangeEngineer}
+                                disabled={!selectedEngineer || isChangingEngineer}
+                                className="px-4 py-2 text-sm font-medium bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                            >
+                                {isChangingEngineer ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        Updating...
+                                    </>
+                                ) : (
+                                    <>
+                                        <FiCheck className="w-4 h-4" />
+                                        Reassign Engineer
                                     </>
                                 )}
                             </button>

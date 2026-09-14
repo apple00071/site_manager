@@ -59,6 +59,7 @@ const updateProjectSchema = z.object({
     // Designer / Employee Assignment
     assigned_employee_id: z.string().uuid().optional(),
     designer_id: z.string().uuid().nullable().optional(),
+    site_supervisor_id: z.string().uuid().nullable().optional(),
 });
 
 export async function GET(
@@ -204,6 +205,20 @@ export async function PATCH(
             }
         }
 
+        // Check if site supervisor changed
+        let newSupervisorAssigned = false;
+        if (updatePayload.site_supervisor_id) {
+            const { data: existingProject } = await supabaseAdmin
+                .from('projects')
+                .select('site_supervisor_id')
+                .eq('id', projectId)
+                .single();
+            if (existingProject && existingProject.site_supervisor_id !== updatePayload.site_supervisor_id) {
+                newSupervisorAssigned = true;
+                updatePayload.site_supervisor_assigned_at = new Date().toISOString();
+            }
+        }
+
         const { data: updatedProject, error } = await supabaseAdmin
             .from('projects')
             .update(updatePayload)
@@ -287,6 +302,45 @@ export async function PATCH(
                 }
             } catch (notifyErr) {
                 console.error('Failed to notify newly assigned designer:', notifyErr);
+            }
+        }
+
+        // If a new site supervisor was assigned, add to project_members and send notifications
+        if (newSupervisorAssigned && updatePayload.site_supervisor_id) {
+            try {
+                await supabaseAdmin
+                    .from('project_members')
+                    .upsert({
+                        project_id: projectId,
+                        user_id: updatePayload.site_supervisor_id,
+                        role: 'member',
+                        permissions: { view: true, edit: true, upload: true, mark_done: true }
+                    }, { onConflict: 'project_id,user_id' });
+
+                await NotificationService.createNotification({
+                    userId: updatePayload.site_supervisor_id,
+                    title: 'Project Assigned',
+                    message: `You have been assigned as site supervisor for project: ${updatedProject.title}`,
+                    type: 'project_update',
+                    relatedId: projectId,
+                    relatedType: 'project'
+                });
+
+                const { data: supUser } = await supabaseAdmin
+                    .from('users')
+                    .select('phone_number')
+                    .eq('id', updatePayload.site_supervisor_id)
+                    .single();
+                if (supUser?.phone_number) {
+                    const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+                    const link = `${origin}/dashboard/projects/${projectId}`;
+                    await sendCustomWhatsAppNotification(
+                        supUser.phone_number,
+                        `🏢 Project Assigned\n\nYou have been assigned as site supervisor for project "${updatedProject.title}"\n\nOpen: ${link}`
+                    );
+                }
+            } catch (notifyErr) {
+                console.error('Failed to notify newly assigned site supervisor:', notifyErr);
             }
         }
 

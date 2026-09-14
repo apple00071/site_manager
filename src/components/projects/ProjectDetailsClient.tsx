@@ -68,6 +68,12 @@ export type Project = {
     email: string;
     designation?: string;
   } | null;
+  site_supervisor_id?: string | null;
+  site_supervisor?: {
+    id: string;
+    full_name?: string;
+    email?: string;
+  } | null;
   created_by: string;
   created_at?: string;
   project_code?: string | null;
