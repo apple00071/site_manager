@@ -400,53 +400,9 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
     }, [items, searchQuery]);
 
     return (
-        <div className="space-y-6">
-            {/* Top Summary & Actions Banner */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
-                        <FiLayers className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <h2 className="text-xl font-bold text-gray-900">Bill of Quantities (BOQ)</h2>
-                        <p className="text-sm text-gray-500">
-                            Manage materials ({items.length} items) & export branded requirement sheet
-                        </p>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => {
-                            setEditingItem(null);
-                            setIsCustomItem(false);
-                            const first = HARDCODED_ITEMS[0];
-                            setSelectedCatalogItem(first.name);
-                            setMaterialCompany(first.defaultCompany);
-                            setUnit(first.defaultUnit);
-                            setQuantity(1);
-                            setCustomItemName('');
-                            setShowItemModal(true);
-                        }}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg shadow-sm transition-colors text-sm"
-                    >
-                        <FiPlus className="w-4 h-4" />
-                        <span>Add Item</span>
-                    </button>
-
-                    <button
-                        onClick={() => setShowExportModal(true)}
-                        disabled={items.length === 0}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 hover:bg-black text-white font-medium rounded-lg shadow-sm transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <FiDownload className="w-4 h-4" />
-                        <span>Export PDF</span>
-                    </button>
-                </div>
-            </div>
-
-            {/* Search Bar */}
-            <div className="flex items-center justify-between gap-4 bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+        <div className="bg-white shadow sm:rounded-lg p-4 sm:p-6 space-y-6">
+            {/* Search & Controls */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
                 <div className="relative flex-1">
                     <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
@@ -454,10 +410,10 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                         placeholder="Search by item name or material company..."
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white"
+                        className="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:bg-white"
                     />
                 </div>
-                <div className="text-xs font-semibold text-gray-500 px-2">
+                <div className="text-xs font-semibold text-gray-500 self-center sm:self-auto">
                     {filteredItems.length} of {items.length} Items
                 </div>
             </div>
