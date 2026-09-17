@@ -3,7 +3,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FiCheck, FiClock, FiCircle, FiChevronDown, FiPlus, FiX } from 'react-icons/fi';
 
-export type StageId = 'visit' | 'design' | 'boq' | 'orders' | 'work_progress' | 'snag' | 'finance' | 'handover';
+export type StageId = 'visit' | 'design' | 'boq' | 'work_progress' | 'snag' | 'finance';
 
 interface Stage {
     id: StageId;
@@ -37,11 +37,9 @@ const STAGES: { id: StageId; label: string }[] = [
     { id: 'visit', label: 'Details' },
     { id: 'design', label: 'Design' },
     { id: 'boq', label: 'BOQ' },
-    { id: 'orders', label: 'Orders' },
     { id: 'work_progress', label: 'Work Progress' },
     { id: 'snag', label: 'Snag' },
     { id: 'finance', label: 'Finance' },
-    { id: 'handover', label: 'Handover' },
 ];
 
 export function StageNavigator({ currentStage, onStageSelect, completedStages = [], actions = [], stageStatus, visibleStages }: StageNavigatorProps) {

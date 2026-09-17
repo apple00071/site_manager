@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { formatDateIST } from '@/lib/dateUtils';
-import { FiClock, FiLayers, FiImage, FiEdit2, FiTrash2, FiX, FiPlus, FiUpload, FiSend, FiColumns, FiCheckCircle, FiArrowLeft, FiFileText } from 'react-icons/fi';
+import { FiClock, FiLayers, FiImage, FiEdit2, FiTrash2, FiX, FiPlus, FiUpload, FiSend, FiColumns, FiCheckCircle, FiArrowLeft, FiFileText, FiDownload } from 'react-icons/fi';
 import type { BOQTabHandle } from '@/components/projects/BOQTab';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import type { SnagTabHandle } from '@/components/projects/SnagTab';
@@ -67,13 +67,25 @@ export type Project = {
     name: string;
     email: string;
     designation?: string;
+    phone_number?: string | null;
   } | null;
   site_supervisor_id?: string | null;
   site_supervisor?: {
     id: string;
     full_name?: string;
     email?: string;
+    phone_number?: string | null;
   } | null;
+  project_members?: Array<{
+    user_id: string;
+    users?: {
+      id: string;
+      email?: string;
+      full_name?: string;
+      designation?: string;
+      phone_number?: string | null;
+    } | null;
+  }> | null;
   created_by: string;
   created_at?: string;
   project_code?: string | null;
@@ -84,11 +96,8 @@ const UpdatesTab = dynamic(() => import('@/components/projects/UpdatesTab').then
 const ExpensesTab = dynamic(() => import('@/components/projects/ExpensesTab').then(m => m.ExpensesTab), { ssr: false, loading: () => <div className="p-6 space-y-4 animate-pulse"><div className="h-8 bg-gray-200 rounded w-full"></div><div className="h-64 bg-gray-100 rounded w-full"></div></div> }) as any;
 const DesignsTab = dynamic(() => import('@/components/projects/DesignsTab').then(m => m.DesignsTab), { ssr: false, loading: () => <div className="p-6 grid grid-cols-2 gap-4 animate-pulse"><div className="aspect-video bg-gray-200 rounded"></div><div className="aspect-video bg-gray-200 rounded"></div></div> });
 const BOQTab = dynamic(() => import('@/components/projects/BOQTab').then(m => m.BOQTab), { ssr: false, loading: () => <div className="p-6 space-y-2 animate-pulse"><div className="h-10 bg-gray-200 rounded w-full"></div>{[1, 2, 3, 4, 5].map(i => <div key={i} className="h-12 bg-gray-50 rounded w-full"></div>)}</div> });
-const ProcurementTab = dynamic(() => import('@/components/projects/ProcurementTab').then(m => m.ProcurementTab), { ssr: false, loading: () => <div className="p-6 space-y-6 animate-pulse"><div className="h-8 bg-gray-200 rounded w-1/3"></div><div className="grid grid-cols-3 gap-4"><div className="h-24 bg-gray-100 rounded"></div><div className="h-24 bg-gray-100 rounded"></div><div className="h-24 bg-gray-100 rounded"></div></div></div> });
 const SnagTab = dynamic(() => import('@/components/projects/SnagTab'), { ssr: false, loading: () => <div className="p-6 space-y-4 animate-pulse"><div className="h-10 bg-gray-200 rounded w-full"></div><div className="grid grid-cols-1 gap-3"><div className="h-20 bg-gray-50 rounded"></div><div className="h-20 bg-gray-50 rounded"></div></div></div> });
 const SiteLogTab = dynamic(() => import('@/components/projects/SiteLogTab').then(m => m.SiteLogTab), { ssr: false, loading: () => <TabSkeleton /> }) as any;
-const ProgressReportTab = dynamic(() => import('@/components/projects/ProgressReportTab').then(m => m.ProgressReportTab), { ssr: false, loading: () => <TabSkeleton /> }) as any;
-const HandoverTab = dynamic(() => import('@/components/projects/HandoverTab').then(m => m.HandoverTab), { ssr: false, loading: () => <TabSkeleton /> });
 const VisitTab = dynamic(() => import('@/components/projects/tabs/VisitTab').then(m => m.VisitTab), { ssr: false, loading: () => <TabSkeleton /> });
 
 // Lazy load Modals
@@ -126,7 +135,6 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
   const expensesRef = useRef<any>(null);
   const siteLogRef = useRef<any>(null);
   const snagRef = useRef<SnagTabHandle>(null);
-  const reportRef = useRef<any>(null);
   const shareModalOverlayRef = useRef<HTMLDivElement>(null);
   const [showShareModal, setShowShareModal] = useState(false);
 
@@ -162,7 +170,7 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
     if (!project) return ['visit'];
     
     if (permIsAdmin) {
-      return ['visit', 'design', 'boq', 'work_progress', 'snag', 'finance', 'handover'];
+      return ['visit', 'design', 'boq', 'work_progress', 'snag', 'finance'];
     }
 
     const stages: StageId[] = ['visit'];
@@ -171,13 +179,9 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
     if (hasPermission('updates.view') || hasPermission('site_logs.view')) stages.push('work_progress');
     if (hasPermission('snags.view')) stages.push('snag');
     if (hasPermission('finance.view') || hasPermission('inventory.view')) stages.push('finance');
-    
-    if (project.status === 'handover' || project.status === 'completed') {
-      stages.push('handover');
-    }
 
     return stages;
-  }, [hasPermission, permIsAdmin, project?.status]);
+  }, [hasPermission, permIsAdmin]);
 
   const currentStageTabs = useMemo(() => {
     const allTabs = STAGE_SUB_TABS[activeStage] || [];
@@ -241,19 +245,11 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
       if (activeSubTab === 'daily_logs' && hasPermission('site_logs.create')) {
         return [{ label: 'Add Work Entry', onClick: () => siteLogRef.current?.openAddLog(), icon: <FiPlus className="w-4 h-4" /> }];
       }
-      if (activeSubTab === 'progress_reports' && (hasPermission('site_logs.create') || hasPermission('projects.edit'))) {
-        return [
-          { label: 'Generate DPR', onClick: () => reportRef.current?.openGenerator(), icon: <FiPlus className="w-4 h-4" /> },
-          { label: 'Report Settings', onClick: () => reportRef.current?.openSettings(), icon: <FiLayers className="w-4 h-4" /> }
-        ];
-      }
     }
     if (activeStage === 'boq') {
       return [
         { label: 'Add Item', onClick: () => boqRef.current?.openAddItem(), icon: <FiPlus className="w-4 h-4" /> },
-        { label: 'Import Excel', onClick: () => boqRef.current?.openImport(), icon: <FiUpload className="w-4 h-4" /> },
-        { label: 'Create Proposal', onClick: () => boqRef.current?.openProposal(), icon: <FiSend className="w-4 h-4" /> },
-        { label: 'Compare BOQ vs Order', onClick: () => router.push(`/dashboard/projects/${id}/compare`), icon: <FiColumns className="w-4 h-4" /> }
+        { label: 'Export PDF', onClick: () => boqRef.current?.openExportPdf(), icon: <FiDownload className="w-4 h-4" /> }
       ];
     }
     if (activeStage === 'snag' && hasPermission('snags.create')) {
@@ -275,7 +271,6 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
       case 'visit': return { label: 'Visit Status', value: 'Completed', color: 'green' };
       case 'design': return { label: 'Design Status', value: 'Design Review', color: 'orange' };
       case 'boq': return { label: 'BOQ Status', value: 'Draft', color: 'gray' };
-      case 'orders': return { label: 'Order Status', value: 'Pending', color: 'blue' };
       default: return undefined;
     }
   };
@@ -284,7 +279,7 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
     const stageParam = searchParams?.get('stage');
     const tabParam = searchParams?.get('tab');
 
-    if (stageParam && ['visit', 'design', 'boq', 'orders', 'work_progress', 'snag', 'finance'].includes(stageParam)) {
+    if (stageParam && ['visit', 'design', 'boq', 'work_progress', 'snag', 'finance'].includes(stageParam)) {
       if (stageParam !== activeStage) setActiveStage(stageParam as StageId);
     }
     if (tabParam && tabParam !== activeSubTab) setActiveSubTab(tabParam);
@@ -406,18 +401,15 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
           )}
 
           {activeStage === 'design' && <DesignsTab projectId={project.id} />}
-          {activeStage === 'boq' && <BOQTab projectId={project.id} ref={boqRef} />}
-          {activeStage === 'orders' && <ProcurementTab projectId={project.id} projectAddress={project.address} activeSubTab={activeSubTab} />}
+          {activeStage === 'boq' && <BOQTab projectId={project.id} project={project} ref={boqRef} />}
           {activeStage === 'work_progress' && (
             <>
               {activeSubTab === 'updates' && <UpdatesTab projectId={project.id} />}
               {activeSubTab === 'daily_logs' && <SiteLogTab projectId={project.id} ref={siteLogRef} />}
-              {activeSubTab === 'progress_reports' && <ProgressReportTab projectId={project.id} ref={reportRef} />}
             </>
           )}
           {activeStage === 'snag' && <SnagTab projectId={project.id} userId={user?.id || ''} userRole={isAdmin ? 'admin' : 'user'} ref={snagRef} />}
           {activeStage === 'finance' && (activeSubTab === 'expenses' && <ExpensesTab projectId={project.id} ref={expensesRef} />)}
-          {activeStage === 'handover' && (activeSubTab === 'checklist' && <HandoverTab projectId={project.id} />)}
         </div>
       </div>
 

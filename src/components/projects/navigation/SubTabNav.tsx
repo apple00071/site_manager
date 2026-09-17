@@ -73,13 +73,6 @@ export const STAGE_SUB_TABS: Record<string, SubTab[]> = {
     boq: [
         { id: 'boq', label: 'BOQ Items', permission: 'boq.view' },
     ],
-    orders: [
-        { id: 'proposals', label: 'Proposals For Client', permission: 'proposals.view' },
-        { id: 'client_orders', label: 'Client Orders', permission: 'orders.view' },
-        { id: 'client_invoices', label: 'Client Invoices', permission: 'invoices.view' },
-        { id: 'payments_from_client', label: 'Payments From Client', permission: 'payments.view' },
-        { id: 'my_scope', label: 'My Scope', permission: 'procurement.view' },
-    ],
     work_progress: [
         { id: 'updates', label: 'Timeline', permission: 'updates.view' },
         { id: 'daily_logs', label: 'Work Entry', permission: 'site_logs.view' },
@@ -89,10 +82,6 @@ export const STAGE_SUB_TABS: Record<string, SubTab[]> = {
     ],
     finance: [
         { id: 'expenses', label: 'Expenses', permission: 'inventory.view' },
-    ],
-    handover: [
-        { id: 'checklist', label: 'Handover Checklist' },
-        { id: 'documents', label: 'Final Documents' },
     ],
 };
 

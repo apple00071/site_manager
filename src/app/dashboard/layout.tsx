@@ -17,7 +17,6 @@ import { PERMISSION_NODES } from '@/lib/rbac-constants';
 import AttendanceWidget from '@/components/attendance/AttendanceWidget';
 import PasswordChangeModal from '@/components/PasswordChangeModal';
 import NotepadDrawer from '@/components/notepad/NotepadDrawer';
-// import ChatBotDrawer from '@/components/chatbot/ChatBotDrawer';
 
 
 
@@ -62,7 +61,6 @@ function DashboardLayoutContent({
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isNotepadOpen, setIsNotepadOpen] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false);
   const modalInputRef = useRef<HTMLInputElement>(null);
 
   const fetchProjects = async () => {
@@ -187,10 +185,8 @@ function DashboardLayoutContent({
     // Fallback to pathname-based titles
     if (pathname === '/dashboard') return 'Dashboard';
     if (pathname === '/dashboard/projects') return 'Projects';
-    if (pathname === '/dashboard/users') return 'User Management';
+    if (pathname === '/dashboard/organization') return 'Organization';
     if (pathname === '/dashboard/settings') return 'Settings';
-    if (pathname === '/dashboard/my-projects') return 'My Projects';
-    if (pathname === '/dashboard/my-tasks') return 'My Tasks';
     if (pathname === '/dashboard/tasks') return 'All Tasks';
     if (pathname === '/dashboard/office-expenses') return 'Expenses';
     if (pathname === '/dashboard/crm') return 'CRM & Quotation Log';
@@ -202,13 +198,13 @@ function DashboardLayoutContent({
       if (pathname.endsWith('/members')) return 'Project Members';
       return 'Project Details';
     }
-    if (pathname.startsWith('/dashboard/users/')) {
+    if (pathname.startsWith('/dashboard/organization/')) {
       if (pathname.endsWith('/edit')) return 'Edit User';
       return 'User Details';
     }
     if (pathname.endsWith('/new')) {
       if (pathname.includes('/projects/')) return 'New Project';
-      if (pathname.includes('/users/')) return 'New User';
+      if (pathname.includes('/organization/')) return 'New User';
     }
     return 'Dashboard';
   }, [customTitle, pathname]);
@@ -449,20 +445,6 @@ function DashboardLayoutContent({
               <FiFileText className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
               <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Notepad</span>
             </button>
-            {/* AI Assistant disabled
-            <button
-              onClick={() => {
-                setIsChatOpen(true);
-                setSidebarOpen(false);
-              }}
-              className="w-full flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
-              title="AI Assistant"
-              type="button"
-            >
-              <FiMessageSquare className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
-              <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Ask AI</span>
-            </button>
-            */}
           </div>
         </nav>
       </div>
@@ -707,22 +689,6 @@ function DashboardLayoutContent({
 
       {/* Premium Scratchpad Notepad Drawer */}
       <NotepadDrawer isOpen={isNotepadOpen} onClose={() => setIsNotepadOpen(false)} />
-
-      {/* AI Chatbot Assistant Drawer - Disabled
-      <ChatBotDrawer isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
-      */}
-
-      {/* Floating AI Chat Trigger Button - Disabled
-      <button
-        onClick={() => setIsChatOpen(true)}
-        className="fixed bottom-6 right-6 z-40 p-3.5 rounded-full bg-yellow-500 hover:bg-yellow-600 text-gray-950 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-110 flex items-center justify-center border-2 border-white ring-4 ring-yellow-400/20 active:scale-95 cursor-pointer animate-in zoom-in duration-300"
-        title="Ask AI Assistant"
-        aria-label="Open AI Assistant"
-        type="button"
-      >
-        <FiMessageSquare className="w-6 h-6 animate-pulse" />
-      </button>
-      */}
 
       {/* Centered Spotlight Search Modal */}
       {isSearchOpen && (

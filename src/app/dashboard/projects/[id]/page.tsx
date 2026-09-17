@@ -29,17 +29,20 @@ async function ProjectDataFetcher({ id }: { id: string }) {
         id,
         email,
         name:full_name,
-        designation
+        designation,
+        phone_number
       ),
       designer:designer_id(
         id,
         email,
-        full_name
+        full_name,
+        phone_number
       ),
       site_supervisor:site_supervisor_id(
         id,
         email,
-        full_name
+        full_name,
+        phone_number
       ),
       project_members(
         user_id,
@@ -47,7 +50,8 @@ async function ProjectDataFetcher({ id }: { id: string }) {
           id,
           email,
           full_name,
-          designation
+          designation,
+          phone_number
         )
       )
     `)

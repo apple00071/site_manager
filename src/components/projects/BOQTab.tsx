@@ -1,211 +1,238 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useUserPermissions } from '@/hooks/useUserPermissions';
+import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
 import {
-    FiPlus, FiUpload, FiSend, FiGrid, FiList,
-    FiAlertCircle, FiX, FiPackage, FiRefreshCw, FiDownload, FiCheckCircle, FiChevronDown, FiFolder
+    FiPlus, FiDownload, FiEdit2, FiTrash2, FiSearch, FiPackage,
+    FiCheck, FiX, FiLayers, FiMapPin, FiUser, FiPhone, FiHome, FiAlertCircle
 } from 'react-icons/fi';
-import { BoqGrid } from '@/components/boq/BoqGrid';
-import { BoqCardMobile } from '@/components/boq/BoqCardMobile';
-import { BoqImport } from '@/components/boq/BoqImport';
-import { ProposalBuilder } from '@/components/boq/ProposalBuilder';
-import { BoqEditModal } from '@/components/boq/BoqEditModal';
-import { CompareBoqOrderModal } from '@/components/boq/CompareBoqOrderModal';
-import { CustomDropdown } from '@/components/ui/CustomControls';
+import { generateBoqPDF, BoqPdfItem } from '@/lib/reports/boqPdfGenerator';
+import type { Project } from '@/components/projects/ProjectDetailsClient';
 
-interface BOQItem {
+export interface BOQItem {
     id: string;
     project_id: string;
-    category: string | null;
-    sub_category: string | null;
     item_name: string;
-    description: string | null;
+    category?: string | null;
+    description?: string | null; // Used to store Material Company
+    material_company?: string | null;
     unit: string;
     quantity: number;
-    rate: number;
-    amount: number;
-    status: 'draft' | 'confirmed' | 'completed';
-    order_status?: string;
-    item_type?: string;
-    source?: string;
-    draft_quantity?: number;
-    linked_pos?: { id: string; po_number: string; status?: string }[];
-    sort_order: number;
-    remarks: string | null;
+    rate?: number;
+    sort_order?: number;
+}
+
+export interface BOQTabHandle {
+    openAddItem: () => void;
+    openExportPdf: () => void;
 }
 
 interface BOQTabProps {
     projectId: string;
+    project?: Project | null;
 }
 
-const UNITS = ['Sqft', 'Rft', 'Nos', 'Kg', 'Cum', 'Sqm', 'Lump Sum', 'Set', 'Pair', 'Metric Ton'];
-const STATUSES = ['draft', 'confirmed', 'completed'];
-
-export interface BOQTabHandle {
-    openAddItem: () => void;
-    openImport: () => void;
-    openProposal: () => void;
-    openComparison: () => void;
+interface CatalogItem {
+    name: string;
+    category: string;
+    defaultCompany: string;
+    defaultUnit: string;
 }
 
-export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref) => {
-    useAuth();
-    const { hasPermission } = useUserPermissions();
+// 23 Exact Hardcoded Items from User's Specification
+export const HARDCODED_ITEMS: CatalogItem[] = [
+    // Plywood & Boards
+    { name: '16mm Royal Touch ply', category: 'Plywood & Boards', defaultCompany: 'Royal Touch', defaultUnit: 'Sheets' },
+    { name: '9 mm Austin Gold ply', category: 'Plywood & Boards', defaultCompany: 'Austin Gold', defaultUnit: 'Sheets' },
+    { name: '12 mm Royal Touch ply', category: 'Plywood & Boards', defaultCompany: 'Royal Touch', defaultUnit: 'Sheets' },
+    { name: '19mm Royal Touch block board', category: 'Plywood & Boards', defaultCompany: 'Royal Touch', defaultUnit: 'Sheets' },
+    { name: '25mm Royal Touch block board', category: 'Plywood & Boards', defaultCompany: 'Royal Touch', defaultUnit: 'Sheets' },
+    { name: '0.8 Fabric liner 217SF', category: 'Plywood & Boards', defaultCompany: 'Royal Touch', defaultUnit: 'Sheets' },
+    { name: '8mm flexi ply', category: 'Plywood & Boards', defaultCompany: 'Royal Touch', defaultUnit: 'Sheets' },
 
-    // Permission checks
-    const canCreate = hasPermission('boq.create');
-    const canEdit = hasPermission('boq.edit');
-    const canDelete = hasPermission('boq.delete');
-    const canImport = hasPermission('boq.import');
-    const canCreateProposal = hasPermission('proposals.create');
+    // Adhesives
+    { name: 'Fevicol Marine', category: 'Adhesives', defaultCompany: 'Fevicol', defaultUnit: 'Kg' },
+    { name: 'Probond', category: 'Adhesives', defaultCompany: 'Probond', defaultUnit: 'Kg' },
 
+    // PTA Screws
+    { name: 'PTA Screws 75X4', category: 'PTA Screws', defaultCompany: 'Standard', defaultUnit: 'Boxes' },
+    { name: 'PTA Screws 60X4', category: 'PTA Screws', defaultCompany: 'Standard', defaultUnit: 'Boxes' },
+    { name: 'PTA Screws 50X4', category: 'PTA Screws', defaultCompany: 'Standard', defaultUnit: 'Boxes' },
+    { name: 'PTA Screws 35X4', category: 'PTA Screws', defaultCompany: 'Standard', defaultUnit: 'Boxes' },
+    { name: 'PTA Screws 30X4', category: 'PTA Screws', defaultCompany: 'Standard', defaultUnit: 'Boxes' },
+
+    // Nails
+    { name: 'Nails 2"X14No', category: 'Nails', defaultCompany: 'Standard', defaultUnit: 'Kg' },
+    { name: 'Nails 1 1/2"X14No', category: 'Nails', defaultCompany: 'Standard', defaultUnit: 'Kg' },
+    { name: 'Nails 1 1/4"X14No', category: 'Nails', defaultCompany: 'Standard', defaultUnit: 'Kg' },
+    { name: 'Nails 1" X17No', category: 'Nails', defaultCompany: 'Standard', defaultUnit: 'Kg' },
+    { name: 'Nails 3/4X19No', category: 'Nails', defaultCompany: 'Standard', defaultUnit: 'Kg' },
+
+    // Consumables & Tools
+    { name: 'Grinder paper 80no', category: 'Consumables & Tools', defaultCompany: 'Standard', defaultUnit: 'Nos' },
+    { name: 'Grinder paper 60no', category: 'Consumables & Tools', defaultCompany: 'Standard', defaultUnit: 'Nos' },
+    { name: 'Joint Pins', category: 'Consumables & Tools', defaultCompany: 'Standard', defaultUnit: 'Boxes' },
+    { name: 'Laminate Cutter', category: 'Consumables & Tools', defaultCompany: 'Standard', defaultUnit: 'Nos' },
+];
+
+export const STANDARD_UNITS = [
+    'Sheets', 'Kg', 'Boxes', 'Nos', 'Pkts', 'Bundles', 'Tubes', 'Sqft', 'Rft', 'Pairs', 'Sets', 'Lump Sum'
+];
+
+export const DELIVERY_FLOORS = [
+    'Basement', 'Ground Floor', '1st Floor', '2nd Floor', '3rd Floor', '4th Floor', '5th Floor', 'Terrace'
+];
+
+function resolveSiteEngineer(proj?: Project | null) {
+    if (!proj) return { name: '', mobile: '' };
+
+    // 1. Explicit site supervisor assigned to project
+    if (proj.site_supervisor?.full_name) {
+        return {
+            name: proj.site_supervisor.full_name,
+            mobile: proj.site_supervisor.phone_number || ''
+        };
+    }
+
+    // 2. Check project members for designated site engineer / supervisor
+    if (proj.project_members && proj.project_members.length > 0) {
+        const eng = proj.project_members.find(pm => {
+            const des = pm.users?.designation?.toLowerCase() || '';
+            return des.includes('engineer') || des.includes('supervisor') || des.includes('site');
+        });
+        if (eng?.users?.full_name) {
+            return {
+                name: eng.users.full_name,
+                mobile: eng.users.phone_number || ''
+            };
+        }
+    }
+
+    // Do NOT fallback to designer (assigned_employee)
+    return { name: '', mobile: '' };
+}
+
+export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, project }, ref) => {
     const [items, setItems] = useState<BOQItem[]>([]);
-    const [inventoryItems, setInventoryItems] = useState<any[]>([]); // New state for inventory
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [selectedItems, setSelectedItems] = useState<string[]>([]);
-    const [activeCategory, setActiveCategory] = useState<string | null>(null);
-    const [filterStatus, setFilterStatus] = useState<string>('all');
-    const [viewMode, setViewMode] = useState<'grid' | 'cards'>('grid');
-    const [showImport, setShowImport] = useState(false);
-    const [showProposal, setShowProposal] = useState(false);
-    const [showEditModal, setShowEditModal] = useState(false);
-    const [editingItem, setEditingItem] = useState<BOQItem | null>(null);
-    const [showBulkCategory, setShowBulkCategory] = useState(false);
-    const [newBulkCategory, setNewBulkCategory] = useState('');
-    const [showBulkStatus, setShowBulkStatus] = useState(false);
-    const [showComparison, setShowComparison] = useState(false);
-    const [showAddCategory, setShowAddCategory] = useState(false);
-    const [newCategoryName, setNewCategoryName] = useState('');
-    const [sectionTotals, setSectionTotals] = useState<Record<string, { count: number; amount: number }>>({});
-    const [isMobile, setIsMobile] = useState(false);
-    const [customCategories, setCustomCategories] = useState<string[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
 
-    // Expose actions to parent via ref
+    // Custom items stored per project in localStorage
+    const [customCatalog, setCustomCatalog] = useState<CatalogItem[]>([]);
+
+    // Modals
+    const [showItemModal, setShowItemModal] = useState(false);
+    const [editingItem, setEditingItem] = useState<BOQItem | null>(null);
+    const [showExportModal, setShowExportModal] = useState(false);
+
+    // Add/Edit Form State (Only 3 Core Fields)
+    const [isCustomItem, setIsCustomItem] = useState(false);
+    const [selectedCatalogItem, setSelectedCatalogItem] = useState<string>(HARDCODED_ITEMS[0].name);
+    const [customItemName, setCustomItemName] = useState('');
+    const [materialCompany, setMaterialCompany] = useState(HARDCODED_ITEMS[0].defaultCompany);
+    const [quantity, setQuantity] = useState<number | string>(1);
+    const [unit, setUnit] = useState(HARDCODED_ITEMS[0].defaultUnit);
+    const [saving, setSaving] = useState(false);
+
+    // PDF Export Settings
+    const initialEng = resolveSiteEngineer(project);
+    const [exportSiteName, setExportSiteName] = useState(project?.title || '');
+    const [exportSiteAddress, setExportSiteAddress] = useState(project?.address || '');
+    const [exportEngineerName, setExportEngineerName] = useState(initialEng.name);
+    const [exportEngineerMobile, setExportEngineerMobile] = useState(initialEng.mobile);
+    const [exportDeliveryFloor, setExportDeliveryFloor] = useState(
+        project?.floor_number ? `${project.floor_number} Floor` : 'Ground Floor'
+    );
+
+    // Available engineers from site_supervisor and project_members (excluding designer)
+    const availableEngineersList = useMemo(() => {
+        const list: Array<{ id: string; name: string; mobile: string; designation: string }> = [];
+        if (project?.site_supervisor?.full_name) {
+            list.push({
+                id: project.site_supervisor.id,
+                name: project.site_supervisor.full_name,
+                mobile: project.site_supervisor.phone_number || '',
+                designation: 'Site Supervisor'
+            });
+        }
+        if (project?.project_members) {
+            project.project_members.forEach(pm => {
+                if (pm.users?.full_name && pm.users.id !== project.assigned_employee?.id) {
+                    // Don't add duplicate
+                    if (!list.some(l => l.name === pm.users?.full_name)) {
+                        list.push({
+                            id: pm.users.id,
+                            name: pm.users.full_name,
+                            mobile: pm.users.phone_number || '',
+                            designation: pm.users.designation || 'Site Team'
+                        });
+                    }
+                }
+            });
+        }
+        return list;
+    }, [project]);
+
+    // Expose handlers to parent page
     useImperativeHandle(ref, () => ({
         openAddItem: () => {
             setEditingItem(null);
-            setShowEditModal(true);
+            setIsCustomItem(false);
+            const first = HARDCODED_ITEMS[0];
+            setSelectedCatalogItem(first.name);
+            setMaterialCompany(first.defaultCompany);
+            setUnit(first.defaultUnit);
+            setQuantity(1);
+            setCustomItemName('');
+            setShowItemModal(true);
         },
-        openImport: () => setShowImport(true),
-        openProposal: () => setShowProposal(true),
-        openComparison: () => setShowComparison(true)
+        openExportPdf: () => {
+            setShowExportModal(true);
+        }
     }));
 
-    // Load custom categories from localStorage on mount
+    // Load custom catalog from localStorage
     useEffect(() => {
-        const storageKey = `boq_custom_categories_${projectId}`;
-        const saved = localStorage.getItem(storageKey);
-        if (saved) {
-            try {
+        try {
+            const saved = localStorage.getItem(`boq_custom_items_${projectId}`);
+            if (saved) {
                 const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed)) {
-                    setCustomCategories(parsed);
-                }
-            } catch (e) {
-                // Invalid JSON, ignore
+                if (Array.isArray(parsed)) setCustomCatalog(parsed);
+            }
+        } catch (_) {}
+    }, [projectId]);
+
+    // Keep export defaults synced if project prop loads or updates
+    useEffect(() => {
+        if (project) {
+            setExportSiteName(project.title || '');
+            setExportSiteAddress(project.address || '');
+            const resolved = resolveSiteEngineer(project);
+            setExportEngineerName(resolved.name);
+            setExportEngineerMobile(resolved.mobile);
+            if (project.floor_number) {
+                setExportDeliveryFloor(project.floor_number.includes('Floor') ? project.floor_number : `${project.floor_number} Floor`);
             }
         }
-    }, [projectId]);
+    }, [project]);
 
-    // Save custom categories to localStorage when they change
-    useEffect(() => {
-        const storageKey = `boq_custom_categories_${projectId}`;
-        if (customCategories.length > 0) {
-            localStorage.setItem(storageKey, JSON.stringify(customCategories));
-        }
-    }, [customCategories, projectId]);
-
-    // Detect mobile
-    useEffect(() => {
-        const checkMobile = () => setIsMobile(window.innerWidth < 768);
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
-
-    // Dynamic categories from data + custom categories
-    const categories = useMemo(() => {
-        const catsFromItems = [...new Set(items.map(i => i.category).filter(Boolean))] as string[];
-        const allCats = [...new Set([...catsFromItems, ...customCategories])];
-        return allCats.sort();
-    }, [items, customCategories]);
-
-    const fetchItems = useCallback(async () => {
+    // Fetch BOQ Items
+    const fetchItems = async () => {
+        setLoading(true);
+        setError(null);
         try {
-            setLoading(true);
-            const params = new URLSearchParams({ project_id: projectId });
-            // Don't filter by category at API level - fetch all items
-
-            const res = await fetch(`/api/boq?${params}`);
+            const res = await fetch(`/api/boq?project_id=${projectId}&limit=1000`);
+            if (!res.ok) throw new Error('Failed to fetch BOQ items');
             const data = await res.json();
-            if (data.error) throw new Error(data.error);
-
-            setItems(data.items || []);
-            setSectionTotals(data.sectionTotals || {});
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to fetch BOQ');
-        } finally {
-            setLoading(false);
-        }
-    }, [projectId]);
-
-    const handleBulkCategoryUpdate = async () => {
-        if (!newBulkCategory.trim() || selectedItems.length === 0) return;
-
-        try {
-            setLoading(true);
-            const res = await fetch('/api/boq', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'update_category',
-                    project_id: projectId,
-                    item_ids: selectedItems,
-                    category: newBulkCategory.trim()
-                }),
-            });
-
-            if (!res.ok) throw new Error('Failed to update categories');
-
-            // Assuming showToast is available or needs to be implemented
-            // showToast('success', `Updated category for ${selectedItems.length} items`);
-            setShowBulkCategory(false);
-            setNewBulkCategory('');
-            setSelectedItems([]);
-            fetchItems();
-        } catch (err) {
-            setError('Failed to update categories');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleBulkStatusUpdate = async (status: string) => {
-        if (selectedItems.length === 0) return;
-
-        try {
-            setLoading(true);
-            const res = await fetch('/api/boq', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'update_status',
-                    project_id: projectId,
-                    item_ids: selectedItems,
-                    status
-                }),
-            });
-
-            if (!res.ok) throw new Error('Failed to update status');
-
-            setShowBulkStatus(false);
-            setSelectedItems([]);
-            fetchItems();
-        } catch (err) {
-            setError('Failed to update status');
+            const rawItems: any[] = data.items || [];
+            // Map description to material_company
+            const mapped: BOQItem[] = rawItems.map(it => ({
+                ...it,
+                material_company: it.material_company || it.description || ''
+            }));
+            setItems(mapped);
+        } catch (err: any) {
+            setError(err.message || 'Error loading BOQ');
         } finally {
             setLoading(false);
         }
@@ -213,666 +240,693 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId }, ref)
 
     useEffect(() => {
         fetchItems();
-    }, [fetchItems]);
+    }, [projectId]);
 
-    const filteredItems = useMemo(() => {
-        return items.filter(item => {
-            // Filter by category if one is selected
-            if (activeCategory && item.category !== activeCategory) return false;
-            if (filterStatus !== 'all' && item.status !== filterStatus) return false;
-            return true;
-        });
-    }, [items, filterStatus, activeCategory]);
+    // Full catalog = hardcoded + custom
+    const combinedCatalog = useMemo(() => {
+        return [...HARDCODED_ITEMS, ...customCatalog];
+    }, [customCatalog]);
 
-    const totals = useMemo(() => {
-        const total = filteredItems.reduce((sum, item) => sum + (item.amount || 0), 0);
-        return { total };
-    }, [filteredItems]);
-
-    // Inline update
-    const handleInlineUpdate = async (id: string, field: string, value: any) => {
-        try {
-            const res = await fetch('/api/boq', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, [field]: value }),
-            });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-
-            // Update local state with the full item from API (includes recalculated amount)
-            if (data.item) {
-                setItems(prev => prev.map(item =>
-                    item.id === id ? { ...item, ...data.item } : item
-                ));
-            } else {
-                // Fallback if API doesn't return the item
-                setItems(prev => prev.map(item =>
-                    item.id === id ? { ...item, [field]: value } : item
-                ));
-            }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Update failed');
+    // Handle selecting an item from the hardcoded catalog
+    const handleCatalogSelect = (itemName: string) => {
+        setSelectedCatalogItem(itemName);
+        const found = combinedCatalog.find(c => c.name === itemName);
+        if (found) {
+            setMaterialCompany(found.defaultCompany || '');
+            setUnit(found.defaultUnit || 'Sheets');
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('Delete this item?')) return;
-        try {
-            const res = await fetch(`/api/boq?id=${id}`, { method: 'DELETE' });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            fetchItems();
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Delete failed');
-        }
-    };
-
-    // Open modal to add new item
-    const handleAddItem = () => {
-        setEditingItem(null); // null means new item
-        setShowEditModal(true);
-    };
-
-    // Open modal to edit existing item
+    // Open Edit Modal
     const handleEditItem = (item: BOQItem) => {
         setEditingItem(item);
-        setShowEditModal(true);
+        const matching = combinedCatalog.find(c => c.name.toLowerCase() === item.item_name.toLowerCase());
+        if (matching) {
+            setIsCustomItem(false);
+            setSelectedCatalogItem(matching.name);
+        } else {
+            setIsCustomItem(true);
+            setCustomItemName(item.item_name);
+        }
+        setMaterialCompany(item.material_company || item.description || '');
+        setQuantity(item.quantity || 1);
+        setUnit(item.unit || 'Sheets');
+        setShowItemModal(true);
     };
 
-    // Save item (new or update)
-    const handleSaveItem = async (formData: Partial<BOQItem>) => {
-        console.log('handleSaveItem called:', { editingItem, formData });
+    // Save Item (Create or Update)
+    const handleSaveItem = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const finalItemName = isCustomItem ? customItemName.trim() : selectedCatalogItem.trim();
+        if (!finalItemName) {
+            alert('Please specify an item name');
+            return;
+        }
+
+        const numQty = parseFloat(String(quantity)) || 0;
+        if (numQty <= 0) {
+            alert('Quantity must be greater than 0');
+            return;
+        }
+
+        setSaving(true);
         try {
+            if (isCustomItem && !combinedCatalog.some(c => c.name.toLowerCase() === finalItemName.toLowerCase())) {
+                // Save custom item to local project catalog for future selection
+                const newCatItem: CatalogItem = {
+                    name: finalItemName,
+                    category: 'Custom Items',
+                    defaultCompany: materialCompany || '',
+                    defaultUnit: unit || 'Sheets'
+                };
+                const updated = [...customCatalog, newCatItem];
+                setCustomCatalog(updated);
+                try {
+                    localStorage.setItem(`boq_custom_items_${projectId}`, JSON.stringify(updated));
+                } catch (_) {}
+            }
+
             if (editingItem) {
-                // Update existing item
-                console.log('Updating existing item:', editingItem.id);
+                // Update
                 const res = await fetch('/api/boq', {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: editingItem.id, ...formData }),
+                    body: JSON.stringify({
+                        id: editingItem.id,
+                        item_name: finalItemName,
+                        description: materialCompany, // Store material company in description
+                        quantity: numQty,
+                        unit: unit,
+                        rate: 0
+                    })
                 });
-                const data = await res.json();
-                console.log('Update response:', data);
-                if (data.error) throw new Error(data.error);
+                if (!res.ok) throw new Error('Failed to update item');
             } else {
-                // Create new item
-                console.log('Creating new item');
+                // Create
                 const res = await fetch('/api/boq', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         project_id: projectId,
-                        ...formData,
-                    }),
+                        item_name: finalItemName,
+                        description: materialCompany, // Store material company in description
+                        quantity: numQty,
+                        unit: unit,
+                        rate: 0,
+                        status: 'confirmed'
+                    })
                 });
-                const data = await res.json();
-                console.log('Create response:', data);
-                if (data.error) throw new Error(data.error);
+                if (!res.ok) throw new Error('Failed to create item');
             }
-            console.log('Fetching items after save...');
-            await fetchItems();
-            setShowEditModal(false);
+
+            setShowItemModal(false);
             setEditingItem(null);
-        } catch (err) {
-            console.error('Save error:', err);
-            setError(err instanceof Error ? err.message : 'Save failed');
+            await fetchItems();
+        } catch (err: any) {
+            alert(err.message || 'Error saving item');
+        } finally {
+            setSaving(false);
         }
     };
 
-
-    const addCategory = () => {
-        const trimmedName = newCategoryName.trim();
-        if (trimmedName) {
-            // Always add to custom categories
-            setCustomCategories(prev => {
-                if (prev.includes(trimmedName)) return prev;
-                return [...prev, trimmedName];
-            });
-            setActiveCategory(trimmedName);
-            setNewCategoryName('');
-            setShowAddCategory(false);
+    // Delete Item
+    const handleDeleteItem = async (id: string) => {
+        if (!confirm('Are you sure you want to remove this item from BOQ?')) return;
+        try {
+            const res = await fetch(`/api/boq?id=${id}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Failed to delete item');
+            setItems(prev => prev.filter(i => i.id !== id));
+        } catch (err: any) {
+            alert(err.message || 'Error deleting item');
         }
     };
 
-    const formatAmount = (amount: number) => {
-        return new Intl.NumberFormat('en-IN', {
-            style: 'currency',
-            currency: 'INR',
-            maximumFractionDigits: 0,
-        }).format(amount);
+    // Export PDF Trigger
+    const handleDownloadPdf = () => {
+        if (items.length === 0) {
+            alert('There are no items in this BOQ to export.');
+            return;
+        }
+
+        const pdfItems: BoqPdfItem[] = items.map(it => ({
+            id: it.id,
+            item_name: it.item_name,
+            material_company: it.material_company || it.description || 'Standard',
+            quantity: it.quantity,
+            unit: it.unit
+        }));
+
+        generateBoqPDF({
+            siteName: exportSiteName || project?.title || 'Site Project',
+            siteAddress: exportSiteAddress || project?.address || 'N/A',
+            engineerName: exportEngineerName || 'Site Engineer',
+            engineerMobile: exportEngineerMobile || 'N/A',
+            deliveryFloor: exportDeliveryFloor || 'Ground Floor',
+            items: pdfItems
+        });
+
+        setShowExportModal(false);
     };
 
-    if (loading) {
-        return (
-            <div className="p-6">
-                <div className="animate-pulse space-y-4">
-                    <div className="flex gap-2 pb-2">
-                        {[1, 2, 3, 4].map(i => (
-                            <div key={i} className="h-9 w-24 bg-gray-200 rounded"></div>
-                        ))}
-                    </div>
-                    <div className="h-12 bg-gray-100 rounded"></div>
-                    {[1, 2, 3].map(i => (
-                        <div key={i} className="h-14 bg-gray-50 rounded"></div>
-                    ))}
-                </div>
-            </div>
+    // Filter items by search query
+    const filteredItems = useMemo(() => {
+        if (!searchQuery.trim()) return items;
+        const q = searchQuery.toLowerCase();
+        return items.filter(i =>
+            i.item_name.toLowerCase().includes(q) ||
+            (i.material_company && i.material_company.toLowerCase().includes(q)) ||
+            (i.description && i.description.toLowerCase().includes(q))
         );
-    }
+    }, [items, searchQuery]);
 
     return (
-        <div className="flex flex-col h-full bg-white">
-            {/* Header */}
-            {/* Header Removed as per user request */}
+        <div className="space-y-6">
+            {/* Top Summary & Actions Banner */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
+                        <FiLayers className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-900">Bill of Quantities (BOQ)</h2>
+                        <p className="text-sm text-gray-500">
+                            Manage materials ({items.length} items) & export branded requirement sheet
+                        </p>
+                    </div>
+                </div>
 
-            {/* Unified Sub-Tab Bar */}
-            <div className="px-4 border-b border-gray-200 bg-white flex flex-col md:flex-row md:items-center justify-between gap-4">
-                {/* Categories (Tabs) */}
-                {/* Categories (Tabs / Dropdown) */}
-                <div className="flex-1 min-w-0">
-                    {/* Mobile Dropdown */}
-                    <div className="md:hidden flex items-center gap-2 py-2 w-full">
-                        <div className="flex-1">
-                            <CustomDropdown
-                                value={activeCategory === null ? 'all' : activeCategory}
-                                options={[
-                                    { id: 'all', title: `All Items (${items.length})` },
-                                    ...categories.map(cat => ({ 
-                                        id: cat, 
-                                        title: `${cat} ${sectionTotals[cat] ? `(${sectionTotals[cat].count})` : ''}` 
-                                    }))
-                                ]}
-                                onChange={(val) => setActiveCategory(val === 'all' ? null : val)}
-                                placeholder="Select Category"
-                            />
-                        </div>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => {
+                            setEditingItem(null);
+                            setIsCustomItem(false);
+                            const first = HARDCODED_ITEMS[0];
+                            setSelectedCatalogItem(first.name);
+                            setMaterialCompany(first.defaultCompany);
+                            setUnit(first.defaultUnit);
+                            setQuantity(1);
+                            setCustomItemName('');
+                            setShowItemModal(true);
+                        }}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg shadow-sm transition-colors text-sm"
+                    >
+                        <FiPlus className="w-4 h-4" />
+                        <span>Add Item</span>
+                    </button>
 
-                        {/* Mobile Add Category Button */}
-                        <button
-                            onClick={() => setShowAddCategory(true)}
-                            className="flex items-center justify-center w-[38px] h-[38px] shrink-0 text-yellow-600 bg-yellow-50 rounded-lg border border-yellow-100"
-                        >
-                            <FiPlus className="w-5 h-5" />
-                        </button>
+                    <button
+                        onClick={() => setShowExportModal(true)}
+                        disabled={items.length === 0}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 hover:bg-black text-white font-medium rounded-lg shadow-sm transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <FiDownload className="w-4 h-4" />
+                        <span>Export PDF</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* Search Bar */}
+            <div className="flex items-center justify-between gap-4 bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+                <div className="relative flex-1">
+                    <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input
+                        type="text"
+                        placeholder="Search by item name or material company..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white"
+                    />
+                </div>
+                <div className="text-xs font-semibold text-gray-500 px-2">
+                    {filteredItems.length} of {items.length} Items
+                </div>
+            </div>
+
+            {/* Main Table / List */}
+            {loading ? (
+                <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500 mx-auto"></div>
+                    <p className="mt-3 text-sm text-gray-500">Loading BOQ items...</p>
+                </div>
+            ) : error ? (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center text-red-700">
+                    <FiAlertCircle className="w-6 h-6 mx-auto mb-2 text-red-500" />
+                    <p className="font-medium">{error}</p>
+                    <button
+                        onClick={fetchItems}
+                        className="mt-3 px-4 py-1.5 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-semibold rounded-md"
+                    >
+                        Try Again
+                    </button>
+                </div>
+            ) : items.length === 0 ? (
+                <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
+                    <div className="w-16 h-16 bg-gray-50 text-gray-300 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <FiPackage className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900">No BOQ items yet</h3>
+                    <p className="text-sm text-gray-500 mt-1 max-w-md mx-auto">
+                        Add material items from the standard catalogue or enter your own custom items to prepare your site delivery sheet.
+                    </p>
+                    <button
+                        onClick={() => {
+                            setEditingItem(null);
+                            setIsCustomItem(false);
+                            setShowItemModal(true);
+                        }}
+                        className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg text-sm shadow-sm transition-colors"
+                    >
+                        <FiPlus className="w-4 h-4" />
+                        <span>Add First Item</span>
+                    </button>
+                </div>
+            ) : (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    {/* Desktop Table */}
+                    <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50/75 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-600 font-semibold">
+                                    <th className="py-3.5 px-4 w-16 text-center">#</th>
+                                    <th className="py-3.5 px-4">Particular (Item)</th>
+                                    <th className="py-3.5 px-4 w-64">Material Company</th>
+                                    <th className="py-3.5 px-4 w-44 text-right">Quantity</th>
+                                    <th className="py-3.5 px-4 w-24 text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 text-sm">
+                                {filteredItems.map((item, index) => (
+                                    <tr key={item.id} className="hover:bg-amber-50/40 transition-colors">
+                                        <td className="py-3.5 px-4 text-center text-gray-400 font-medium">
+                                            {index + 1}
+                                        </td>
+                                        <td className="py-3.5 px-4 font-semibold text-gray-900">
+                                            {item.item_name}
+                                        </td>
+                                        <td className="py-3.5 px-4 text-gray-600">
+                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                                                {item.material_company || item.description || 'Standard'}
+                                            </span>
+                                        </td>
+                                        <td className="py-3.5 px-4 text-right font-bold text-gray-900">
+                                            <span>{item.quantity}</span>
+                                            <span className="ml-1.5 text-xs font-normal text-gray-500">{item.unit}</span>
+                                        </td>
+                                        <td className="py-3.5 px-4 text-center">
+                                            <div className="flex items-center justify-center gap-2">
+                                                <button
+                                                    onClick={() => handleEditItem(item)}
+                                                    title="Edit Item"
+                                                    className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                                >
+                                                    <FiEdit2 className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteItem(item.id)}
+                                                    title="Delete Item"
+                                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                >
+                                                    <FiTrash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
 
-                    {/* Desktop Tabs */}
-                    <div className="hidden md:flex gap-6 overflow-x-auto no-scrollbar -mb-px">
-                        <button
-                            onClick={() => setActiveCategory(null)}
-                            className={`py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${activeCategory === null
-                                ? 'border-yellow-500 text-yellow-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                }`}
-                        >
-                            All Items
-                            <span className={`px-1.5 py-0.5 rounded-full text-xs ${activeCategory === null ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
-                                }`}>
-                                {items.length}
-                            </span>
-                        </button>
-
-                        {categories.map(cat => (
-                            <button
-                                key={cat}
-                                onClick={() => setActiveCategory(cat)}
-                                className={`py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${activeCategory === cat
-                                    ? 'border-yellow-500 text-yellow-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                    }`}
-                            >
-                                {cat}
-                                {sectionTotals[cat] && (
-                                    <span className={`px-1.5 py-0.5 rounded-full text-xs ${activeCategory === cat ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
-                                        }`}>
-                                        {sectionTotals[cat].count}
+                    {/* Mobile Cards */}
+                    <div className="md:hidden divide-y divide-gray-100">
+                        {filteredItems.map((item, index) => (
+                            <div key={item.id} className="p-4 space-y-2">
+                                <div className="flex items-start justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs flex items-center justify-center font-bold">
+                                            {index + 1}
+                                        </span>
+                                        <span className="font-semibold text-gray-900">{item.item_name}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            onClick={() => handleEditItem(item)}
+                                            className="p-1.5 text-gray-500 hover:text-amber-600 rounded"
+                                        >
+                                            <FiEdit2 className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteItem(item.id)}
+                                            className="p-1.5 text-gray-500 hover:text-red-600 rounded"
+                                        >
+                                            <FiTrash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-between text-xs pt-1">
+                                    <span className="text-gray-500 font-medium">Company:</span>
+                                    <span className="font-semibold text-gray-700 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
+                                        {item.material_company || item.description || 'Standard'}
                                     </span>
-                                )}
-                            </button>
+                                </div>
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="text-gray-500 font-medium">Quantity:</span>
+                                    <span className="font-bold text-gray-900 text-sm">
+                                        {item.quantity} {item.unit}
+                                    </span>
+                                </div>
+                            </div>
                         ))}
+                    </div>
+                </div>
+            )}
 
-                        {/* Add Category Button - integrated into tab list */}
-                        {showAddCategory ? (
-                            <div className="flex items-center gap-2 py-2">
+            {/* ========================================================================= */}
+            {/* ADD / EDIT ITEM MODAL (3 Core Fields: Item, Material Company, Qty) */}
+            {/* ========================================================================= */}
+            {showItemModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg border border-gray-100 overflow-hidden">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                            <h3 className="text-lg font-bold text-gray-900">
+                                {editingItem ? 'Edit BOQ Item' : 'Add BOQ Item'}
+                            </h3>
+                            <button
+                                onClick={() => setShowItemModal(false)}
+                                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
+                            >
+                                <FiX className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSaveItem} className="p-6 space-y-4">
+                            {/* Toggle Between Predefined Catalog and Custom Item */}
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="text-xs font-bold uppercase tracking-wider text-gray-700">
+                                        1. Particular (Item) <span className="text-red-500">*</span>
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsCustomItem(!isCustomItem)}
+                                        className="text-xs font-semibold text-amber-600 hover:text-amber-700 hover:underline"
+                                    >
+                                        {isCustomItem ? '← Select from Standard Catalog' : '+ Add Custom Item Instead'}
+                                    </button>
+                                </div>
+
+                                {!isCustomItem ? (
+                                    <select
+                                        value={selectedCatalogItem}
+                                        onChange={e => handleCatalogSelect(e.target.value)}
+                                        className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                                    >
+                                        {/* Group by category */}
+                                        {['Plywood & Boards', 'Adhesives', 'PTA Screws', 'Nails', 'Consumables & Tools', 'Custom Items'].map(cat => {
+                                            const catItems = combinedCatalog.filter(c => c.category === cat);
+                                            if (catItems.length === 0) return null;
+                                            return (
+                                                <optgroup key={cat} label={`── ${cat} ──`}>
+                                                    {catItems.map(c => (
+                                                        <option key={c.name} value={c.name}>
+                                                            {c.name}
+                                                        </option>
+                                                    ))}
+                                                </optgroup>
+                                            );
+                                        })}
+                                    </select>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. 18mm Marine Ply, SS Hinges 4-inch..."
+                                        value={customItemName}
+                                        onChange={e => setCustomItemName(e.target.value)}
+                                        required
+                                        className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                                    />
+                                )}
+                            </div>
+
+                            {/* Field 2: Material Company */}
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                                    2. Material Company / Brand
+                                </label>
                                 <input
                                     type="text"
-                                    value={newCategoryName}
-                                    onChange={(e) => setNewCategoryName(e.target.value)}
-                                    placeholder="Name"
-                                    className="w-32 px-2 py-1 text-sm border border-gray-300 rounded focus:bhover:bg-yellow-50 focus:border-yellow-500 focus:ring-yellow-500 outline-none"
-                                    autoFocus
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') addCategory();
-                                        if (e.key === 'Escape') { setShowAddCategory(false); setNewCategoryName(''); }
-                                    }}
+                                    placeholder="e.g. Royal Touch, Austin Gold, Fevicol, Asian Paints..."
+                                    value={materialCompany || ''}
+                                    onChange={e => setMaterialCompany(e.target.value)}
+                                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
                                 />
-                                <button
-                                    onClick={addCategory}
-                                    className="flex items-center justify-center w-8 h-8 text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
-                                    title="Confirm"
-                                >
-                                    <FiPlus className="w-4 h-4" />
-                                </button>
-                                <button
-                                    onClick={() => { setShowAddCategory(false); setNewCategoryName(''); }}
-                                    className="flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                                    title="Cancel"
-                                >
-                                    <FiX className="w-4 h-4" />
-                                </button>
-                            </div>
-                        ) : (
-                            <button
-                                onClick={() => setShowAddCategory(true)}
-                                className="py-3 text-sm font-medium text-gray-400 hover:text-yellow-600 flex items-center gap-1 border-b-2 border-transparent"
-                            >
-                                <FiPlus className="w-4 h-4" />
-                                New Category
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                {/* Right Side Controls (View & Filter) */}
-                <div className="flex items-center gap-3 py-2 md:py-0">
-                    <div className="flex items-center bg-gray-100 rounded-lg p-1 gap-1">
-                        <button
-                            onClick={() => setViewMode('grid')}
-                            className={`flex items-center justify-center w-8 h-8 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white shadow text-yellow-600' : 'text-gray-500 hover:text-gray-700'}`}
-                            title="Grid View"
-                        >
-                            <FiGrid size={18} />
-                        </button>
-                        <button
-                            onClick={() => setViewMode('cards')}
-                            className={`flex items-center justify-center w-8 h-8 rounded-md transition-all ${viewMode === 'cards' ? 'bg-white shadow text-yellow-600' : 'text-gray-500 hover:text-gray-700'}`}
-                            title="Card View"
-                        >
-                            <FiList size={18} />
-                        </button>
-                    </div>
-
-                    <CustomDropdown
-                        value={filterStatus}
-                        options={[
-                            { id: 'all', title: 'All Status' },
-                            ...STATUSES.map(s => ({ id: s, title: s.charAt(0).toUpperCase() + s.slice(1) }))
-                        ]}
-                        onChange={setFilterStatus}
-                        className="w-32"
-                    />
-                </div>
-            </div>
-
-            {/* Bulk Actions - Mobile: Compact fixed bar, Desktop: Centered floating bar */}
-            {
-                selectedItems.length > 0 && canCreateProposal && (
-                    <>
-                        {/* Mobile Bulk Actions - Simplified compact bar */}
-                        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-gray-900 text-white px-3 py-2 border-t border-gray-700 safe-area-bottom">
-                            <div className="flex items-center justify-between gap-1">
-                                {/* Left: Selected count + Clear */}
-                                <div className="flex items-center gap-1">
-                                    <div className="flex items-center gap-1 px-2 py-1 bg-gray-800 rounded-md">
-                                        <FiCheckCircle className="w-3 h-3 text-emerald-400" />
-                                        <span className="text-xs font-medium">{selectedItems.length}</span>
-                                    </div>
-                                    <button
-                                        onClick={() => setSelectedItems([])}
-                                        className="flex items-center justify-center w-8 h-8 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors"
-                                    >
-                                        <FiX className="w-4 h-4" />
-                                    </button>
-                                </div>
-
-                                {/* Right: Primary actions */}
-                                <div className="flex items-center gap-1.5">
-                                    <button
-                                        onClick={() => { setShowBulkCategory(!showBulkCategory); setShowBulkStatus(false); }}
-                                        className="flex items-center gap-1 px-2 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-md text-xs font-medium"
-                                    >
-                                        <FiFolder className="w-3 h-3 text-yellow-400" />
-                                        Cat
-                                    </button>
-                                    <button
-                                        onClick={() => { setShowBulkStatus(!showBulkStatus); setShowBulkCategory(false); }}
-                                        className="flex items-center gap-1 px-2 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-md text-xs font-medium"
-                                    >
-                                        <FiRefreshCw className="w-3 h-3 text-emerald-400" />
-                                        Status
-                                    </button>
-                                    <button
-                                        onClick={() => setShowProposal(true)}
-                                        className="flex items-center gap-1 px-2.5 py-1.5 bg-yellow-500 hover:bg-yellow-600 rounded-md text-xs font-medium"
-                                    >
-                                        <FiSend className="w-3 h-3" />
-                                        Proposal
-                                    </button>
+                                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                    {['Royal Touch', 'Austin Gold', 'Fevicol', 'Probond', 'Standard'].map(brand => (
+                                        <button
+                                            key={brand}
+                                            type="button"
+                                            onClick={() => setMaterialCompany(brand)}
+                                            className={`text-[11px] px-2 py-0.5 rounded border transition-colors ${
+                                                materialCompany === brand
+                                                    ? 'bg-amber-100 border-amber-300 text-amber-800 font-semibold'
+                                                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                                            }`}
+                                        >
+                                            {brand}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
 
-                            {/* Mobile Category Dropdown - appears above the bar */}
-                            {showBulkCategory && (
-                                <>
-                                    <div className="fixed inset-0 z-40" onClick={() => setShowBulkCategory(false)} />
-                                    <div className="absolute bottom-full left-0 right-0 mb-0 bg-gray-900 border-t border-gray-700 rounded-t-xl p-3 z-50 max-h-60 overflow-y-auto">
-                                        <div className="text-xs font-semibold text-gray-400 mb-2 uppercase">Change Category:</div>
+                            {/* Field 3: Quantity and Unit */}
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                                    3. Quantity & Unit <span className="text-red-500">*</span>
+                                </label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
                                         <input
-                                            type="text"
-                                            value={newBulkCategory}
-                                            onChange={(e) => setNewBulkCategory(e.target.value)}
-                                            placeholder="New category name..."
-                                            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-sm text-white mb-2 focus:border-yellow-500 outline-none"
+                                            type="number"
+                                            step="any"
+                                            min="0.1"
+                                            placeholder="Quantity"
+                                            value={quantity}
+                                            onChange={e => setQuantity(e.target.value)}
+                                            required
+                                            className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-semibold text-gray-900"
                                         />
-                                        <div className="flex flex-wrap gap-1.5 mb-3">
-                                            {categories.map(cat => (
-                                                <button
-                                                    key={cat}
-                                                    onClick={() => setNewBulkCategory(cat)}
-                                                    className={`px-2.5 py-1.5 text-xs rounded-md transition-colors ${newBulkCategory === cat
-                                                        ? 'bg-yellow-500 text-white'
-                                                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                                                        }`}
-                                                >
-                                                    {cat}
-                                                </button>
-                                            ))}
-                                        </div>
-                                        <button
-                                            onClick={() => { handleBulkCategoryUpdate(); setShowBulkCategory(false); }}
-                                            disabled={!newBulkCategory.trim()}
-                                            className="w-full py-2.5 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-white text-sm font-bold rounded-lg"
+                                    </div>
+                                    <div>
+                                        <select
+                                            value={unit}
+                                            onChange={e => setUnit(e.target.value)}
+                                            className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
                                         >
-                                            Apply to {selectedItems.length} Items
-                                        </button>
-                                    </div>
-                                </>
-                            )}
-
-                            {/* Mobile Status Dropdown - appears above the bar */}
-                            {showBulkStatus && (
-                                <>
-                                    <div className="fixed inset-0 z-40" onClick={() => setShowBulkStatus(false)} />
-                                    <div className="absolute bottom-full left-0 right-0 mb-0 bg-gray-900 border-t border-gray-700 rounded-t-xl p-3 z-50">
-                                        <div className="text-xs font-semibold text-gray-400 mb-2 uppercase">Change Status:</div>
-                                        <div className="grid grid-cols-3 gap-2">
-                                            {STATUSES.map(s => (
-                                                <button
-                                                    key={s}
-                                                    onClick={() => handleBulkStatusUpdate(s)}
-                                                    className="py-2.5 text-sm bg-gray-800 hover:bg-yellow-500 rounded-lg transition-colors capitalize"
-                                                >
-                                                    {s}
-                                                </button>
+                                            {STANDARD_UNITS.map(u => (
+                                                <option key={u} value={u}>
+                                                    {u}
+                                                </option>
                                             ))}
-                                        </div>
+                                        </select>
                                     </div>
-                                </>
-                            )}
-                        </div>
-
-                        {/* Desktop Bulk Actions - Original centered floating bar */}
-                        <div className="hidden md:flex fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 items-center gap-2 bg-gray-900 text-white px-2 py-1.5 rounded-lg shadow-xl animate-in slide-in-from-bottom-4 duration-200 border border-gray-800">
-                            {/* Selected Count */}
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 rounded-md">
-                                <FiCheckCircle className="w-4 h-4 text-emerald-400" />
-                                <span className="text-sm font-medium whitespace-nowrap">
-                                    {selectedItems.length} Selected
-                                </span>
+                                </div>
                             </div>
 
-                            {/* Divider */}
-                            <div className="h-6 w-px bg-gray-700 mx-1"></div>
-
-                            {/* Move to Proposal */}
-                            <button
-                                onClick={() => setShowProposal(true)}
-                                className="flex items-center gap-2 px-4 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-md transition-colors shadow-sm"
-                            >
-                                <FiSend className="w-4 h-4" />
-                                <span className="text-sm font-medium">Proposal</span>
-                            </button>
-
-                            {/* Change Category */}
-                            <div className="relative">
+                            <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-3">
                                 <button
-                                    onClick={() => setShowBulkCategory(!showBulkCategory)}
-                                    className="flex items-center gap-2 px-4 py-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-md transition-colors border border-gray-700"
+                                    type="button"
+                                    onClick={() => setShowItemModal(false)}
+                                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                                 >
-                                    <FiFolder className="w-4 h-4 text-yellow-400" />
-                                    <span className="text-sm font-medium whitespace-nowrap">Category</span>
-                                    <FiChevronDown className={`w-3 h-3 transition-transform ${showBulkCategory ? 'rotate-180' : ''}`} />
+                                    Cancel
                                 </button>
-
-                                {showBulkCategory && (
-                                    <div className="absolute bottom-full mb-2 left-0 w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl p-3 animate-in fade-in slide-in-from-bottom-2">
-                                        <div className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">Change Category To:</div>
-                                        <input
-                                            type="text"
-                                            value={newBulkCategory}
-                                            onChange={(e) => setNewBulkCategory(e.target.value)}
-                                            placeholder="New Category Name..."
-                                            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-sm text-white mb-3 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 outline-none"
-                                            autoFocus
-                                        />
-                                        <div className="flex flex-wrap gap-1.5 mb-3 max-h-32 overflow-y-auto no-scrollbar">
-                                            {categories.map(cat => (
-                                                <button
-                                                    key={cat}
-                                                    onClick={() => setNewBulkCategory(cat)}
-                                                    className={`px-2 py-1 text-[10px] rounded border transition-colors ${newBulkCategory === cat
-                                                        ? 'bg-yellow-500 text-white border-yellow-600'
-                                                        : 'bg-gray-800 text-gray-300 border-gray-700 hover:border-gray-500'
-                                                        }`}
-                                                >
-                                                    {cat}
-                                                </button>
-                                            ))}
-                                        </div>
-                                        <button
-                                            onClick={handleBulkCategoryUpdate}
-                                            disabled={!newBulkCategory.trim()}
-                                            className="w-full py-2 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-white text-sm font-bold rounded-md transition-colors"
-                                        >
-                                            Apply to {selectedItems.length} Items
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Change Status */}
-                            <div className="relative">
                                 <button
-                                    onClick={() => setShowBulkStatus(!showBulkStatus)}
-                                    className="flex items-center gap-2 px-4 py-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-md transition-colors border border-gray-700"
+                                    type="submit"
+                                    disabled={saving}
+                                    className="px-5 py-2 text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
                                 >
-                                    <FiRefreshCw className={`w-4 h-4 text-emerald-400 ${loading ? 'animate-spin' : ''}`} />
-                                    <span className="text-sm font-medium whitespace-nowrap">Status</span>
-                                    <FiChevronDown className={`w-3 h-3 transition-transform ${showBulkStatus ? 'rotate-180' : ''}`} />
+                                    {saving ? 'Saving...' : editingItem ? 'Update Item' : 'Add Item'}
                                 </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
-                                {showBulkStatus && (
-                                    <div className="absolute bottom-full mb-2 left-0 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2">
-                                        <div className="text-xs font-semibold text-gray-400 p-3 bg-gray-800/50 border-b border-gray-700 uppercase tracking-wider">Change Status To:</div>
-                                        <div className="py-1">
-                                            {STATUSES.map(s => (
-                                                <button
-                                                    key={s}
-                                                    onClick={() => handleBulkStatusUpdate(s)}
-                                                    className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-yellow-500 hover:text-white transition-colors flex items-center gap-2 capitalize"
-                                                >
-                                                    <div className={`w-2 h-2 rounded-full ${s === 'draft' ? 'bg-yellow-400' :
-                                                        s === 'confirmed' ? 'bg-emerald-400' : 'bg-blue-400'
-                                                        }`} />
-                                                    {s}
-                                                </button>
-                                            ))}
-                                        </div>
+            {/* ========================================================================= */}
+            {/* EXPORT TO PDF MODAL (With Logo, Site, Engineer, Phone & Delivery Floor) */}
+            {/* ========================================================================= */}
+            {showExportModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg border border-gray-100 overflow-hidden">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-amber-100 text-amber-700 rounded-lg">
+                                    <FiDownload className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900">Export BOQ Requirement PDF</h3>
+                                    <p className="text-xs text-gray-500">Includes official Apple Interiors logo & site header</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowExportModal(false)}
+                                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
+                            >
+                                <FiX className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            {/* Site Name */}
+                            <div>
+                                <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase mb-1">
+                                    <FiHome className="w-3.5 h-3.5 text-gray-400" />
+                                    <span>Site / Project Name</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={exportSiteName}
+                                    onChange={e => setExportSiteName(e.target.value)}
+                                    placeholder="Site Name"
+                                    className="w-full px-3.5 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                                />
+                            </div>
+
+                            {/* Site Address */}
+                            <div>
+                                <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase mb-1">
+                                    <FiMapPin className="w-3.5 h-3.5 text-gray-400" />
+                                    <span>Site Address</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={exportSiteAddress}
+                                    onChange={e => setExportSiteAddress(e.target.value)}
+                                    placeholder="Full delivery address"
+                                    className="w-full px-3.5 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                {/* Assigned Site Engineer Name */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase">
+                                            <FiUser className="w-3.5 h-3.5 text-gray-400" />
+                                            <span>Site Engineer</span>
+                                        </label>
+                                        {availableEngineersList.length > 0 && (
+                                            <select
+                                                onChange={e => {
+                                                    const selected = availableEngineersList.find(u => u.name === e.target.value);
+                                                    if (selected) {
+                                                        setExportEngineerName(selected.name);
+                                                        setExportEngineerMobile(selected.mobile);
+                                                    }
+                                                }}
+                                                className="text-[11px] text-amber-600 bg-transparent border-0 outline-none cursor-pointer font-medium hover:underline max-w-[120px] truncate"
+                                            >
+                                                <option value="">Quick select...</option>
+                                                {availableEngineersList.map(u => (
+                                                    <option key={u.id} value={u.name}>
+                                                        {u.name} ({u.designation})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        )}
                                     </div>
-                                )}
+                                    <input
+                                        type="text"
+                                        value={exportEngineerName}
+                                        onChange={e => setExportEngineerName(e.target.value)}
+                                        placeholder="Enter Site Engineer Name"
+                                        className="w-full px-3.5 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                                    />
+                                </div>
+
+                                {/* Mobile Number */}
+                                <div>
+                                    <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase mb-1">
+                                        <FiPhone className="w-3.5 h-3.5 text-gray-400" />
+                                        <span>Mobile Number</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={exportEngineerMobile}
+                                        onChange={e => setExportEngineerMobile(e.target.value)}
+                                        placeholder="Phone Number"
+                                        className="w-full px-3.5 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                                    />
+                                </div>
                             </div>
 
-                            {/* Select All */}
-                            <button
-                                onClick={() => {
-                                    const allIds = filteredItems.map(i => i.id);
-                                    setSelectedItems(allIds);
-                                }}
-                                className="flex items-center gap-2 px-3 py-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition-colors ml-1"
-                            >
-                                <FiGrid className="w-4 h-4" />
-                                <span className="text-sm font-medium whitespace-nowrap">Select All</span>
-                            </button>
-
-                            {/* Clear All */}
-                            <button
-                                onClick={() => setSelectedItems([])}
-                                className="flex items-center gap-2 px-3 py-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition-colors"
-                            >
-                                <FiX className="w-4 h-4" />
-                                <span className="text-sm font-medium whitespace-nowrap">Clear</span>
-                            </button>
-                        </div>
-                    </>
-                )
-            }
-
-            {
-                error && (
-                    <div className="mx-2 md:mx-3 mt-3 p-2 bg-red-50 text-red-700 rounded-lg flex items-center gap-2">
-                        <FiAlertCircle className="w-4 h-4 flex-shrink-0" />
-                        <span className="text-sm flex-1">{error}</span>
-                        <button onClick={() => setError(null)} className="w-8 h-8 flex items-center justify-center hover:bg-red-100 rounded">
-                            <FiX className="w-4 h-4" />
-                        </button>
-                    </div>
-                )
-            }
-
-            {/* Content */}
-            <div className="flex-1 overflow-auto">
-                {filteredItems.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16 px-4">
-                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                            <FiPackage className="w-8 h-8 text-gray-400" />
-                        </div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-1">No BOQ items yet</h3>
-                        <p className="text-sm text-gray-500 text-center max-w-sm">
-                            Start by adding items to your bill of quantities
-                        </p>
-                        {(canImport || canCreate) && (
-                            <div className="mt-4 flex gap-3">
-                                {canImport && (
-                                    <button
-                                        onClick={() => setShowImport(true)}
-                                        className="btn-secondary flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium"
+                            {/* Material Delivery Floor (Requested specifically by user) */}
+                            <div>
+                                <label className="flex items-center gap-1.5 text-xs font-bold text-amber-800 uppercase mb-1">
+                                    <FiLayers className="w-3.5 h-3.5 text-amber-600" />
+                                    <span>Material Delivery Floor</span> <span className="text-red-500">*</span>
+                                </label>
+                                <div className="flex gap-2">
+                                    <select
+                                        value={exportDeliveryFloor}
+                                        onChange={e => setExportDeliveryFloor(e.target.value)}
+                                        className="flex-1 px-3.5 py-2 text-sm bg-amber-50/50 border border-amber-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none font-semibold text-gray-900"
                                     >
-                                        <FiUpload className="w-4 h-4" />
-                                        Import BOQ
-                                    </button>
-                                )}
-                                {canCreate && (
-                                    <button
-                                        onClick={handleAddItem}
-                                        className="btn-brand flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium"
-                                    >
-                                        <FiPlus className="w-4 h-4" />
-                                        Add Item
-                                    </button>
-                                )}
+                                        {DELIVERY_FLOORS.map(floor => (
+                                            <option key={floor} value={floor}>
+                                                {floor}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <input
+                                        type="text"
+                                        placeholder="Or type custom floor"
+                                        value={exportDeliveryFloor}
+                                        onChange={e => setExportDeliveryFloor(e.target.value)}
+                                        className="w-40 px-3 py-2 text-xs bg-gray-50 border border-gray-300 rounded-lg focus:bg-white outline-none"
+                                    />
+                                </div>
                             </div>
-                        )}
-                    </div>
-                ) : (viewMode === 'cards' || isMobile) ? (
-                    <BoqCardMobile
-                        items={filteredItems}
-                        isAdmin={canEdit || canDelete}
-                        selectedItems={selectedItems}
-                        onSelect={setSelectedItems}
-                        onUpdate={handleInlineUpdate}
-                        onDelete={handleDelete}
-                    />
-                ) : (
-                    <div className="p-2 md:p-3">
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-                            <BoqGrid
-                                items={filteredItems}
-                                isAdmin={canEdit || canDelete}
-                                selectedItems={selectedItems}
-                                onSelect={setSelectedItems}
-                                onUpdate={handleInlineUpdate}
-                                onDelete={handleDelete}
-                                onAdd={handleAddItem}
-                                onEdit={handleEditItem}
-                                onSendProposal={(itemIds) => {
-                                    setSelectedItems(itemIds);
-                                    setShowProposal(true);
-                                }}
-                                categories={categories}
-                            />
 
-                            {/* Grand Total */}
-                            <div className="border-t border-gray-100 bg-white px-4 py-4 flex justify-between items-center rounded-b-xl">
-                                <span className="text-sm font-semibold text-gray-700">
-                                    {activeCategory ? `${activeCategory} Total` : 'Grand Total'}
-                                </span>
-                                <span className="text-lg font-bold text-gray-900">
-                                    {formatAmount(totals.total)}
-                                </span>
+                            {/* Preview summary */}
+                            <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 border border-gray-200 space-y-1">
+                                <div className="flex justify-between">
+                                    <span>Total Line Items:</span>
+                                    <span className="font-bold text-gray-900">{items.length} items</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span>Brand Header:</span>
+                                    <span className="font-bold text-amber-700">Apple Interiors (With Logo)</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span>Footer:</span>
+                                    <span>Site Engineer & Store In-Charge Signatures</span>
+                                </div>
+                            </div>
+
+                            <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowExportModal(false)}
+                                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleDownloadPdf}
+                                    className="inline-flex items-center gap-2 px-5 py-2 text-sm font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-sm transition-colors"
+                                >
+                                    <FiDownload className="w-4 h-4" />
+                                    <span>Download PDF</span>
+                                </button>
                             </div>
                         </div>
                     </div>
-                )}
-            </div>
-
-            {/* Modals */}
-            {
-                showImport && (
-                    <BoqImport
-                        projectId={projectId}
-                        onImportComplete={fetchItems}
-                        onClose={() => setShowImport(false)}
-                        existingCategories={categories}
-                    />
-                )
-            }
-
-            {
-                showProposal && (
-                    <ProposalBuilder
-                        projectId={projectId}
-                        items={items}
-                        selectedItemIds={selectedItems}
-                        onClose={() => setShowProposal(false)}
-                        onSuccess={() => {
-                            fetchItems();
-                            setSelectedItems([]);
-                        }}
-                    />
-                )
-            }
-
-            {/* BOQ Edit Modal */}
-            <BoqEditModal
-                item={editingItem}
-                categories={categories}
-                isOpen={showEditModal}
-                onClose={() => { setShowEditModal(false); setEditingItem(null); }}
-                onSave={handleSaveItem}
-            />
-
-            {/* Compare Modal */}
-            <CompareBoqOrderModal
-                isOpen={showComparison}
-                onClose={() => setShowComparison(false)}
-                items={items}
-                inventoryItems={inventoryItems}
-            />
-        </div >
+                </div>
+            )}
+        </div>
     );
 });
 
 BOQTab.displayName = 'BOQTab';
-
-export default BOQTab;
