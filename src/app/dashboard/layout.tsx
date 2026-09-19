@@ -17,6 +17,8 @@ import { PERMISSION_NODES } from '@/lib/rbac-constants';
 import AttendanceWidget from '@/components/attendance/AttendanceWidget';
 import PasswordChangeModal from '@/components/PasswordChangeModal';
 import NotepadDrawer from '@/components/notepad/NotepadDrawer';
+import MandatorySurveyModal from '@/components/survey/MandatorySurveyModal';
+import SurveyResultsModal from '@/components/survey/SurveyResultsModal';
 
 
 
@@ -61,7 +63,28 @@ function DashboardLayoutContent({
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isNotepadOpen, setIsNotepadOpen] = useState(false);
+  const [isSurveyResultsOpen, setIsSurveyResultsOpen] = useState(false);
+  const [userDesignation, setUserDesignation] = useState<string>('');
   const modalInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (user?.designation) {
+      setUserDesignation(user.designation);
+    } else if (user?.id) {
+      supabase
+        .from('users')
+        .select('designation')
+        .eq('id', user.id)
+        .single()
+        .then((res: any) => {
+          if (res?.data?.designation) {
+            setUserDesignation(res.data.designation);
+          }
+        });
+    }
+  }, [user]);
+
+  const isITUser = (userDesignation || user?.designation || '').trim().toLowerCase() === 'it';
 
   const fetchProjects = async () => {
     if (projects.length === 0) {
@@ -445,6 +468,21 @@ function DashboardLayoutContent({
               <FiFileText className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
               <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Notepad</span>
             </button>
+
+            {isITUser && (
+              <button
+                onClick={() => {
+                  setIsSurveyResultsOpen(true);
+                  setSidebarOpen(false);
+                }}
+                className="w-full flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-amber-700 hover:bg-amber-50 hover:text-amber-800 active:bg-amber-100 transition-all duration-200 group rounded-lg touch-target"
+                title="IT Survey Results"
+                type="button"
+              >
+                <FiActivity className="h-5 w-5 min-w-[20px] text-amber-600 group-hover:text-amber-700 transition-colors flex-shrink-0" />
+                <span className="ml-3 text-sm font-semibold lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">IT Survey</span>
+              </button>
+            )}
           </div>
         </nav>
       </div>
@@ -603,6 +641,20 @@ function DashboardLayoutContent({
                   <FiFileText className="w-5 h-5" />
                 </button>
 
+                {/* IT Only: Survey Results Header Button */}
+                {isITUser && (
+                  <button
+                    onClick={() => setIsSurveyResultsOpen(true)}
+                    className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition-colors mr-1 shrink-0 touch-target"
+                    aria-label="IT Survey Results"
+                    title="IT: Survey Results"
+                    type="button"
+                  >
+                    <FiActivity className="w-3.5 h-3.5" />
+                    <span>IT Results</span>
+                  </button>
+                )}
+
                 <OptimizedNotificationBell />
 
                 {/* User Avatar with Dropdown */}
@@ -639,6 +691,20 @@ function DashboardLayoutContent({
                             <FiSettings className="w-4 h-4 text-gray-400" />
                             Settings
                           </Link>
+
+                          {isITUser && (
+                            <button
+                              onClick={() => {
+                                setUserMenuOpen(false);
+                                setIsSurveyResultsOpen(true);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 transition-colors text-left"
+                              type="button"
+                            >
+                              <FiActivity className="w-4 h-4 text-amber-600" />
+                              IT Survey Results
+                            </button>
+                          )}
 
                           <div className="border-t border-gray-100 my-1"></div>
 
@@ -689,6 +755,17 @@ function DashboardLayoutContent({
 
       {/* Premium Scratchpad Notepad Drawer */}
       <NotepadDrawer isOpen={isNotepadOpen} onClose={() => setIsNotepadOpen(false)} />
+
+      {/* Mandatory Survey Modal for ALL users */}
+      <MandatorySurveyModal />
+
+      {/* Survey Results Modal strictly for IT users */}
+      {isITUser && (
+        <SurveyResultsModal
+          isOpen={isSurveyResultsOpen}
+          onClose={() => setIsSurveyResultsOpen(false)}
+        />
+      )}
 
       {/* Centered Spotlight Search Modal */}
       {isSearchOpen && (
