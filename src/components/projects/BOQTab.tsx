@@ -5,7 +5,7 @@ import {
     FiPlus, FiDownload, FiEdit2, FiTrash2, FiSearch, FiPackage,
     FiCheck, FiX, FiLayers, FiMapPin, FiUser, FiPhone, FiHome, FiAlertCircle
 } from 'react-icons/fi';
-import { generateBoqPDF, BoqPdfItem } from '@/lib/reports/boqPdfGenerator';
+import { generateBoqPDF, BoqPdfItem, generateLaminatePDF, LaminatePdfItem } from '@/lib/reports/boqPdfGenerator';
 import type { Project } from '@/components/projects/ProjectDetailsClient';
 
 export interface BOQItem {
@@ -13,7 +13,8 @@ export interface BOQItem {
     project_id: string;
     item_name: string;
     category?: string | null;
-    description?: string | null; // Used to store Material Company
+    sub_category?: string | null;
+    description?: string | null;
     material_company?: string | null;
     unit: string;
     quantity: number;
@@ -24,11 +25,15 @@ export interface BOQItem {
 export interface BOQTabHandle {
     openAddItem: () => void;
     openExportPdf: () => void;
+    openAddLaminate?: () => void;
+    openExportLaminatePdf?: () => void;
 }
 
 interface BOQTabProps {
     projectId: string;
     project?: Project | null;
+    activeSubTab?: string;
+    onSubTabChange?: (tab: string) => void;
 }
 
 interface CatalogItem {
@@ -37,6 +42,23 @@ interface CatalogItem {
     defaultCompany: string;
     defaultUnit: string;
 }
+
+export const LAMINATE_COMPANIES = [
+    'Royal Touch',
+    'Merino',
+    'Greenlam',
+    'Century',
+    'Advance'
+];
+
+export const LAMINATE_CODE_SUGGESTIONS = [
+    '1024 SF',
+    '217 SF',
+    '1.0mm Matt',
+    '0.8mm Liner',
+    '1025 SF Glossy',
+    'Charcoal Grey Matt'
+];
 
 // 23 Exact Hardcoded Items from User's Specification
 export const HARDCODED_ITEMS: CatalogItem[] = [
@@ -111,27 +133,46 @@ function resolveSiteEngineer(proj?: Project | null) {
     return { name: '', mobile: '' };
 }
 
-export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, project }, ref) => {
+export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, project, activeSubTab, onSubTabChange }, ref) => {
     const [items, setItems] = useState<BOQItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
 
+    // Sub-tab selection (synced with parent or local)
+    const [internalSubTab, setInternalSubTab] = useState<'boq' | 'laminate'>('boq');
+    const currentSubTab = (activeSubTab === 'laminate' || activeSubTab === 'boq') ? activeSubTab : internalSubTab;
+
+    const handleSwitchSubTab = (tab: 'boq' | 'laminate') => {
+        setInternalSubTab(tab);
+        if (onSubTabChange) onSubTabChange(tab);
+    };
+
     // Custom items stored per project in localStorage
     const [customCatalog, setCustomCatalog] = useState<CatalogItem[]>([]);
 
-    // Modals
+    // Modals - BOQ
     const [showItemModal, setShowItemModal] = useState(false);
     const [editingItem, setEditingItem] = useState<BOQItem | null>(null);
     const [showExportModal, setShowExportModal] = useState(false);
 
-    // Add/Edit Form State (Only 3 Core Fields)
+    // Modals - Laminate
+    const [showLaminateModal, setShowLaminateModal] = useState(false);
+    const [editingLaminate, setEditingLaminate] = useState<BOQItem | null>(null);
+    const [showExportLaminateModal, setShowExportLaminateModal] = useState(false);
+
+    // BOQ Add/Edit Form State
     const [isCustomItem, setIsCustomItem] = useState(false);
     const [selectedCatalogItem, setSelectedCatalogItem] = useState<string>(HARDCODED_ITEMS[0].name);
     const [customItemName, setCustomItemName] = useState('');
-    const [materialCompany, setMaterialCompany] = useState(HARDCODED_ITEMS[0].defaultCompany);
     const [quantity, setQuantity] = useState<number | string>(1);
     const [unit, setUnit] = useState(HARDCODED_ITEMS[0].defaultUnit);
+
+    // Laminate Add/Edit Form State
+    const [laminateCode, setLaminateCode] = useState('');
+    const [laminateCompany, setLaminateCompany] = useState('');
+    const [laminateQuantity, setLaminateQuantity] = useState<number | string>(1);
+
     const [saving, setSaving] = useState(false);
 
     // PDF Export Settings
@@ -158,7 +199,6 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
         if (project?.project_members) {
             project.project_members.forEach(pm => {
                 if (pm.users?.full_name && pm.users.id !== project.assigned_employee?.id) {
-                    // Don't add duplicate
                     if (!list.some(l => l.name === pm.users?.full_name)) {
                         list.push({
                             id: pm.users.id,
@@ -180,7 +220,6 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
             setIsCustomItem(false);
             const first = HARDCODED_ITEMS[0];
             setSelectedCatalogItem(first.name);
-            setMaterialCompany(first.defaultCompany);
             setUnit(first.defaultUnit);
             setQuantity(1);
             setCustomItemName('');
@@ -188,6 +227,16 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
         },
         openExportPdf: () => {
             setShowExportModal(true);
+        },
+        openAddLaminate: () => {
+            setEditingLaminate(null);
+            setLaminateCode('');
+            setLaminateCompany('Royal Touch');
+            setLaminateQuantity(1);
+            setShowLaminateModal(true);
+        },
+        openExportLaminatePdf: () => {
+            setShowExportLaminateModal(true);
         }
     }));
 
@@ -252,7 +301,6 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
         setSelectedCatalogItem(itemName);
         const found = combinedCatalog.find(c => c.name === itemName);
         if (found) {
-            setMaterialCompany(found.defaultCompany || '');
             setUnit(found.defaultUnit || 'Sheets');
         }
     };
@@ -268,7 +316,6 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
             setIsCustomItem(true);
             setCustomItemName(item.item_name);
         }
-        setMaterialCompany(item.material_company || item.description || '');
         setQuantity(item.quantity || 1);
         setUnit(item.unit || 'Sheets');
         setShowItemModal(true);
@@ -296,7 +343,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                 const newCatItem: CatalogItem = {
                     name: finalItemName,
                     category: 'Custom Items',
-                    defaultCompany: materialCompany || '',
+                    defaultCompany: '',
                     defaultUnit: unit || 'Sheets'
                 };
                 const updated = [...customCatalog, newCatItem];
@@ -314,7 +361,6 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                     body: JSON.stringify({
                         id: editingItem.id,
                         item_name: finalItemName,
-                        description: materialCompany, // Store material company in description
                         quantity: numQty,
                         unit: unit,
                         rate: 0
@@ -329,7 +375,6 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                     body: JSON.stringify({
                         project_id: projectId,
                         item_name: finalItemName,
-                        description: materialCompany, // Store material company in description
                         quantity: numQty,
                         unit: unit,
                         rate: 0,
@@ -362,16 +407,20 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
     };
 
     // Export PDF Trigger
+    // Separate BOQ items and Laminate items
+    const boqItems = useMemo(() => items.filter(it => it.category !== 'laminate'), [items]);
+    const laminateItems = useMemo(() => items.filter(it => it.category === 'laminate'), [items]);
+
+    // Export BOQ PDF Trigger
     const handleDownloadPdf = () => {
-        if (items.length === 0) {
+        if (boqItems.length === 0) {
             alert('There are no items in this BOQ to export.');
             return;
         }
 
-        const pdfItems: BoqPdfItem[] = items.map(it => ({
+        const pdfItems: BoqPdfItem[] = boqItems.map(it => ({
             id: it.id,
             item_name: it.item_name,
-            material_company: it.material_company || it.description || 'Standard',
             quantity: it.quantity,
             unit: it.unit
         }));
@@ -388,41 +437,194 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
         setShowExportModal(false);
     };
 
+    // Open Edit Laminate Modal
+    const handleEditLaminate = (item: BOQItem) => {
+        setEditingLaminate(item);
+        setLaminateCode(item.item_name || '');
+        setLaminateCompany(item.sub_category || item.material_company || 'Royal Touch');
+        setLaminateQuantity(item.quantity || 1);
+        setShowLaminateModal(true);
+    };
+
+    // Save Laminate Item
+    const handleSaveLaminate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const finalCode = laminateCode.trim();
+        if (!finalCode) {
+            alert('Please specify a laminate code');
+            return;
+        }
+
+        const numQty = parseFloat(String(laminateQuantity)) || 0;
+        if (numQty <= 0) {
+            alert('Quantity must be greater than 0');
+            return;
+        }
+
+        const finalCompany = laminateCompany.trim() || 'Standard';
+
+        setSaving(true);
+        try {
+            if (editingLaminate) {
+                const res = await fetch('/api/boq', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: editingLaminate.id,
+                        category: 'laminate',
+                        item_name: finalCode,
+                        sub_category: finalCompany,
+                        description: null,
+                        quantity: numQty,
+                        unit: 'Sheets',
+                        rate: 0
+                    })
+                });
+                if (!res.ok) throw new Error('Failed to update laminate item');
+            } else {
+                const res = await fetch('/api/boq', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        project_id: projectId,
+                        category: 'laminate',
+                        item_name: finalCode,
+                        sub_category: finalCompany,
+                        description: null,
+                        quantity: numQty,
+                        unit: 'Sheets',
+                        rate: 0,
+                        status: 'confirmed'
+                    })
+                });
+                if (!res.ok) throw new Error('Failed to create laminate item');
+            }
+
+            setShowLaminateModal(false);
+            setEditingLaminate(null);
+            await fetchItems();
+        } catch (err: any) {
+            alert(err.message || 'Error saving laminate item');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Export Laminate PDF Trigger
+    const handleDownloadLaminatePdf = () => {
+        if (laminateItems.length === 0) {
+            alert('There are no laminate items in this project to export.');
+            return;
+        }
+
+        const pdfItems: LaminatePdfItem[] = laminateItems.map(it => ({
+            id: it.id,
+            item_name: it.item_name,
+            company: it.sub_category || it.material_company || '-',
+            quantity: it.quantity,
+            unit: it.unit || 'Sheets'
+        }));
+
+        generateLaminatePDF({
+            siteName: exportSiteName || project?.title || 'Site Project',
+            siteAddress: exportSiteAddress || project?.address || 'N/A',
+            engineerName: exportEngineerName || 'Site Engineer',
+            engineerMobile: exportEngineerMobile || 'N/A',
+            deliveryFloor: exportDeliveryFloor || 'Ground Floor',
+            items: pdfItems
+        });
+
+        setShowExportLaminateModal(false);
+    };
+
     // Filter items by search query
-    const filteredItems = useMemo(() => {
-        if (!searchQuery.trim()) return items;
+    const filteredBoqItems = useMemo(() => {
+        if (!searchQuery.trim()) return boqItems;
         const q = searchQuery.toLowerCase();
-        return items.filter(i =>
+        return boqItems.filter(i => i.item_name.toLowerCase().includes(q));
+    }, [boqItems, searchQuery]);
+
+    const filteredLaminateItems = useMemo(() => {
+        if (!searchQuery.trim()) return laminateItems;
+        const q = searchQuery.toLowerCase();
+        return laminateItems.filter(i =>
             i.item_name.toLowerCase().includes(q) ||
-            (i.material_company && i.material_company.toLowerCase().includes(q)) ||
-            (i.description && i.description.toLowerCase().includes(q))
+            (i.description && i.description.toLowerCase().includes(q)) ||
+            (i.sub_category && i.sub_category.toLowerCase().includes(q))
         );
-    }, [items, searchQuery]);
+    }, [laminateItems, searchQuery]);
 
     return (
         <div className="bg-white shadow sm:rounded-lg p-4 sm:p-6 space-y-6">
+            {/* Sub-tab Pills Switcher */}
+            {/* Sub-tab Pills Switcher */}
+            <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
+                <button
+                    type="button"
+                    onClick={() => handleSwitchSubTab('boq')}
+                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        currentSubTab === 'boq'
+                            ? 'bg-[#f0b100] text-white shadow-sm hover:bg-[#d49b00]'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                >
+                    <FiPackage className="w-3.5 h-3.5" />
+                    <span>BOQ Material Items</span>
+                    <span className={`text-[11px] px-1.5 py-0.2 rounded-full font-bold ${
+                        currentSubTab === 'boq' ? 'bg-[#d49b00] text-white' : 'bg-gray-200 text-gray-700'
+                    }`}>
+                        {boqItems.length}
+                    </span>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => handleSwitchSubTab('laminate')}
+                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        currentSubTab === 'laminate'
+                            ? 'bg-[#f0b100] text-white shadow-sm hover:bg-[#d49b00]'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                >
+                    <FiLayers className="w-3.5 h-3.5" />
+                    <span>Laminate</span>
+                    <span className={`text-[11px] px-1.5 py-0.2 rounded-full font-bold ${
+                        currentSubTab === 'laminate' ? 'bg-[#d49b00] text-white' : 'bg-gray-200 text-gray-700'
+                    }`}>
+                        {laminateItems.length}
+                    </span>
+                </button>
+            </div>
+
             {/* Search & Controls */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
                 <div className="relative flex-1">
                     <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
                         type="text"
-                        placeholder="Search by item name or material company..."
+                        placeholder={
+                            currentSubTab === 'laminate'
+                                ? 'Search by laminate code, location, or finish...'
+                                : 'Search by item name...'
+                        }
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
                         className="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:bg-white"
                     />
                 </div>
                 <div className="text-xs font-semibold text-gray-500 self-center sm:self-auto">
-                    {filteredItems.length} of {items.length} Items
+                    {currentSubTab === 'laminate'
+                        ? `${filteredLaminateItems.length} of ${laminateItems.length} Laminates`
+                        : `${filteredBoqItems.length} of ${boqItems.length} Items`}
                 </div>
             </div>
 
-            {/* Main Table / List */}
+            {/* Loading & Error States */}
             {loading ? (
                 <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500 mx-auto"></div>
-                    <p className="mt-3 text-sm text-gray-500">Loading BOQ items...</p>
+                    <p className="mt-3 text-sm text-gray-500">
+                        Loading {currentSubTab === 'laminate' ? 'Laminate sheets' : 'BOQ items'}...
+                    </p>
                 </div>
             ) : error ? (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center text-red-700">
@@ -435,129 +637,244 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                         Try Again
                     </button>
                 </div>
-            ) : items.length === 0 ? (
-                <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
-                    <div className="w-16 h-16 bg-gray-50 text-gray-300 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <FiPackage className="w-8 h-8" />
+            ) : currentSubTab === 'boq' ? (
+                /* ======================== BOQ ITEMS VIEW ======================== */
+                boqItems.length === 0 ? (
+                    <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
+                        <div className="w-16 h-16 bg-gray-50 text-gray-300 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <FiPackage className="w-8 h-8" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900">No BOQ items yet</h3>
+                        <p className="text-sm text-gray-500 mt-1 max-w-md mx-auto">
+                            Add material items from the standard catalogue or enter your own custom items to prepare your site delivery sheet.
+                        </p>
+                        <button
+                            onClick={() => {
+                                setEditingItem(null);
+                                setIsCustomItem(false);
+                                setShowItemModal(true);
+                            }}
+                            className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg text-sm shadow-sm transition-colors"
+                        >
+                            <FiPlus className="w-4 h-4" />
+                            <span>Add First Item</span>
+                        </button>
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900">No BOQ items yet</h3>
-                    <p className="text-sm text-gray-500 mt-1 max-w-md mx-auto">
-                        Add material items from the standard catalogue or enter your own custom items to prepare your site delivery sheet.
-                    </p>
-                    <button
-                        onClick={() => {
-                            setEditingItem(null);
-                            setIsCustomItem(false);
-                            setShowItemModal(true);
-                        }}
-                        className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg text-sm shadow-sm transition-colors"
-                    >
-                        <FiPlus className="w-4 h-4" />
-                        <span>Add First Item</span>
-                    </button>
-                </div>
-            ) : (
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    {/* Desktop Table */}
-                    <div className="hidden md:block overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-gray-50/75 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-600 font-semibold">
-                                    <th className="py-3.5 px-4 w-16 text-center">#</th>
-                                    <th className="py-3.5 px-4">Particular (Item)</th>
-                                    <th className="py-3.5 px-4 w-64">Material Company</th>
-                                    <th className="py-3.5 px-4 w-44 text-right">Quantity</th>
-                                    <th className="py-3.5 px-4 w-24 text-center">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 text-sm">
-                                {filteredItems.map((item, index) => (
-                                    <tr key={item.id} className="hover:bg-amber-50/40 transition-colors">
-                                        <td className="py-3.5 px-4 text-center text-gray-400 font-medium">
-                                            {index + 1}
-                                        </td>
-                                        <td className="py-3.5 px-4 font-semibold text-gray-900">
-                                            {item.item_name}
-                                        </td>
-                                        <td className="py-3.5 px-4 text-gray-600">
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
-                                                {item.material_company || item.description || 'Standard'}
-                                            </span>
-                                        </td>
-                                        <td className="py-3.5 px-4 text-right font-bold text-gray-900">
-                                            <span>{item.quantity}</span>
-                                            <span className="ml-1.5 text-xs font-normal text-gray-500">{item.unit}</span>
-                                        </td>
-                                        <td className="py-3.5 px-4 text-center">
-                                            <div className="flex items-center justify-center gap-2">
-                                                <button
-                                                    onClick={() => handleEditItem(item)}
-                                                    title="Edit Item"
-                                                    className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                                                >
-                                                    <FiEdit2 className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeleteItem(item.id)}
-                                                    title="Delete Item"
-                                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                >
-                                                    <FiTrash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </td>
+                ) : (
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        {/* Desktop Table */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-gray-50/75 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-600 font-semibold">
+                                        <th className="py-3.5 px-4 w-16 text-center">#</th>
+                                        <th className="py-3.5 px-4">Particular (Item)</th>
+                                        <th className="py-3.5 px-4 w-44 text-right">Quantity</th>
+                                        <th className="py-3.5 px-4 w-24 text-center">Actions</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 text-sm">
+                                    {filteredBoqItems.map((item, index) => (
+                                        <tr key={item.id} className="hover:bg-amber-50/40 transition-colors">
+                                            <td className="py-3.5 px-4 text-center text-gray-400 font-medium">
+                                                {index + 1}
+                                            </td>
+                                            <td className="py-3.5 px-4 font-semibold text-gray-900">
+                                                {item.item_name}
+                                            </td>
+                                            <td className="py-3.5 px-4 text-right font-bold text-gray-900">
+                                                <span>{item.quantity}</span>
+                                                <span className="ml-1.5 text-xs font-normal text-gray-500">{item.unit}</span>
+                                            </td>
+                                            <td className="py-3.5 px-4 text-center">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <button
+                                                        onClick={() => handleEditItem(item)}
+                                                        title="Edit Item"
+                                                        className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                                    >
+                                                        <FiEdit2 className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteItem(item.id)}
+                                                        title="Delete Item"
+                                                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                    >
+                                                        <FiTrash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
 
-                    {/* Mobile Cards */}
-                    <div className="md:hidden divide-y divide-gray-100">
-                        {filteredItems.map((item, index) => (
-                            <div key={item.id} className="p-4 space-y-2">
-                                <div className="flex items-start justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs flex items-center justify-center font-bold">
-                                            {index + 1}
+                        {/* Mobile Cards */}
+                        <div className="md:hidden divide-y divide-gray-100">
+                            {filteredBoqItems.map((item, index) => (
+                                <div key={item.id} className="p-4 space-y-2">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs flex items-center justify-center font-bold">
+                                                {index + 1}
+                                            </span>
+                                            <span className="font-semibold text-gray-900">{item.item_name}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={() => handleEditItem(item)}
+                                                className="p-1.5 text-gray-500 hover:text-amber-600 rounded"
+                                            >
+                                                <FiEdit2 className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteItem(item.id)}
+                                                className="p-1.5 text-gray-500 hover:text-red-600 rounded"
+                                            >
+                                                <FiTrash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-gray-500 font-medium">Quantity:</span>
+                                        <span className="font-bold text-gray-900 text-sm">
+                                            {item.quantity} {item.unit}
                                         </span>
-                                        <span className="font-semibold text-gray-900">{item.item_name}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            onClick={() => handleEditItem(item)}
-                                            className="p-1.5 text-gray-500 hover:text-amber-600 rounded"
-                                        >
-                                            <FiEdit2 className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDeleteItem(item.id)}
-                                            className="p-1.5 text-gray-500 hover:text-red-600 rounded"
-                                        >
-                                            <FiTrash2 className="w-4 h-4" />
-                                        </button>
                                     </div>
                                 </div>
-                                <div className="flex items-center justify-between text-xs pt-1">
-                                    <span className="text-gray-500 font-medium">Company:</span>
-                                    <span className="font-semibold text-gray-700 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
-                                        {item.material_company || item.description || 'Standard'}
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between text-xs">
-                                    <span className="text-gray-500 font-medium">Quantity:</span>
-                                    <span className="font-bold text-gray-900 text-sm">
-                                        {item.quantity} {item.unit}
-                                    </span>
-                                </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
-                </div>
+                )
+            ) : (
+                /* ======================== LAMINATE VIEW ======================== */
+                laminateItems.length === 0 ? (
+                    <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
+                        <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <FiLayers className="w-8 h-8" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900">No Laminate sheets yet</h3>
+                        <p className="text-sm text-gray-500 mt-1 max-w-md mx-auto">
+                            Add laminate sheet requirements for wardrobes, kitchen shutters, TV units, and internal liner.
+                        </p>
+                        <button
+                            onClick={() => {
+                                setEditingLaminate(null);
+                                setLaminateCode('');
+                                setLaminateCompany('Royal Touch');
+                                setLaminateQuantity(1);
+                                setShowLaminateModal(true);
+                            }}
+                            className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 bg-[#f0b100] hover:bg-[#d49b00] text-white font-medium rounded-lg text-sm shadow-sm transition-colors"
+                        >
+                            <FiPlus className="w-4 h-4" />
+                            <span>Add First Laminate</span>
+                        </button>
+                    </div>
+                ) : (
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        {/* Desktop Table */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-gray-50/75 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-600 font-semibold">
+                                        <th className="py-3.5 px-4 w-16 text-center">#</th>
+                                        <th className="py-3.5 px-4">Laminate Code</th>
+                                        <th className="py-3.5 px-4">Company</th>
+                                        <th className="py-3.5 px-4 w-36 text-right">Quantity</th>
+                                        <th className="py-3.5 px-4 w-24 text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 text-sm">
+                                    {filteredLaminateItems.map((item, index) => (
+                                        <tr key={item.id} className="hover:bg-amber-50/40 transition-colors">
+                                            <td className="py-3.5 px-4 text-center text-gray-400 font-medium">
+                                                {index + 1}
+                                            </td>
+                                            <td className="py-3.5 px-4 font-semibold text-gray-900">
+                                                {item.item_name}
+                                            </td>
+                                            <td className="py-3.5 px-4 text-gray-700">
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                                                    {item.sub_category || item.material_company || 'Standard'}
+                                                </span>
+                                            </td>
+                                            <td className="py-3.5 px-4 text-right font-bold text-gray-900">
+                                                <span>{item.quantity}</span>
+                                                <span className="ml-1.5 text-xs font-normal text-gray-500">{item.unit || 'Sheets'}</span>
+                                            </td>
+                                            <td className="py-3.5 px-4 text-center">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <button
+                                                        onClick={() => handleEditLaminate(item)}
+                                                        title="Edit Laminate"
+                                                        className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                                    >
+                                                        <FiEdit2 className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteItem(item.id)}
+                                                        title="Delete Laminate"
+                                                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                    >
+                                                        <FiTrash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Mobile Cards */}
+                        <div className="md:hidden divide-y divide-gray-100">
+                            {filteredLaminateItems.map((item, index) => (
+                                <div key={item.id} className="p-4 space-y-2">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-6 h-6 rounded-full bg-amber-100 text-amber-800 text-xs flex items-center justify-center font-bold">
+                                                {index + 1}
+                                            </span>
+                                            <span className="font-semibold text-gray-900">{item.item_name}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={() => handleEditLaminate(item)}
+                                                className="p-1.5 text-gray-500 hover:text-amber-600 rounded"
+                                            >
+                                                <FiEdit2 className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteItem(item.id)}
+                                                className="p-1.5 text-gray-500 hover:text-red-600 rounded"
+                                            >
+                                                <FiTrash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs">
+                                        <span className="text-gray-500">Company:</span>
+                                        <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-semibold border border-amber-200">
+                                            {item.sub_category || item.material_company || 'Standard'}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs pt-1 border-t border-gray-50">
+                                        <span className="text-gray-500 font-medium">Quantity:</span>
+                                        <span className="font-bold text-gray-900 text-sm">
+                                            {item.quantity} {item.unit || 'Sheets'}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )
             )}
 
             {/* ========================================================================= */}
-            {/* ADD / EDIT ITEM MODAL (3 Core Fields: Item, Material Company, Qty) */}
+            {/* ADD / EDIT BOQ ITEM MODAL */}
             {/* ========================================================================= */}
             {showItemModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
@@ -575,11 +892,11 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                         </div>
 
                         <form onSubmit={handleSaveItem} className="p-6 space-y-4">
-                            {/* Toggle Between Predefined Catalog and Custom Item */}
+                            {/* Particular (Item) */}
                             <div>
                                 <div className="flex items-center justify-between mb-2">
                                     <label className="text-xs font-bold uppercase tracking-wider text-gray-700">
-                                        1. Particular (Item) <span className="text-red-500">*</span>
+                                        Particular (Item) <span className="text-red-500">*</span>
                                     </label>
                                     <button
                                         type="button"
@@ -596,7 +913,6 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                         onChange={e => handleCatalogSelect(e.target.value)}
                                         className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
                                     >
-                                        {/* Group by category */}
                                         {['Plywood & Boards', 'Adhesives', 'PTA Screws', 'Nails', 'Consumables & Tools', 'Custom Items'].map(cat => {
                                             const catItems = combinedCatalog.filter(c => c.category === cat);
                                             if (catItems.length === 0) return null;
@@ -623,40 +939,10 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                 )}
                             </div>
 
-                            {/* Field 2: Material Company */}
+                            {/* Quantity and Unit */}
                             <div>
                                 <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                                    2. Material Company / Brand
-                                </label>
-                                <input
-                                    type="text"
-                                    placeholder="e.g. Royal Touch, Austin Gold, Fevicol, Asian Paints..."
-                                    value={materialCompany || ''}
-                                    onChange={e => setMaterialCompany(e.target.value)}
-                                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-                                />
-                                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                    {['Royal Touch', 'Austin Gold', 'Fevicol', 'Probond', 'Standard'].map(brand => (
-                                        <button
-                                            key={brand}
-                                            type="button"
-                                            onClick={() => setMaterialCompany(brand)}
-                                            className={`text-[11px] px-2 py-0.5 rounded border transition-colors ${
-                                                materialCompany === brand
-                                                    ? 'bg-amber-100 border-amber-300 text-amber-800 font-semibold'
-                                                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                                            }`}
-                                        >
-                                            {brand}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Field 3: Quantity and Unit */}
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                                    3. Quantity & Unit <span className="text-red-500">*</span>
+                                    Quantity & Unit <span className="text-red-500">*</span>
                                 </label>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
@@ -698,7 +984,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                 <button
                                     type="submit"
                                     disabled={saving}
-                                    className="px-5 py-2 text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
+                                    className="px-5 py-2 text-sm font-semibold bg-[#f0b100] hover:bg-[#d49b00] text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
                                 >
                                     {saving ? 'Saving...' : editingItem ? 'Update Item' : 'Add Item'}
                                 </button>
@@ -709,7 +995,136 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
             )}
 
             {/* ========================================================================= */}
-            {/* EXPORT TO PDF MODAL (With Logo, Site, Engineer, Phone & Delivery Floor) */}
+            {/* ADD / EDIT LAMINATE MODAL */}
+            {/* ========================================================================= */}
+            {showLaminateModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md border border-gray-100 overflow-hidden">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-amber-50/40">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-1.5 bg-[#f0b100] text-white rounded-lg">
+                                    <FiLayers className="w-4 h-4" />
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-900">
+                                    {editingLaminate ? 'Edit Laminate Sheet' : 'Add Laminate Sheet'}
+                                </h3>
+                            </div>
+                            <button
+                                onClick={() => setShowLaminateModal(false)}
+                                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
+                            >
+                                <FiX className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSaveLaminate} className="p-6 space-y-4">
+                            {/* Laminate Code */}
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
+                                    Laminate Code <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. 1024 SF, 217 SF, 1.0mm Matt..."
+                                    value={laminateCode}
+                                    onChange={e => setLaminateCode(e.target.value)}
+                                    required
+                                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-medium"
+                                />
+                                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                    {LAMINATE_CODE_SUGGESTIONS.map(sugg => (
+                                        <button
+                                            key={sugg}
+                                            type="button"
+                                            onClick={() => setLaminateCode(sugg)}
+                                            className={`text-[11px] px-2 py-0.5 rounded border transition-colors ${
+                                                laminateCode === sugg
+                                                    ? 'bg-amber-100 border-amber-300 text-amber-800 font-semibold'
+                                                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                                            }`}
+                                        >
+                                            {sugg}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Company */}
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
+                                    Company <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Royal Touch, Merino, Greenlam, Century..."
+                                    value={laminateCompany}
+                                    onChange={e => setLaminateCompany(e.target.value)}
+                                    required
+                                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-medium"
+                                />
+                                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                    {LAMINATE_COMPANIES.map(comp => (
+                                        <button
+                                            key={comp}
+                                            type="button"
+                                            onClick={() => setLaminateCompany(comp)}
+                                            className={`text-[11px] px-2.5 py-1 rounded-md border font-medium transition-colors ${
+                                                laminateCompany === comp
+                                                    ? 'bg-[#f0b100] text-white border-[#f0b100] shadow-sm'
+                                                    : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                                            }`}
+                                        >
+                                            {comp}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Quantity */}
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
+                                    Quantity (Sheets) <span className="text-red-500">*</span>
+                                </label>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        min="0.1"
+                                        placeholder="Number of sheets"
+                                        value={laminateQuantity}
+                                        onChange={e => setLaminateQuantity(e.target.value)}
+                                        required
+                                        className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-bold text-gray-900"
+                                    />
+                                    <span className="px-4 py-2.5 bg-gray-100 text-gray-600 rounded-lg text-sm font-semibold border border-gray-200">
+                                        Sheets
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowLaminateModal(false)}
+                                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={saving}
+                                    className="px-5 py-2 text-sm font-semibold bg-[#f0b100] hover:bg-[#d49b00] text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
+                                >
+                                    {saving ? 'Saving...' : editingLaminate ? 'Update Laminate' : 'Add Laminate'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ========================================================================= */}
+            {/* EXPORT BOQ TO PDF MODAL */}
             {/* ========================================================================= */}
             {showExportModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
@@ -816,7 +1231,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                 </div>
                             </div>
 
-                            {/* Material Delivery Floor (Requested specifically by user) */}
+                            {/* Delivery Floor */}
                             <div>
                                 <label className="flex items-center gap-1.5 text-xs font-bold text-amber-800 uppercase mb-1">
                                     <FiLayers className="w-3.5 h-3.5 text-amber-600" />
@@ -848,7 +1263,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                             <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 border border-gray-200 space-y-1">
                                 <div className="flex justify-between">
                                     <span>Total Line Items:</span>
-                                    <span className="font-bold text-gray-900">{items.length} items</span>
+                                    <span className="font-bold text-gray-900">{boqItems.length} items</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span>Brand Header:</span>
@@ -871,10 +1286,184 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                 <button
                                     type="button"
                                     onClick={handleDownloadPdf}
-                                    className="inline-flex items-center gap-2 px-5 py-2 text-sm font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-sm transition-colors"
+                                    className="inline-flex items-center gap-2 px-5 py-2 text-sm font-bold bg-[#f0b100] hover:bg-[#d49b00] text-white rounded-lg shadow-sm transition-colors"
                                 >
                                     <FiDownload className="w-4 h-4" />
                                     <span>Download PDF</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ========================================================================= */}
+            {/* EXPORT LAMINATE TO PDF MODAL */}
+            {/* ========================================================================= */}
+            {showExportLaminateModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg border border-gray-100 overflow-hidden">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-amber-50/40">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-[#f0b100] text-white rounded-lg">
+                                    <FiDownload className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900">Export Laminate Requirement PDF</h3>
+                                    <p className="text-xs text-gray-500">Official sheet for laminate sheets delivery & approvals</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowExportLaminateModal(false)}
+                                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
+                            >
+                                <FiX className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            {/* Site Name */}
+                            <div>
+                                <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase mb-1">
+                                    <FiHome className="w-3.5 h-3.5 text-gray-400" />
+                                    <span>Site / Project Name</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={exportSiteName}
+                                    onChange={e => setExportSiteName(e.target.value)}
+                                    placeholder="Site Name"
+                                    className="w-full px-3.5 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                                />
+                            </div>
+
+                            {/* Site Address */}
+                            <div>
+                                <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase mb-1">
+                                    <FiMapPin className="w-3.5 h-3.5 text-gray-400" />
+                                    <span>Site Address</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={exportSiteAddress}
+                                    onChange={e => setExportSiteAddress(e.target.value)}
+                                    placeholder="Full delivery address"
+                                    className="w-full px-3.5 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                {/* Assigned Site Engineer Name */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase">
+                                            <FiUser className="w-3.5 h-3.5 text-gray-400" />
+                                            <span>Site Engineer</span>
+                                        </label>
+                                        {availableEngineersList.length > 0 && (
+                                            <select
+                                                onChange={e => {
+                                                    const selected = availableEngineersList.find(u => u.name === e.target.value);
+                                                    if (selected) {
+                                                        setExportEngineerName(selected.name);
+                                                        setExportEngineerMobile(selected.mobile);
+                                                    }
+                                                }}
+                                                className="text-[11px] text-amber-600 bg-transparent border-0 outline-none cursor-pointer font-medium hover:underline max-w-[120px] truncate"
+                                            >
+                                                <option value="">Quick select...</option>
+                                                {availableEngineersList.map(u => (
+                                                    <option key={u.id} value={u.name}>
+                                                        {u.name} ({u.designation})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        )}
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={exportEngineerName}
+                                        onChange={e => setExportEngineerName(e.target.value)}
+                                        placeholder="Enter Site Engineer Name"
+                                        className="w-full px-3.5 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                                    />
+                                </div>
+
+                                {/* Mobile Number */}
+                                <div>
+                                    <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase mb-1">
+                                        <FiPhone className="w-3.5 h-3.5 text-gray-400" />
+                                        <span>Mobile Number</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={exportEngineerMobile}
+                                        onChange={e => setExportEngineerMobile(e.target.value)}
+                                        placeholder="Phone Number"
+                                        className="w-full px-3.5 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Delivery Floor */}
+                            <div>
+                                <label className="flex items-center gap-1.5 text-xs font-bold text-amber-800 uppercase mb-1">
+                                    <FiLayers className="w-3.5 h-3.5 text-amber-600" />
+                                    <span>Material Delivery Floor</span> <span className="text-red-500">*</span>
+                                </label>
+                                <div className="flex gap-2">
+                                    <select
+                                        value={exportDeliveryFloor}
+                                        onChange={e => setExportDeliveryFloor(e.target.value)}
+                                        className="flex-1 px-3.5 py-2 text-sm bg-amber-50/50 border border-amber-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none font-semibold text-gray-900"
+                                    >
+                                        {DELIVERY_FLOORS.map(floor => (
+                                            <option key={floor} value={floor}>
+                                                {floor}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <input
+                                        type="text"
+                                        placeholder="Or type custom floor"
+                                        value={exportDeliveryFloor}
+                                        onChange={e => setExportDeliveryFloor(e.target.value)}
+                                        className="w-40 px-3 py-2 text-xs bg-gray-50 border border-gray-300 rounded-lg focus:bg-white outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Preview summary */}
+                            <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 border border-gray-200 space-y-1">
+                                <div className="flex justify-between">
+                                    <span>Total Laminate Line Items:</span>
+                                    <span className="font-bold text-amber-700">{laminateItems.length} items</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span>Brand Header:</span>
+                                    <span className="font-bold text-gray-900">Apple Interiors (With Logo)</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span>Footer:</span>
+                                    <span>Site Engineer & Store In-Charge Signatures</span>
+                                </div>
+                            </div>
+
+                            <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowExportLaminateModal(false)}
+                                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleDownloadLaminatePdf}
+                                    className="inline-flex items-center gap-2 px-5 py-2 text-sm font-bold bg-[#f0b100] hover:bg-[#d49b00] text-white rounded-lg shadow-sm transition-colors"
+                                >
+                                    <FiDownload className="w-4 h-4" />
+                                    <span>Download Laminate PDF</span>
                                 </button>
                             </div>
                         </div>

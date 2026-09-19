@@ -247,9 +247,30 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
       }
     }
     if (activeStage === 'boq') {
+      const isLaminate = activeSubTab === 'laminate';
       return [
-        { label: 'Add Item', onClick: () => boqRef.current?.openAddItem(), icon: <FiPlus className="w-4 h-4" /> },
-        { label: 'Export PDF', onClick: () => boqRef.current?.openExportPdf(), icon: <FiDownload className="w-4 h-4" /> }
+        { 
+          label: isLaminate ? 'Add Laminate' : 'Add Item', 
+          onClick: () => {
+            if (isLaminate) {
+              boqRef.current?.openAddLaminate?.();
+            } else {
+              boqRef.current?.openAddItem();
+            }
+          }, 
+          icon: <FiPlus className="w-4 h-4" /> 
+        },
+        { 
+          label: isLaminate ? 'Export Laminate PDF' : 'Export PDF', 
+          onClick: () => {
+            if (isLaminate) {
+              boqRef.current?.openExportLaminatePdf?.();
+            } else {
+              boqRef.current?.openExportPdf();
+            }
+          }, 
+          icon: <FiDownload className="w-4 h-4" /> 
+        }
       ];
     }
     if (activeStage === 'snag' && hasPermission('snags.create')) {
@@ -401,7 +422,15 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
           )}
 
           {activeStage === 'design' && <DesignsTab projectId={project.id} />}
-          {activeStage === 'boq' && <BOQTab projectId={project.id} project={project} ref={boqRef} />}
+          {activeStage === 'boq' && (
+            <BOQTab 
+              projectId={project.id} 
+              project={project} 
+              ref={boqRef} 
+              activeSubTab={activeSubTab} 
+              onSubTabChange={handleTabChange} 
+            />
+          )}
           {activeStage === 'work_progress' && (
             <>
               {activeSubTab === 'updates' && <UpdatesTab projectId={project.id} />}
