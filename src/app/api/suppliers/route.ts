@@ -104,9 +104,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Only admins can create suppliers
+        // Allow admins, or users with supplier.create / project edit permissions
         if (role !== 'admin') {
-            return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+            const { checkPermission } = await import('@/lib/rbac');
+            const hasCreate = await checkPermission(user.id, 'suppliers.create');
+            const hasProjEdit = await checkPermission(user.id, 'projects.edit');
+            if (!hasCreate.allowed && !hasProjEdit.allowed) {
+                return NextResponse.json({ error: 'Admin or supplier create access required' }, { status: 403 });
+            }
         }
 
         const body = await request.json();

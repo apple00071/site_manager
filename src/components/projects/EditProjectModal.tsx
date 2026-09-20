@@ -46,6 +46,8 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
     const [localError, setLocalError] = useState<string | null>(null);
     const [registeredVendors, setRegisteredVendors] = useState<any[]>([]);
     const [loadingVendors, setLoadingVendors] = useState(false);
+    const [saveToDirectory, setSaveToDirectory] = useState<Record<string, boolean>>({});
+    const nameInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (isOpen && section === 'workers') {
@@ -195,6 +197,27 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                 return;
             } finally {
                 setUploadingPDF(false);
+            }
+        }
+
+        if (section === 'workers') {
+            const tradesToRegister = TRADES.filter(t => 
+                saveToDirectory[t.id] && formData[`${t.id}_name`]?.trim()
+            );
+            if (tradesToRegister.length > 0) {
+                await Promise.all(tradesToRegister.map(t => 
+                    fetch('/api/suppliers', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: formData[`${t.id}_name`].trim(),
+                            contact_phone: formData[`${t.id}_phone`]?.trim() || null,
+                            trade_category: t.title,
+                            vendor_type: 'Contractor',
+                            is_active: true
+                        })
+                    }).catch(e => console.warn('Could not auto-register vendor:', e))
+                ));
             }
         }
 
@@ -554,7 +577,7 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                                 {TRADES.find(t => t.id === selectedWorker)?.title || selectedWorker} Details
                                             </h4>
                                             <p className="text-xs text-gray-500">
-                                                Select a registered vendor or enter details manually
+                                                Pick an existing vendor, or type new vendor details below
                                             </p>
                                         </div>
                                         {formData[`${selectedWorker}_name`] && (
@@ -583,6 +606,14 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                             onChange={(e) => {
                                                 const vId = e.target.value;
                                                 if (!vId) return;
+                                                if (vId === '__manual__') {
+                                                    handleChange(`${selectedWorker}_name`, '');
+                                                    handleChange(`${selectedWorker}_phone`, '');
+                                                    setSaveToDirectory(prev => ({ ...prev, [selectedWorker]: true }));
+                                                    setTimeout(() => nameInputRef.current?.focus(), 50);
+                                                    e.target.value = '';
+                                                    return;
+                                                }
                                                 const v = registeredVendors.find(item => item.id === vId);
                                                 if (v) {
                                                     const displayName = v.contact_name && v.contact_name !== v.name
@@ -590,6 +621,7 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                                         : v.name;
                                                     handleChange(`${selectedWorker}_name`, displayName);
                                                     handleChange(`${selectedWorker}_phone`, v.phone || '');
+                                                    setSaveToDirectory(prev => ({ ...prev, [selectedWorker]: false }));
                                                 }
                                                 e.target.value = '';
                                             }}
@@ -597,6 +629,9 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                         >
                                             <option value="" disabled>
                                                 -- Choose from registered vendors ({registeredVendors.length} available) --
+                                            </option>
+                                            <option value="__manual__">
+                                                + New Vendor (Enter details below)
                                             </option>
                                             {(() => {
                                                 const currentTrade = TRADES.find(t => t.id === selectedWorker);
@@ -637,6 +672,7 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                                 Vendor / Contractor Name
                                             </label>
                                             <input
+                                                ref={nameInputRef}
                                                 type="text"
                                                 value={formData[`${selectedWorker}_name`] || ''}
                                                 onChange={(e) => handleChange(`${selectedWorker}_name`, e.target.value)}
@@ -656,6 +692,27 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                                 className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-xs font-medium text-gray-900"
                                             />
                                         </div>
+                                    </div>
+
+                                    {/* Save to Directory Checkbox */}
+                                    <div className="pt-1">
+                                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                                            <input
+                                                type="checkbox"
+                                                id={`save_vendor_${selectedWorker}`}
+                                                checked={!!saveToDirectory[selectedWorker]}
+                                                onChange={(e) => setSaveToDirectory(prev => ({ ...prev, [selectedWorker]: e.target.checked }))}
+                                                className="w-3.5 h-3.5 text-yellow-600 rounded border-gray-300 focus:ring-yellow-500"
+                                            />
+                                            <span className="text-xs text-gray-700">
+                                                Save this vendor to directory for future projects
+                                            </span>
+                                        </label>
+                                        {saveToDirectory[selectedWorker] && (
+                                            <p className="text-[11px] text-emerald-600 pl-5.5 mt-0.5">
+                                                Will be saved under {TRADES.find(t => t.id === selectedWorker)?.title || 'this trade'}.
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-200">
