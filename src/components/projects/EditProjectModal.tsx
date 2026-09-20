@@ -5,12 +5,12 @@ import { CustomDropdown, CustomDatePicker } from '@/components/ui/CustomControls
 import { supabase } from '@/lib/supabase';
 
 const TRADES = [
-    { id: 'carpenter', title: 'Carpenter', icon: '🪚', keywords: ['carpent', 'wood', 'plywood'] },
-    { id: 'electrician', title: 'Electrician', icon: '⚡', keywords: ['electr'] },
-    { id: 'plumber', title: 'Plumber', icon: '🔧', keywords: ['plumb', 'sanitary'] },
-    { id: 'painter', title: 'Painter', icon: '🎨', keywords: ['paint', 'polish'] },
-    { id: 'granite_worker', title: 'Granite & Marble', icon: '🪨', keywords: ['granite', 'marble', 'tile', 'civil', 'mason'] },
-    { id: 'glass_worker', title: 'Glass & Aluminum', icon: '🪟', keywords: ['glass', 'aluminum', 'aluminium', 'fabricat'] }
+    { id: 'carpenter', title: 'Carpenter', keywords: ['carpent', 'wood', 'plywood'] },
+    { id: 'electrician', title: 'Electrician', keywords: ['electr'] },
+    { id: 'plumber', title: 'Plumber', keywords: ['plumb', 'sanitary'] },
+    { id: 'painter', title: 'Painter', keywords: ['paint', 'polish'] },
+    { id: 'granite_worker', title: 'Granite & Marble', keywords: ['granite', 'marble', 'tile', 'civil', 'mason'] },
+    { id: 'glass_worker', title: 'Glass & Aluminum', keywords: ['glass', 'aluminum', 'aluminium', 'fabricat'] }
 ];
 
 type ModalSection = 'info' | 'customer' | 'property' | 'workers' | null;
@@ -511,11 +511,11 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
 
                         {/* Workers / Vendor Selection Fields */}
                         {section === 'workers' && (
-                            <div className="col-span-2 space-y-5">
-                                {/* Trade Selection Pills */}
+                            <div className="col-span-2 space-y-4">
+                                {/* Trade Selection Tabs */}
                                 <div>
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
-                                        Select Trade to Assign
+                                    <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+                                        Select Trade
                                     </label>
                                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                         {TRADES.map((t) => {
@@ -526,23 +526,18 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                                     key={t.id}
                                                     type="button"
                                                     onClick={() => setSelectedWorker(t.id)}
-                                                    className={`p-2.5 rounded-xl border text-left transition-all flex items-center justify-between ${
+                                                    className={`px-3 py-2 rounded-lg border text-left transition-all flex items-center justify-between text-xs ${
                                                         isSelected
-                                                            ? 'bg-yellow-500 text-gray-950 border-yellow-500 font-bold shadow-xs'
+                                                            ? 'border-yellow-500 bg-yellow-50/70 text-gray-950 font-semibold ring-1 ring-yellow-400/50'
                                                             : isAssigned
-                                                            ? 'bg-yellow-50/60 border-yellow-200 text-gray-800 hover:bg-yellow-100/50'
-                                                            : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                            ? 'border-gray-200 bg-gray-50 text-gray-800'
+                                                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
                                                     }`}
                                                 >
-                                                    <div className="flex items-center gap-2 truncate">
-                                                        <span className="text-base shrink-0">{t.icon}</span>
-                                                        <span className="text-xs truncate">{t.title}</span>
-                                                    </div>
+                                                    <span className="truncate">{t.title}</span>
                                                     {isAssigned && (
-                                                        <span className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] ${
-                                                            isSelected ? 'bg-gray-950 text-white' : 'bg-yellow-500 text-gray-950'
-                                                        }`}>
-                                                            ✓
+                                                        <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">
+                                                            Assigned
                                                         </span>
                                                     )}
                                                 </button>
@@ -551,21 +546,16 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                     </div>
                                 </div>
 
-                                {/* Active Trade Vendor Selector Card */}
-                                <div className="p-4 sm:p-5 border border-yellow-200/80 rounded-2xl bg-yellow-50/30 space-y-4">
-                                    <div className="flex items-center justify-between border-b border-yellow-100 pb-3">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xl">
-                                                {TRADES.find(t => t.id === selectedWorker)?.icon || '👷'}
-                                            </span>
-                                            <div>
-                                                <h4 className="text-sm font-bold text-gray-900 capitalize">
-                                                    {selectedWorker.replace('_', ' ')} Details
-                                                </h4>
-                                                <p className="text-[11px] text-gray-500">
-                                                    Select from registered vendors or type custom details
-                                                </p>
-                                            </div>
+                                {/* Active Trade Vendor Details Card */}
+                                <div className="p-4 border border-gray-200 rounded-xl bg-gray-50/50 space-y-3.5">
+                                    <div className="flex items-center justify-between border-b border-gray-200 pb-2.5">
+                                        <div>
+                                            <h4 className="text-sm font-semibold text-gray-900">
+                                                {TRADES.find(t => t.id === selectedWorker)?.title || selectedWorker} Details
+                                            </h4>
+                                            <p className="text-xs text-gray-500">
+                                                Select a registered vendor or enter details manually
+                                            </p>
                                         </div>
                                         {formData[`${selectedWorker}_name`] && (
                                             <button
@@ -584,12 +574,12 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
 
                                     {/* Registered Vendor Picker */}
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                                            <span>⭐ Select Registered Vendor / Worker</span>
-                                            {loadingVendors && <span className="text-[10px] text-gray-400">Loading vendors...</span>}
+                                        <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center justify-between">
+                                            <span>Registered Vendor</span>
+                                            {loadingVendors && <span className="text-[10px] text-gray-400">Loading directory...</span>}
                                         </label>
                                         <select
-                                            className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-xs font-medium text-gray-800 focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all shadow-xs"
+                                            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-medium text-gray-800 focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all shadow-xs"
                                             onChange={(e) => {
                                                 const vId = e.target.value;
                                                 if (!vId) return;
@@ -606,9 +596,8 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                             defaultValue=""
                                         >
                                             <option value="" disabled>
-                                                -- Click to pick from registered vendors ({registeredVendors.length} available) --
+                                                -- Choose from registered vendors ({registeredVendors.length} available) --
                                             </option>
-                                            {/* Matching Trade Vendors */}
                                             {(() => {
                                                 const currentTrade = TRADES.find(t => t.id === selectedWorker);
                                                 const kws = currentTrade?.keywords || [];
@@ -620,10 +609,10 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                                 return (
                                                     <>
                                                         {matching.length > 0 && (
-                                                            <optgroup label={`⭐ Recommended for ${currentTrade?.title || 'this trade'}`}>
+                                                            <optgroup label={`Recommended for ${currentTrade?.title || 'this trade'}`}>
                                                                 {matching.map(v => (
                                                                     <option key={v.id} value={v.id}>
-                                                                        {v.name} {v.contact_name && `(${v.contact_name})`} · {v.phone ? `📞 ${v.phone}` : 'No phone'} [{v.trade}]
+                                                                        {v.name}{v.contact_name ? ` (${v.contact_name})` : ''} · {v.phone || 'No phone'} [{v.trade}]
                                                                     </option>
                                                                 ))}
                                                             </optgroup>
@@ -631,7 +620,7 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                                         <optgroup label="All Registered Vendors & Workers">
                                                             {others.map(v => (
                                                                 <option key={v.id} value={v.id}>
-                                                                    {v.name} {v.contact_name && `(${v.contact_name})`} · {v.phone ? `📞 ${v.phone}` : 'No phone'} [{v.trade}]
+                                                                    {v.name}{v.contact_name ? ` (${v.contact_name})` : ''} · {v.phone || 'No phone'} [{v.trade}]
                                                                 </option>
                                                             ))}
                                                         </optgroup>
@@ -644,19 +633,19 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                     {/* Name and Phone inputs */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                                         <div>
-                                            <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                                Assigned Name / Company
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                Vendor / Contractor Name
                                             </label>
                                             <input
                                                 type="text"
                                                 value={formData[`${selectedWorker}_name`] || ''}
                                                 onChange={(e) => handleChange(`${selectedWorker}_name`, e.target.value)}
-                                                placeholder={`e.g. Dinesh Carpenter or Company`}
-                                                className="w-full px-3.5 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-xs font-medium text-gray-900"
+                                                placeholder="Enter name or company"
+                                                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-xs font-medium text-gray-900"
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">
                                                 Contact Phone Number
                                             </label>
                                             <input
@@ -664,17 +653,15 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                                 value={formData[`${selectedWorker}_phone`] || ''}
                                                 onChange={(e) => handleChange(`${selectedWorker}_phone`, e.target.value)}
                                                 placeholder="e.g. 9876543210"
-                                                className="w-full px-3.5 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-xs font-medium text-gray-900"
+                                                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-xs font-medium text-gray-900"
                                             />
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center justify-between text-[11px] text-gray-500 pt-2 border-t border-yellow-100">
-                                        <span>
-                                            💡 You can switch tabs above to assign other trades before saving.
-                                        </span>
-                                        <span className="font-semibold text-yellow-700">
-                                            {TRADES.filter(t => !!formData[`${t.id}_name`]).length} of 6 assigned
+                                    <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-200">
+                                        <span>Select trades above to configure multiple assignments before saving.</span>
+                                        <span className="font-medium text-gray-700">
+                                            {TRADES.filter(t => !!formData[`${t.id}_name`]).length} of {TRADES.length} assigned
                                         </span>
                                     </div>
                                 </div>
