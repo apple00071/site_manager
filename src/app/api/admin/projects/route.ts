@@ -118,6 +118,7 @@ export async function GET(request: NextRequest) {
         description,
         status, 
         workflow_stage,
+        unified_status,
         start_date,
         estimated_completion_date,
         customer_name,

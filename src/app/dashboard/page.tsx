@@ -194,7 +194,7 @@ export default function DashboardPage() {
             console.error('Projects fetch error:', err);
             return null;
           }),
-          fetchWithTimeout('/api/tasks/all?t=' + Date.now()).catch((err) => {
+          fetchWithTimeout('/api/tasks/all').catch((err) => {
             console.error('Tasks fetch error:', err);
             return null;
           }),

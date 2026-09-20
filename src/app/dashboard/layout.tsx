@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX, FiCheckSquare, FiAlertTriangle, FiCreditCard, FiRadio, FiClock, FiSearch, FiFileText, FiMessageSquare, FiActivity, FiGrid, FiTruck } from 'react-icons/fi';
+import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX, FiCheckSquare, FiAlertTriangle, FiCreditCard, FiRadio, FiClock, FiSearch, FiFileText, FiMessageSquare, FiActivity, FiGrid, FiTruck, FiLayers } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
 import { supabase } from '@/lib/supabase';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
@@ -208,6 +208,7 @@ function DashboardLayoutContent({
     // Fallback to pathname-based titles
     if (pathname === '/dashboard') return 'Dashboard';
     if (pathname === '/dashboard/projects') return 'Projects';
+    if (pathname === '/dashboard/daily-status') return 'Daily Project Status';
     if (pathname === '/dashboard/organization') return 'Organization';
     if (pathname === '/dashboard/settings') return 'Settings';
     if (pathname === '/dashboard/tasks') return 'All Tasks';
@@ -338,6 +339,17 @@ function DashboardLayoutContent({
               >
                 <FiBriefcase className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
                 <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Projects</span>
+              </Link>
+            )}
+            {(isAdmin || hasAnyPermission(['designs.daily_status', 'daily_status.view'])) && (
+              <Link
+                href="/dashboard/daily-status"
+                className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
+                onClick={() => setSidebarOpen(false)}
+                title="Daily Status"
+              >
+                <FiLayers className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
+                <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Daily Status</span>
               </Link>
             )}
             {(isAdmin || hasPermission('tasks.view')) && (

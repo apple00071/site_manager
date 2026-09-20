@@ -75,6 +75,7 @@ export class NotificationService {
         return relatedId ? `${baseUrl}/projects/${relatedId}?stage=design` : undefined;
       case 'project_update':
       case 'mention':
+        if (metadata?.route) return metadata.route;
         return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=updates` : undefined;
       case 'inventory_added':
       case 'bill_approved':

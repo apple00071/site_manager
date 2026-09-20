@@ -57,6 +57,7 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         icon: '🎨',
         permissions: [
             { id: 'designs.view', label: 'View design files' },
+            { id: 'designs.daily_status', label: 'View & update daily design status sheet' },
             { id: 'designs.upload', label: 'Upload design files' },
             { id: 'designs.approve', label: 'Approve/Reject designs' },
             { id: 'designs.freeze', label: 'Freeze/Unfreeze designs' },
@@ -76,66 +77,6 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
             { id: 'boq.import', label: 'Import BOQ from Excel' }
         ],
         notifications: ['BOQ created', 'BOQ updated', 'BOQ approved']
-    },
-    {
-        module: 'Proposals',
-        icon: '📝',
-        permissions: [
-            { id: 'proposals.view', label: 'View proposals' },
-            { id: 'proposals.create', label: 'Create proposals' },
-            { id: 'proposals.send', label: 'Send proposals to clients' },
-            { id: 'proposals.approve', label: 'Approve proposals' },
-            { id: 'proposals.reject', label: 'Reject proposals' },
-            { id: 'proposals.delete', label: 'Delete proposals' }
-        ],
-        notifications: ['Proposal rejected', 'Proposal sent', 'Proposal approved']
-    },
-    {
-        module: 'Orders',
-        icon: '🛒',
-        permissions: [
-            { id: 'orders.view', label: 'View purchase orders' },
-            { id: 'orders.create', label: 'Create purchase orders' },
-            { id: 'orders.edit', label: 'Edit purchase orders' },
-            { id: 'orders.delete', label: 'Delete purchase orders' }
-        ],
-        notifications: ['Order created', 'Order approved']
-    },
-    {
-        module: 'Invoices',
-        icon: '🧾',
-        permissions: [
-            { id: 'invoices.view', label: 'View invoices' },
-            { id: 'invoices.create', label: 'Create invoices' },
-            { id: 'invoices.edit', label: 'Edit invoices' },
-            { id: 'invoices.approve', label: 'Approve invoices' },
-            { id: 'invoices.delete', label: 'Delete invoices' }
-        ],
-        notifications: ['Invoice created', 'Invoice approved']
-    },
-    {
-        module: 'Payments',
-        icon: '💰',
-        permissions: [
-            { id: 'payments.view', label: 'View payments' },
-            { id: 'payments.create', label: 'Record payments' },
-            { id: 'payments.edit', label: 'Edit payments' },
-            { id: 'payments.delete', label: 'Delete payments' }
-        ],
-        notifications: ['Payment received', 'Payment approved']
-    },
-    {
-        module: 'Procurement (Legacy)',
-        icon: '📦',
-        permissions: [
-            { id: 'procurement.view', label: 'View procurement data' },
-            { id: 'procurement.create_po', label: 'Create purchase orders (procurement)' },
-            { id: 'procurement.approve_po', label: 'Approve purchase orders (procurement)' },
-            { id: 'procurement.create_invoice', label: 'Create invoices (procurement)' },
-            { id: 'procurement.approve_invoice', label: 'Approve invoices (procurement)' },
-            { id: 'procurement.create_payment', label: 'Record payments (procurement)' }
-        ],
-        notifications: []
     },
     {
         module: 'Vendors & Contract Workers',

@@ -21,6 +21,7 @@ const updateProjectSchema = z.object({
     description: z.string().nullable().optional(),
     status: z.string().optional(),
     workflow_stage: z.string().nullable().optional(),
+    unified_status: z.string().nullable().optional(),
     project_budget: z.coerce.number().nullable().optional(),
     project_notes: z.string().nullable().optional(),
     start_date: z.string().nullable().optional(),

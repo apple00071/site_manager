@@ -17,6 +17,7 @@ export const PERMISSION_NODES = {
 
     // Design Permissions
     DESIGNS_VIEW: 'designs.view',
+    DESIGNS_DAILY_STATUS: 'designs.daily_status',
     DESIGNS_UPLOAD: 'designs.upload',
     DESIGNS_DELETE: 'designs.delete',
     DESIGNS_APPROVE: 'designs.approve',
@@ -29,33 +30,6 @@ export const PERMISSION_NODES = {
     BOQ_EDIT: 'boq.edit',
     BOQ_DELETE: 'boq.delete',
     BOQ_IMPORT: 'boq.import',
-
-    // Proposal Permissions
-    PROPOSALS_VIEW: 'proposals.view',
-    PROPOSALS_CREATE: 'proposals.create',
-    PROPOSALS_SEND: 'proposals.send',
-    PROPOSALS_APPROVE: 'proposals.approve',
-    PROPOSALS_REJECT: 'proposals.reject',
-    PROPOSALS_DELETE: 'proposals.delete',
-
-    // Order Permissions (Purchase Orders)
-    ORDERS_VIEW: 'orders.view',
-    ORDERS_CREATE: 'orders.create',
-    ORDERS_EDIT: 'orders.edit',
-    ORDERS_DELETE: 'orders.delete',
-
-    // Invoice Permissions
-    INVOICES_VIEW: 'invoices.view',
-    INVOICES_CREATE: 'invoices.create',
-    INVOICES_EDIT: 'invoices.edit',
-    INVOICES_APPROVE: 'invoices.approve',
-    INVOICES_DELETE: 'invoices.delete',
-
-    // Payment Permissions
-    PAYMENTS_VIEW: 'payments.view',
-    PAYMENTS_CREATE: 'payments.create',
-    PAYMENTS_EDIT: 'payments.edit',
-    PAYMENTS_DELETE: 'payments.delete',
 
     // Supplier & Vendor Permissions
     SUPPLIERS_VIEW: 'suppliers.view',
@@ -161,13 +135,6 @@ export const PERMISSION_NODES = {
     CRM_MANAGE: 'crm.manage',
     CRM_EDIT_APPROVED: 'crm.edit_approved',
 
-    // Procurement (Legacy)
-    PROCUREMENT_VIEW: 'procurement.view',
-    PROCUREMENT_CREATE_PO: 'procurement.create_po',
-    PROCUREMENT_APPROVE_PO: 'procurement.approve_po',
-    PROCUREMENT_CREATE_INVOICE: 'procurement.create_invoice',
-    PROCUREMENT_APPROVE_INVOICE: 'procurement.approve_invoice',
-    PROCUREMENT_CREATE_PAYMENT: 'procurement.create_payment',
 } as const;
 
 export type PermissionNode = typeof PERMISSION_NODES[keyof typeof PERMISSION_NODES];

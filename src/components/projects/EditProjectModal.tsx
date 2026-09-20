@@ -35,7 +35,7 @@ const formatProjectCode = (project: any): string => {
     const yearShort = !isNaN(dateObj.getTime()) ? dateObj.getFullYear().toString().slice(-2) : new Date().getFullYear().toString().slice(-2);
 
     // ponytail: Fallback for unassigned project codes without random hashing
-    return `AI/PRJ/${yearShort}/01`;
+    return `AI/${yearShort}/01`;
 };
 
 export function EditProjectModal({ isOpen, onClose, onSave, section, initialData, isSaving, initialWorker }: EditProjectModalProps) {

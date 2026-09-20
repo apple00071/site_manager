@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase-server';
 
 /**
- * Computes and attaches continuous sequential project codes (AI/PRJ/YY/01, AI/PRJ/YY/02...)
+ * Computes and attaches continuous sequential project codes (AI/YY/01, AI/YY/02...)
  * to project objects based on creation order ascending (created_at).
  * ponytail: O(N) scan over all projects to calculate 1-based sequential code per year.
  */
@@ -24,7 +24,7 @@ export async function attachProjectCodes<T = any>(projectsData: T): Promise<T> {
         const yy = !isNaN(d.getTime()) ? d.getFullYear().toString().slice(-2) : new Date().getFullYear().toString().slice(-2);
 
         const seqStr = String(globalCounter).padStart(2, '0');
-        codeMap.set(p.id, `AI/PRJ/${yy}/${seqStr}`);
+        codeMap.set(p.id, `AI/${yy}/${seqStr}`);
       });
     }
 
@@ -34,8 +34,9 @@ export async function attachProjectCodes<T = any>(projectsData: T): Promise<T> {
       const d = dateStr ? new Date(dateStr) : new Date();
       const yy = !isNaN(d.getTime()) ? d.getFullYear().toString().slice(-2) : new Date().getFullYear().toString().slice(-2);
       const nextSeq = globalCounter + 1;
-      const fallbackCode = `AI/PRJ/${yy}/${String(nextSeq).padStart(2, '0')}`;
-      const code = codeMap.get(p.id) || fallbackCode;
+      const fallbackCode = `AI/${yy}/${String(nextSeq).padStart(2, '0')}`;
+      let code = codeMap.get(p.id) || p.project_code || p.ref_no || fallbackCode;
+      code = code.replace('AI/PRJ/', 'AI/').replace('PRJ/', '');
       return { ...p, project_code: code, ref_no: code };
     };
 
