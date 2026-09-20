@@ -265,7 +265,7 @@ export default function CRMPage() {
     }
   };
   
-  // Collapsible month groups
+  // Collapsible month groups (all open by default)
   const [collapsedMonths, setCollapsedMonths] = useState<Record<string, boolean>>({});
   const toggleMonthCollapse = (monthName: string) => {
     setCollapsedMonths(prev => ({
@@ -273,6 +273,12 @@ export default function CRMPage() {
       [monthName]: !prev[monthName]
     }));
   };
+
+  const monthsList = useMemo(() => [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ], []);
+
 
   // Column definitions modeled after user screenshot
   const columns = useMemo(() => [
@@ -364,18 +370,45 @@ export default function CRMPage() {
       return matchesSearch && matchesStatus;
     });
 
-    // ponytail: sort by date ascending and secondary by ref_no ascending for chronological 1-down series order
+    // Sort by date descending (high dates to low) so latest month and latest leads appear on top!
     return [...filtered].sort((a, b) => {
       const dateA = a.created_date ? parseLocalDate(a.created_date).getTime() : 0;
       const dateB = b.created_date ? parseLocalDate(b.created_date).getTime() : 0;
-      
+
       if (dateA !== dateB) {
-        return dateA - dateB;
+        return dateB - dateA; // Newest date first (high to low)
       }
-      
-      return (a.ref_no || '').localeCompare(b.ref_no || '', undefined, { numeric: true, sensitivity: 'base' });
+
+      return (b.ref_no || '').localeCompare(a.ref_no || '', undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [leads, searchQuery, statusFilter]);
+
+  const allMonthGroupNames = useMemo(() => {
+    const set = new Set<string>();
+    filteredLeads.forEach(lead => {
+      const d = parseLocalDate(lead.created_date);
+      const name = !isNaN(d.getTime()) ? `${monthsList[d.getMonth()]} ${d.getFullYear()}` : 'Unscheduled';
+      set.add(name);
+    });
+    return Array.from(set);
+  }, [filteredLeads, monthsList]);
+
+  const areAllMonthsCollapsed = useMemo(() => {
+    if (allMonthGroupNames.length === 0) return false;
+    return allMonthGroupNames.every(name => Boolean(collapsedMonths[name]));
+  }, [allMonthGroupNames, collapsedMonths]);
+
+  const toggleAllMonthCollapse = () => {
+    if (areAllMonthsCollapsed) {
+      setCollapsedMonths({});
+    } else {
+      const next: Record<string, boolean> = {};
+      allMonthGroupNames.forEach(name => {
+        next[name] = true;
+      });
+      setCollapsedMonths(next);
+    }
+  };
 
   // Date filtered leads for Dashboard view
   const dashboardFilteredLeads = useMemo(() => {
@@ -1689,7 +1722,7 @@ export default function CRMPage() {
         </div>
       ) : (
         // QUOTATION LOG SHEET VIEW
-        <div className="flex-1 flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden min-h-[70vh]">
+        <div className="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           
           {/* SHEET TOOLBAR */}
           <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-gray-50 border-b border-gray-200">
@@ -1720,6 +1753,19 @@ export default function CRMPage() {
                 <option value="Rejected">Rejected</option>
                 <option value="On Hold">On Hold</option>
               </select>
+
+              {/* Expand / Collapse All Months Toggle */}
+              {allMonthGroupNames.length > 0 && (
+                <button
+                  type="button"
+                  onClick={toggleAllMonthCollapse}
+                  className="px-2.5 py-1.5 bg-white hover:bg-gray-100 border border-gray-200 rounded-lg text-xs font-bold text-gray-700 transition-colors flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95"
+                  title={areAllMonthsCollapsed ? "Expand all month groups" : "Collapse all month groups"}
+                >
+                  <span className="text-[11px]">{areAllMonthsCollapsed ? '➕' : '➖'}</span>
+                  <span className="hidden sm:inline">{areAllMonthsCollapsed ? 'Expand All' : 'Collapse All'}</span>
+                </button>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -2040,7 +2086,7 @@ export default function CRMPage() {
           )}
 
           {/* SHEET GRID CONTAINER */}
-          <div className={`${mobileViewType === 'table' ? 'block' : 'hidden md:block'} flex-1 overflow-auto max-w-full`}>
+          <div className={`${mobileViewType === 'table' ? 'block' : 'hidden md:block'} overflow-auto max-w-full max-h-[calc(100vh-230px)]`}>
             <table 
               ref={tableRef}
               className="w-full text-left border-collapse border-spacing-0 text-xs select-none"
@@ -2104,13 +2150,8 @@ export default function CRMPage() {
                       (isNaN(date.getTime()) !== isNaN(prevDate.getTime())) ||
                       (!isNaN(date.getTime()) && (date.getMonth() !== prevDate.getMonth() || date.getFullYear() !== prevDate.getFullYear()));
                     
-                    const months = [
-                      'January', 'February', 'March', 'April', 'May', 'June',
-                      'July', 'August', 'September', 'October', 'November', 'December'
-                    ];
-                    
                     const monthGroupName = !isNaN(date.getTime()) 
-                      ? `${months[date.getMonth()]} ${date.getFullYear()}` 
+                      ? `${monthsList[date.getMonth()]} ${date.getFullYear()}` 
                       : 'Unscheduled';
 
                     return (
@@ -2120,12 +2161,29 @@ export default function CRMPage() {
                           <tr 
                             onClick={() => toggleMonthCollapse(monthGroupName)}
                             className="bg-amber-500 hover:bg-amber-600 text-white font-black select-none border-y border-amber-600 text-[11px] uppercase tracking-wider cursor-pointer transition-colors"
+                            title={collapsedMonths[monthGroupName] ? `Click to expand ${monthGroupName}` : `Click to collapse ${monthGroupName}`}
                           >
                             <td className="w-10 bg-amber-600 text-center py-1 font-bold text-xs">
-                              {collapsedMonths[monthGroupName] ? '+' : '-'}
+                              {collapsedMonths[monthGroupName] ? '+' : '−'}
                             </td>
                             <td colSpan={columns.length} className="px-4 py-1.5">
-                              {monthGroupName}
+                              <div className="flex items-center justify-between">
+                                <span className="flex items-center gap-2">
+                                  <span>{monthGroupName}</span>
+                                  {collapsedMonths[monthGroupName] && (
+                                    <span className="text-[10px] font-normal text-amber-100 normal-case">
+                                      (click to view leads)
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full lowercase">
+                                  {filteredLeads.filter(l => {
+                                    const d = parseLocalDate(l.created_date);
+                                    const mName = !isNaN(d.getTime()) ? `${monthsList[d.getMonth()]} ${d.getFullYear()}` : 'Unscheduled';
+                                    return mName === monthGroupName;
+                                  }).length} leads
+                                </span>
+                              </div>
                             </td>
                           </tr>
                         )}

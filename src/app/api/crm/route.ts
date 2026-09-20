@@ -22,12 +22,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
     }
 
-    // Try fetching from the database
+    // Try fetching from the database (latest dates first)
     const { data: leads, error } = await supabaseAdmin
       .from('quotation_leads')
       .select('*')
-      .order('created_date', { ascending: true })
-      .order('ref_no', { ascending: true });
+      .order('created_date', { ascending: false })
+      .order('ref_no', { ascending: false });
 
     if (error) {
       console.error('Error fetching quotation_leads:', error.message);
