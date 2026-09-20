@@ -19,7 +19,7 @@ interface SendNotificationParams {
  */
 export async function sendPushNotification(params: SendNotificationParams): Promise<boolean> {
     try {
-        const appId = process.env.ONESIGNAL_APP_ID || process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
+        const appId = process.env.ONESIGNAL_APP_ID || process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || 'd800d582-08b8-431c-bb19-59a08f7f5379';
         const apiKey = process.env.ONESIGNAL_REST_API_KEY;
 
         if (DEBUG_ENABLED) {
@@ -34,7 +34,7 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
         }
 
         if (!appId || !apiKey) {
-            console.warn('OneSignal not configured. Skipping push.');
+            console.warn('⚠️ OneSignal push skipped: ONESIGNAL_REST_API_KEY is not configured in environment.');
             return false;
         }
 
@@ -183,16 +183,14 @@ export async function sendPushNotificationByUserId(
             .eq('id', userId)
             .single();
 
-        // We can ALWAYS attempt to send using external_id (userId)
-        // OneSignal is clever enough to ignore it if no device is linked to this external_id
-        // IMPORTANT: Client registers as `user_${id}`, so we must match that format.
-        const externalUserIds = [`user_${userId}`];
+        // Match both `user_${id}` and raw `${id}` so all client SDK registrations receive the push
+        const externalUserIds = Array.from(new Set([`user_${userId}`, userId]));
         const userIds = user?.onesignal_player_id ? [user.onesignal_player_id] : [];
 
         if (userIds.length > 0) {
             console.log('✅ Found OneSignal ID in DB:', userIds[0]);
         }
-        console.log('🎯 Targeting External ID:', externalUserIds[0]);
+        console.log('🎯 Targeting External IDs:', externalUserIds);
 
         // Send using both for maximum reliability
         return await sendPushNotification({
@@ -237,8 +235,8 @@ export async function sendPushNotificationToMultipleUsers(
 
         console.log(`✅ Targeted ${userIds.length} users (Found ${playerIds.length} Player IDs in DB)`);
 
-        // IMPORTANT: Map to `user_${id}` to match client registration
-        const formattedExternalIds = userIds.map(id => `user_${id}`);
+        // Target both formats for all users
+        const formattedExternalIds = Array.from(new Set(userIds.flatMap(id => [`user_${id}`, id])));
 
         // Send using both for maximum reliability
         return await sendPushNotification({

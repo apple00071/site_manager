@@ -193,31 +193,22 @@ export async function PATCH(
             updatePayload.designer_id = updatePayload.assigned_employee_id;
         }
 
-        // Check if assigned designer changed
+        // Query existing project to detect changes
+        const { data: existingProject } = await supabaseAdmin
+            .from('projects')
+            .select('assigned_employee_id, site_supervisor_id, status, workflow_stage, deadline, estimated_completion_date, title')
+            .eq('id', projectId)
+            .single();
+
         let newDesignerAssigned = false;
-        if (updatePayload.assigned_employee_id) {
-            const { data: existingProject } = await supabaseAdmin
-                .from('projects')
-                .select('assigned_employee_id')
-                .eq('id', projectId)
-                .single();
-            if (existingProject && existingProject.assigned_employee_id !== updatePayload.assigned_employee_id) {
-                newDesignerAssigned = true;
-            }
+        if (updatePayload.assigned_employee_id && existingProject && existingProject.assigned_employee_id !== updatePayload.assigned_employee_id) {
+            newDesignerAssigned = true;
         }
 
-        // Check if site supervisor changed
         let newSupervisorAssigned = false;
-        if (updatePayload.site_supervisor_id) {
-            const { data: existingProject } = await supabaseAdmin
-                .from('projects')
-                .select('site_supervisor_id')
-                .eq('id', projectId)
-                .single();
-            if (existingProject && existingProject.site_supervisor_id !== updatePayload.site_supervisor_id) {
-                newSupervisorAssigned = true;
-                updatePayload.site_supervisor_assigned_at = new Date().toISOString();
-            }
+        if (updatePayload.site_supervisor_id && existingProject && existingProject.site_supervisor_id !== updatePayload.site_supervisor_id) {
+            newSupervisorAssigned = true;
+            updatePayload.site_supervisor_assigned_at = new Date().toISOString();
         }
 
         const { data: updatedProject, error } = await supabaseAdmin
@@ -343,6 +334,106 @@ export async function PATCH(
             } catch (notifyErr) {
                 console.error('Failed to notify newly assigned site supervisor:', notifyErr);
             }
+        }
+
+        // If status, phase, or dates changed, notify assigned team & admins
+        try {
+            const changes: string[] = [];
+            if (updatePayload.status && updatePayload.status !== existingProject?.status) {
+                changes.push(`Status: ${updatePayload.status}`);
+            }
+            if (updatePayload.workflow_stage && updatePayload.workflow_stage !== existingProject?.workflow_stage) {
+                changes.push(`Phase: ${updatePayload.workflow_stage}`);
+            }
+            if (updatePayload.deadline && updatePayload.deadline !== existingProject?.deadline) {
+                const dStr = new Date(updatePayload.deadline).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                changes.push(`Deadline: ${dStr}`);
+            }
+            if (updatePayload.estimated_completion_date && updatePayload.estimated_completion_date !== existingProject?.estimated_completion_date) {
+                const dStr = new Date(updatePayload.estimated_completion_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                changes.push(`Target Date: ${dStr}`);
+            }
+
+            if (changes.length > 0) {
+                const { data: updaterProfile } = await supabaseAdmin
+                    .from('users')
+                    .select('full_name, username, email, role, designation, roles:role_id(name)')
+                    .eq('id', user.id)
+                    .single();
+
+                const updaterName = updaterProfile?.full_name || updaterProfile?.username || user.email?.split('@')[0] || 'Team member';
+                const userSysRole = (updaterProfile?.role || '').toLowerCase();
+                const customRoleName = ((updaterProfile?.roles as any)?.name || '').toLowerCase();
+                const designation = (updaterProfile?.designation || '').toLowerCase();
+
+                const isLeadOrAdmin =
+                    userSysRole === 'admin' ||
+                    userSysRole === 'super_admin' ||
+                    customRoleName === 'admin' ||
+                    customRoleName === 'admin hr' ||
+                    customRoleName.includes('lead') ||
+                    designation.includes('lead') ||
+                    designation.includes('admin');
+
+                const { data: managementUsers } = await supabaseAdmin
+                    .from('users')
+                    .select('id, role, designation, roles:role_id(name)');
+
+                const adminIds: string[] = [];
+                const leadDesignerIds: string[] = [];
+                (managementUsers || []).forEach((u: any) => {
+                    const sRole = (u.role || '').toLowerCase();
+                    const cRole = ((u.roles as any)?.name || '').toLowerCase();
+                    const des = (u.designation || '').toLowerCase();
+                    if (sRole === 'admin' || cRole === 'admin' || cRole === 'admin hr' || des.includes('admin')) {
+                        adminIds.push(u.id);
+                    }
+                    if (cRole.includes('lead') || des.includes('lead')) {
+                        leadDesignerIds.push(u.id);
+                    }
+                });
+
+                const recipientIds = new Set<string>();
+                if (isLeadOrAdmin) {
+                    if (updatedProject.assigned_employee_id) recipientIds.add(updatedProject.assigned_employee_id);
+                    if (updatedProject.designer_id) recipientIds.add(updatedProject.designer_id);
+                    if (updatedProject.site_supervisor_id) recipientIds.add(updatedProject.site_supervisor_id);
+                    if (userSysRole === 'admin' || customRoleName === 'admin') {
+                        leadDesignerIds.forEach(id => recipientIds.add(id));
+                    }
+                } else {
+                    leadDesignerIds.forEach(id => recipientIds.add(id));
+                    adminIds.forEach(id => recipientIds.add(id));
+                }
+
+                recipientIds.delete(user.id);
+                if (recipientIds.size === 0) {
+                    leadDesignerIds.forEach(id => { if (id !== user.id) recipientIds.add(id); });
+                    adminIds.forEach(id => { if (id !== user.id) recipientIds.add(id); });
+                }
+
+                if (recipientIds.size > 0) {
+                    await Promise.allSettled(
+                        Array.from(recipientIds).map(recipientId =>
+                            NotificationService.createNotification({
+                                userId: recipientId,
+                                title: `Project Updated: ${updatedProject.title}`,
+                                message: `${updaterName} updated "${updatedProject.title}":\n${changes.join(' • ')}`,
+                                type: 'project_update',
+                                relatedId: projectId,
+                                relatedType: 'project',
+                                metadata: {
+                                    route: `/dashboard/projects/${projectId}`,
+                                    projectId,
+                                }
+                            })
+                        )
+                    );
+                    console.log(`[Projects] Dispatched update notifications to ${recipientIds.size} recipient(s) for ${updatedProject.title}`);
+                }
+            }
+        } catch (statusNotifyErr) {
+            console.error('Failed to notify project updates:', statusNotifyErr);
         }
 
         const updatedProjectWithCode = await attachProjectCodes(updatedProject);
