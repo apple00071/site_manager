@@ -601,7 +601,7 @@ export default function DailyStatusPage() {
         </div>
         <h2 className="text-base font-bold text-gray-900">Access Restricted</h2>
         <p className="text-xs text-gray-500 leading-relaxed">
-          You do not have permission to view the Daily Design Status Sheet. Please contact your administrator if you need access.
+          You do not have permission to view the Design Status Page. Please contact your administrator if you need access.
         </p>
       </div>
     );
@@ -614,7 +614,7 @@ export default function DailyStatusPage() {
         <div>
           <h1 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2.5">
             <FiLayers className="w-6 h-6 text-yellow-600" />
-            <span>Daily Design Status Sheet</span>
+            <span>Design Status</span>
           </h1>
           <p className="text-xs text-gray-500 mt-1">
             {isManagement 

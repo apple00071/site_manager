@@ -208,7 +208,7 @@ function DashboardLayoutContent({
     // Fallback to pathname-based titles
     if (pathname === '/dashboard') return 'Dashboard';
     if (pathname === '/dashboard/projects') return 'Projects';
-    if (pathname === '/dashboard/daily-status') return 'Daily Project Status';
+    if (pathname === '/dashboard/daily-status') return 'Design Status';
     if (pathname === '/dashboard/organization') return 'Organization';
     if (pathname === '/dashboard/settings') return 'Settings';
     if (pathname === '/dashboard/tasks') return 'All Tasks';
@@ -346,10 +346,10 @@ function DashboardLayoutContent({
                 href="/dashboard/daily-status"
                 className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
                 onClick={() => setSidebarOpen(false)}
-                title="Daily Status"
+                title="Design Status"
               >
                 <FiLayers className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
-                <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Daily Status</span>
+                <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Design Status</span>
               </Link>
             )}
             {(isAdmin || hasPermission('tasks.view')) && (
