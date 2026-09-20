@@ -169,41 +169,56 @@ export async function PATCH(request: NextRequest) {
       status_color: data?.special_requirements || null,
     };
 
-    // Asynchronously dispatch two-way push notifications (non-blocking)
-    (async () => {
-      try {
-        const changes: string[] = [];
-        if (updateFields.unified_status !== undefined) {
-          changes.push(`Status: ${updateFields.unified_status || 'Cleared'}`);
+    // Dispatch two-way push & in-app notifications
+    try {
+      const changes: string[] = [];
+      if (updateFields.unified_status !== undefined) {
+        changes.push(`Status: ${updateFields.unified_status || 'Cleared'}`);
+      }
+      if (updateFields.status_color !== undefined) {
+        changes.push(`Color Tag: ${updateFields.status_color}`);
+      }
+      if (updateFields.deadline !== undefined) {
+        const dStr = updateFields.deadline
+          ? new Date(updateFields.deadline).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+          : 'None';
+        changes.push(`Target Date: ${dStr}`);
+      }
+      if (updateFields.project_notes !== undefined) {
+        const noteText = (updateFields.project_notes || '').trim();
+        if (noteText) {
+          changes.push(`Notes: "${noteText.slice(0, 50)}${noteText.length > 50 ? '...' : ''}"`);
         }
-        if (updateFields.deadline !== undefined) {
-          const dStr = updateFields.deadline
-            ? new Date(updateFields.deadline).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-            : 'None';
-          changes.push(`Target Date: ${dStr}`);
-        }
-        if (updateFields.project_notes !== undefined) {
-          const noteText = (updateFields.project_notes || '').trim();
-          if (noteText) {
-            changes.push(`Notes: "${noteText.slice(0, 50)}${noteText.length > 50 ? '...' : ''}"`);
-          }
-        }
-        if (updateFields.workflow_stage !== undefined) {
-          changes.push(`Phase: ${updateFields.workflow_stage}`);
-        }
+      }
+      if (updateFields.workflow_stage !== undefined) {
+        changes.push(`Phase: ${updateFields.workflow_stage}`);
+      }
+      if (updateFields.status !== undefined) {
+        changes.push(`Project Status: ${updateFields.status}`);
+      }
 
-        if (changes.length === 0) return;
-
-        // Fetch updater's display name and verified role
+      if (changes.length > 0) {
+        // Fetch updater's display name and verified role/designation
         const { data: updaterProfile } = await supabaseAdmin
           .from('users')
-          .select('full_name, username, email, role')
+          .select('full_name, username, email, role, designation, roles:role_id(name)')
           .eq('id', user.id)
           .single();
 
         const updaterName = updaterProfile?.full_name || updaterProfile?.username || user.email?.split('@')[0] || 'Team member';
-        const userRole = (role || updaterProfile?.role || '').toLowerCase();
-        const isAdminOrManager = userRole === 'admin' || userRole === 'super_admin' || userRole === 'manager';
+        const userSysRole = (role || updaterProfile?.role || '').toLowerCase();
+        const customRoleName = ((updaterProfile?.roles as any)?.name || '').toLowerCase();
+        const designation = (updaterProfile?.designation || '').toLowerCase();
+
+        // Lead Designers, Admins, and HR are management roles for Daily Status
+        const isLeadOrAdmin =
+          userSysRole === 'admin' ||
+          userSysRole === 'super_admin' ||
+          customRoleName === 'admin' ||
+          customRoleName === 'admin hr' ||
+          customRoleName.includes('lead') ||
+          designation.includes('lead') ||
+          designation.includes('admin');
 
         // Project code formatting (e.g. AI/26/51)
         const withCode = await attachProjectCodes(data);
@@ -211,76 +226,106 @@ export async function PATCH(request: NextRequest) {
         const projectCode = rawCode.replace('AI/PRJ/', 'AI/').replace('PRJ/', '');
         const projectTitle = data.title || 'Project';
 
+        // Fetch all Admins and Lead Designers
+        const { data: managementUsers } = await supabaseAdmin
+          .from('users')
+          .select('id, role, designation, roles:role_id(name)');
+
+        const adminIds: string[] = [];
+        const leadDesignerIds: string[] = [];
+
+        (managementUsers || []).forEach((u: any) => {
+          const sysRole = (u.role || '').toLowerCase();
+          const cRole = ((u.roles as any)?.name || '').toLowerCase();
+          const desig = (u.designation || '').toLowerCase();
+
+          if (sysRole === 'admin' || cRole === 'admin' || cRole === 'admin hr' || desig.includes('admin')) {
+            adminIds.push(u.id);
+          }
+          if (cRole.includes('lead') || desig.includes('lead')) {
+            leadDesignerIds.push(u.id);
+          }
+        });
+
         const recipientIds = new Set<string>();
 
-        if (isAdminOrManager) {
-          // Admin/Manager updated -> Notify assigned designer ONLY (design-focused tracker)
+        if (isLeadOrAdmin) {
+          // Lead Designer or Admin updated -> Notify assigned designer(s)
           if (data.assigned_employee_id) recipientIds.add(data.assigned_employee_id);
           if (data.designer_id) recipientIds.add(data.designer_id);
-        } else {
-          // Designer/Employee updated -> Notify all Admins
-          const { data: admins } = await supabaseAdmin
-            .from('users')
-            .select('id')
-            .eq('role', 'admin');
 
-          if (admins) {
-            admins.forEach((a: any) => recipientIds.add(a.id));
+          // If an Admin updated, also inform the Lead Designer(s)
+          if (userSysRole === 'admin' || customRoleName === 'admin') {
+            leadDesignerIds.forEach(id => recipientIds.add(id));
           }
+        } else {
+          // Regular Designer updated -> Notify Lead Designer(s) and Admins
+          leadDesignerIds.forEach(id => recipientIds.add(id));
+          adminIds.forEach(id => recipientIds.add(id));
           if (data.created_by) recipientIds.add(data.created_by);
         }
 
         // Never notify the user who made the edit
         recipientIds.delete(user.id);
 
-        if (recipientIds.size === 0) return;
-
-        const isTaskCompleted = 
-          (updateFields.unified_status || '').toLowerCase().trim() === 'done' ||
-          (updateFields.unified_status || '').toLowerCase().includes('complete') ||
-          (updateFields.workflow_stage || '').toLowerCase() === 'completed';
-
-        let notifTitle = '';
-        let notifMessage = '';
-
-        if (isAdminOrManager) {
-          notifTitle = isTaskCompleted 
-            ? `Task Marked Complete: ${projectCode}`
-            : `Daily Status: ${projectCode}`;
-          notifMessage = `${updaterName} updated "${projectTitle}":\n${changes.join(' • ')}`;
-        } else {
-          // Designer updated -> Alert Admins
-          notifTitle = isTaskCompleted
-            ? `Task Done: ${updaterName} (${projectCode})`
-            : `Daily Status Update: ${projectCode}`;
-          notifMessage = isTaskCompleted
-            ? `${updaterName} marked design task as DONE for "${projectTitle}"\n${changes.join(' • ')}`
-            : `${updaterName} updated "${projectTitle}":\n${changes.join(' • ')}`;
+        // Failsafe: if recipientIds is empty (e.g. self-assigned during testing),
+        // fallback to alerting Admins/Leads so notifications always fire
+        if (recipientIds.size === 0) {
+          leadDesignerIds.forEach(id => {
+            if (id !== user.id) recipientIds.add(id);
+          });
+          adminIds.forEach(id => {
+            if (id !== user.id) recipientIds.add(id);
+          });
         }
 
-        await Promise.allSettled(
-          Array.from(recipientIds).map((recipientId) =>
-            NotificationService.createNotification({
-              userId: recipientId,
-              title: notifTitle,
-              message: notifMessage,
-              type: 'project_update',
-              relatedId: projectId,
-              relatedType: 'project',
-              metadata: {
-                route: '/dashboard/daily-status',
-                projectId,
-                projectCode,
-                isCompleted: isTaskCompleted,
-              },
-            })
-          )
-        );
-        console.log(`[DailyStatus] Dispatched push notifications to ${recipientIds.size} recipient(s) for ${projectCode}`);
-      } catch (err) {
-        console.error('[DailyStatus] Error sending notifications:', err);
+        if (recipientIds.size > 0) {
+          const isTaskCompleted = 
+            (updateFields.unified_status || '').toLowerCase().trim() === 'done' ||
+            (updateFields.unified_status || '').toLowerCase().includes('complete') ||
+            (updateFields.workflow_stage || '').toLowerCase() === 'completed';
+
+          let notifTitle = '';
+          let notifMessage = '';
+
+          if (isLeadOrAdmin) {
+            notifTitle = isTaskCompleted 
+              ? `Task Marked Complete: ${projectCode}`
+              : `Daily Status: ${projectCode}`;
+            notifMessage = `${updaterName} updated "${projectTitle}":\n${changes.join(' • ')}`;
+          } else {
+            notifTitle = isTaskCompleted
+              ? `Task Done: ${updaterName} (${projectCode})`
+              : `Daily Status Update: ${projectCode}`;
+            notifMessage = isTaskCompleted
+              ? `${updaterName} marked design task as DONE for "${projectTitle}"\n${changes.join(' • ')}`
+              : `${updaterName} updated "${projectTitle}":\n${changes.join(' • ')}`;
+          }
+
+          await Promise.allSettled(
+            Array.from(recipientIds).map((recipientId) =>
+              NotificationService.createNotification({
+                userId: recipientId,
+                title: notifTitle,
+                message: notifMessage,
+                type: 'project_update',
+                relatedId: projectId,
+                relatedType: 'daily_status',
+                metadata: {
+                  route: '/dashboard/daily-status',
+                  projectId,
+                  projectCode,
+                  isCompleted: isTaskCompleted,
+                },
+              })
+            )
+          );
+          console.log(`[DailyStatus] Dispatched notifications to ${recipientIds.size} recipient(s) for ${projectCode}`);
+        }
       }
-    })();
+    } catch (notifErr) {
+      console.error('[DailyStatus] Error sending notifications:', notifErr);
+    }
 
     return NextResponse.json({ success: true, project });
   } catch (err: any) {

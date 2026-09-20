@@ -36,6 +36,7 @@ const getNotificationUrl = (type: string, relatedId?: string | null, relatedType
       return relatedId ? `${baseUrl}/projects/${relatedId}?stage=design` : undefined;
     case 'project_update':
     case 'mention':
+      if (relatedType === 'daily_status') return `${baseUrl}/daily-status`;
       return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=updates` : undefined;
     case 'inventory_added':
     case 'bill_approved':
