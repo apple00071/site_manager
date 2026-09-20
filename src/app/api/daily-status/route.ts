@@ -176,7 +176,7 @@ export async function PATCH(request: NextRequest) {
         changes.push(`Status: ${updateFields.unified_status || 'Cleared'}`);
       }
       if (updateFields.status_color !== undefined) {
-        changes.push(`Color Tag: ${updateFields.status_color}`);
+        changes.push(updateFields.status_color ? `Color Tag: ${updateFields.status_color}` : 'Color Tag: Cleared');
       }
       if (updateFields.deadline !== undefined) {
         const dStr = updateFields.deadline
@@ -290,13 +290,13 @@ export async function PATCH(request: NextRequest) {
 
           if (isLeadOrAdmin) {
             notifTitle = isTaskCompleted 
-              ? `Task Marked Complete: ${projectCode}`
-              : `Daily Status: ${projectCode}`;
+              ? `Task Marked Done: ${projectCode}`
+              : `Design Update: ${projectCode}`;
             notifMessage = `${updaterName} updated "${projectTitle}":\n${changes.join(' • ')}`;
           } else {
             notifTitle = isTaskCompleted
               ? `Task Done: ${updaterName} (${projectCode})`
-              : `Daily Status Update: ${projectCode}`;
+              : `Design Update: ${projectCode}`;
             notifMessage = isTaskCompleted
               ? `${updaterName} marked design task as DONE for "${projectTitle}"\n${changes.join(' • ')}`
               : `${updaterName} updated "${projectTitle}":\n${changes.join(' • ')}`;
