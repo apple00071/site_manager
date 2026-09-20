@@ -34,7 +34,6 @@ export default function SurveyResultsModal({ isOpen, onClose }: SurveyResultsMod
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDesignation, setSelectedDesignation] = useState<string>('all');
-    const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
     const fetchSurveys = async () => {
         setLoading(true);
@@ -83,7 +82,7 @@ export default function SurveyResultsModal({ isOpen, onClose }: SurveyResultsMod
                 const improvements = s.improvements.toLowerCase();
                 const category = s.category?.toLowerCase() || '';
 
-                if (!name.includes(q) && !email.includes(q) && !des.includes(q) && !issues.includes(q) && !improvements.includes(q) && !category.includes(q)) {
+                if (!name.includes(q) && !email.includes(q) && !des.includes(q) && !issues.includes(q) && !improvements.includes(q)) {
                     return false;
                 }
             }
@@ -94,14 +93,9 @@ export default function SurveyResultsModal({ isOpen, onClose }: SurveyResultsMod
                 if (des !== selectedDesignation) return false;
             }
 
-            // Category filter
-            if (selectedCategory !== 'all') {
-                if ((s.category || 'General') !== selectedCategory) return false;
-            }
-
             return true;
         });
-    }, [surveys, searchQuery, selectedDesignation, selectedCategory]);
+    }, [surveys, searchQuery, selectedDesignation]);
 
     // Average rating
     const avgRating = useMemo(() => {
@@ -117,14 +111,13 @@ export default function SurveyResultsModal({ isOpen, onClose }: SurveyResultsMod
             return;
         }
 
-        const headers = ['Sl.No', 'Employee Name', 'Designation', 'Email', 'Rating (1-5)', 'Category', 'Issues Faced', 'Suggested Improvements', 'Date'];
+        const headers = ['Sl.No', 'Employee Name', 'Designation', 'Email', 'Rating (1-5)', 'Issues Faced', 'Suggested Improvements', 'Date'];
         const rows = filteredSurveys.map((s, idx) => [
             idx + 1,
             `"${(s.users?.full_name || 'N/A').replace(/"/g, '""')}"`,
             `"${(s.users?.designation || 'N/A').replace(/"/g, '""')}"`,
             `"${(s.users?.email || 'N/A').replace(/"/g, '""')}"`,
             s.rating || 5,
-            `"${(s.category || 'General').replace(/"/g, '""')}"`,
             `"${(s.issues || '').replace(/"/g, '""')}"`,
             `"${(s.improvements || '').replace(/"/g, '""')}"`,
             `"${new Date(s.created_at).toLocaleString('en-IN')}"`
@@ -272,11 +265,6 @@ export default function SurveyResultsModal({ isOpen, onClose }: SurveyResultsMod
                                                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                                                         {survey.users?.designation || 'Team Member'}
                                                     </span>
-                                                    {survey.category && (
-                                                        <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200">
-                                                            {survey.category}
-                                                        </span>
-                                                    )}
                                                 </div>
                                                 <div className="text-[11px] text-gray-400 mt-0.5">
                                                     {survey.users?.email} · Submitted on {new Date(survey.created_at).toLocaleString('en-IN', {
