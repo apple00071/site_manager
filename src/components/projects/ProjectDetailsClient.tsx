@@ -416,6 +416,7 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
               canEditProject={canEditProject}
               isAdmin={isAdmin}
               onEdit={setEditSection}
+              onEditWorker={handleEditWorker}
               activeSubTab={activeSubTab}
               onProjectUpdated={() => fetchProject(true)}
             />
