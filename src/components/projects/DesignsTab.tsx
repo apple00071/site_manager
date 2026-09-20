@@ -523,25 +523,19 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
     setFormError(null);
 
     try {
-      let successCount = 0;
-      let currentIndex = 0;
-      let lastErrorMessage = '';
+      let completedFiles = 0;
+      const totalFiles = uploadForm.files.length;
+      setUploadIndex({ current: 0, total: totalFiles });
 
-      for (const file of uploadForm.files) {
-        currentIndex++;
-        setUploadIndex(prev => ({ ...prev, current: currentIndex }));
-        setUploadProgress(20);
-
+      const uploadPromises = uploadForm.files.map(async (file) => {
         let publicUrl = '';
         try {
           publicUrl = await uploadFile(file, 'design-files', `designs/${projectId}`, (percent) => {
-            setUploadProgress(Math.min(90, Math.max(10, percent)));
+            setUploadProgress(Math.min(95, Math.max(15, Math.round(((completedFiles + percent / 100) / totalFiles) * 100))));
           });
-          setUploadProgress(90);
         } catch (uploadErr: any) {
           console.error('Error uploading file to storage:', file.name, uploadErr);
-          lastErrorMessage = uploadErr.message || 'File upload failed';
-          continue;
+          throw uploadErr;
         }
 
         const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
@@ -560,18 +554,24 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
           }),
         });
 
-        if (response.ok) {
-          setUploadProgress(100);
-          successCount++;
-        } else {
+        if (!response.ok) {
           const errPayload = await response.json().catch(() => ({}));
-          lastErrorMessage = errPayload.error || `Failed to save design record (${response.status})`;
-          console.error('Error creating design record:', lastErrorMessage);
+          throw new Error(errPayload.error || `Failed to save design record (${response.status})`);
         }
-      }
+
+        completedFiles++;
+        setUploadIndex({ current: completedFiles, total: totalFiles });
+        setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
+        return file.name;
+      });
+
+      const settled = await Promise.allSettled(uploadPromises);
+      const successCount = settled.filter(r => r.status === 'fulfilled').length;
+      const failures = settled.filter(r => r.status === 'rejected') as PromiseRejectedResult[];
 
       if (successCount === 0) {
-        throw new Error(lastErrorMessage || 'Failed to upload any files');
+        const firstError = failures[0]?.reason?.message || 'Failed to upload files';
+        throw new Error(firstError);
       }
 
       await fetchDesigns();

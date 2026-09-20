@@ -190,67 +190,50 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create design file' }, { status: 500 });
     }
 
-    // Notify stakeholders of new design upload
-    try {
-      const { data: projectData } = await supabaseAdmin
-        .from('projects')
-        .select('created_by, title, designer_id, site_supervisor_id')
-        .eq('id', project_id)
-        .single();
+    // Notify stakeholders of new design upload asynchronously (non-blocking for fast UI response)
+    (async () => {
+      try {
+        const { data: projectData } = await supabaseAdmin
+          .from('projects')
+          .select('created_by, title, designer_id, site_supervisor_id')
+          .eq('id', project_id)
+          .single();
 
-      if (projectData) {
-        // Fetch all active admins
-        const { data: adminsData } = await supabaseAdmin
-          .from('users')
-          .select('id')
-          .eq('role', 'admin')
-          .eq('is_active', true);
+        if (projectData) {
+          const [{ data: adminsData }, { data: membersData }] = await Promise.all([
+            supabaseAdmin.from('users').select('id').eq('role', 'admin').eq('is_active', true),
+            supabaseAdmin.from('project_members').select('user_id').eq('project_id', project_id)
+          ]);
 
-        // Fetch all project members
-        const { data: membersData } = await supabaseAdmin
-          .from('project_members')
-          .select('user_id')
-          .eq('project_id', project_id);
+          const recipientIds = new Set<string>();
+          if (adminsData) adminsData.forEach((admin: any) => recipientIds.add(admin.id));
+          if (projectData.created_by) recipientIds.add(projectData.created_by);
+          if (projectData.designer_id) recipientIds.add(projectData.designer_id);
+          if (projectData.site_supervisor_id) recipientIds.add(projectData.site_supervisor_id);
+          if (membersData) membersData.forEach((member: any) => recipientIds.add(member.user_id));
 
-        // Collect all recipient user IDs (admins + creator + designer + supervisor + members, excluding uploader)
-        const recipientIds = new Set<string>();
-        if (adminsData) {
-          adminsData.forEach((admin: any) => recipientIds.add(admin.id));
-        }
-        if (projectData.created_by) {
-          recipientIds.add(projectData.created_by);
-        }
-        if (projectData.designer_id) {
-          recipientIds.add(projectData.designer_id);
-        }
-        if (projectData.site_supervisor_id) {
-          recipientIds.add(projectData.site_supervisor_id);
-        }
-        if (membersData) {
-          membersData.forEach((member: any) => recipientIds.add(member.user_id));
-        }
+          recipientIds.delete(userId);
 
-        // Exclude uploader
-        recipientIds.delete(userId);
-
-        // Send notifications
-        for (const recipientId of recipientIds) {
-          await NotificationService.createNotification({
-            userId: recipientId,
-            title: 'New Design Uploaded',
-            message: `${userFullName} uploaded "${file_name}" for project "${projectData.title}"`,
-            type: 'design_uploaded',
-            relatedId: project_id,
-            relatedType: 'project',
-            metadata: { designFileId: design.id }
-          });
+          // Parallel non-blocking notification delivery
+          await Promise.allSettled(
+            Array.from(recipientIds).map((recipientId) =>
+              NotificationService.createNotification({
+                userId: recipientId,
+                title: 'New Design Uploaded',
+                message: `${userFullName} uploaded "${file_name}" for project "${projectData.title}"`,
+                type: 'design_uploaded',
+                relatedId: project_id,
+                relatedType: 'project',
+                metadata: { designFileId: design.id }
+              })
+            )
+          );
+          console.log(`Design upload notification dispatched to ${recipientIds.size} stakeholders.`);
         }
-        console.log(`Design upload notification sent to ${recipientIds.size} stakeholders.`);
+      } catch (notificationError) {
+        console.error('Failed to dispatch design upload notifications:', notificationError);
       }
-    } catch (notificationError) {
-      console.error('Failed to send design upload notification:', notificationError);
-      // Don't fail the main operation if notification fails
-    }
+    })();
 
     return NextResponse.json({ design }, { status: 201 });
   } catch (error) {

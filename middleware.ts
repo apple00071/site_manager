@@ -58,6 +58,16 @@ export async function middleware(request: NextRequest) {
       request.nextUrl.pathname.startsWith('/auth/')
     );
 
+    // Fast-path: Check if any auth cookie exists before doing expensive network calls
+    const hasAuthCookie = request.cookies.getAll().some(cookie =>
+      cookie.name.includes('auth-token') || cookie.name.startsWith('sb-') || cookie.name.includes('supabase')
+    );
+
+    // If it's a public route and user has no auth cookies, return immediately (0ms latency, zero network hops)
+    if (isPublicRoute && !hasAuthCookie) {
+      return response;
+    }
+
     // Get the current user with error handling
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -101,13 +111,14 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // If the user is signed in and tries to access auth pages or dashboard, check role
+    // If the user is signed in and tries to access root, auth pages or portal/dashboard mismatch, redirect immediately
     if (user) {
       const userRole = user?.user_metadata?.role || 'employee';
+      const isRootPage = request.nextUrl.pathname === '/';
       const isAuthPage = request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup';
       const isDashboardPage = request.nextUrl.pathname.startsWith('/dashboard') && !request.nextUrl.pathname.startsWith('/dashboard/admin');
 
-      if (isAuthPage || (userRole === 'client' && isDashboardPage)) {
+      if (isRootPage || isAuthPage || (userRole === 'client' && isDashboardPage)) {
         const target = userRole === 'client' ? '/portal' : '/dashboard';
         return NextResponse.redirect(new URL(target, request.url));
       }

@@ -82,24 +82,85 @@ const AVATAR_COLORS = [
   '#EC4899', '#06B6D4', '#EF4444', '#6366F1'
 ];
 
+interface DashboardStats {
+  totalProjects: number;
+  activeProjects: number;
+  completedProjects: number;
+  upcomingDeadlines: number;
+  totalTasks: number;
+  todoTasks: number;
+  inProgressTasks: number;
+  doneTasks: number;
+  totalSnags: number;
+  openSnags: number;
+  resolvedSnags: number;
+}
+
 export default function DashboardPage() {
   const { user, isAdmin } = useAuth();
   const { setTitle, setSubtitle } = useHeaderTitle();
 
-  const [stats, setStats] = useState({
-    totalProjects: 0, activeProjects: 0, completedProjects: 0, upcomingDeadlines: 0,
-    totalTasks: 0, todoTasks: 0, inProgressTasks: 0, doneTasks: 0,
-    totalSnags: 0, openSnags: 0, resolvedSnags: 0,
+  const [stats, setStats] = useState<DashboardStats>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('dashboard_stats_cache');
+        if (cached) return JSON.parse(cached) as DashboardStats;
+      } catch {}
+    }
+    return {
+      totalProjects: 0, activeProjects: 0, completedProjects: 0, upcomingDeadlines: 0,
+      totalTasks: 0, todoTasks: 0, inProgressTasks: 0, doneTasks: 0,
+      totalSnags: 0, openSnags: 0, resolvedSnags: 0,
+    };
   });
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [projectsList, setProjectsList] = useState<any[]>([]);
-  const [tasksList, setTasksList] = useState<any[]>([]);
-  const [updatesList, setUpdatesList] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [projectsList, setProjectsList] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('dashboard_projects_cache');
+        if (cached) return JSON.parse(cached);
+      } catch {}
+    }
+    return [];
+  });
+  const [tasksList, setTasksList] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('dashboard_tasks_cache');
+        if (cached) return JSON.parse(cached);
+      } catch {}
+    }
+    return [];
+  });
+  const [updatesList, setUpdatesList] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('dashboard_updates_cache');
+        if (cached) return JSON.parse(cached);
+      } catch {}
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return !sessionStorage.getItem('dashboard_stats_cache');
+      } catch {}
+    }
+    return true;
+  });
 
   const todayFormatted = new Date().toLocaleDateString('en-IN', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
   });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (stats.totalProjects > 0 || stats.totalTasks > 0)) {
+      try {
+        sessionStorage.setItem('dashboard_stats_cache', JSON.stringify(stats));
+      } catch {}
+    }
+  }, [stats]);
 
   useEffect(() => {
     setTitle('Dashboard');
@@ -123,7 +184,10 @@ export default function DashboardPage() {
     };
 
     const fetchData = async () => {
-      setLoading(true);
+      const hasCached = typeof window !== 'undefined' && !!sessionStorage.getItem('dashboard_stats_cache');
+      if (!hasCached) {
+        setLoading(true);
+      }
       try {
         const [projectsRes, tasksRes, snagsRes, updatesRes, usersRes, membersRes] = await Promise.all([
           fetchWithTimeout('/api/admin/projects').catch((err) => {
@@ -259,6 +323,15 @@ export default function DashboardPage() {
             return a.activeProjects - b.activeProjects;
           });
           setTeamMembers(teamData);
+        }
+
+        // Cache fresh data for instant next open
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem('dashboard_projects_cache', JSON.stringify(projects.slice(0, 10)));
+            sessionStorage.setItem('dashboard_tasks_cache', JSON.stringify(tasksList.slice(0, 10)));
+            sessionStorage.setItem('dashboard_updates_cache', JSON.stringify(updatesList.slice(0, 6)));
+          } catch {}
         }
 
       } catch (err) {

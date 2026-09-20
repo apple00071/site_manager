@@ -11,14 +11,14 @@ export default function Home() {
   useEffect(() => {
     const checkUser = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-
-        // Check if there's a pending deep link redirect waiting
         const pendingRoute = typeof window !== 'undefined' ? localStorage.getItem('pending_push_route') : null;
+
+        // 1. Fast local check (instant ~1ms, no network roundtrip)
+        const { data: { session } } = await supabase.auth.getSession();
+
         if (pendingRoute) {
-          console.log('🏁 Deep link detected in page.tsx, navigating to:', pendingRoute);
           localStorage.removeItem('pending_push_route');
-          if (user) {
+          if (session?.user) {
             router.replace(pendingRoute);
           } else {
             localStorage.setItem('pending_push_route', pendingRoute);
@@ -27,6 +27,13 @@ export default function Home() {
           return;
         }
 
+        if (session?.user) {
+          router.replace('/dashboard');
+          return;
+        }
+
+        // 2. Fallback network check only if no local session found
+        const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           router.replace('/dashboard');
         } else {
