@@ -556,44 +556,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
 
     return (
         <div className="bg-white shadow sm:rounded-lg p-4 sm:p-6 space-y-6">
-            {/* Sub-tab Pills Switcher */}
-            {/* Sub-tab Pills Switcher */}
-            <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
-                <button
-                    type="button"
-                    onClick={() => handleSwitchSubTab('boq')}
-                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                        currentSubTab === 'boq'
-                            ? 'bg-[#f0b100] text-white shadow-sm hover:bg-[#d49b00]'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                >
-                    <FiPackage className="w-3.5 h-3.5" />
-                    <span>BOQ Material Items</span>
-                    <span className={`text-[11px] px-1.5 py-0.2 rounded-full font-bold ${
-                        currentSubTab === 'boq' ? 'bg-[#d49b00] text-white' : 'bg-gray-200 text-gray-700'
-                    }`}>
-                        {boqItems.length}
-                    </span>
-                </button>
-                <button
-                    type="button"
-                    onClick={() => handleSwitchSubTab('laminate')}
-                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                        currentSubTab === 'laminate'
-                            ? 'bg-[#f0b100] text-white shadow-sm hover:bg-[#d49b00]'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                >
-                    <FiLayers className="w-3.5 h-3.5" />
-                    <span>Laminate</span>
-                    <span className={`text-[11px] px-1.5 py-0.2 rounded-full font-bold ${
-                        currentSubTab === 'laminate' ? 'bg-[#d49b00] text-white' : 'bg-gray-200 text-gray-700'
-                    }`}>
-                        {laminateItems.length}
-                    </span>
-                </button>
-            </div>
+
 
             {/* Search & Controls */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
