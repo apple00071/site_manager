@@ -27,6 +27,20 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const includeCompleted = searchParams.get('include_completed') === 'true';
 
+    // Check if user has management oversight (admin or lead designer)
+    const { data: userData } = await supabaseAdmin
+      .from('users')
+      .select('id, role, designation, roles:role_id(name)')
+      .eq('id', user.id)
+      .single();
+
+    const isManagement = Boolean(
+      user.role === 'admin' ||
+      userData?.role === 'admin' ||
+      (userData?.roles as any)?.name?.toLowerCase() === 'admin' ||
+      userData?.designation?.toLowerCase().includes('lead')
+    );
+
     let query = supabaseAdmin
       .from('projects')
       .select(`
@@ -59,6 +73,21 @@ export async function GET(request: NextRequest) {
       query = query.neq('status', 'completed');
     }
 
+    // Non-management designers only see projects assigned to them
+    if (!isManagement) {
+      const { data: memberProjects } = await supabaseAdmin
+        .from('project_members')
+        .select('project_id')
+        .eq('user_id', user.id);
+
+      const memberIds = (memberProjects || []).map((m: any) => m.project_id).filter(Boolean);
+      if (memberIds.length > 0) {
+        query = query.or(`assigned_employee_id.eq.${user.id},designer_id.eq.${user.id},id.in.(${memberIds.join(',')})`);
+      } else {
+        query = query.or(`assigned_employee_id.eq.${user.id},designer_id.eq.${user.id}`);
+      }
+    }
+
     const { data: rawProjects, error } = await query;
 
     if (error) {
@@ -72,7 +101,7 @@ export async function GET(request: NextRequest) {
     }));
     const projects = await attachProjectCodes(rawWithColor);
 
-    return NextResponse.json({ projects });
+    return NextResponse.json({ projects, isManagement });
   } catch (err: any) {
     console.error('Unexpected error in GET /api/daily-status:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -117,10 +146,17 @@ export async function PATCH(request: NextRequest) {
       const stageLower = (updateFields.workflow_stage || '').toLowerCase().trim();
       if (stageLower === 'execution' || stageLower.includes('execution')) {
         payload.workflow_stage = 'execution_in_progress';
-      } else if (stageLower === 'handover' || stageLower.includes('handover') || stageLower === 'completed') {
+        payload.status = 'in_progress';
+      } else if (stageLower === 'handover' || stageLower.includes('handover')) {
         payload.workflow_stage = 'completed';
+        payload.status = 'handover';
+      } else if (stageLower === 'completed' || stageLower.includes('complet')) {
+        payload.workflow_stage = 'completed';
+        payload.status = 'completed';
+        payload.actual_completion_date = new Date().toISOString();
       } else {
         payload.workflow_stage = 'requirements_upload';
+        payload.status = 'pending';
       }
     }
     if (updateFields.status_color !== undefined) payload.special_requirements = updateFields.status_color;

@@ -90,7 +90,14 @@ const PREPOPULATED_PHASES = [
   'Completed'
 ];
 
-const formatPhaseDisplay = (stage: string | null | undefined): string => {
+const formatPhaseDisplay = (stage?: string | null, status?: string | null): string => {
+  if (status) {
+    const st = status.toLowerCase();
+    if (st === 'completed') return 'Completed';
+    if (st === 'handover') return 'Handover';
+    if (st === 'in_progress') return 'Execution';
+    if (st === 'pending') return 'Designing';
+  }
   if (!stage) return 'Designing';
   const s = stage.toLowerCase();
   if (s === 'completed' || s.includes('complet')) return 'Completed';
@@ -145,6 +152,11 @@ export default function DailyStatusPage() {
   const { user, isAdmin: authIsAdmin } = useAuth();
   const isAdmin = Boolean(authIsAdmin || permIsAdmin || user?.role?.toLowerCase() === 'admin');
   const canAccess = Boolean(isAdmin || hasAnyPermission(['designs.daily_status', 'daily_status.view']));
+
+  const [isServerManagement, setIsServerManagement] = useState<boolean | null>(null);
+  const isManagement = isServerManagement !== null 
+    ? isServerManagement 
+    : Boolean(isAdmin || user?.designation?.toLowerCase().includes('lead'));
 
   const [projects, setProjects] = useState<ProjectStatusItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -218,6 +230,9 @@ export default function DailyStatusPage() {
       const data = await res.json();
       const list = Array.isArray(data?.projects) ? data.projects : Array.isArray(data) ? data : [];
       setProjects(list);
+      if (typeof data?.isManagement === 'boolean') {
+        setIsServerManagement(data.isManagement);
+      }
     } catch (err: any) {
       showToast('error', err.message || 'Error loading projects');
       setProjects([]);
@@ -244,6 +259,11 @@ export default function DailyStatusPage() {
         unified_status: fields.unified_status !== undefined ? fields.unified_status : p.unified_status,
         status_color: fields.status_color !== undefined ? fields.status_color : p.status_color,
         workflow_stage: fields.workflow_stage !== undefined ? fields.workflow_stage : p.workflow_stage,
+        status: fields.workflow_stage ? (
+          fields.workflow_stage.toLowerCase().includes('execut') ? 'in_progress' :
+          fields.workflow_stage.toLowerCase().includes('handover') ? 'handover' :
+          fields.workflow_stage.toLowerCase().includes('complet') ? 'completed' : 'pending'
+        ) : (fields.status !== undefined ? fields.status : p.status),
         project_notes: fields.project_notes !== undefined ? fields.project_notes : p.project_notes,
         deadline: fields.deadline !== undefined ? fields.deadline : p.deadline,
         estimated_completion_date: fields.estimated_completion_date !== undefined ? fields.estimated_completion_date : p.estimated_completion_date,
@@ -344,7 +364,7 @@ export default function DailyStatusPage() {
       const matchesSearch = !searchQuery || code.includes(q) || title.includes(q) || client.includes(q) || designer.includes(q);
       const dName = p.assigned_employee?.full_name?.trim() || p.assigned_employee?.name?.trim() || '(Unassigned)';
       const matchesDesigner = selectedDesigner === 'all' || dName === selectedDesigner;
-      const phase = formatPhaseDisplay(p.workflow_stage);
+      const phase = formatPhaseDisplay(p.workflow_stage, p.status);
       const matchesPhase = selectedPhase === 'all' || phase.toLowerCase() === selectedPhase.toLowerCase();
 
       return matchesSearch && matchesDesigner && matchesPhase;
@@ -413,7 +433,7 @@ export default function DailyStatusPage() {
             'Project Name': p.title || '-',
             'Client': p.customer_name || '-',
             'Designer': group.designerName,
-            'Phase': formatPhaseDisplay(p.workflow_stage),
+            'Phase': formatPhaseDisplay(p.workflow_stage, p.status),
             'Task Status': p.unified_status || 'Pending',
             'Start Date': p.start_date ? formatDateIST(p.start_date) : '-',
             'Target Date': p.deadline ? formatDateIST(p.deadline) : (p.estimated_completion_date ? formatDateIST(p.estimated_completion_date) : '-'),
@@ -501,7 +521,7 @@ export default function DailyStatusPage() {
             p.title || '-',
             p.customer_name || '-',
             group.designerName,
-            formatPhaseDisplay(p.workflow_stage),
+            formatPhaseDisplay(p.workflow_stage, p.status),
             statusCell,
             startDateStr,
             targetDateStr,
@@ -597,7 +617,9 @@ export default function DailyStatusPage() {
             <span>Daily Design Status Sheet</span>
           </h1>
           <p className="text-xs text-gray-500 mt-1">
-            Spreadsheet-style daily design milestone tracker, live task completion & EOD exports
+            {isManagement 
+              ? 'Spreadsheet-style daily design milestone tracker, live task completion & EOD exports' 
+              : 'Personal daily design task tracker & live milestone updates'}
           </p>
         </div>
 
@@ -632,22 +654,30 @@ export default function DailyStatusPage() {
         </div>
       </div>
 
-      {/* KPI Cards Row (CRM-style executive telemetry) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* KPI Cards Row (Role-tailored: Executive 4-card for Management, Focused 3-card for Individual Designers) */}
+      <div className={`grid gap-3 ${isManagement ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'}`}>
         <div className="p-3.5 bg-white border border-gray-200 rounded-xl shadow-2xs">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Active Projects</span>
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+            {isManagement ? 'Active Projects' : 'My Active Projects'}
+          </span>
           <span className="text-2xl font-black text-gray-900 mt-0.5 block">{totalActiveCount}</span>
         </div>
+        {isManagement && (
+          <div className="p-3.5 bg-white border border-gray-200 rounded-xl shadow-2xs">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Active Designers</span>
+            <span className="text-2xl font-black text-yellow-600 mt-0.5 block">{designersList.length}</span>
+          </div>
+        )}
         <div className="p-3.5 bg-white border border-gray-200 rounded-xl shadow-2xs">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Active Designers</span>
-          <span className="text-2xl font-black text-yellow-600 mt-0.5 block">{designersList.length}</span>
-        </div>
-        <div className="p-3.5 bg-white border border-gray-200 rounded-xl shadow-2xs">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Tasks In Progress</span>
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+            {isManagement ? 'Tasks In Progress' : 'My Tasks In Progress'}
+          </span>
           <span className="text-2xl font-black text-rose-600 mt-0.5 block">{tasksInProgressCount}</span>
         </div>
         <div className="p-3.5 bg-white border border-gray-200 rounded-xl shadow-2xs">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Tasks Done Today</span>
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+            {isManagement ? 'Tasks Done Today' : 'My Tasks Done Today'}
+          </span>
           <span className="text-2xl font-black text-emerald-600 mt-0.5 block">{tasksDoneCount}</span>
         </div>
       </div>
@@ -666,19 +696,25 @@ export default function DailyStatusPage() {
           />
         </div>
 
-        {/* Designer Filter */}
-        <div className="sm:w-52">
-          <select
-            value={selectedDesigner}
-            onChange={(e) => setSelectedDesigner(e.target.value)}
-            className="w-full px-2.5 py-1.5 bg-gray-50/70 border border-gray-200 rounded-lg text-xs font-medium text-gray-800 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white transition-all"
-          >
-            <option value="all">All Designers ({designersList.length})</option>
-            {designersList.map(d => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
-        </div>
+        {/* Designer Filter: Only visible to Management (Admins & Lead Designers) */}
+        {isManagement ? (
+          <div className="sm:w-52">
+            <select
+              value={selectedDesigner}
+              onChange={(e) => setSelectedDesigner(e.target.value)}
+              className="w-full px-2.5 py-1.5 bg-gray-50/70 border border-gray-200 rounded-lg text-xs font-medium text-gray-800 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white transition-all"
+            >
+              <option value="all">All Designers ({designersList.length})</option>
+              {designersList.map(d => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="flex items-center px-2.5 py-1.5 bg-yellow-50/80 border border-yellow-200/80 rounded-lg text-xs font-semibold text-yellow-900 select-none">
+            <span>My Projects ({totalActiveCount})</span>
+          </div>
+        )}
 
         {/* Phase Filter */}
         <div className="sm:w-40">
@@ -859,7 +895,7 @@ export default function DailyStatusPage() {
                               style={{ width: columnWidths['phase'] || 110 }}
                             >
                               <select
-                                value={formatPhaseDisplay(p.workflow_stage)}
+                                value={formatPhaseDisplay(p.workflow_stage, p.status)}
                                 onChange={(e) => handleUpdate(p.id, { workflow_stage: e.target.value })}
                                 className="w-full px-2 py-1 bg-white border border-gray-200 hover:border-gray-300 rounded text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-yellow-500 font-medium cursor-pointer"
                               >
