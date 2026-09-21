@@ -171,7 +171,10 @@ export default function UsersTab() {
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-100">
-                        {sortedDesignations.map(designation => (
+                        {sortedDesignations.map(designation => {
+                            const groupUsers = groupedUsers[designation] || [];
+                            const activeCount = groupUsers.filter((u: User) => u.is_active !== false).length;
+                            return (
                             <React.Fragment key={designation}>
                                 <tr
                                     className="bg-gray-50/50 cursor-pointer hover:bg-gray-100/50 transition-colors"
@@ -185,12 +188,12 @@ export default function UsersTab() {
                                                 <FiChevronDown className="w-4 h-4 text-gray-400" />
                                             )}
                                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                                {designation} — {groupedUsers[designation].length} {groupedUsers[designation].length === 1 ? 'Member' : 'Members'}
+                                                {designation} — {activeCount} {activeCount === 1 ? 'Member' : 'Members'}
                                             </span>
                                         </div>
                                     </td>
                                 </tr>
-                                {!collapsedGroups[designation] && groupedUsers[designation].map((user: User) => {
+                                {!collapsedGroups[designation] && groupUsers.map((user: User) => {
                                     const isInactive = user.is_active === false;
                                     return (
                                         <tr 
@@ -261,14 +264,18 @@ export default function UsersTab() {
                                     );
                                 })}
                             </React.Fragment>
-                        ))}
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
 
             {/* Mobile View: Compact List */}
             <div className="lg:hidden space-y-3">
-                {sortedDesignations.map(designation => (
+                {sortedDesignations.map(designation => {
+                    const groupUsers = groupedUsers[designation] || [];
+                    const activeCount = groupUsers.filter((u: User) => u.is_active !== false).length;
+                    return (
                     <div key={designation} className="space-y-2">
                         {/* Group Header */}
                         <div
@@ -283,13 +290,13 @@ export default function UsersTab() {
                                 {designation}
                             </span>
                             <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
-                                {groupedUsers[designation].length}
+                                {activeCount}
                             </span>
                         </div>
 
                         {!collapsedGroups[designation] && (
                             <div className="space-y-2">
-                                {groupedUsers[designation].map((user: User) => {
+                                {groupUsers.map((user: User) => {
                                     const isInactive = user.is_active === false;
                                     return (
                                         <div
@@ -355,7 +362,8 @@ export default function UsersTab() {
                             </div>
                         )}
                     </div>
-                ))}
+                    );
+                })}
             </div>
 
             {filteredUsers.length === 0 && (
