@@ -51,7 +51,7 @@ export default function OrganizationPage() {
     { id: 'basic', label: 'Basic Details' },
     { id: 'approvals', label: 'Approval Hierarchy' },
     { id: 'holidays', label: 'Holidays' },
-    { id: 'broadcast', label: 'Broadcast' },
+    { id: 'broadcast', label: 'In-App Popups' },
   ];
 
   return (

@@ -17,6 +17,7 @@ import { PERMISSION_NODES } from '@/lib/rbac-constants';
 import AttendanceWidget from '@/components/attendance/AttendanceWidget';
 import PasswordChangeModal from '@/components/PasswordChangeModal';
 import NotepadDrawer from '@/components/notepad/NotepadDrawer';
+import AppPopupModal from '@/components/popups/AppPopupModal';
 
 
 
@@ -882,6 +883,9 @@ function DashboardLayoutContent({
           </div>
         </div>
       )}
+
+      {/* Global In-App Popup Modal */}
+      <AppPopupModal />
     </div >
   );
 }

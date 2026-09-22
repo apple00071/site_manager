@@ -96,6 +96,14 @@ const PREPOPULATED_PHASES = [
   'Completed'
 ];
 
+const PREPOPULATED_STATUSES = [
+  { name: 'To Do', color: '#64748B', desc: 'Design task queued, not started yet' },
+  { name: 'In Progress', color: '#FF3366', desc: 'Plans, 3D modeling, or working drawings actively in progress' },
+  { name: 'Under Review', color: '#8B5CF6', desc: 'Shared with client or Lead Designer for review' },
+  { name: 'Done', color: '#10B981', desc: 'Daily design milestone finished' },
+  { name: 'Design Completed', color: '#0D9488', desc: 'Design section finished without changes; remove from active sheet' },
+];
+
 const formatPhaseDisplay = (stage?: string | null, status?: string | null): string => {
   if (status) {
     const st = status.toLowerCase();
@@ -240,13 +248,7 @@ function StatusUpdaterModal({
             </label>
 
             <div className="space-y-1.5">
-              {[
-                { name: 'To Do', color: '#64748B', desc: 'Design task queued, not started yet' },
-                { name: 'In Progress', color: '#FF3366', desc: 'Plans, 3D modeling, or working drawings actively in progress' },
-                { name: 'Under Review', color: '#8B5CF6', desc: 'Shared with client or Lead Designer for review' },
-                { name: 'Done', color: '#10B981', desc: 'Daily design milestone finished' },
-                { name: 'Design Completed', color: '#0D9488', desc: 'Design section finished without changes; remove from active sheet' },
-              ].map((opt) => {
+              {PREPOPULATED_STATUSES.map((opt) => {
                 const isSelected = (project.unified_status || '').toLowerCase() === opt.name.toLowerCase();
                 return (
                   <button
@@ -336,18 +338,11 @@ export default function DailyStatusPage() {
   const [statusFilter, setStatusFilter] = useState<'active' | 'completed' | 'all'>('active');
   const [activeColorPickerId, setActiveColorPickerId] = useState<string | null>(null);
   const [collapsedDesigners, setCollapsedDesigners] = useState<Record<string, boolean>>({});
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [activeBottomSheetProject, setActiveBottomSheetProject] = useState<ProjectStatusItem | null>(null);
   const [sheetNotes, setSheetNotes] = useState<string>('');
   const [sheetDeadline, setSheetDeadline] = useState<string>('');
   const { showToast } = useToast();
-
-  // Mobile detection on mount
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-      setViewMode('cards');
-    }
-  }, []);
 
 
   // Excel-style column widths with persistence
@@ -1474,37 +1469,69 @@ export default function DailyStatusPage() {
                                 return (
                                   <div className="relative">
                                     <div 
-                                      className="flex items-center justify-between rounded px-2 py-1 shadow-2xs border border-black/10 transition-all"
+                                      className="flex items-center justify-between rounded px-2 py-1 shadow-2xs border border-black/10 transition-all gap-1"
                                       style={{
                                         backgroundColor: style.backgroundColor,
                                         color: style.color,
                                       }}
                                     >
-                                      {/* Direct editable status text */}
-                                      <input
-                                        key={`${p.id}-${p.unified_status}`}
-                                        type="text"
-                                        defaultValue={p.unified_status || ''}
-                                        onBlur={(e) => {
-                                          if (e.target.value !== (p.unified_status || '')) {
-                                            handleUpdate(p.id, { unified_status: e.target.value });
+                                      {/* Select dropdown for task status */}
+                                      <select
+                                        value={p.unified_status || ''}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          if (val === '__custom__') {
+                                            const custom = window.prompt('Enter custom status:', p.unified_status || '');
+                                            if (custom && custom.trim()) {
+                                              handleUpdate(p.id, { unified_status: custom.trim() });
+                                            }
+                                            return;
                                           }
+                                          const matched = PREPOPULATED_STATUSES.find(o => o.name.toLowerCase() === val.toLowerCase());
+                                          const isDesignCompleted = val === 'Design Completed';
+                                          const payload: Partial<ProjectStatusItem> = {
+                                            unified_status: val,
+                                          };
+                                          if (matched) {
+                                            payload.status_color = matched.color;
+                                          }
+                                          if (isDesignCompleted && formatPhaseDisplay(p.workflow_stage, p.status) === 'Designing') {
+                                            payload.workflow_stage = 'Execution';
+                                          }
+                                          handleUpdate(p.id, payload);
                                         }}
-                                        placeholder="Add status..."
-                                        title={p.unified_status || 'Add status...'}
-                                        style={{ color: style.color }}
-                                        className="w-full bg-transparent border-none text-xs font-bold focus:outline-none placeholder-white/60 truncate mr-1"
-                                      />
+                                        title={`Status: ${p.unified_status || 'Select Status'}`}
+                                        style={{
+                                          color: style.color,
+                                          backgroundColor: 'transparent',
+                                        }}
+                                        className="w-full bg-transparent border-none text-xs font-bold focus:outline-none cursor-pointer truncate mr-1"
+                                      >
+                                        <option value="" disabled className="text-gray-900 bg-white">Select Status...</option>
+                                        {PREPOPULATED_STATUSES.map((opt) => (
+                                          <option key={opt.name} value={opt.name} className="text-gray-900 bg-white font-semibold">
+                                            {opt.name}
+                                          </option>
+                                        ))}
+                                        {p.unified_status && !PREPOPULATED_STATUSES.some(o => o.name.toLowerCase() === p.unified_status?.toLowerCase()) && (
+                                          <option value={p.unified_status} className="text-gray-900 bg-white font-semibold">
+                                            {p.unified_status}
+                                          </option>
+                                        )}
+                                        <option value="__custom__" className="text-gray-700 bg-gray-50 italic">
+                                          ✏️ Custom status...
+                                        </option>
+                                      </select>
 
                                       {/* Color Picker trigger button */}
                                       <button
                                         type="button"
                                         onClick={() => setActiveColorPickerId(isOpen ? null : p.id)}
-                                        title="Pick color"
-                                        className="shrink-0 p-0.5 rounded hover:bg-black/10 transition-colors opacity-70 hover:opacity-100 cursor-pointer"
+                                        title="Pick status color"
+                                        className="shrink-0 p-0.5 rounded hover:bg-black/10 transition-colors opacity-80 hover:opacity-100 cursor-pointer"
                                       >
                                         <div 
-                                          className="w-3 h-3 rounded-full border border-white/60 shadow-2xs" 
+                                          className="w-3.5 h-3.5 rounded-full border border-white/80 shadow-2xs" 
                                           style={{ backgroundColor: style.backgroundColor }}
                                         />
                                       </button>
