@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { FiClock, FiLogIn, FiLogOut, FiCheckCircle, FiRefreshCw, FiAlertTriangle, FiMapPin } from 'react-icons/fi';
+import { FiClock, FiLogIn, FiLogOut, FiCheckCircle, FiRefreshCw } from 'react-icons/fi';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { getTodayDateString, formatTimeIST } from '@/lib/dateUtils';
@@ -150,22 +150,13 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
     const [loading, setLoading] = useState(true);
     const [punching, setPunching] = useState(false);
     const [attendance, setAttendance] = useState<any>(null);
-    const [gpsState, setGpsState] = useState<'idle' | 'acquiring' | 'ready' | 'disabled' | 'denied'>('idle');
     const { showToast } = useToast();
 
     const warmupLocation = useCallback(async (force = false) => {
-        setGpsState('acquiring');
         try {
             await acquireLocation({ forceFresh: force });
-            setGpsState('ready');
-        } catch (err: any) {
-            if (err?.message === 'GPS_DISABLED') {
-                setGpsState('disabled');
-            } else if (err?.message === 'PERMISSION_DENIED') {
-                setGpsState('denied');
-            } else {
-                setGpsState('idle');
-            }
+        } catch (_) {
+            // Ignore background warmup errors
         }
     }, []);
 
@@ -219,17 +210,18 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
         try {
             let coords: { latitude: number; longitude: number } | null = null;
             try {
-                coords = await acquireLocation();
+                coords = await acquireLocation({ forceFresh: true });
+                if (!coords?.latitude || !coords?.longitude) {
+                    throw new Error('LOCATION_UNAVAILABLE');
+                }
             } catch (posError: any) {
-                let msg = 'Could not capture location via device GPS.';
+                let msg = 'Could not capture your location. Please ensure location is enabled.';
                 if (posError?.message === 'PERMISSION_DENIED') {
-                    msg = 'Location permission denied. Please allow location access in your device settings.';
-                    setGpsState('denied');
+                    msg = 'Location permission is blocked. Please allow location access in your browser address bar (lock icon) to punch in.';
                 } else if (posError?.message === 'GPS_DISABLED') {
-                    msg = 'Location (GPS) is turned off. Please turn ON Location in your phone settings to punch in.';
-                    setGpsState('disabled');
+                    msg = 'Device location (GPS) is turned off. Please turn ON Location in your device settings to punch in.';
                 } else if (posError?.message === 'INSECURE_CONTEXT') {
-                    msg = 'Location tracking requires a secure (HTTPS) connection.';
+                    msg = 'Location tracking requires a secure (HTTPS) connection or localhost.';
                 }
                 showToast('error', msg);
                 setPunching(false);
@@ -313,7 +305,7 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
                             onClick={() => handlePunch('punch_in')}
                             disabled={punching}
                             className={`flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700 text-gray-950 font-bold rounded-xl shadow-xs transition-all active:scale-95 disabled:opacity-60 ${variant === 'compact' ? 'px-2.5 py-2' : 'px-5 py-2.5'}`}
-                            title={gpsState === 'ready' ? 'GPS Ready — Tap to Punch In' : 'Punch In'}
+                            title="Punch In"
                         >
                             {punching ? (
                                 <FiRefreshCw className="h-4 w-4 animate-spin text-gray-900" />
@@ -325,41 +317,6 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
                             )}
                         </button>
                     </div>
-
-                    {/* GPS Status Indicator for site engineers */}
-                    {variant !== 'compact' && (
-                        <div className="flex items-center gap-1.5 px-1 min-h-[16px]">
-                            {gpsState === 'ready' && (
-                                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700" title="GPS is locked and ready for instant punch-in">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                                    <span>GPS Ready</span>
-                                </span>
-                            )}
-                            {gpsState === 'acquiring' && (
-                                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700">
-                                    <FiRefreshCw className="w-2.5 h-2.5 animate-spin text-amber-600 shrink-0" />
-                                    <span>Detecting location...</span>
-                                </span>
-                            )}
-                            {gpsState === 'disabled' && (
-                                <button
-                                    type="button"
-                                    onClick={() => warmupLocation(true)}
-                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 underline cursor-pointer"
-                                    title="Click to re-check location"
-                                >
-                                    <FiAlertTriangle className="w-3 h-3 text-rose-500 shrink-0" />
-                                    <span>GPS Off — Tap to retry</span>
-                                </button>
-                            )}
-                            {gpsState === 'denied' && (
-                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600">
-                                    <FiAlertTriangle className="w-3 h-3 text-rose-500 shrink-0" />
-                                    <span>Location Denied</span>
-                                </span>
-                            )}
-                        </div>
-                    )}
                 </div>
             ) : (
                 <div className={`flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-xl ${variant === 'compact' ? 'px-1.5 py-1' : 'pl-4 pr-2 py-1.5'}`}>
