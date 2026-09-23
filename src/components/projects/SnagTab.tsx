@@ -45,13 +45,14 @@ interface SnagTabProps {
 
 const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, userId }, ref) => {
     const { user } = useAuth(); // Get auth user for upload path
-    const { hasPermission } = useUserPermissions();
+    const { hasPermission, isAdmin } = useUserPermissions();
 
     // Permission checks
     const canCreate = hasPermission('snags.create');
     const canResolve = hasPermission('snags.resolve');
     const canVerify = hasPermission('snags.verify');
     const canUpdate = hasPermission('snags.update');
+    const canViewAll = isAdmin || hasPermission('snags.view_all');
 
     const [snags, setSnags] = useState<Snag[]>([]);
     const [loading, setLoading] = useState(true);
@@ -329,7 +330,14 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
         }
     };
 
-    const filteredSnags = snags.filter(s => filterStatus === 'all' || s.status === filterStatus);
+    const filteredSnags = snags.filter(s => {
+        if (!canViewAll && !isAdmin && userId) {
+            const isAssigned = s.assigned_to_user?.id === userId || (s as any).assigned_to_user_id === userId;
+            const isCreator = s.created_by_user?.id === userId || (s as any).created_by === userId;
+            if (!isAssigned && !isCreator) return false;
+        }
+        return filterStatus === 'all' || s.status === filterStatus;
+    });
 
     return (
         <div className="bg-white shadow sm:rounded-lg p-4 space-y-6">

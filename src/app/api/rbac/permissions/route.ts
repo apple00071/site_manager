@@ -19,27 +19,49 @@ export async function GET(request: NextRequest) {
 
         if (error) throw error;
 
-        // Auto-seed popups permissions if not yet present in database
+        // Auto-seed missing permissions if not yet present in database
         const hasPopupsView = permissions?.some((p: any) => p.code === 'popups.view');
         const hasPopupsManage = permissions?.some((p: any) => p.code === 'popups.manage');
-        if ((!hasPopupsView || !hasPopupsManage) && permissions) {
+        const hasDailyStatus = permissions?.some((p: any) => p.code === 'designs.daily_status' || p.code === 'daily_status.view');
+
+        const snagPermDefs = [
+            { code: 'snags.view', module: 'snags', action: 'view', description: 'View assigned snags' },
+            { code: 'snags.view_all', module: 'snags', action: 'view_all', description: 'View all snags across sites (not just assigned)' },
+            { code: 'snags.create', module: 'snags', action: 'create', description: 'Create snags' },
+            { code: 'snags.update', module: 'snags', action: 'update', description: 'Update snag details' },
+            { code: 'snags.edit', module: 'snags', action: 'edit', description: 'Edit snags' },
+            { code: 'snags.resolve', module: 'snags', action: 'resolve', description: 'Resolve snags' },
+            { code: 'snags.verify', module: 'snags', action: 'verify', description: 'Verify resolved snags' },
+        ];
+        const missingSnags = snagPermDefs.filter(sp => !permissions?.some((p: any) => p.code === sp.code));
+
+        if ((!hasPopupsView || !hasPopupsManage || !hasDailyStatus || missingSnags.length > 0) && permissions) {
             try {
-                const toInsert = [];
+                const toInsert: Array<{ code: string; module: string; action: string; description: string }> = [];
                 if (!hasPopupsView) {
-                    toInsert.push({ code: 'popups.view', name: 'View Popups', module: 'popups', action: 'view', description: 'View popups and recipient history' });
+                    toInsert.push({ code: 'popups.view', module: 'popups', action: 'view', description: 'View popups and recipient history' });
                 }
                 if (!hasPopupsManage) {
-                    toInsert.push({ code: 'popups.manage', name: 'Manage Popups', module: 'popups', action: 'manage', description: 'Create, toggle, and delete in-app popups' });
+                    toInsert.push({ code: 'popups.manage', module: 'popups', action: 'manage', description: 'Create, toggle, and delete in-app popups' });
                 }
-                const { data: inserted } = await supabaseAdmin
-                    .from('permissions')
-                    .upsert(toInsert, { onConflict: 'code' })
-                    .select();
-                if (inserted) {
-                    permissions.push(...inserted);
+                if (!hasDailyStatus) {
+                    toInsert.push({ code: 'designs.daily_status', module: 'designs', action: 'daily_status', description: 'View & update daily design status tracker' });
+                }
+                for (const sp of missingSnags) {
+                    toInsert.push(sp);
+                }
+
+                if (toInsert.length > 0) {
+                    const { data: inserted } = await supabaseAdmin
+                        .from('permissions')
+                        .upsert(toInsert, { onConflict: 'code' })
+                        .select();
+                    if (inserted) {
+                        permissions.push(...inserted);
+                    }
                 }
             } catch (seedErr) {
-                console.warn('Could not auto-seed popups permissions:', seedErr);
+                console.warn('Could not auto-seed missing permissions:', seedErr);
             }
         }
 

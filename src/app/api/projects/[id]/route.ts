@@ -196,7 +196,7 @@ export async function PATCH(
         // Keep workflow_stage and status synchronized
         if (updatePayload.status && !updatePayload.workflow_stage) {
             const st = updatePayload.status.toLowerCase();
-            if (st === 'in_progress') updatePayload.workflow_stage = 'execution_in_progress';
+            if (st === 'in_progress') updatePayload.workflow_stage = 'in_progress';
             else if (st === 'completed' || st === 'handover') updatePayload.workflow_stage = 'completed';
             else if (st === 'pending') updatePayload.workflow_stage = 'requirements_upload';
         }

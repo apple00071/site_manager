@@ -28,6 +28,8 @@ interface Snag {
     client_name?: string | null;
     customer_phone?: string | null;
     project?: { id: string; title: string };
+    assigned_to_user_id?: string | null;
+    created_by?: string | null;
     assigned_to_user?: { id: string; full_name: string };
     created_by_user?: { id: string; full_name: string };
     created_at: string;
@@ -226,6 +228,11 @@ export default function SnagsPage() {
     // Filtered Data
     const filteredSnags = useMemo(() => {
         return snags.filter(s => {
+            if (!canViewAll && !isAdmin && user?.id) {
+                const isAssigned = s.assigned_to_user?.id === user.id || s.assigned_to_user_id === user.id;
+                const isCreator = s.created_by_user?.id === user.id || s.created_by === user.id;
+                if (!isAssigned && !isCreator) return false;
+            }
             const matchesStatus = filterStatus === 'all' || s.status === filterStatus;
             const matchesProject = selectedProjectId === 'all' || s.project_id === selectedProjectId;
             const matchesSearch = s.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -233,7 +240,7 @@ export default function SnagsPage() {
                 (s.project?.title.toLowerCase().includes(searchQuery.toLowerCase()));
             return matchesStatus && matchesProject && matchesSearch;
         });
-    }, [snags, filterStatus, selectedProjectId, searchQuery]);
+    }, [snags, filterStatus, selectedProjectId, searchQuery, canViewAll, isAdmin, user?.id]);
 
     const stats = useMemo(() => {
         const today = new Date().toISOString().split('T')[0];

@@ -53,11 +53,19 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         notifications: ['Project updates', 'Project comments']
     },
     {
+        module: 'Design Status',
+        icon: '📑',
+        permissions: [
+            { id: 'designs.daily_status', label: 'View & update daily design status tracker' }
+        ],
+        notifications: ['Design status updated']
+    },
+    {
         module: 'Design',
         icon: '🎨',
         permissions: [
             { id: 'designs.view', label: 'View design files' },
-            { id: 'designs.daily_status', label: 'View & update daily design status sheet' },
+            { id: 'designs.daily_status', label: 'View & update daily design status tracker' },
             { id: 'designs.upload', label: 'Upload design files' },
             { id: 'designs.approve', label: 'Approve/Reject designs' },
             { id: 'designs.freeze', label: 'Freeze/Unfreeze designs' },
@@ -100,8 +108,8 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         module: 'Snag & Audit',
         icon: '🔍',
         permissions: [
-            { id: 'snags.view', label: 'View snags' },
-            { id: 'snags.view_all', label: 'View all snags across sites' },
+            { id: 'snags.view', label: 'View assigned snags' },
+            { id: 'snags.view_all', label: 'View all snags across sites (not just assigned)' },
             { id: 'snags.create', label: 'Create snags' },
             { id: 'snags.update', label: 'Update snag details' },
             { id: 'snags.edit', label: 'Edit snags' },
@@ -259,6 +267,7 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
 // Map of module names to their permission prefixes (including plural and singular forms)
 const MODULE_PREFIX_MAP: Record<string, string[]> = {
     'Project Management': ['project.', 'projects.'],
+    'Design Status': ['designs.daily_status', 'daily_status.'],
     'Design': ['design.', 'designs.'],
     'BOQ': ['boq.'],
     'Proposals': ['proposal.', 'proposals.'],

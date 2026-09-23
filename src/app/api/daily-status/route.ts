@@ -144,8 +144,8 @@ export async function PATCH(request: NextRequest) {
 
     if (updateFields.workflow_stage !== undefined) {
       const stageLower = (updateFields.workflow_stage || '').toLowerCase().trim();
-      if (stageLower === 'execution' || stageLower.includes('execution')) {
-        payload.workflow_stage = 'execution_in_progress';
+      if (stageLower === 'execution' || stageLower.includes('execution') || stageLower === 'in_progress') {
+        payload.workflow_stage = 'in_progress';
         payload.status = 'in_progress';
       } else if (stageLower === 'handover' || stageLower.includes('handover')) {
         payload.workflow_stage = 'completed';

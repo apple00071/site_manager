@@ -56,6 +56,14 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'project_id or all=true is required' }, { status: 400 });
         }
 
+        const isAdmin = role === 'admin';
+        const canViewAll = isAdmin || (await hasAnyPermission(user.id, [PERMISSION_NODES.SNAGS_VIEW_ALL]));
+        const canView = canViewAll || (await hasAnyPermission(user.id, [PERMISSION_NODES.SNAGS_VIEW]));
+
+        if (!canView) {
+            return NextResponse.json({ error: 'Permission denied: snags.view or snags.view_all is required' }, { status: 403 });
+        }
+
         let query = supabaseAdmin
             .from('snags')
             .select(`
@@ -73,41 +81,20 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: 'Access denied' }, { status: 403 });
             }
             query = query.eq('project_id', projectId);
-        } else if (userIdFilter && (role === 'admin')) {
-            // Admin filtering specifically for a user's performance/360 view
+
+            // If user does not have view_all permission, only show snags assigned to them or created by them within this project
+            if (!canViewAll) {
+                query = query.or(`assigned_to_user_id.eq.${user.id},created_by.eq.${user.id}`);
+            }
+        } else if (userIdFilter && canViewAll) {
+            // Admin or manager with view_all filtering specifically for a user's performance/360 view
             query = query.or(`assigned_to_user_id.eq.${userIdFilter},created_by.eq.${userIdFilter}`);
         } else if (fetchAll) {
-            // Fetch all accessible projects AND unassigned snags created by user?
-            const hasViewAll = await hasAnyPermission(user.id, [PERMISSION_NODES.SNAGS_VIEW_ALL]);
-            
-            if (role !== 'admin' && !hasViewAll) {
-                // Get projects user is a member of
-                const { data: members } = await supabaseAdmin
-                    .from('project_members')
-                    .select('project_id')
-                    .eq('user_id', user.id);
-
-                const projectIds = members?.map((m: { project_id: string }) => m.project_id) || [];
-
-                // Filter Logic:
-                // 1. Snags in projects user is member of
-                // 2. Snags assigned to user (regardless of project)
-                // 3. Snags created by user (regardless of project)
-
-                let orConditions = [
-                    `assigned_to_user_id.eq.${user.id}`,
-                    `created_by.eq.${user.id}`
-                ];
-
-                if (projectIds.length > 0) {
-                    orConditions.push(`project_id.in.(${projectIds.join(',')})`);
-                }
-
-                // If project_id is null (global snag) and user is not admin,
-                // they only see it if assigned or created by them.
-                // The OR condition handles this implicitly because we check all 3 conditions.
-
-                query = query.or(orConditions.join(','));
+            // For general snags view:
+            // - If user has view_all, they see all snags across sites
+            // - Otherwise, they ONLY see snags assigned to them or created by them
+            if (!canViewAll) {
+                query = query.or(`assigned_to_user_id.eq.${user.id},created_by.eq.${user.id}`);
             }
         }
 

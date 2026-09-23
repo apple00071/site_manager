@@ -461,10 +461,15 @@ export default function DailyStatusPage() {
         }),
       });
 
-      if (!res.ok) throw new Error('Update failed');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Update failed');
+      }
+      return true;
     } catch (err: any) {
       showToast('error', err.message || 'Failed to update');
       fetchProjects();
+      return false;
     } finally {
       setSavingId(null);
     }
@@ -474,37 +479,41 @@ export default function DailyStatusPage() {
   const handleToggleComplete = async (p: ProjectStatusItem) => {
     const isDone = (p.unified_status || '').toLowerCase().trim() === 'done';
     if (isDone) {
-      await handleUpdate(p.id, {
+      const ok = await handleUpdate(p.id, {
         unified_status: 'In Progress',
         status_color: '#FF3366',
       });
-      showToast('info', `Task re-opened for "${p.title}"`);
+      if (ok) showToast('info', `Task re-opened for "${p.title}"`);
     } else {
-      await handleUpdate(p.id, {
+      const ok = await handleUpdate(p.id, {
         unified_status: 'Done',
         status_color: '#10B981',
       });
-      showToast('success', `Task marked as Done for "${p.title}"`);
+      if (ok) showToast('success', `Task marked as Done for "${p.title}"`);
     }
   };
 
   // 2. Complete entire design phase and remove from active sheet
   const handleCompleteDesign = async (p: ProjectStatusItem) => {
-    await handleUpdate(p.id, {
+    const ok = await handleUpdate(p.id, {
       unified_status: 'Design Completed',
       status_color: '#10B981',
       ...(formatPhaseDisplay(p.workflow_stage, p.status) === 'Designing' ? { workflow_stage: 'Execution' } : {})
     });
-    showToast('success', `Design completed for "${p.title}" (removed from active sheet)`);
+    if (ok) {
+      showToast('success', `Design completed for "${p.title}" (removed from active sheet)`);
+    }
   };
 
   // 3. Re-open design when a new task is assigned later
   const handleReopenDesign = async (p: ProjectStatusItem) => {
-    await handleUpdate(p.id, {
+    const ok = await handleUpdate(p.id, {
       unified_status: 'In Progress',
       status_color: '#FF3366',
     });
-    showToast('info', `Design task re-opened for "${p.title}" (moved to active sheet)`);
+    if (ok) {
+      showToast('info', `Design task re-opened for "${p.title}" (moved to active sheet)`);
+    }
   };
 
   // Bottom Sheet Handlers
@@ -535,10 +544,12 @@ export default function DailyStatusPage() {
       payload.workflow_stage = 'Execution';
     }
 
-    await handleUpdate(p.id, payload);
-    showToast('success', isDesignCompleted 
-      ? `Design completed for "${p.title}" (removed from active sheet)` 
-      : `Status updated to "${statusName}" for "${p.title}"`);
+    const ok = await handleUpdate(p.id, payload);
+    if (ok) {
+      showToast('success', isDesignCompleted 
+        ? `Design completed for "${p.title}" (removed from active sheet)` 
+        : `Status updated to "${statusName}" for "${p.title}"`);
+    }
   };
 
   const handleSaveSheetDetails = async () => {
@@ -555,8 +566,10 @@ export default function DailyStatusPage() {
     }
 
     if (Object.keys(payload).length > 0) {
-      await handleUpdate(p.id, payload);
-      showToast('success', `Details updated for "${p.title}"`);
+      const ok = await handleUpdate(p.id, payload);
+      if (ok) {
+        showToast('success', `Details updated for "${p.title}"`);
+      }
     }
   };
 
