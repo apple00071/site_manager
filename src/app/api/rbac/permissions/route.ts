@@ -19,6 +19,30 @@ export async function GET(request: NextRequest) {
 
         if (error) throw error;
 
+        // Auto-seed popups permissions if not yet present in database
+        const hasPopupsView = permissions?.some((p: any) => p.code === 'popups.view');
+        const hasPopupsManage = permissions?.some((p: any) => p.code === 'popups.manage');
+        if ((!hasPopupsView || !hasPopupsManage) && permissions) {
+            try {
+                const toInsert = [];
+                if (!hasPopupsView) {
+                    toInsert.push({ code: 'popups.view', name: 'View Popups', module: 'popups', action: 'view', description: 'View popups and recipient history' });
+                }
+                if (!hasPopupsManage) {
+                    toInsert.push({ code: 'popups.manage', name: 'Manage Popups', module: 'popups', action: 'manage', description: 'Create, toggle, and delete in-app popups' });
+                }
+                const { data: inserted } = await supabaseAdmin
+                    .from('permissions')
+                    .upsert(toInsert, { onConflict: 'code' })
+                    .select();
+                if (inserted) {
+                    permissions.push(...inserted);
+                }
+            } catch (seedErr) {
+                console.warn('Could not auto-seed popups permissions:', seedErr);
+            }
+        }
+
         // Group permissions by module
         const groupedPermissions = permissions?.reduce((acc: any, perm: any) => {
             if (!acc[perm.module]) {

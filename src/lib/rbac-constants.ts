@@ -135,6 +135,10 @@ export const PERMISSION_NODES = {
     CRM_MANAGE: 'crm.manage',
     CRM_EDIT_APPROVED: 'crm.edit_approved',
 
+    // In-App Popups & Announcements
+    POPUPS_VIEW: 'popups.view',
+    POPUPS_MANAGE: 'popups.manage',
+
 } as const;
 
 export type PermissionNode = typeof PERMISSION_NODES[keyof typeof PERMISSION_NODES];

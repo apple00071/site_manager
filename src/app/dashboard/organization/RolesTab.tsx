@@ -235,6 +235,15 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         notifications: ['New user added', 'User role changed']
     },
     {
+        module: 'In-App Popups & Announcements',
+        icon: '📢',
+        permissions: [
+            { id: 'popups.view', label: 'View popups and recipient history' },
+            { id: 'popups.manage', label: 'Create, toggle, and delete in-app popups' }
+        ],
+        notifications: ['Popup published']
+    },
+    {
         module: 'Settings & System',
         icon: '⚙️',
         permissions: [
@@ -270,6 +279,7 @@ const MODULE_PREFIX_MAP: Record<string, string[]> = {
     'CRM & Leads': ['crm.'],
     'Holidays': ['holidays.', 'holiday.'],
     'User & Role Management': ['user.', 'users.', 'role.'],
+    'In-App Popups & Announcements': ['popup.', 'popups.'],
     'Settings & System': ['settings.', 'telemetry.']
 };
 

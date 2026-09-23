@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 import { NotificationService } from '@/lib/notificationService';
+import { verifyPermission } from '@/lib/rbac';
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
 
 export const dynamic = 'force-dynamic';
 
-function checkAuthorization(user: any, role?: string | null): boolean {
+async function checkAuthorization(user: any, role?: string | null, requiredPerm: string = PERMISSION_NODES.POPUPS_VIEW): Promise<boolean> {
   if (role === 'admin') return true;
   const designation = (user?.designation || '').toLowerCase();
-  return designation.includes('it');
+  if (designation.includes('it')) return true;
+  const permCheck = await verifyPermission(user.id, requiredPerm as any);
+  return permCheck.allowed;
 }
 
 export async function GET(req: NextRequest) {
@@ -17,7 +21,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!checkAuthorization(user, role)) {
+    const authorized = await checkAuthorization(user, role, PERMISSION_NODES.POPUPS_VIEW);
+    if (!authorized) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -77,7 +82,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!checkAuthorization(user, role)) {
+    const authorized = await checkAuthorization(user, role, PERMISSION_NODES.POPUPS_MANAGE);
+    if (!authorized) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -188,7 +194,8 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!checkAuthorization(user, role)) {
+    const authorized = await checkAuthorization(user, role, PERMISSION_NODES.POPUPS_MANAGE);
+    if (!authorized) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -227,7 +234,8 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!checkAuthorization(user, role)) {
+    const authorized = await checkAuthorization(user, role, PERMISSION_NODES.POPUPS_MANAGE);
+    if (!authorized) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

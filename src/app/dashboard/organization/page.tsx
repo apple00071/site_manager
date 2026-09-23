@@ -36,7 +36,7 @@ export default function OrganizationPage() {
   }, [searchParams]);
 
   const canAccessOrg = hasAnyPermission([
-    'users.view', 'users.create', 'users.edit', 'users.delete', 'role.manage', 'settings.edit'
+    'users.view', 'users.create', 'users.edit', 'users.delete', 'role.manage', 'settings.edit', 'popups.view', 'popups.manage'
   ]);
 
   if (isLoading) return <div>Loading...</div>;

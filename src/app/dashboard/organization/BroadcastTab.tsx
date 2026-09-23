@@ -19,6 +19,8 @@ import {
   FiExternalLink,
   FiCheck,
 } from 'react-icons/fi';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
 
 type PopupType = 'info' | 'warning' | 'celebration' | 'announcement';
 type TargetType = 'all' | 'role' | 'users';
@@ -61,6 +63,9 @@ const POPUP_TYPES: { id: PopupType; label: string; icon: any; color: string; des
 
 export default function BroadcastTab() {
   const { user } = useAuth();
+  const { hasPermission } = useUserPermissions();
+  const isAdmin = user?.role === 'admin' || (user?.designation?.toLowerCase().includes('it') ?? false);
+  const canManage = isAdmin || hasPermission(PERMISSION_NODES.POPUPS_MANAGE);
 
   // Composer form state
   const [title, setTitle] = useState('');
@@ -276,25 +281,27 @@ export default function BroadcastTab() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowComposer(!showComposer)}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm ${
-            showComposer
-              ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              : 'bg-yellow-500 text-gray-900 hover:bg-yellow-600 shadow-yellow-200'
-          }`}
-        >
-          {showComposer ? (
-            <>
-              <FiX className="w-4 h-4" /> Close Composer
-            </>
-          ) : (
-            <>
-              <FiPlus className="w-4 h-4" /> Create New Popup
-            </>
-          )}
-        </button>
+        {canManage && (
+          <button
+            type="button"
+            onClick={() => setShowComposer(!showComposer)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm ${
+              showComposer
+                ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                : 'bg-yellow-500 text-gray-900 hover:bg-yellow-600 shadow-yellow-200'
+            }`}
+          >
+            {showComposer ? (
+              <>
+                <FiX className="w-4 h-4" /> Close Composer
+              </>
+            ) : (
+              <>
+                <FiPlus className="w-4 h-4" /> Create New Popup
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {status && (
@@ -784,29 +791,35 @@ export default function BroadcastTab() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                    <button
-                      type="button"
-                      onClick={() => handleToggleActive(p)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                        p.is_active
-                          ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
-                          : 'border-green-200 text-green-700 hover:bg-green-50'
-                      }`}
-                      title={p.is_active ? 'Disable this popup' : 'Enable this popup'}
-                    >
-                      {p.is_active ? 'Deactivate' : 'Activate'}
-                    </button>
+                  {canManage ? (
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleActive(p)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                          p.is_active
+                            ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
+                            : 'border-green-200 text-green-700 hover:bg-green-50'
+                        }`}
+                        title={p.is_active ? 'Disable this popup' : 'Enable this popup'}
+                      >
+                        {p.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(p.id)}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
-                      title="Delete popup"
-                    >
-                      <FiTrash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(p.id)}
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
+                        title="Delete popup"
+                      >
+                        <FiTrash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-[10px] text-gray-400 font-medium px-2 py-1 bg-gray-100 rounded-lg">
+                      View only
+                    </span>
+                  )}
                 </div>
               );
             })}
