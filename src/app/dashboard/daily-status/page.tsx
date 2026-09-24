@@ -91,8 +91,7 @@ const SHEET_COLUMNS: SheetColumn[] = [
   { id: 'status', letter: 'F', label: 'Task Status', defaultWidth: 165 },
   { id: 'start_date', letter: 'G', label: 'Start Date', defaultWidth: 95 },
   { id: 'deadline', letter: 'H', label: 'Target Date', defaultWidth: 115 },
-  { id: 'notes', letter: 'I', label: 'Notes', defaultWidth: 230 },
-  { id: 'action', letter: 'J', label: 'Action', defaultWidth: 100 },
+  { id: 'notes', letter: 'I', label: 'Notes', defaultWidth: 250 },
 ];
 
 const STATUS_PALETTE = [
@@ -645,23 +644,7 @@ export default function DailyStatusPage() {
     }
   };
 
-  // 1. Toggle specific daily design task milestone as Done / In Progress
-  const handleToggleComplete = async (p: ProjectStatusItem) => {
-    const isDone = (p.unified_status || '').toLowerCase().trim() === 'done';
-    if (isDone) {
-      const ok = await handleUpdate(p.id, {
-        unified_status: 'In Progress',
-        status_color: '#FF3366',
-      });
-      if (ok) showToast('info', `Task re-opened for "${p.title}"`);
-    } else {
-      const ok = await handleUpdate(p.id, {
-        unified_status: 'Done',
-        status_color: '#10B981',
-      });
-      if (ok) showToast('success', `Task marked as Done for "${p.title}"`);
-    }
-  };
+
 
   // 2. Complete entire design phase and remove from active sheet
   const handleCompleteDesign = async (p: ProjectStatusItem) => {
@@ -1267,11 +1250,11 @@ export default function DailyStatusPage() {
                           </div>
 
                           {/* Card Footer: Interactive Status Pill Button */}
-                          <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
+                          <div className="pt-2 border-t border-gray-100">
                             <button
                               type="button"
                               onClick={() => openBottomSheet(p)}
-                              className="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all shadow-2xs flex items-center justify-between cursor-pointer border border-black/5 hover:opacity-90"
+                              className="w-full py-1.5 px-3 rounded-lg text-xs font-bold transition-all shadow-2xs flex items-center justify-between cursor-pointer border border-black/5 hover:opacity-90"
                               style={{
                                 backgroundColor: statusStyle.backgroundColor,
                                 color: statusStyle.color,
@@ -1279,21 +1262,6 @@ export default function DailyStatusPage() {
                             >
                               <span className="truncate">{p.unified_status || 'Select Status'}</span>
                               <FiChevronDown className="w-3.5 h-3.5 ml-1 flex-shrink-0 opacity-80" />
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => handleToggleComplete(p)}
-                              disabled={savingId === p.id}
-                              title={isTaskDone ? "Task is Done. Click to re-open." : "Mark today's task Done"}
-                              className={`py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all border shadow-2xs flex items-center gap-1 flex-shrink-0 cursor-pointer ${
-                                isTaskDone
-                                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                                  : 'bg-white text-gray-600 hover:bg-emerald-50 hover:text-emerald-700 border-gray-200'
-                              }`}
-                            >
-                              <FiCheckCircle className={`w-3.5 h-3.5 ${isTaskDone ? 'text-emerald-600' : 'text-gray-400'}`} />
-                              <span>{isTaskDone ? 'Done' : 'Mark Done'}</span>
                             </button>
                           </div>
                         </div>
@@ -1405,11 +1373,11 @@ export default function DailyStatusPage() {
                             </div>
 
                             {/* Card Footer: Interactive Status Pill Button */}
-                            <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
+                            <div className="pt-2 border-t border-gray-100">
                               <button
                                 type="button"
                                 onClick={() => openBottomSheet(p)}
-                                className="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all shadow-2xs flex items-center justify-between cursor-pointer border border-black/5 hover:opacity-90"
+                                className="w-full py-1.5 px-3 rounded-lg text-xs font-bold transition-all shadow-2xs flex items-center justify-between cursor-pointer border border-black/5 hover:opacity-90"
                                 style={{
                                   backgroundColor: statusStyle.backgroundColor,
                                   color: statusStyle.color,
@@ -1417,21 +1385,6 @@ export default function DailyStatusPage() {
                               >
                                 <span className="truncate">{p.unified_status || 'Select Status'}</span>
                                 <FiChevronDown className="w-3.5 h-3.5 ml-1 flex-shrink-0 opacity-80" />
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => handleToggleComplete(p)}
-                                disabled={savingId === p.id}
-                                title={isTaskDone ? "Task is Done. Click to re-open." : "Mark today's task Done"}
-                                className={`py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all border shadow-2xs flex items-center gap-1 flex-shrink-0 cursor-pointer ${
-                                  isTaskDone
-                                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                                    : 'bg-white text-gray-600 hover:bg-emerald-50 hover:text-emerald-700 border-gray-200'
-                                }`}
-                              >
-                                <FiCheckCircle className={`w-3.5 h-3.5 ${isTaskDone ? 'text-emerald-600' : 'text-gray-400'}`} />
-                                <span>{isTaskDone ? 'Done' : 'Mark Done'}</span>
                               </button>
                             </div>
                           </div>
@@ -1807,36 +1760,6 @@ export default function DailyStatusPage() {
                                 title={p.project_notes || 'Add daily notes...'}
                                 className="w-full px-2 py-1 bg-gray-50/60 hover:bg-white focus:bg-white border border-transparent hover:border-gray-200 focus:border-yellow-400 rounded text-xs text-gray-800 placeholder-gray-400 focus:outline-none transition-all"
                               />
-                            </td>
-
-                            {/* Column J: Action Quick Done Checkmark Button */}
-                            <td 
-                              className="py-1 px-1.5 text-center align-middle"
-                              style={{ width: columnWidths['action'] || 100 }}
-                            >
-                              {isTaskDone ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleComplete(p)}
-                                  disabled={savingId === p.id}
-                                  title="Task is Done. Click to re-open if needed."
-                                  className="inline-flex items-center justify-center gap-1 w-full py-1 px-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 rounded text-[11px] font-bold transition-all cursor-pointer shadow-2xs"
-                                >
-                                  <FiCheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                                  <span>Done</span>
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleComplete(p)}
-                                  disabled={savingId === p.id}
-                                  title="Mark this design milestone as Done"
-                                  className="inline-flex items-center justify-center gap-1 w-full py-1 px-2 bg-white hover:bg-emerald-600 text-gray-700 hover:text-white border border-gray-200 hover:border-emerald-600 rounded text-[11px] font-medium transition-all shadow-2xs cursor-pointer group/btn"
-                                >
-                                  <FiCheckCircle className="w-3.5 h-3.5 text-gray-400 group-hover/btn:text-white transition-colors" />
-                                  <span>Mark Done</span>
-                                </button>
-                              )}
                             </td>
                           </tr>
                         );
