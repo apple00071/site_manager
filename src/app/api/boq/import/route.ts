@@ -92,6 +92,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 
+        // Verify RBAC permission boq.import
+        const { verifyPermission } = await import('@/lib/rbac');
+        const permImport = await verifyPermission(user.id, 'boq.import', project_id);
+        if (!permImport.allowed) {
+            return NextResponse.json({ error: 'Permission denied: boq.import required' }, { status: 403 });
+        }
+
         // Get current max sort_order
         const { data: existing } = await supabaseAdmin
             .from('boq_items')

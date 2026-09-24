@@ -191,6 +191,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verify RBAC permission tasks.create
+    const { verifyPermission } = await import('@/lib/rbac');
+    const permCreate = await verifyPermission(userId, 'tasks.create', projectId);
+    if (!permCreate.allowed) {
+      return NextResponse.json({ error: 'Permission denied: tasks.create required' }, { status: 403 });
+    }
+
     // Create task using admin client (bypasses RLS)
     const { data: task, error: insertError } = await supabaseAdmin
       .from('tasks')
@@ -307,12 +314,19 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Check access
-    const { hasAccess, error: accessError } = await checkProjectAccess(userId, existingTask.step_id, userRole);
+    const { hasAccess, projectId, error: accessError } = await checkProjectAccess(userId, existingTask.step_id, userRole);
     if (!hasAccess) {
       return NextResponse.json(
         { error: accessError || 'Access denied' },
         { status: 403 }
       );
+    }
+
+    // Verify RBAC permission tasks.edit
+    const { verifyPermission } = await import('@/lib/rbac');
+    const permEdit = await verifyPermission(userId, 'tasks.edit', projectId);
+    if (!permEdit.allowed) {
+      return NextResponse.json({ error: 'Permission denied: tasks.edit required' }, { status: 403 });
     }
 
     // Update task
@@ -454,12 +468,19 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Check access
-    const { hasAccess, error: accessError } = await checkProjectAccess(userId, existingTask.step_id, userRole);
+    const { hasAccess, projectId, error: accessError } = await checkProjectAccess(userId, existingTask.step_id, userRole);
     if (!hasAccess) {
       return NextResponse.json(
         { error: accessError || 'Access denied' },
         { status: 403 }
       );
+    }
+
+    // Verify RBAC permission tasks.edit (or tasks.delete if we add it, but using edit as fallback)
+    const { verifyPermission } = await import('@/lib/rbac');
+    const permEdit = await verifyPermission(userId, 'tasks.edit', projectId);
+    if (!permEdit.allowed) {
+      return NextResponse.json({ error: 'Permission denied: tasks.edit required to delete' }, { status: 403 });
     }
 
     // Delete task
