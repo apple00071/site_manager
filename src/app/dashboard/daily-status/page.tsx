@@ -115,11 +115,11 @@ const PREPOPULATED_PHASES = [
 ];
 
 const PREPOPULATED_STATUSES = [
-  { name: 'To Do', color: '#64748B', desc: 'Design task queued, not started yet' },
-  { name: 'In Progress', color: '#FF3366', desc: 'Plans, 3D modeling, or working drawings actively in progress' },
-  { name: 'Under Review', color: '#8B5CF6', desc: 'Shared with client or Lead Designer for review' },
-  { name: 'Done', color: '#10B981', desc: 'Daily design milestone finished' },
-  { name: 'Design Completed', color: '#0D9488', desc: 'Design section finished without changes; remove from active sheet' },
+  { name: 'To Do', color: '#64748B', desc: 'Queued' },
+  { name: 'In Progress', color: '#FF3366', desc: 'In progress' },
+  { name: 'Under Review', color: '#8B5CF6', desc: 'Under review' },
+  { name: 'Done', color: '#10B981', desc: 'Milestone done' },
+  { name: 'Design Completed', color: '#0D9488', desc: 'All designs finished' },
 ];
 
 const formatPhaseDisplay = (stage?: string | null, status?: string | null): string => {
@@ -182,24 +182,47 @@ const hexToRgb = (hex: string | null | undefined): [number, number, number] => {
 interface StatusUpdaterModalProps {
   project: ProjectStatusItem | null;
   onClose: () => void;
-  onSelectStatus: (statusName: string, colorHex: string) => void;
-  sheetDeadline: string;
-  setSheetDeadline: (val: string) => void;
-  sheetNotes: string;
-  setSheetNotes: (val: string) => void;
-  onSaveDetails: () => void;
+  onSave: (data: {
+    statusName: string;
+    colorHex: string;
+    deadline: string;
+    notes: string;
+  }) => Promise<void> | void;
+  isSaving?: boolean;
 }
 
 function StatusUpdaterModal({
   project,
   onClose,
-  onSelectStatus,
-  sheetDeadline,
-  setSheetDeadline,
-  sheetNotes,
-  setSheetNotes,
-  onSaveDetails,
+  onSave,
+  isSaving = false,
 }: StatusUpdaterModalProps) {
+  const [statusName, setStatusName] = useState<string>('In Progress');
+  const [colorHex, setColorHex] = useState<string>('#FF3366');
+  const [deadline, setDeadline] = useState<string>('');
+  const [notes, setNotes] = useState<string>('');
+
+  useEffect(() => {
+    if (!project) return;
+    const rawStatus = project.unified_status || 'In Progress';
+    let matched = PREPOPULATED_STATUSES.find(
+      (s) => s.name.toLowerCase() === rawStatus.toLowerCase()
+    );
+    if (!matched) {
+      if (rawStatus.toLowerCase().includes('complet')) {
+        matched = PREPOPULATED_STATUSES.find((s) => s.name === 'Done');
+      } else if (rawStatus.toLowerCase().includes('review')) {
+        matched = PREPOPULATED_STATUSES.find((s) => s.name === 'Under Review');
+      } else {
+        matched = PREPOPULATED_STATUSES.find((s) => s.name === 'In Progress');
+      }
+    }
+    setStatusName(matched ? matched.name : rawStatus);
+    setColorHex(project.status_color || matched?.color || '#FF3366');
+    setDeadline(project.deadline ? project.deadline.split('T')[0] : '');
+    setNotes(project.project_notes || '');
+  }, [project]);
+
   useEffect(() => {
     if (!project) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -216,6 +239,24 @@ function StatusUpdaterModal({
 
   if (!project || typeof document === 'undefined') return null;
 
+  const handleSelectStatus = (opt: { name: string; color: string }) => {
+    setStatusName(opt.name);
+    setColorHex(opt.color);
+  };
+
+  const handleSave = () => {
+    onSave({
+      statusName,
+      colorHex,
+      deadline,
+      notes: notes.trim(),
+    });
+  };
+
+  const codeDisplay = (project.project_code || project.ref_no || '')
+    .replace('AI/PRJ/', 'AI/')
+    .replace('PRJ/', '');
+
   return createPortal(
     <div 
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
@@ -224,21 +265,23 @@ function StatusUpdaterModal({
       aria-modal="true"
     >
       <div 
-        className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[90vh] sm:max-h-[85vh] overflow-hidden transition-all duration-200 animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-0 sm:zoom-in-95"
+        className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-200 animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-0 sm:zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Mobile Grab Handle */}
-        <div className="flex sm:hidden justify-center pt-3 pb-1 shrink-0">
+        <div className="flex sm:hidden justify-center pt-3 pb-1 shrink-0 bg-white">
           <div className="w-10 h-1 bg-gray-300 rounded-full" />
         </div>
 
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 shrink-0">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 shrink-0 bg-white">
           <div className="min-w-0 pr-3">
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-[11px] font-bold rounded">
-                {(project.project_code || project.ref_no || '').replace('AI/PRJ/', 'AI/').replace('PRJ/', '')}
-              </span>
+              {codeDisplay && (
+                <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-[11px] font-bold rounded">
+                  {codeDisplay}
+                </span>
+              )}
               <h3 className="text-sm sm:text-base font-bold text-gray-900 truncate">
                 Update Status
               </h3>
@@ -257,76 +300,182 @@ function StatusUpdaterModal({
           </button>
         </div>
 
-        {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
-          {/* Quick Status Options */}
-          <div className="space-y-2">
-            <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+        {/* Modal Body (Clean & Compact) */}
+        <div className="p-4 sm:p-5 space-y-3.5">
+          {/* Status Selection (Compact 2-col Grid) */}
+          <div>
+            <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
               Select Design Status
             </label>
-
-            <div className="space-y-1.5">
+            <div className="grid grid-cols-2 gap-2">
               {PREPOPULATED_STATUSES.map((opt) => {
-                const isSelected = (project.unified_status || '').toLowerCase() === opt.name.toLowerCase();
+                const isSelected = statusName.toLowerCase() === opt.name.toLowerCase();
+                const isFullWidth = opt.name === 'Design Completed';
                 return (
                   <button
                     key={opt.name}
                     type="button"
-                    onClick={() => onSelectStatus(opt.name, opt.color)}
-                    className={`w-full p-2.5 sm:p-3 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                    onClick={() => handleSelectStatus(opt)}
+                    className={`${isFullWidth ? 'col-span-2' : 'col-span-1'} p-2.5 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer ${
                       isSelected 
-                        ? 'border-yellow-500 bg-yellow-50/60 shadow-xs ring-1 ring-yellow-400'
+                        ? 'border-yellow-500 bg-yellow-50/70 shadow-xs ring-1 ring-yellow-400' 
                         : 'border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50'
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <span 
-                        className="w-3.5 h-3.5 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: opt.color }}
+                        className="w-3 h-3 rounded-full shrink-0" 
+                        style={{ backgroundColor: isSelected ? colorHex : opt.color }} 
                       />
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-gray-900">{opt.name}</div>
-                        <div className="text-[11px] text-gray-500 truncate">{opt.desc}</div>
-                      </div>
+                      <span className="text-xs font-bold text-gray-900 truncate">{opt.name}</span>
                     </div>
                     {isSelected && (
-                      <FiCheck className="w-4 h-4 text-yellow-600 flex-shrink-0 ml-2" />
+                      <FiCheck className="w-4 h-4 text-yellow-600 shrink-0 ml-1" />
                     )}
                   </button>
                 );
               })}
             </div>
+
+            {/* Status Color Options (Compact, sleek mobile row) */}
+            <div className="pt-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11px] font-semibold text-gray-500">
+                  Status Tag Color
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const matched = PREPOPULATED_STATUSES.find(s => s.name.toLowerCase() === statusName.toLowerCase());
+                    if (matched) setColorHex(matched.color);
+                  }}
+                  className="no-touch-target min-w-0 text-gray-400 hover:text-gray-700 underline text-[10px] cursor-pointer"
+                >
+                  Reset Default
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-2 bg-gray-50 border border-gray-100 rounded-xl">
+                {STATUS_PALETTE.map((col) => {
+                  const isSelected = colorHex.toLowerCase() === col.hex.toLowerCase();
+                  return (
+                    <button
+                      key={col.hex}
+                      type="button"
+                      onClick={() => setColorHex(col.hex)}
+                      title={col.name}
+                      className={`no-touch-target min-w-0 rounded-full shrink-0 flex items-center justify-center border border-black/15 transition-transform cursor-pointer ${
+                        isSelected ? 'scale-110 ring-2 ring-yellow-500 ring-offset-1 z-10' : 'hover:scale-105 opacity-90'
+                      }`}
+                      style={{ backgroundColor: col.hex, width: '24px', height: '24px', minWidth: '24px', minHeight: '24px' }}
+                    >
+                      {isSelected && (
+                        <FiCheck className={`w-3 h-3 ${col.hex === '#E2E8F0' ? 'text-gray-800' : 'text-white'}`} />
+                      )}
+                    </button>
+                  );
+                })}
+
+                <div className="h-4 w-px bg-gray-300 mx-0.5 shrink-0" />
+
+                {/* Custom color input */}
+                <label 
+                  className="no-touch-target min-w-0 rounded-full border border-gray-300 shrink-0 flex items-center justify-center cursor-pointer hover:scale-105 transition relative bg-gradient-to-tr from-indigo-500 via-rose-500 to-amber-400"
+                  title="Pick custom color"
+                  style={{ width: '24px', height: '24px', minWidth: '24px', minHeight: '24px' }}
+                >
+                  <input
+                    type="color"
+                    value={colorHex}
+                    onChange={(e) => setColorHex(e.target.value)}
+                    className="opacity-0 absolute inset-0 cursor-pointer w-full h-full no-touch-target"
+                  />
+                </label>
+              </div>
+            </div>
           </div>
 
-          {/* Quick Note & Deadline edit */}
-          <div className="space-y-3 pt-3 border-t border-gray-100">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Target Date</label>
+          {/* Target Date */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Target Date</label>
+            <div className="flex items-center gap-2">
               <input
                 type="date"
-                value={sheetDeadline}
-                onChange={(e) => setSheetDeadline(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-medium text-gray-800 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+                className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-medium text-gray-800 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white"
               />
+              <button
+                type="button"
+                onClick={() => {
+                  const d = new Date();
+                  setDeadline(d.toISOString().split('T')[0]);
+                }}
+                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-xs font-semibold text-gray-600 rounded-lg transition cursor-pointer shrink-0"
+              >
+                Today
+              </button>
+              {deadline && (
+                <button
+                  type="button"
+                  onClick={() => setDeadline('')}
+                  className="px-2.5 py-2 text-xs text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer shrink-0 font-medium"
+                >
+                  Clear
+                </button>
+              )}
             </div>
+          </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Daily Notes</label>
-              <textarea
-                rows={2}
-                value={sheetNotes}
-                onChange={(e) => setSheetNotes(e.target.value)}
-                placeholder="Add design notes, client comments, or scope..."
-                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white"
-              />
-            </div>
+          {/* Daily Notes */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Daily Notes</label>
+            <textarea
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Add design notes, client comments, or scope..."
+              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white resize-none"
+            />
+          </div>
+        </div>
 
+        {/* Modal Sticky Footer */}
+        <div className="shrink-0 bg-gray-50 border-t border-gray-100 px-4 sm:px-5 py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 pl-10 sm:pl-0">
+            <span
+              style={getStatusStyle(colorHex, statusName)}
+              className="px-2.5 py-1 rounded-md text-xs font-bold shadow-xs truncate max-w-[120px] sm:max-w-[180px]"
+            >
+              {statusName}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={onSaveDetails}
-              className="w-full py-2.5 bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold rounded-lg text-xs shadow-xs transition-all cursor-pointer"
+              onClick={onClose}
+              disabled={isSaving}
+              className="px-3.5 py-2 rounded-lg text-xs font-semibold text-gray-600 hover:text-gray-800 hover:bg-gray-200 transition cursor-pointer"
             >
-              Save Notes & Date
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving}
+              className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 active:scale-95 text-gray-950 font-bold rounded-lg text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              {isSaving ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-gray-950 border-t-transparent rounded-full animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <FiCheck className="w-3.5 h-3.5" />
+                  Save Status
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -363,8 +512,6 @@ export default function DailyStatusPage() {
   const [collapsedDesigners, setCollapsedDesigners] = useState<Record<string, boolean>>({});
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [activeBottomSheetProject, setActiveBottomSheetProject] = useState<ProjectStatusItem | null>(null);
-  const [sheetNotes, setSheetNotes] = useState<string>('');
-  const [sheetDeadline, setSheetDeadline] = useState<string>('');
   const { showToast } = useToast();
 
 
@@ -542,57 +689,38 @@ export default function DailyStatusPage() {
   // Bottom Sheet Handlers
   const openBottomSheet = (p: ProjectStatusItem) => {
     setActiveBottomSheetProject(p);
-    setSheetNotes(p.project_notes || '');
-    setSheetDeadline(p.deadline ? p.deadline.split('T')[0] : '');
   };
 
-  const handleSelectStatusFromSheet = async (statusName: string, colorHex: string) => {
+  const handleSaveStatusModal = async (data: {
+    statusName: string;
+    colorHex: string;
+    deadline: string;
+    notes: string;
+  }) => {
     if (!activeBottomSheetProject) return;
     const p = activeBottomSheetProject;
-    setActiveBottomSheetProject(null);
 
-    const isDesignCompleted = statusName === 'Design Completed';
+    const isDesignCompleted = data.statusName === 'Design Completed';
     const payload: Partial<ProjectStatusItem> = {
-      unified_status: statusName,
-      status_color: colorHex,
+      unified_status: data.statusName,
+      status_color: data.colorHex,
+      deadline: data.deadline || null,
+      project_notes: data.notes || null,
     };
 
-    if (sheetDeadline !== (p.deadline ? p.deadline.split('T')[0] : '')) {
-      payload.deadline = sheetDeadline || null;
-    }
-    if (sheetNotes !== (p.project_notes || '')) {
-      payload.project_notes = sheetNotes || null;
-    }
     if (isDesignCompleted && formatPhaseDisplay(p.workflow_stage, p.status) === 'Designing') {
       payload.workflow_stage = 'Execution';
     }
 
     const ok = await handleUpdate(p.id, payload);
     if (ok) {
-      showToast('success', isDesignCompleted 
-        ? `Design completed for "${p.title}" (removed from active sheet)` 
-        : `Status updated to "${statusName}" for "${p.title}"`);
-    }
-  };
-
-  const handleSaveSheetDetails = async () => {
-    if (!activeBottomSheetProject) return;
-    const p = activeBottomSheetProject;
-    setActiveBottomSheetProject(null);
-
-    const payload: Partial<ProjectStatusItem> = {};
-    if (sheetDeadline !== (p.deadline ? p.deadline.split('T')[0] : '')) {
-      payload.deadline = sheetDeadline || null;
-    }
-    if (sheetNotes !== (p.project_notes || '')) {
-      payload.project_notes = sheetNotes || null;
-    }
-
-    if (Object.keys(payload).length > 0) {
-      const ok = await handleUpdate(p.id, payload);
-      if (ok) {
-        showToast('success', `Details updated for "${p.title}"`);
-      }
+      setActiveBottomSheetProject(null);
+      showToast(
+        'success',
+        isDesignCompleted && formatPhaseDisplay(p.workflow_stage, p.status) === 'Designing'
+          ? `Design completed for "${p.title}" (moved to Execution)`
+          : `Status updated to "${data.statusName}" for "${p.title}"`
+      );
     }
   };
 
@@ -1723,16 +1851,12 @@ export default function DailyStatusPage() {
       </div>
       )}
 
-      {/* Quick Status Modal: Bottom Sheet on mobile, Centered Dialog on desktop */}
+      {/* Quick Status Modal */}
       <StatusUpdaterModal
         project={activeBottomSheetProject}
         onClose={() => setActiveBottomSheetProject(null)}
-        onSelectStatus={handleSelectStatusFromSheet}
-        sheetDeadline={sheetDeadline}
-        setSheetDeadline={setSheetDeadline}
-        sheetNotes={sheetNotes}
-        setSheetNotes={setSheetNotes}
-        onSaveDetails={handleSaveSheetDetails}
+        onSave={handleSaveStatusModal}
+        isSaving={savingId === activeBottomSheetProject?.id}
       />
     </div>
   );
