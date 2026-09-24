@@ -33,7 +33,7 @@ const getSupervisorName = (project: any): string => {
 
 export default function ProjectsPage() {
   const { user } = useAuth();
-  const { hasPermission, hasAnyPermission, isAdmin, isLoading: permLoading } = useUserPermissions();
+  const { hasPermission, hasAnyPermission, isAdmin, roleName, designation: permDesignation, isLoading: permLoading } = useUserPermissions();
   const router = useRouter();
   const canViewProjects = hasAnyPermission(['projects.view', 'projects.view_all']);
   const canCreateProject = hasPermission('projects.create');
@@ -41,7 +41,8 @@ export default function ProjectsPage() {
   const canDeleteProject = hasPermission('projects.delete');
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<string>('pending');
+  const [defaultTabApplied, setDefaultTabApplied] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortConfig, setSortConfig] = useState<{
@@ -56,8 +57,32 @@ export default function ProjectsPage() {
     const status = searchParams.get('status');
     if (status) {
       setActiveTab(status);
+      setDefaultTabApplied(true);
     }
   }, [searchParams]);
+
+  // Set default active tab based on user role/designation:
+  // - Site Engineer: 'in_progress' (Execution Phase)
+  // - Designer: 'pending' (Design Phase)
+  useEffect(() => {
+    if (defaultTabApplied) return;
+    if (searchParams.get('status')) return;
+
+    const desig = (user?.designation || (user as any)?.user_metadata?.designation || permDesignation || '').toLowerCase();
+    const role = (roleName || user?.role || (user as any)?.user_metadata?.role || '').toLowerCase();
+    const combined = `${role} ${desig}`;
+
+    if (combined.includes('site') || combined.includes('engineer') || combined.includes('supervisor')) {
+      setActiveTab('in_progress');
+      setDefaultTabApplied(true);
+    } else if (combined.includes('design')) {
+      setActiveTab('pending');
+      setDefaultTabApplied(true);
+    } else if (user && !permLoading) {
+      setActiveTab('pending');
+      setDefaultTabApplied(true);
+    }
+  }, [user, roleName, permDesignation, permLoading, searchParams, defaultTabApplied]);
 
   // Set header title
   useEffect(() => {
@@ -141,16 +166,16 @@ export default function ProjectsPage() {
   // Status tabs configuration with counts - based on actual project status
   const statusTabs = useMemo(() => {
     const tabs = [
-      { key: 'all', label: 'All Projects', count: projects.length },
       { key: 'pending', label: 'Design Phase', count: projects.filter(p => p.status === 'pending' || !p.status).length },
       { key: 'in_progress', label: 'Execution Phase', count: projects.filter(p => p.status === 'in_progress').length },
       { key: 'on_hold', label: 'On Hold', count: projects.filter(p => p.status === 'on_hold').length },
       { key: 'completed', label: 'Completed', count: projects.filter(p => p.status === 'completed').length },
       { key: 'handover', label: 'Handover Phase', count: projects.filter(p => p.status === 'handover').length },
       { key: 'cancelled', label: 'Cancelled', count: projects.filter(p => p.status === 'cancelled').length },
+      { key: 'all', label: 'All Projects', count: projects.length },
     ];
-    return tabs.filter(tab => tab.count > 0 || tab.key === 'all');
-  }, [projects]);
+    return tabs.filter(tab => tab.count > 0 || tab.key === 'all' || tab.key === activeTab);
+  }, [projects, activeTab]);
 
   // Filter projects by active tab and search query
   const filteredProjects = useMemo(() => {

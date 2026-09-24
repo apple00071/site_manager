@@ -7,6 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 interface UserPermissions {
     permissions: Record<string, boolean>;
     isAdmin: boolean;
+    roleName?: string;
+    designation?: string;
     isLoading: boolean;
     error: string | null;
 }
@@ -118,6 +120,8 @@ export function useUserPermissions(): UseUserPermissionsReturn {
     const [state, setState] = useState<UserPermissions>({
         permissions: initialCache?.permissions || {},
         isAdmin: initialCache?.isAdmin || false,
+        roleName: initialCache?.roleName || '',
+        designation: initialCache?.designation || '',
         isLoading: !initialCache && !!user,
         error: null,
     });
@@ -127,6 +131,8 @@ export function useUserPermissions(): UseUserPermissionsReturn {
             setState({
                 permissions: {},
                 isAdmin: false,
+                roleName: '',
+                designation: '',
                 isLoading: false,
                 error: null,
             });
@@ -140,6 +146,8 @@ export function useUserPermissions(): UseUserPermissionsReturn {
                 ...prev,
                 permissions: cached.permissions || {},
                 isAdmin: cached.isAdmin || false,
+                roleName: cached.roleName || '',
+                designation: cached.designation || '',
                 isLoading: false,
             }));
         }
@@ -151,6 +159,8 @@ export function useUserPermissions(): UseUserPermissionsReturn {
                 setState({
                     permissions: data.permissions || {},
                     isAdmin: data.isAdmin || false,
+                    roleName: data.roleName || '',
+                    designation: data.designation || '',
                     isLoading: false,
                     error: null
                 });
@@ -177,12 +187,16 @@ export function useUserPermissions(): UseUserPermissionsReturn {
             // Update cache scoped by userId
             setCachedPermissions(userId, {
                 permissions: data.permissions || {},
-                isAdmin: data.isAdmin || false
+                isAdmin: data.isAdmin || false,
+                roleName: data.roleName || '',
+                designation: data.designation || ''
             });
 
             setState({
                 permissions: data.permissions || {},
                 isAdmin: data.isAdmin || false,
+                roleName: data.roleName || '',
+                designation: data.designation || '',
                 isLoading: false,
                 error: null,
             });

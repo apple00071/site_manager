@@ -15,16 +15,19 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Get user's role and role_id from the users table
+        // Get user's role, role_id, and designation from the users table
         const { data: userData, error: userError } = await supabaseAdmin
             .from('users')
-            .select('role, role_id, roles(name)')
+            .select('role, role_id, designation, roles(name)')
             .eq('id', user.id)
             .single();
 
         if (userError || !userData) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
+
+        const roleName = (userData.roles as any)?.name || userData.role || '';
+        const designation = userData.designation || '';
 
         // Admin users have all permissions (check role string or roles table name)
         const isAdmin = 
@@ -34,7 +37,9 @@ export async function GET(request: NextRequest) {
         if (isAdmin) {
             return NextResponse.json({
                 permissions: { '*': true },
-                isAdmin: true
+                isAdmin: true,
+                roleName,
+                designation,
             });
         }
 
@@ -42,7 +47,9 @@ export async function GET(request: NextRequest) {
         if (!userData.role_id) {
             return NextResponse.json({
                 permissions: {},
-                isAdmin: false
+                isAdmin: false,
+                roleName,
+                designation,
             });
         }
 
@@ -73,7 +80,9 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({
             permissions: permissionsMap,
-            isAdmin: false
+            isAdmin: false,
+            roleName,
+            designation,
         });
 
     } catch (error: any) {
