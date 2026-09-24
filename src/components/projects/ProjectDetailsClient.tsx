@@ -94,6 +94,7 @@ export type Project = {
 
 const UpdatesTab = dynamic(() => import('@/components/projects/UpdatesTab').then(m => m.UpdatesTab), { ssr: false, loading: () => <div className="p-6 space-y-4 animate-pulse"><div className="h-4 bg-gray-200 rounded w-1/4"></div><div className="h-32 bg-gray-100 rounded w-full"></div></div> });
 const ExpensesTab = dynamic(() => import('@/components/projects/ExpensesTab').then(m => m.ExpensesTab), { ssr: false, loading: () => <div className="p-6 space-y-4 animate-pulse"><div className="h-8 bg-gray-200 rounded w-full"></div><div className="h-64 bg-gray-100 rounded w-full"></div></div> }) as any;
+const ProjectFinanceTab = dynamic(() => import('@/components/projects/tabs/ProjectFinanceTab'), { ssr: false, loading: () => <TabSkeleton /> });
 const DesignsTab = dynamic(() => import('@/components/projects/DesignsTab').then(m => m.DesignsTab), { ssr: false, loading: () => <div className="p-6 grid grid-cols-2 gap-4 animate-pulse"><div className="aspect-video bg-gray-200 rounded"></div><div className="aspect-video bg-gray-200 rounded"></div></div> });
 const BOQTab = dynamic(() => import('@/components/projects/BOQTab').then(m => m.BOQTab), { ssr: false, loading: () => <div className="p-6 space-y-2 animate-pulse"><div className="h-10 bg-gray-200 rounded w-full"></div>{[1, 2, 3, 4, 5].map(i => <div key={i} className="h-12 bg-gray-50 rounded w-full"></div>)}</div> });
 const SnagTab = dynamic(() => import('@/components/projects/SnagTab'), { ssr: false, loading: () => <div className="p-6 space-y-4 animate-pulse"><div className="h-10 bg-gray-200 rounded w-full"></div><div className="grid grid-cols-1 gap-3"><div className="h-20 bg-gray-50 rounded"></div><div className="h-20 bg-gray-50 rounded"></div></div></div> });
@@ -444,7 +445,20 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
             </>
           )}
           {activeStage === 'snag' && <SnagTab projectId={project.id} userId={user?.id || ''} userRole={isAdmin ? 'admin' : 'user'} ref={snagRef} />}
-          {activeStage === 'finance' && (activeSubTab === 'expenses' && <ExpensesTab projectId={project.id} ref={expensesRef} />)}
+          {activeStage === 'finance' && (
+            <>
+              {(activeSubTab === 'overview' || !activeSubTab) && (isAdmin || hasPermission('finance.view')) && (
+                <ProjectFinanceTab
+                  projectId={project.id}
+                  projectBudget={project.project_budget}
+                  projectTitle={project.title}
+                  customerName={project.customer_name}
+                  onBudgetUpdated={(newBudget) => setProject((prev: any) => ({ ...prev, project_budget: newBudget }))}
+                />
+              )}
+              {activeSubTab === 'expenses' && (isAdmin || hasPermission('inventory.view')) && <ExpensesTab projectId={project.id} ref={expensesRef} />}
+            </>
+          )}
         </div>
       </div>
 

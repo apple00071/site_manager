@@ -156,9 +156,10 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         module: 'Finance',
         icon: '💵',
         permissions: [
-            { id: 'finance.view', label: 'View finance overview' }
+            { id: 'finance.view', label: 'View finance overview and project financials' },
+            { id: 'finance.manage', label: 'Record, edit, and delete client payments and project budgets' }
         ],
-        notifications: []
+        notifications: ['Client payment recorded']
     },
     {
         module: 'Project Expenses & Inventory',

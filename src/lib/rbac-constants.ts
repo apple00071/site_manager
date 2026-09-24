@@ -90,6 +90,7 @@ export const PERMISSION_NODES = {
 
     // Finance Permissions
     FINANCE_VIEW: 'finance.view',
+    FINANCE_MANAGE: 'finance.manage',
 
     // User Management
     USERS_VIEW: 'users.view',

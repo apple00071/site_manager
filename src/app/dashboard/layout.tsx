@@ -194,6 +194,7 @@ function DashboardLayoutContent({
     if (pathname === '/dashboard/crm') return 'CRM & Quotation Log';
     if (pathname === '/dashboard/vendors-workers') return 'Vendors & Workers';
     if (pathname === '/dashboard/attendance') return 'Attendance';
+    if (pathname === '/dashboard/finance') return 'Finance Overview';
     if (pathname === '/dashboard/snags') return 'Snags';
     if (pathname.startsWith('/dashboard/projects/')) {
       if (pathname.endsWith('/edit')) return 'Edit Project';
@@ -397,6 +398,18 @@ function DashboardLayoutContent({
               >
                 <FiClock className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
                 <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Attendance</span>
+              </Link>
+            )}
+            {hasAnyPermission(['finance.view', 'finance.manage']) && (
+              <Link
+                href="/dashboard/finance"
+                className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
+                onClick={() => setSidebarOpen(false)}
+                title="Finance"
+                id="sidebar-finance"
+              >
+                <TbCurrencyRupee className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
+                <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Finance</span>
               </Link>
             )}
             {hasAnyPermission(['users.view', 'users.create', 'users.edit', 'users.delete', 'users.manage_roles', 'settings.view', 'settings.edit', 'popups.view', 'popups.manage', 'payroll.view', 'payroll.manage']) && (

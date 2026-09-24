@@ -83,7 +83,8 @@ export const STAGE_SUB_TABS: Record<string, SubTab[]> = {
         { id: 'snag_list', label: 'Snag List', permission: 'snags.view' },
     ],
     finance: [
-        { id: 'expenses', label: 'Expenses', permission: 'inventory.view' },
+        { id: 'overview', label: 'Overview & Payments', permission: 'finance.view' },
+        { id: 'expenses', label: 'Site Expenses', permission: 'inventory.view' },
     ],
 };
 

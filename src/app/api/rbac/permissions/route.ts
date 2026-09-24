@@ -37,6 +37,8 @@ export async function GET(request: NextRequest) {
             { code: 'boq.proposals', module: 'boq', action: 'proposals', description: 'Create & view client proposals' },
             { code: 'rate_card.view', module: 'crm', action: 'view', description: 'View rate card items' },
             { code: 'rate_card.manage', module: 'crm', action: 'manage', description: 'Create, update & deactivate rate card items' },
+            { code: 'finance.view', module: 'finance', action: 'view', description: 'View finance overview and project financials' },
+            { code: 'finance.manage', module: 'finance', action: 'manage', description: 'Record, edit, and delete client payments' },
         ];
 
         const missingPerms = requiredPermDefs.filter(rp => !permissions?.some((p: any) => p.code === rp.code));

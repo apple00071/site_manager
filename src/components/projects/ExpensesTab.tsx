@@ -89,33 +89,6 @@ const ExpenseItemForm = ({
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Expense Type</label>
-        <CustomDropdown
-          value={form.expense_type}
-          options={[
-            { id: 'materials', title: 'Materials' },
-            { id: 'labor', title: 'Labor' },
-            { id: 'transport', title: 'Transport' },
-            { id: 'equipment', title: 'Equipment Rental' },
-            { id: 'utilities', title: 'Utilities' },
-            { id: 'contractor', title: 'Contractor Payment' },
-            { id: 'miscellaneous', title: 'Miscellaneous' },
-          ]}
-          onChange={(val) => setForm(prev => ({ ...prev, expense_type: val }))}
-          placeholder="Select type"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-        <input
-          type="number"
-          value={form.quantity}
-          onChange={(e) => setForm(prev => ({ ...prev, quantity: e.target.value }))}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-          placeholder="Enter quantity"
-        />
-      </div>
-      <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹)</label>
         <input
           type="number"
