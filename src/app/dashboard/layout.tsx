@@ -55,7 +55,7 @@ function DashboardLayoutContent({
   const router = useRouter();
   const pathname = usePathname();
   const { hasPermission, hasAnyPermission } = useUserPermissions();
-  const canViewTelemetry = isAdmin || hasPermission(PERMISSION_NODES.TELEMETRY_VIEW);
+  const canViewTelemetry = hasPermission(PERMISSION_NODES.TELEMETRY_VIEW);
   const [searchQuery, setSearchQuery] = useState('');
   const [projects, setProjects] = useState<any[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -308,7 +308,7 @@ function DashboardLayoutContent({
               <FiHome className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
               <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Dashboard</span>
             </Link>
-            {(isAdmin || hasAnyPermission(['projects.view', 'projects.view_all'])) && (
+            {hasAnyPermission(['projects.view', 'projects.view_all']) && (
               <Link
                 href="/dashboard/projects"
                 className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
@@ -319,7 +319,7 @@ function DashboardLayoutContent({
                 <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Projects</span>
               </Link>
             )}
-            {(isAdmin || hasAnyPermission(['designs.daily_status', 'daily_status.view'])) && (
+            {hasAnyPermission(['designs.daily_status', 'daily_status.view']) && (
               <Link
                 href="/dashboard/daily-status"
                 className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
@@ -330,7 +330,7 @@ function DashboardLayoutContent({
                 <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Design Status</span>
               </Link>
             )}
-            {(isAdmin || hasPermission('tasks.view')) && (
+            {hasPermission('tasks.view') && (
               <Link
                 href="/dashboard/tasks"
                 className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
@@ -341,7 +341,7 @@ function DashboardLayoutContent({
                 <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Tasks</span>
               </Link>
             )}
-            {(isAdmin || hasAnyPermission(['snags.view', 'snags.view_all'])) && (
+            {hasAnyPermission(['snags.view', 'snags.view_all']) && (
               <Link
                 href="/dashboard/snags"
                 className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
@@ -352,7 +352,7 @@ function DashboardLayoutContent({
                 <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Snags</span>
               </Link>
             )}
-            {(isAdmin || hasPermission('office_expenses.view')) && (
+            {hasPermission('office_expenses.view') && (
               <Link
                 href="/dashboard/office-expenses"
                 className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
@@ -375,7 +375,7 @@ function DashboardLayoutContent({
                 <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">CRM</span>
               </Link>
             )}
-            {(isAdmin || hasAnyPermission(['vendors.view', 'workers.view', 'suppliers.view', 'suppliers.create'])) && (
+            {hasAnyPermission(['vendors.view', 'workers.view', 'suppliers.view', 'suppliers.create']) && (
               <Link
                 href="/dashboard/vendors-workers"
                 className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
@@ -411,7 +411,7 @@ function DashboardLayoutContent({
                 <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Payroll</span>
               </Link>
             )}
-            {(isAdmin || hasPermission('broadcast.view')) && (
+            {hasAnyPermission(['popups.view', 'popups.manage']) && (
                 <Link
                   href="/dashboard/organization?tab=broadcast"
                   className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
@@ -422,7 +422,7 @@ function DashboardLayoutContent({
                   <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Broadcast</span>
                 </Link>
             )}
-            {(isAdmin || hasAnyPermission(['users.view', 'users.create', 'users.edit', 'users.delete', 'role.manage', 'settings.edit'])) && (
+            {hasAnyPermission(['users.view', 'users.create', 'users.edit', 'users.delete', 'users.manage_roles', 'settings.view', 'settings.edit', 'popups.view', 'popups.manage']) && (
                 <Link
                   href="/dashboard/organization"
                   className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"

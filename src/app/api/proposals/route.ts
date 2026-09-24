@@ -58,10 +58,15 @@ export async function GET(request: NextRequest) {
 
         const userRole = await getUserRole(user.id);
 
-        // If fetching all proposals, require admin role
+        // If fetching all proposals, require admin role or boq.proposals / boq.view permission
         if (fetchAll) {
             if (userRole !== 'admin') {
-                return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+                const { checkPermission } = await import('@/lib/rbac');
+                const hasProposals = await checkPermission(user.id, 'boq.proposals');
+                const hasBoqView = await checkPermission(user.id, 'boq.view');
+                if (!hasProposals.allowed && !hasBoqView.allowed) {
+                    return NextResponse.json({ error: 'Permission denied: boq.proposals or admin access required' }, { status: 403 });
+                }
             }
 
             // Fetch all proposals with project info

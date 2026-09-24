@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -319,10 +320,10 @@ function StatusUpdaterModal({
 }
 
 export default function DailyStatusPage() {
-  const { hasAnyPermission, isAdmin: permIsAdmin, isLoading: permLoading } = useUserPermissions();
-  const { user, isAdmin: authIsAdmin } = useAuth();
-  const isAdmin = Boolean(authIsAdmin || permIsAdmin || user?.role?.toLowerCase() === 'admin');
-  const canAccess = Boolean(isAdmin || hasAnyPermission(['designs.daily_status', 'daily_status.view']));
+  const { hasAnyPermission, isAdmin, isLoading: permLoading } = useUserPermissions();
+  const { user } = useAuth();
+  const router = useRouter();
+  const canAccess = hasAnyPermission(['designs.daily_status', 'daily_status.view']);
 
   const [isServerManagement, setIsServerManagement] = useState<boolean | null>(null);
   const isManagement = isServerManagement !== null 
@@ -854,19 +855,12 @@ export default function DailyStatusPage() {
 
   let runningRowNumber = 1;
 
-  if (!permLoading && !canAccess) {
-    return (
-      <div className="p-8 max-w-md mx-auto mt-16 bg-white border border-gray-200 rounded-2xl shadow-xs text-center space-y-3">
-        <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto text-amber-600">
-          <FiLayers className="w-6 h-6" />
-        </div>
-        <h2 className="text-base font-bold text-gray-900">Access Restricted</h2>
-        <p className="text-xs text-gray-500 leading-relaxed">
-          You do not have permission to view the Design Status Page. Please contact your administrator if you need access.
-        </p>
-      </div>
-    );
-  }
+  // ponytail: redirect unauthorized users silently — sidebar already hides the link
+  useEffect(() => {
+    if (!permLoading && !canAccess) router.replace('/dashboard');
+  }, [permLoading, canAccess, router]);
+
+  if (!permLoading && !canAccess) return null;
 
   return (
     <div className="p-3 sm:p-5 lg:p-6 w-full max-w-full space-y-4">

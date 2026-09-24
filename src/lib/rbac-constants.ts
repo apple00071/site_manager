@@ -30,6 +30,8 @@ export const PERMISSION_NODES = {
     BOQ_EDIT: 'boq.edit',
     BOQ_DELETE: 'boq.delete',
     BOQ_IMPORT: 'boq.import',
+    BOQ_DELIVERY: 'boq.delivery',
+    BOQ_PROPOSALS: 'boq.proposals',
 
     // Supplier & Vendor Permissions
     SUPPLIERS_VIEW: 'suppliers.view',
@@ -134,6 +136,8 @@ export const PERMISSION_NODES = {
     CRM_VIEW: 'crm.view',
     CRM_MANAGE: 'crm.manage',
     CRM_EDIT_APPROVED: 'crm.edit_approved',
+    RATE_CARD_VIEW: 'rate_card.view',
+    RATE_CARD_MANAGE: 'rate_card.manage',
 
     // In-App Popups & Announcements
     POPUPS_VIEW: 'popups.view',

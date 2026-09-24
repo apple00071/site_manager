@@ -8,6 +8,10 @@ export async function GET(request: NextRequest) {
   const { user, error: authError } = await getAuthUser();
   if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const { verifyPermission } = await import('@/lib/rbac');
+  const perm = await verifyPermission(user.id, 'crm.view');
+  if (!perm.allowed) return NextResponse.json({ error: 'Permission denied: crm.view required' }, { status: 403 });
+
   const id = request.nextUrl.searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
 

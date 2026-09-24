@@ -174,7 +174,12 @@ export async function PATCH(request: NextRequest) {
         }
 
         if (role !== 'admin') {
-            return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+            const { checkPermission } = await import('@/lib/rbac');
+            const hasEdit = await checkPermission(user.id, 'vendors.edit');
+            const hasCreate = await checkPermission(user.id, 'suppliers.create');
+            if (!hasEdit.allowed && !hasCreate.allowed) {
+                return NextResponse.json({ error: 'Permission denied: vendors.edit required' }, { status: 403 });
+            }
         }
 
         const body = await request.json();
@@ -251,7 +256,11 @@ export async function DELETE(request: NextRequest) {
         }
 
         if (role !== 'admin') {
-            return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+            const { checkPermission } = await import('@/lib/rbac');
+            const hasDelete = await checkPermission(user.id, 'vendors.delete');
+            if (!hasDelete.allowed) {
+                return NextResponse.json({ error: 'Permission denied: vendors.delete required' }, { status: 403 });
+            }
         }
 
         const id = request.nextUrl.searchParams.get('id');

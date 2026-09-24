@@ -247,9 +247,13 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
       }
     }
     if (activeStage === 'boq') {
+      if (activeSubTab === 'delivery_bills') {
+        return [];
+      }
       const isLaminate = activeSubTab === 'laminate';
-      return [
-        { 
+      const actions = [];
+      if (hasPermission('boq.create')) {
+        actions.push({ 
           label: isLaminate ? 'Add Laminate' : 'Add Item', 
           onClick: () => {
             if (isLaminate) {
@@ -259,19 +263,20 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
             }
           }, 
           icon: <FiPlus className="w-4 h-4" /> 
-        },
-        { 
-          label: isLaminate ? 'Export Laminate PDF' : 'Export PDF', 
-          onClick: () => {
-            if (isLaminate) {
-              boqRef.current?.openExportLaminatePdf?.();
-            } else {
-              boqRef.current?.openExportPdf();
-            }
-          }, 
-          icon: <FiDownload className="w-4 h-4" /> 
-        }
-      ];
+        });
+      }
+      actions.push({ 
+        label: isLaminate ? 'Export Laminate PDF' : 'Export PDF', 
+        onClick: () => {
+          if (isLaminate) {
+            boqRef.current?.openExportLaminatePdf?.();
+          } else {
+            boqRef.current?.openExportPdf();
+          }
+        }, 
+        icon: <FiDownload className="w-4 h-4" /> 
+      });
+      return actions;
     }
     if (activeStage === 'snag' && hasPermission('snags.create')) {
       return [

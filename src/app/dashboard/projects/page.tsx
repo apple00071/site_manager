@@ -2,10 +2,10 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { FiPlus, FiEdit2, FiTrash2, FiEye, FiMoreVertical, FiSearch, FiX, FiSend } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiEye, FiMoreVertical, FiSearch, FiX, FiSend, FiBriefcase } from 'react-icons/fi';
 import { formatDateIST } from '@/lib/dateUtils';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -32,8 +32,10 @@ const getSupervisorName = (project: any): string => {
 };
 
 export default function ProjectsPage() {
-  const { user, isAdmin } = useAuth();
-  const { hasPermission } = useUserPermissions();
+  const { user } = useAuth();
+  const { hasPermission, hasAnyPermission, isAdmin, isLoading: permLoading } = useUserPermissions();
+  const router = useRouter();
+  const canViewProjects = hasAnyPermission(['projects.view', 'projects.view_all']);
   const canCreateProject = hasPermission('projects.create');
   const canEditProject = hasPermission('projects.edit');
   const canDeleteProject = hasPermission('projects.delete');
@@ -224,6 +226,11 @@ export default function ProjectsPage() {
     return configs[status] || configs['pending'];
   };
 
+  // ponytail: redirect unauthorized users silently — sidebar already hides the link
+  useEffect(() => {
+    if (!permLoading && !canViewProjects) router.replace('/dashboard');
+  }, [permLoading, canViewProjects, router]);
+
   if (loading) {
     return (
       <div className="space-y-6 animate-pulse-mobile">
@@ -237,6 +244,8 @@ export default function ProjectsPage() {
       </div>
     );
   }
+
+  if (!permLoading && !canViewProjects) return null;
 
   return (
     <div className="space-y-4 pb-24 sm:pb-0">

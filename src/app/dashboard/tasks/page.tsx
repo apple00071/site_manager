@@ -4,6 +4,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, startOfMonth, endOfMonth, endOfWeek, eachDayOfInterval, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
@@ -28,7 +29,8 @@ import {
   FiXCircle,
   FiUserX,
   FiCalendar,
-  FiUsers
+  FiUsers,
+  FiCheckSquare
 } from 'react-icons/fi';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useToast } from '@/components/ui/Toast';
@@ -717,6 +719,8 @@ const ViewTaskContent = ({
 
 export default function TasksPage() {
   const { user } = useAuth();
+  const { hasPermission, isLoading: permLoading } = useUserPermissions();
+  const router = useRouter();
   const [view, setView] = useState<CalendarViewType>('month');
   const [date, setDate] = useState<Date>(new Date());
   const [tasks, setTasks] = useState<CalendarTask[]>([]);
@@ -1543,8 +1547,14 @@ export default function TasksPage() {
     fetchProjects();
   }, []);
 
+  // ponytail: redirect unauthorized users silently — sidebar already hides the link
+  useEffect(() => {
+    if (!permLoading && !hasPermission('tasks.view')) {
+      router.replace('/dashboard');
+    }
+  }, [permLoading, hasPermission, router]);
 
-
+  if (!permLoading && !hasPermission('tasks.view')) return null;
 
   return (
     <div className="flex h-full overflow-hidden">

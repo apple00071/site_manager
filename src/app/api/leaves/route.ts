@@ -36,8 +36,10 @@ export async function GET(request: NextRequest) {
         const userIdFilter = searchParams.get('user_id');
 
         const isAdmin = userData?.role === 'admin';
+        const hasManage = await verifyPermission(user.id, PERMISSION_NODES.LEAVES_MANAGE);
+        const canViewAll = isAdmin || hasManage.allowed;
 
-        if (!isAdmin) {
+        if (!canViewAll) {
             query = query.eq('user_id', user.id);
         } else if (userIdFilter) {
             query = query.eq('user_id', userIdFilter);
@@ -161,9 +163,12 @@ export async function PATCH(request: NextRequest) {
             .single();
 
         const isAdmin = userData?.role === 'admin';
+        const permApprove = await verifyPermission(user.id, PERMISSION_NODES.LEAVES_APPROVE);
+        const permManage = await verifyPermission(user.id, PERMISSION_NODES.LEAVES_MANAGE);
+        const canApprove = isAdmin || permApprove.allowed || permManage.allowed;
 
-        if (!isAdmin) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        if (!canApprove) {
+            return NextResponse.json({ error: 'Forbidden: leaves.approve or leaves.manage required' }, { status: 403 });
         }
 
         const updateData: any = {

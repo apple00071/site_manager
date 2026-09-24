@@ -10,6 +10,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { verifyPermission } = await import('@/lib/rbac');
+    const perm = await verifyPermission(user.id, 'crm.manage');
+    if (!perm.allowed) {
+      return NextResponse.json({ error: 'Permission denied: crm.manage required' }, { status: 403 });
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const leadId = formData.get('lead_id') as string | null;

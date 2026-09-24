@@ -16,8 +16,31 @@ export interface BoqPdfOptions {
     engineerName?: string | null;
     engineerMobile?: string | null;
     deliveryFloor?: string | null;
+    date?: string | null;
     items: BoqPdfItem[];
     fileName?: string;
+}
+
+function formatDisplayDate(inputDate?: string | null): string {
+    if (!inputDate) {
+        const d = new Date();
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+    const parts = inputDate.split('-');
+    if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        const d = new Date(year, month, day);
+        if (!isNaN(d.getTime())) {
+            return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+    }
+    const parsed = new Date(inputDate);
+    if (!isNaN(parsed.getTime())) {
+        return parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+    return inputDate;
 }
 
 /**
@@ -30,9 +53,12 @@ export function generateBoqPDF(options: BoqPdfOptions): void {
         engineerName = 'Not Assigned',
         engineerMobile = 'N/A',
         deliveryFloor = 'Ground Floor',
+        date,
         items,
         fileName
     } = options;
+
+    const formattedDate = formatDisplayDate(date);
 
     const doc = new jsPDF({
         orientation: 'portrait',
@@ -85,11 +111,17 @@ export function generateBoqPDF(options: BoqPdfOptions): void {
     doc.text('+91 9603 9603 37 · +91 91606 77899', pageWidth - margin - 3, 29, { align: 'right' });
     doc.text('www.appleinteriors.in', pageWidth - margin - 3, 34, { align: 'right' });
 
-    // 3. DOCUMENT TITLE
-    doc.setFontSize(13);
+    // 3. DOCUMENT TITLE & DATE
+    doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(33, 33, 33);
     doc.text('BILL OF QUANTITIES (BOQ) - MATERIAL REQUIREMENT', margin, 45);
+
+    // Prominent Date on Header Right
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(75, 85, 99);
+    doc.text(`DATE: ${formattedDate}`, pageWidth - margin, 45, { align: 'right' });
 
     // Thin accent line below title
     doc.setDrawColor(245, 197, 24);
@@ -98,51 +130,79 @@ export function generateBoqPDF(options: BoqPdfOptions): void {
 
     // 4. SITE & DELIVERY DETAILS CARD
     const cardY = 50;
-    const cardHeight = 27;
+    const cardHeight = 29;
     doc.setFillColor(248, 249, 250);
     doc.setDrawColor(229, 231, 235);
     doc.setLineWidth(0.3);
     doc.roundedRect(margin, cardY, contentWidth, cardHeight, 2, 2, 'FD');
 
-    // Left Column: Site Info
-    doc.setFontSize(8);
+    // Row 1: Full-width Site / Project Name (never collides with Site Engineer!)
+    doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(100, 100, 100);
-    doc.text('SITE / PROJECT NAME:', margin + 4, cardY + 6);
+    doc.setTextColor(110, 110, 110);
+    doc.text('SITE / PROJECT:', margin + 4, cardY + 5.5);
+
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(17, 24, 39);
-    doc.text(siteName || 'N/A', margin + 40, cardY + 6);
+    const splitSiteName = doc.splitTextToSize(siteName || 'N/A', contentWidth - 36);
+    doc.text(splitSiteName, margin + 30, cardY + 5.5);
 
+    // Subtle divider line inside card
+    doc.setDrawColor(235, 237, 240);
+    doc.setLineWidth(0.2);
+    doc.line(margin + 4, cardY + 8.5, margin + contentWidth - 4, cardY + 8.5);
+
+    // Row 2-4 Left: Site Address & Date
+    const col1X = margin + 4;
+    doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(100, 100, 100);
-    doc.text('SITE ADDRESS:', margin + 4, cardY + 12);
+    doc.setTextColor(110, 110, 110);
+    doc.text('SITE ADDRESS:', col1X, cardY + 13.5);
+
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(55, 65, 81);
-    const splitAddress = doc.splitTextToSize(siteAddress || 'N/A', 65);
-    doc.text(splitAddress, margin + 40, cardY + 12);
+    const splitAddress = doc.splitTextToSize(siteAddress || 'N/A', 72).slice(0, 2);
+    doc.text(splitAddress, col1X + 24, cardY + 13.5);
 
-    // Right Column: Engineer & Delivery Floor
-    const col2X = margin + 105;
+    doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(100, 100, 100);
-    doc.text('SITE ENGINEER:', col2X, cardY + 6);
+    doc.setTextColor(110, 110, 110);
+    doc.text('DATE:', col1X, cardY + 23.5);
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(17, 24, 39);
-    doc.text(engineerName || 'Unassigned', col2X + 27, cardY + 6);
+    doc.text(formattedDate, col1X + 24, cardY + 23.5);
 
+    // Row 2-4 Right: Engineer, Mobile & Delivery Floor
+    const col2X = margin + 104;
+    doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(100, 100, 100);
-    doc.text('MOBILE NO:', col2X, cardY + 12);
+    doc.setTextColor(110, 110, 110);
+    doc.text('SITE ENGINEER:', col2X, cardY + 13.5);
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(17, 24, 39);
-    doc.text(engineerMobile || 'N/A', col2X + 27, cardY + 12);
+    doc.text(engineerName || 'Unassigned', col2X + 26, cardY + 13.5);
 
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(110, 110, 110);
+    doc.text('MOBILE NO:', col2X, cardY + 18.5);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(17, 24, 39);
+    doc.text(engineerMobile || 'N/A', col2X + 26, cardY + 18.5);
+
+    doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(180, 83, 9); // Amber-700
-    doc.text('DELIVERY FLOOR:', col2X, cardY + 18);
+    doc.text('DELIVERY FLOOR:', col2X, cardY + 23.5);
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(180, 83, 9);
-    doc.text(deliveryFloor || 'Ground Floor', col2X + 27, cardY + 18);
+    doc.text(deliveryFloor || 'Ground Floor', col2X + 26, cardY + 23.5);
 
     // 5. MATERIAL ITEMS TABLE
     const tableBody = items.map((item, index) => [
@@ -152,7 +212,7 @@ export function generateBoqPDF(options: BoqPdfOptions): void {
     ]);
 
     autoTable(doc, {
-        startY: cardY + cardHeight + 5,
+        startY: cardY + cardHeight + 4,
         head: [['Sl.No', 'Particular (Item)', 'Quantity']],
         body: tableBody,
         margin: { left: margin, right: margin, bottom: 35 },
@@ -187,7 +247,7 @@ export function generateBoqPDF(options: BoqPdfOptions): void {
             doc.setFont('helvetica', 'normal');
             doc.setTextColor(150, 150, 150);
             doc.text(
-                `Apple Interiors · BOQ Material Requirement · Generated for ${siteName}`,
+                `Apple Interiors · BOQ Material Requirement · Generated for ${siteName} · ${formattedDate}`,
                 margin,
                 pageHeight - 8
             );
@@ -229,7 +289,7 @@ export function generateBoqPDF(options: BoqPdfOptions): void {
 
     // Save and trigger browser download
     const cleanSiteName = (siteName || 'Project').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const dateStr = new Date().toISOString().split('T')[0];
+    const dateStr = date || new Date().toISOString().split('T')[0];
     const outName = fileName || `BOQ_${cleanSiteName}_${dateStr}.pdf`;
     doc.save(outName);
 }
@@ -248,6 +308,7 @@ export interface LaminatePdfOptions {
     engineerName?: string | null;
     engineerMobile?: string | null;
     deliveryFloor?: string | null;
+    date?: string | null;
     items: LaminatePdfItem[];
     fileName?: string;
 }
@@ -262,9 +323,12 @@ export function generateLaminatePDF(options: LaminatePdfOptions): void {
         engineerName = 'Not Assigned',
         engineerMobile = 'N/A',
         deliveryFloor = 'Ground Floor',
+        date,
         items,
         fileName
     } = options;
+
+    const formattedDate = formatDisplayDate(date);
 
     const doc = new jsPDF({
         orientation: 'portrait',
@@ -316,11 +380,17 @@ export function generateLaminatePDF(options: LaminatePdfOptions): void {
     doc.text('+91 9603 9603 37 · +91 91606 77899', pageWidth - margin - 3, 29, { align: 'right' });
     doc.text('www.appleinteriors.in', pageWidth - margin - 3, 34, { align: 'right' });
 
-    // 3. DOCUMENT TITLE
-    doc.setFontSize(13);
+    // 3. DOCUMENT TITLE & DATE
+    doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(33, 33, 33);
     doc.text('BILL OF QUANTITIES (BOQ) - LAMINATE REQUIREMENT', margin, 45);
+
+    // Prominent Date on Header Right
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(75, 85, 99);
+    doc.text(`DATE: ${formattedDate}`, pageWidth - margin, 45, { align: 'right' });
 
     // Thin accent line below title
     doc.setDrawColor(245, 197, 24);
@@ -329,51 +399,79 @@ export function generateLaminatePDF(options: LaminatePdfOptions): void {
 
     // 4. SITE & DELIVERY DETAILS CARD
     const cardY = 50;
-    const cardHeight = 27;
+    const cardHeight = 29;
     doc.setFillColor(248, 249, 250);
     doc.setDrawColor(229, 231, 235);
     doc.setLineWidth(0.3);
     doc.roundedRect(margin, cardY, contentWidth, cardHeight, 2, 2, 'FD');
 
-    // Left Column: Site Info
-    doc.setFontSize(8);
+    // Row 1: Full-width Site / Project Name (never collides with Site Engineer!)
+    doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(100, 100, 100);
-    doc.text('SITE / PROJECT NAME:', margin + 4, cardY + 6);
+    doc.setTextColor(110, 110, 110);
+    doc.text('SITE / PROJECT:', margin + 4, cardY + 5.5);
+
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(17, 24, 39);
-    doc.text(siteName || 'N/A', margin + 40, cardY + 6);
+    const splitSiteName = doc.splitTextToSize(siteName || 'N/A', contentWidth - 36);
+    doc.text(splitSiteName, margin + 30, cardY + 5.5);
 
+    // Subtle divider line inside card
+    doc.setDrawColor(235, 237, 240);
+    doc.setLineWidth(0.2);
+    doc.line(margin + 4, cardY + 8.5, margin + contentWidth - 4, cardY + 8.5);
+
+    // Row 2-4 Left: Site Address & Date
+    const col1X = margin + 4;
+    doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(100, 100, 100);
-    doc.text('SITE ADDRESS:', margin + 4, cardY + 12);
+    doc.setTextColor(110, 110, 110);
+    doc.text('SITE ADDRESS:', col1X, cardY + 13.5);
+
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(55, 65, 81);
-    const splitAddress = doc.splitTextToSize(siteAddress || 'N/A', 65);
-    doc.text(splitAddress, margin + 40, cardY + 12);
+    const splitAddress = doc.splitTextToSize(siteAddress || 'N/A', 72).slice(0, 2);
+    doc.text(splitAddress, col1X + 24, cardY + 13.5);
 
-    // Right Column: Engineer & Delivery Floor
-    const col2X = margin + 105;
+    doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(100, 100, 100);
-    doc.text('SITE ENGINEER:', col2X, cardY + 6);
+    doc.setTextColor(110, 110, 110);
+    doc.text('DATE:', col1X, cardY + 23.5);
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(17, 24, 39);
-    doc.text(engineerName || 'Unassigned', col2X + 27, cardY + 6);
+    doc.text(formattedDate, col1X + 24, cardY + 23.5);
 
+    // Row 2-4 Right: Engineer, Mobile & Delivery Floor
+    const col2X = margin + 104;
+    doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(100, 100, 100);
-    doc.text('MOBILE NO:', col2X, cardY + 12);
+    doc.setTextColor(110, 110, 110);
+    doc.text('SITE ENGINEER:', col2X, cardY + 13.5);
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(17, 24, 39);
-    doc.text(engineerMobile || 'N/A', col2X + 27, cardY + 12);
+    doc.text(engineerName || 'Unassigned', col2X + 26, cardY + 13.5);
 
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(110, 110, 110);
+    doc.text('MOBILE NO:', col2X, cardY + 18.5);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(17, 24, 39);
+    doc.text(engineerMobile || 'N/A', col2X + 26, cardY + 18.5);
+
+    doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(180, 83, 9); // Amber-700
-    doc.text('DELIVERY FLOOR:', col2X, cardY + 18);
+    doc.text('DELIVERY FLOOR:', col2X, cardY + 23.5);
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(180, 83, 9);
-    doc.text(deliveryFloor || 'Ground Floor', col2X + 27, cardY + 18);
+    doc.text(deliveryFloor || 'Ground Floor', col2X + 26, cardY + 23.5);
 
     // 5. LAMINATE ITEMS TABLE
     const tableBody = items.map((item, index) => [
@@ -384,7 +482,7 @@ export function generateLaminatePDF(options: LaminatePdfOptions): void {
     ]);
 
     autoTable(doc, {
-        startY: cardY + cardHeight + 5,
+        startY: cardY + cardHeight + 4,
         head: [['Sl.No', 'Laminate Code', 'Company', 'Sheets']],
         body: tableBody,
         margin: { left: margin, right: margin, bottom: 35 },
@@ -419,7 +517,7 @@ export function generateLaminatePDF(options: LaminatePdfOptions): void {
             doc.setFont('helvetica', 'normal');
             doc.setTextColor(150, 150, 150);
             doc.text(
-                `Apple Interiors · Laminate Requirement · Generated for ${siteName}`,
+                `Apple Interiors · Laminate Requirement · Generated for ${siteName} · ${formattedDate}`,
                 margin,
                 pageHeight - 8
             );
@@ -459,8 +557,8 @@ export function generateLaminatePDF(options: LaminatePdfOptions): void {
     });
 
     const cleanSite = (siteName || 'Project').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const date = new Date().toISOString().split('T')[0];
-    const output = fileName || `Laminate_${cleanSite}_${date}.pdf`;
+    const dateStr = date || new Date().toISOString().split('T')[0];
+    const output = fileName || `Laminate_${cleanSite}_${dateStr}.pdf`;
     doc.save(output);
 }
 

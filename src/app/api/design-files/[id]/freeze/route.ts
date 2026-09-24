@@ -33,12 +33,16 @@ export async function POST(
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
-        // RBAC: Only admin or project_manager can freeze
+        // RBAC: Check designs.freeze permission or admin / project_manager role
         if (!['admin', 'project_manager'].includes(userData.role)) {
-            return NextResponse.json(
-                { error: 'Forbidden: Only admins and project managers can freeze designs' },
-                { status: 403 }
-            );
+            const { verifyPermission } = await import('@/lib/rbac');
+            const perm = await verifyPermission(userId, 'designs.freeze');
+            if (!perm.allowed) {
+                return NextResponse.json(
+                    { error: 'Forbidden: Permission designs.freeze required' },
+                    { status: 403 }
+                );
+            }
         }
 
         // Freeze the design

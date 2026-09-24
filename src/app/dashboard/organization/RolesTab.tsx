@@ -65,7 +65,6 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         icon: '🎨',
         permissions: [
             { id: 'designs.view', label: 'View design files' },
-            { id: 'designs.daily_status', label: 'View & update daily design status tracker' },
             { id: 'designs.upload', label: 'Upload design files' },
             { id: 'designs.approve', label: 'Approve/Reject designs' },
             { id: 'designs.freeze', label: 'Freeze/Unfreeze designs' },
@@ -82,7 +81,9 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
             { id: 'boq.create', label: 'Create BOQ items' },
             { id: 'boq.edit', label: 'Edit BOQ items' },
             { id: 'boq.delete', label: 'Delete BOQ items' },
-            { id: 'boq.import', label: 'Import BOQ from Excel' }
+            { id: 'boq.import', label: 'Import BOQ from Excel' },
+            { id: 'boq.delivery', label: 'Manage deliveries & upload bills/challans' },
+            { id: 'boq.proposals', label: 'Create & view client proposals' }
         ],
         notifications: ['BOQ created', 'BOQ updated', 'BOQ approved']
     },
@@ -216,7 +217,9 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         permissions: [
             { id: 'crm.view', label: 'View CRM leads & quotations' },
             { id: 'crm.manage', label: 'Manage CRM leads, stages & quotations' },
-            { id: 'crm.edit_approved', label: 'Modify approved quotations & leads' }
+            { id: 'crm.edit_approved', label: 'Modify approved quotations & leads' },
+            { id: 'rate_card.view', label: 'View quotation rate card' },
+            { id: 'rate_card.manage', label: 'Manage rate card items & standard pricing' }
         ],
         notifications: ['New lead created', 'Quotation approved']
     },

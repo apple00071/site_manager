@@ -37,7 +37,8 @@ export type NotificationType =
   | 'leave_rejected'
   | 'attendance_appealed'
   | 'attendance_approved'
-  | 'attendance_rejected';
+  | 'attendance_rejected'
+  | 'material_delivered';
 
 export interface CreateNotificationParams {
   userId: string;
@@ -112,6 +113,8 @@ export class NotificationService {
         return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=daily_logs` : undefined;
       case 'report_generated':
         return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress` : undefined;
+      case 'material_delivered':
+        return relatedId ? `${baseUrl}/projects/${relatedId}?tab=boq` : `${baseUrl}/projects`;
       default:
         return undefined;
     }

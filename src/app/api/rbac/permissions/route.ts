@@ -20,11 +20,10 @@ export async function GET(request: NextRequest) {
         if (error) throw error;
 
         // Auto-seed missing permissions if not yet present in database
-        const hasPopupsView = permissions?.some((p: any) => p.code === 'popups.view');
-        const hasPopupsManage = permissions?.some((p: any) => p.code === 'popups.manage');
-        const hasDailyStatus = permissions?.some((p: any) => p.code === 'designs.daily_status' || p.code === 'daily_status.view');
-
-        const snagPermDefs = [
+        const requiredPermDefs = [
+            { code: 'popups.view', module: 'popups', action: 'view', description: 'View popups and recipient history' },
+            { code: 'popups.manage', module: 'popups', action: 'manage', description: 'Create, toggle, and delete in-app popups' },
+            { code: 'designs.daily_status', module: 'designs', action: 'daily_status', description: 'View & update daily design status tracker' },
             { code: 'snags.view', module: 'snags', action: 'view', description: 'View assigned snags' },
             { code: 'snags.view_all', module: 'snags', action: 'view_all', description: 'View all snags across sites (not just assigned)' },
             { code: 'snags.create', module: 'snags', action: 'create', description: 'Create snags' },
@@ -32,33 +31,22 @@ export async function GET(request: NextRequest) {
             { code: 'snags.edit', module: 'snags', action: 'edit', description: 'Edit snags' },
             { code: 'snags.resolve', module: 'snags', action: 'resolve', description: 'Resolve snags' },
             { code: 'snags.verify', module: 'snags', action: 'verify', description: 'Verify resolved snags' },
+            { code: 'boq.delivery', module: 'boq', action: 'delivery', description: 'Manage deliveries & upload bills/challans' },
+            { code: 'boq.proposals', module: 'boq', action: 'proposals', description: 'Create & view client proposals' },
+            { code: 'rate_card.view', module: 'crm', action: 'view', description: 'View rate card items' },
+            { code: 'rate_card.manage', module: 'crm', action: 'manage', description: 'Create, update & deactivate rate card items' },
         ];
-        const missingSnags = snagPermDefs.filter(sp => !permissions?.some((p: any) => p.code === sp.code));
 
-        if ((!hasPopupsView || !hasPopupsManage || !hasDailyStatus || missingSnags.length > 0) && permissions) {
+        const missingPerms = requiredPermDefs.filter(rp => !permissions?.some((p: any) => p.code === rp.code));
+
+        if (missingPerms.length > 0 && permissions) {
             try {
-                const toInsert: Array<{ code: string; module: string; action: string; description: string }> = [];
-                if (!hasPopupsView) {
-                    toInsert.push({ code: 'popups.view', module: 'popups', action: 'view', description: 'View popups and recipient history' });
-                }
-                if (!hasPopupsManage) {
-                    toInsert.push({ code: 'popups.manage', module: 'popups', action: 'manage', description: 'Create, toggle, and delete in-app popups' });
-                }
-                if (!hasDailyStatus) {
-                    toInsert.push({ code: 'designs.daily_status', module: 'designs', action: 'daily_status', description: 'View & update daily design status tracker' });
-                }
-                for (const sp of missingSnags) {
-                    toInsert.push(sp);
-                }
-
-                if (toInsert.length > 0) {
-                    const { data: inserted } = await supabaseAdmin
-                        .from('permissions')
-                        .upsert(toInsert, { onConflict: 'code' })
-                        .select();
-                    if (inserted) {
-                        permissions.push(...inserted);
-                    }
+                const { data: inserted } = await supabaseAdmin
+                    .from('permissions')
+                    .upsert(missingPerms, { onConflict: 'code' })
+                    .select();
+                if (inserted) {
+                    permissions.push(...inserted);
                 }
             } catch (seedErr) {
                 console.warn('Could not auto-seed missing permissions:', seedErr);

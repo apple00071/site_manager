@@ -15,6 +15,13 @@ const boqItemSchema = z.object({
     rate: z.number().min(0).default(0),
     amount: z.number().min(0).optional(),
     status: z.enum(['draft', 'confirmed', 'completed']).optional(),
+    order_status: z.string().optional().nullable(),
+    delivered_quantity: z.number().min(0).optional().nullable(),
+    delivered_at: z.string().optional().nullable(),
+    delivered_by: z.string().uuid().optional().nullable(),
+    delivery_challan_url: z.string().optional().nullable(),
+    delivery_notes: z.string().optional().nullable(),
+    bill_number: z.string().optional().nullable(),
     sort_order: z.number().optional(),
     remarks: z.string().optional().nullable(),
 });
@@ -53,7 +60,14 @@ async function checkProjectAccess(userId: string, projectId: string, userRole: s
         .eq('user_id', userId)
         .single();
 
-    return !!data;
+    if (data) return true;
+
+    // Check role-based permission
+    const { checkPermission } = await import('@/lib/rbac');
+    const hasViewAll = await checkPermission(userId, 'projects.view_all');
+    if (hasViewAll.allowed) return true;
+    const hasBoqView = await checkPermission(userId, 'boq.view');
+    return hasBoqView.allowed;
 }
 
 // GET /api/boq?project_id=xxx - Get BOQ items for a project
@@ -218,6 +232,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 
+        // Verify RBAC permission boq.create
+        const { verifyPermission } = await import('@/lib/rbac');
+        const permCreate = await verifyPermission(user.id, 'boq.create', project_id);
+        if (!permCreate.allowed) {
+            return NextResponse.json({ error: 'Permission denied: boq.create required' }, { status: 403 });
+        }
+
         const { data, error } = await supabaseAdmin
             .from('boq_items')
             .insert({
@@ -269,6 +290,24 @@ export async function PATCH(request: NextRequest) {
         const hasAccess = await checkProjectAccess(user.id, existing.project_id, userRole);
         if (!hasAccess) {
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+        }
+
+        // Verify RBAC permission boq.edit (or boq.delivery if updating only delivery-related fields)
+        const isDeliveryOnlyUpdate = Object.keys(updates).every(k => 
+            ['order_status', 'delivered_quantity', 'delivered_at', 'delivered_by', 'delivery_challan_url', 'delivery_notes', 'bill_number'].includes(k)
+        );
+
+        const { verifyPermission: verifyPermPatch } = await import('@/lib/rbac');
+        const permEdit = await verifyPermPatch(user.id, 'boq.edit', existing.project_id);
+        if (!permEdit.allowed) {
+            if (isDeliveryOnlyUpdate) {
+                const permDelivery = await verifyPermPatch(user.id, 'boq.delivery', existing.project_id);
+                if (!permDelivery.allowed) {
+                    return NextResponse.json({ error: 'Permission denied: boq.delivery or boq.edit required' }, { status: 403 });
+                }
+            } else {
+                return NextResponse.json({ error: 'Permission denied: boq.edit required' }, { status: 403 });
+            }
         }
 
         const validationResult = boqItemSchema.partial().safeParse(updates);
@@ -329,6 +368,13 @@ export async function DELETE(request: NextRequest) {
         const hasAccess = await checkProjectAccess(user.id, existing.project_id, userRole);
         if (!hasAccess) {
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+        }
+
+        // Verify RBAC permission boq.delete
+        const { verifyPermission: verifyPermDel } = await import('@/lib/rbac');
+        const permDelete = await verifyPermDel(user.id, 'boq.delete', existing.project_id);
+        if (!permDelete.allowed) {
+            return NextResponse.json({ error: 'Permission denied: boq.delete required' }, { status: 403 });
         }
 
         const { error } = await supabaseAdmin

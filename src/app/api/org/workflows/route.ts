@@ -47,7 +47,11 @@ export async function POST(request: NextRequest) {
         }
 
         if (role !== 'admin') {
-            return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+            const { verifyPermission } = await import('@/lib/rbac');
+            const perm = await verifyPermission(user.id, 'settings.workflows');
+            if (!perm.allowed) {
+                return NextResponse.json({ error: 'Permission denied: settings.workflows required' }, { status: 403 });
+            }
         }
 
         const body = await request.json();
@@ -90,8 +94,16 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
     try {
         const { user, error: authError, role } = await getAuthUser();
-        if (authError || !user || role !== 'admin') {
+        if (authError || !user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        if (role !== 'admin') {
+            const { verifyPermission } = await import('@/lib/rbac');
+            const perm = await verifyPermission(user.id, 'settings.workflows');
+            if (!perm.allowed) {
+                return NextResponse.json({ error: 'Permission denied: settings.workflows required' }, { status: 403 });
+            }
         }
 
         const id = request.nextUrl.searchParams.get('id');

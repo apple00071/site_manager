@@ -50,11 +50,12 @@ interface UserOption {
 
 export default function SnagsPage() {
     const { setTitle, setSubtitle } = useHeaderTitle();
-    const router = useRouter();
     const { user } = useAuth();
-    const { hasPermission, isAdmin } = useUserPermissions();
+    const { hasPermission, hasAnyPermission, isAdmin, isLoading: permLoading } = useUserPermissions();
+    const router = useRouter();
 
     // Permission checks
+    const canView = hasAnyPermission(['snags.view', 'snags.view_all']);
     const canCreate = hasPermission('snags.create');
     const canResolve = hasPermission('snags.resolve');
     const canVerify = hasPermission('snags.verify');
@@ -438,6 +439,13 @@ export default function SnagsPage() {
         // Sort by date descending
         return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     };
+
+    // ponytail: redirect unauthorized users silently — sidebar already hides the link
+    useEffect(() => {
+        if (!permLoading && !canView) router.replace('/dashboard');
+    }, [permLoading, canView, router]);
+
+    if (!permLoading && !canView) return null;
 
     return (
         <div className="flex flex-col h-full lg:h-[calc(100vh-64px)] bg-gray-50 p-4 lg:p-6 gap-4 lg:gap-6 overflow-x-hidden overflow-y-auto lg:overflow-hidden">

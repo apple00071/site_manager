@@ -34,11 +34,15 @@ export async function GET(request: NextRequest) {
       .eq('id', user.id)
       .single();
 
+    const { checkPermission } = await import('@/lib/rbac');
+    const permStatus = await checkPermission(user.id, 'designs.daily_status');
+
     const isManagement = Boolean(
       user.role === 'admin' ||
       userData?.role === 'admin' ||
       (userData?.roles as any)?.name?.toLowerCase() === 'admin' ||
-      userData?.designation?.toLowerCase().includes('lead')
+      userData?.designation?.toLowerCase().includes('lead') ||
+      permStatus.allowed
     );
 
     let query = supabaseAdmin

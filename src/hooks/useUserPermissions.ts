@@ -109,7 +109,7 @@ function setCachedPermissions(userId: string, data: any) {
  * Provides utility functions to check if user has specific permissions.
  */
 export function useUserPermissions(): UseUserPermissionsReturn {
-    const { user, isAdmin: authIsAdmin } = useAuth();
+    const { user } = useAuth();
     const userId = user?.id;
 
     // Initialize state from cache if available for immediate UI response
@@ -117,7 +117,7 @@ export function useUserPermissions(): UseUserPermissionsReturn {
 
     const [state, setState] = useState<UserPermissions>({
         permissions: initialCache?.permissions || {},
-        isAdmin: initialCache?.isAdmin ?? authIsAdmin ?? false,
+        isAdmin: initialCache?.isAdmin || false,
         isLoading: !initialCache && !!user,
         error: null,
     });
@@ -133,21 +133,18 @@ export function useUserPermissions(): UseUserPermissionsReturn {
             return;
         }
 
-        // 1. Check cache first (unless forced)
-        if (!forceRefresh) {
-            const cached = getCachedPermissions(userId);
-            if (cached) {
-                setState({
-                    permissions: cached.permissions || {},
-                    isAdmin: cached.isAdmin || false,
-                    isLoading: false,
-                    error: null
-                });
-                return;
-            }
+        // Stale-while-revalidate: if cache exists and not forced, hydrate state immediately without returning early
+        const cached = getCachedPermissions(userId);
+        if (cached && !forceRefresh) {
+            setState(prev => ({
+                ...prev,
+                permissions: cached.permissions || {},
+                isAdmin: cached.isAdmin || false,
+                isLoading: false,
+            }));
         }
 
-        // 2. Handle concurrent requests (batching)
+        // Handle concurrent requests (batching)
         if (pendingPermissionsRequest) {
             try {
                 const data = await pendingPermissionsRequest;
@@ -164,7 +161,10 @@ export function useUserPermissions(): UseUserPermissionsReturn {
         }
 
         try {
-            setState(prev => ({ ...prev, isLoading: true, error: null }));
+            // Only show loading spinner if we don't have any cached permissions yet
+            if (!cached || forceRefresh) {
+                setState(prev => ({ ...prev, isLoading: true, error: null }));
+            }
 
             const fetchPromise = fetch('/api/rbac/user-permissions').then(async res => {
                 if (!res.ok) throw new Error('Failed to fetch permissions');
@@ -174,7 +174,7 @@ export function useUserPermissions(): UseUserPermissionsReturn {
 
             const data = await fetchPromise;
 
-            // 3. Update cache scoped by userId
+            // Update cache scoped by userId
             setCachedPermissions(userId, {
                 permissions: data.permissions || {},
                 isAdmin: data.isAdmin || false

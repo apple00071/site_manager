@@ -17,13 +17,30 @@ import { useEffect } from 'react';
 import { CustomDropdown } from '@/components/ui/CustomControls';
 
 export default function OrganizationPage() {
-  const { isAdmin, isLoading } = useAuth();
-  const { hasAnyPermission } = useUserPermissions();
+  const { isLoading: authLoading } = useAuth();
+  const { hasPermission, hasAnyPermission, isLoading: permLoading } = useUserPermissions();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialTab = searchParams.get('tab') || 'users';
-  const [activeTab, setActiveTab] = useState(initialTab);
   const { setTitle, setSubtitle } = useHeaderTitle();
+
+  const canAccessUsers = hasAnyPermission(['users.view', 'users.create', 'users.edit', 'users.delete']);
+  const canAccessRoles = hasPermission('users.manage_roles');
+  const canAccessBasic = hasAnyPermission(['settings.view', 'settings.edit']);
+  const canAccessApprovals = hasAnyPermission(['settings.workflows', 'settings.edit', 'settings.view']);
+  const canAccessHolidays = hasAnyPermission(['holidays.view', 'holidays.manage']);
+  const canAccessBroadcast = hasAnyPermission(['popups.view', 'popups.manage']);
+
+  const tabs = [
+    canAccessUsers && { id: 'users', label: 'Users' },
+    canAccessRoles && { id: 'roles', label: 'Roles' },
+    canAccessBasic && { id: 'basic', label: 'Basic Details' },
+    canAccessApprovals && { id: 'approvals', label: 'Approval Hierarchy' },
+    canAccessHolidays && { id: 'holidays', label: 'Holidays' },
+    canAccessBroadcast && { id: 'broadcast', label: 'In-App Popups' },
+  ].filter(Boolean) as { id: string; label: string }[];
+
+  const initialTab = searchParams.get('tab') || (tabs[0]?.id ?? 'users');
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   useEffect(() => {
     setTitle('Org Settings');
@@ -32,27 +49,18 @@ export default function OrganizationPage() {
 
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab) setActiveTab(tab);
-  }, [searchParams]);
+    if (tab && tabs.some(t => t.id === tab)) {
+      setActiveTab(tab);
+    } else if (tabs.length > 0 && !tabs.some(t => t.id === activeTab)) {
+      setActiveTab(tabs[0].id);
+    }
+  }, [searchParams, tabs, activeTab]);
 
-  const canAccessOrg = hasAnyPermission([
-    'users.view', 'users.create', 'users.edit', 'users.delete', 'role.manage', 'settings.edit', 'popups.view', 'popups.manage'
-  ]);
-
-  if (isLoading) return <div>Loading...</div>;
-  if (isAdmin === false && !canAccessOrg) {
+  if (authLoading || permLoading) return <div>Loading...</div>;
+  if (tabs.length === 0) {
     router.push('/dashboard');
     return null;
   }
-
-  const tabs = [
-    { id: 'users', label: 'Users' },
-    { id: 'roles', label: 'Roles' },
-    { id: 'basic', label: 'Basic Details' },
-    { id: 'approvals', label: 'Approval Hierarchy' },
-    { id: 'holidays', label: 'Holidays' },
-    { id: 'broadcast', label: 'In-App Popups' },
-  ];
 
   return (
     <div className="p-4 lg:p-6 space-y-6">

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 
 // Check project access
-async function checkProjectAccess(userId: string, projectId: string, userRole: string) {
+async function checkProjectAccess(userId: string, projectId: string, userRole?: string | null) {
     if (userRole === 'admin') return true;
 
     const { data: project } = await supabaseAdmin
@@ -23,7 +23,14 @@ async function checkProjectAccess(userId: string, projectId: string, userRole: s
         .eq('user_id', userId)
         .single();
 
-    return !!data;
+    if (data) return true;
+
+    // Check role-based permission
+    const { checkPermission } = await import('@/lib/rbac');
+    const hasViewAll = await checkPermission(userId, 'projects.view_all');
+    if (hasViewAll.allowed) return true;
+    const hasBoqImport = await checkPermission(userId, 'boq.import');
+    return hasBoqImport.allowed;
 }
 
 const ImportItemSchema = z.object({
@@ -54,10 +61,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Only admins can import
+        // RBAC: Admin or boq.import permission
         if (userRole !== 'admin') {
-            console.error('BOQ Import: Forbidden - Not admin', { role: userRole });
-            return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+            const { verifyPermission } = await import('@/lib/rbac');
+            const perm = await verifyPermission(user.id, 'boq.import');
+            if (!perm.allowed) {
+                console.error('BOQ Import: Forbidden - Missing boq.import permission', { role: userRole });
+                return NextResponse.json({ error: 'Permission denied: boq.import required' }, { status: 403 });
+            }
         }
 
         const body = await request.json();

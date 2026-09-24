@@ -18,7 +18,11 @@ export async function POST(req: NextRequest) {
         }
 
         if (role !== 'admin') {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            const { verifyPermission } = await import('@/lib/rbac');
+            const perm = await verifyPermission(user.id, 'payroll.config');
+            if (!perm.allowed) {
+                return NextResponse.json({ error: 'Forbidden: payroll.config permission required' }, { status: 403 });
+            }
         }
 
         const body = await req.json();

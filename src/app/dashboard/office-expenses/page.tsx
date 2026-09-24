@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { FiPlus, FiFilter, FiSearch, FiMoreVertical, FiEdit2, FiTrash2, FiFileText, FiCheck, FiX, FiEye, FiUser } from 'react-icons/fi';
+import { FiPlus, FiFilter, FiSearch, FiMoreVertical, FiEdit2, FiTrash2, FiFileText, FiCheck, FiX, FiEye, FiUser, FiCreditCard } from 'react-icons/fi';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { createPortal } from 'react-dom';
 import { useToast } from '@/components/ui/Toast';
@@ -45,8 +45,9 @@ const MONTHS = [
 export default function OfficeExpensesPage() {
     const searchParams = useSearchParams();
     const expenseIdParam = searchParams?.get('expenseId');
-    const { user, isAdmin } = useAuth();
-    const { hasPermission } = useUserPermissions();
+    const { user } = useAuth();
+    const { hasPermission, isAdmin, isLoading: permLoading } = useUserPermissions();
+    const router = useRouter();
     const { setTitle, setSubtitle } = useHeaderTitle();
     const { showToast } = useToast();
 
@@ -57,6 +58,7 @@ export default function OfficeExpensesPage() {
     }, [setTitle, setSubtitle]);
 
     // Permissions
+    const canView = hasPermission('office_expenses.view');
     const canCreate = hasPermission('office_expenses.create');
     const canApprove = hasPermission('office_expenses.approve');
     const canDelete = hasPermission('office_expenses.delete');
@@ -314,7 +316,14 @@ export default function OfficeExpensesPage() {
         }
     ];
 
+    // ponytail: redirect unauthorized users silently — sidebar already hides the link
+    useEffect(() => {
+        if (!permLoading && !canView) router.replace('/dashboard');
+    }, [permLoading, canView, router]);
+
     if (!mounted) return null;
+
+    if (!permLoading && !canView) return null;
 
     return (
         <div className="space-y-6">

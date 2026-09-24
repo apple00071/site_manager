@@ -38,6 +38,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { verifyPermission } = await import('@/lib/rbac');
+    const permView = await verifyPermission(user.id, 'workers.view');
+    const permVendorsView = await verifyPermission(user.id, 'vendors.view');
+    if (!permView.allowed && !permVendorsView.allowed) {
+      return NextResponse.json({ error: 'Permission denied: workers.view required' }, { status: 403 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const search = searchParams.get('search');
     const vendorId = searchParams.get('vendor_id');
@@ -102,6 +109,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { verifyPermission } = await import('@/lib/rbac');
+    const permCreate = await verifyPermission(user.id, 'workers.create');
+    const permVendorsCreate = await verifyPermission(user.id, 'vendors.create');
+    if (!permCreate.allowed && !permVendorsCreate.allowed) {
+      return NextResponse.json({ error: 'Permission denied: workers.create required' }, { status: 403 });
+    }
+
     const body = await request.json();
     const validationResult = contractWorkerSchema.safeParse(body);
 
@@ -145,6 +159,13 @@ export async function PATCH(request: NextRequest) {
     const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { verifyPermission } = await import('@/lib/rbac');
+    const permEdit = await verifyPermission(user.id, 'workers.edit');
+    const permVendorsEdit = await verifyPermission(user.id, 'vendors.edit');
+    if (!permEdit.allowed && !permVendorsEdit.allowed) {
+      return NextResponse.json({ error: 'Permission denied: workers.edit required' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -197,6 +218,13 @@ export async function DELETE(request: NextRequest) {
     const { user, error: authError } = await getAuthUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { verifyPermission } = await import('@/lib/rbac');
+    const permDelete = await verifyPermission(user.id, 'workers.delete');
+    const permVendorsDelete = await verifyPermission(user.id, 'vendors.delete');
+    if (!permDelete.allowed && !permVendorsDelete.allowed) {
+      return NextResponse.json({ error: 'Permission denied: workers.delete required' }, { status: 403 });
     }
 
     const id = request.nextUrl.searchParams.get('id');

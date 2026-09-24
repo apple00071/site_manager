@@ -1,9 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
+  FiTruck,
   FiUsers,
   FiBriefcase,
   FiPlus,
@@ -55,6 +58,9 @@ const TRADE_FILTERS = [
 export default function VendorsWorkersPage() {
   const { setTitle, setSubtitle } = useHeaderTitle();
   const { user } = useAuth();
+  const { hasAnyPermission, isLoading: permLoading } = useUserPermissions();
+  const router = useRouter();
+  const canView = hasAnyPermission(['vendors.view', 'workers.view', 'suppliers.view', 'suppliers.create']);
 
   // Tab State: 'workers' | 'vendors'
   const [activeTab, setActiveTab] = useState<'workers' | 'vendors'>('workers');
@@ -384,6 +390,13 @@ export default function VendorsWorkersPage() {
   const activeFiltersCount = (selectedVendorFilter !== 'all' ? 1 : 0) + 
     (selectedProjectFilter !== 'all' ? 1 : 0) + 
     (selectedStatusFilter !== 'all' ? 1 : 0);
+
+  // ponytail: redirect unauthorized users silently — sidebar already hides the link
+  useEffect(() => {
+    if (!permLoading && !canView) router.replace('/dashboard');
+  }, [permLoading, canView, router]);
+
+  if (!permLoading && !canView) return null;
 
   return (
     <div className="space-y-3.5 sm:space-y-4 pb-24 sm:pb-0 px-2 sm:px-4 lg:px-6 pt-2">
