@@ -5,10 +5,20 @@ import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { FiPlus, FiEdit2, FiTrash2, FiEye, FiMoreVertical, FiSearch, FiX, FiSend, FiBriefcase } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiEye, FiMoreVertical, FiSearch, FiX, FiSend, FiBriefcase, FiFilter, FiCheck } from 'react-icons/fi';
 import { formatDateIST } from '@/lib/dateUtils';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+
+const getDesignerName = (project: any): string => {
+  return (
+    project.assigned_employee?.name ||
+    project.assigned_employee?.full_name ||
+    project.designer?.username ||
+    project.designer?.full_name ||
+    'Not Assigned'
+  );
+};
 const getSupervisorName = (project: any): string => {
   if (project.site_supervisor?.username) {
     return project.site_supervisor.username;
@@ -43,6 +53,9 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('pending');
   const [defaultTabApplied, setDefaultTabApplied] = useState(false);
+  const [selectedDesigner, setSelectedDesigner] = useState<string>('');
+  const [selectedSiteEngineer, setSelectedSiteEngineer] = useState<string>('');
+  const [activeFilterDropdown, setActiveFilterDropdown] = useState<'designer' | 'site_engineer' | null>(null);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortConfig, setSortConfig] = useState<{
@@ -129,12 +142,39 @@ export default function ProjectsPage() {
 
   // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = () => setActiveDropdown(null);
-    if (activeDropdown) {
+    const handleClickOutside = () => {
+      setActiveDropdown(null);
+      setActiveFilterDropdown(null);
+    };
+    if (activeDropdown || activeFilterDropdown) {
       document.addEventListener('click', handleClickOutside);
     }
     return () => document.removeEventListener('click', handleClickOutside);
-  }, [activeDropdown]);
+  }, [activeDropdown, activeFilterDropdown]);
+
+  // Unique designers available across projects with counts
+  const availableDesigners = useMemo(() => {
+    const counts: Record<string, number> = {};
+    projects.forEach(p => {
+      const name = getDesignerName(p);
+      if (name && name !== 'Not Assigned') {
+        counts[name] = (counts[name] || 0) + 1;
+      }
+    });
+    return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [projects]);
+
+  // Unique site engineers available across projects with counts
+  const availableSiteEngineers = useMemo(() => {
+    const counts: Record<string, number> = {};
+    projects.forEach(p => {
+      const name = getSupervisorName(p);
+      if (name && name !== 'Not Assigned') {
+        counts[name] = (counts[name] || 0) + 1;
+      }
+    });
+    return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [projects]);
 
   const handleDeleteProject = async (projectId: string) => {
     if (!canDeleteProject) return;
@@ -201,6 +241,16 @@ export default function ProjectsPage() {
       });
     }
 
+    // Apply Designer filter
+    if (selectedDesigner) {
+      filtered = filtered.filter(p => getDesignerName(p).toLowerCase() === selectedDesigner.toLowerCase());
+    }
+
+    // Apply Site Engineer filter
+    if (selectedSiteEngineer) {
+      filtered = filtered.filter(p => getSupervisorName(p).toLowerCase() === selectedSiteEngineer.toLowerCase());
+    }
+
     // Apply sorting
     if (sortConfig.key) {
       filtered.sort((a, b) => {
@@ -233,7 +283,7 @@ export default function ProjectsPage() {
     }
 
     return filtered;
-  }, [projects, activeTab, searchQuery, sortConfig]);
+  }, [projects, activeTab, searchQuery, selectedDesigner, selectedSiteEngineer, sortConfig]);
 
   // Get status configuration for badges - shows actual project status
   const getStatusConfig = (project: any) => {
@@ -362,6 +412,47 @@ export default function ProjectsPage() {
             )}
           </div>
         </div>
+
+        {(selectedDesigner || selectedSiteEngineer) && (
+          <div className="flex items-center gap-2 px-4 py-2.5 bg-yellow-50/70 border-t border-yellow-100 text-xs text-yellow-900 flex-wrap">
+            <span className="font-semibold text-yellow-800 flex items-center gap-1">
+              <FiFilter className="w-3.5 h-3.5" /> Filters:
+            </span>
+            {selectedDesigner && (
+              <span className="inline-flex items-center gap-1.5 bg-white border border-yellow-200 shadow-2xs px-2.5 py-0.5 rounded-full text-gray-800">
+                <span>Designer: <strong className="text-gray-900">{selectedDesigner}</strong></span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDesigner('')}
+                  className="hover:text-red-500 rounded-full p-0.5 transition-colors"
+                  title="Remove designer filter"
+                >
+                  <FiX className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {selectedSiteEngineer && (
+              <span className="inline-flex items-center gap-1.5 bg-white border border-yellow-200 shadow-2xs px-2.5 py-0.5 rounded-full text-gray-800">
+                <span>Site Engineer: <strong className="text-gray-900">{selectedSiteEngineer}</strong></span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedSiteEngineer('')}
+                  className="hover:text-red-500 rounded-full p-0.5 transition-colors"
+                  title="Remove site engineer filter"
+                >
+                  <FiX className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => { setSelectedDesigner(''); setSelectedSiteEngineer(''); }}
+              className="text-yellow-700 hover:text-yellow-900 underline text-xs ml-1 font-medium cursor-pointer"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Projects Table */}
@@ -423,7 +514,7 @@ export default function ProjectsPage() {
                       )}
                       <div>
                         <span className="text-gray-500">Designer:</span>
-                        <span className="ml-1 text-gray-900 font-medium">{project.assigned_employee?.name || project.designer?.username || project.designer?.full_name || 'N/A'}</span>
+                        <span className="ml-1 text-gray-900 font-medium">{getDesignerName(project)}</span>
                       </div>
                       <div>
                         <span className="text-gray-500">Site Engineer:</span>
@@ -525,11 +616,151 @@ export default function ProjectsPage() {
                 <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Designer
+                <th scope="col" className="relative px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5">
+                    <span>Designer</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveFilterDropdown(prev => prev === 'designer' ? null : 'designer');
+                      }}
+                      className={`p-1 rounded-md transition-colors ${
+                        selectedDesigner
+                          ? 'text-yellow-700 bg-yellow-100 font-bold ring-1 ring-yellow-400'
+                          : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+                      }`}
+                      title="Filter by Designer"
+                    >
+                      <FiFilter className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  {activeFilterDropdown === 'designer' && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute left-0 top-full mt-1.5 w-60 bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-1.5 text-xs normal-case font-normal animate-in fade-in zoom-in-95 duration-100"
+                    >
+                      <div className="px-3 py-2 border-b border-gray-100 font-semibold text-gray-800 flex items-center justify-between">
+                        <span>Filter by Designer</span>
+                        {selectedDesigner && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedDesigner('');
+                              setActiveFilterDropdown(null);
+                            }}
+                            className="text-xs text-yellow-600 hover:text-yellow-700 font-medium"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
+                      <div className="max-h-60 overflow-y-auto py-1 divide-y divide-gray-50">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedDesigner('');
+                            setActiveFilterDropdown(null);
+                          }}
+                          className={`w-full text-left px-3 py-2 flex items-center justify-between hover:bg-gray-50 transition-colors ${
+                            !selectedDesigner ? 'font-semibold text-yellow-600 bg-yellow-50/60' : 'text-gray-700'
+                          }`}
+                        >
+                          <span>All Designers</span>
+                          {!selectedDesigner && <FiCheck className="w-4 h-4 text-yellow-600" />}
+                        </button>
+                        {availableDesigners.map(([name, count]) => (
+                          <button
+                            key={name}
+                            type="button"
+                            onClick={() => {
+                              setSelectedDesigner(name);
+                              setActiveFilterDropdown(null);
+                            }}
+                            className={`w-full text-left px-3 py-2 flex items-center justify-between hover:bg-gray-50 transition-colors ${
+                              selectedDesigner === name ? 'font-semibold text-yellow-600 bg-yellow-50/60' : 'text-gray-700'
+                            }`}
+                          >
+                            <span className="truncate pr-2">{name}</span>
+                            <span className="text-[10px] bg-gray-100 text-gray-500 font-medium rounded-full px-2 py-0.5">{count}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </th>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Site Engineer
+                <th scope="col" className="relative px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5">
+                    <span>Site Engineer</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveFilterDropdown(prev => prev === 'site_engineer' ? null : 'site_engineer');
+                      }}
+                      className={`p-1 rounded-md transition-colors ${
+                        selectedSiteEngineer
+                          ? 'text-yellow-700 bg-yellow-100 font-bold ring-1 ring-yellow-400'
+                          : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+                      }`}
+                      title="Filter by Site Engineer"
+                    >
+                      <FiFilter className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  {activeFilterDropdown === 'site_engineer' && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute left-0 top-full mt-1.5 w-60 bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-1.5 text-xs normal-case font-normal animate-in fade-in zoom-in-95 duration-100"
+                    >
+                      <div className="px-3 py-2 border-b border-gray-100 font-semibold text-gray-800 flex items-center justify-between">
+                        <span>Filter by Site Engineer</span>
+                        {selectedSiteEngineer && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedSiteEngineer('');
+                              setActiveFilterDropdown(null);
+                            }}
+                            className="text-xs text-yellow-600 hover:text-yellow-700 font-medium"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
+                      <div className="max-h-60 overflow-y-auto py-1 divide-y divide-gray-50">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedSiteEngineer('');
+                            setActiveFilterDropdown(null);
+                          }}
+                          className={`w-full text-left px-3 py-2 flex items-center justify-between hover:bg-gray-50 transition-colors ${
+                            !selectedSiteEngineer ? 'font-semibold text-yellow-600 bg-yellow-50/60' : 'text-gray-700'
+                          }`}
+                        >
+                          <span>All Site Engineers</span>
+                          {!selectedSiteEngineer && <FiCheck className="w-4 h-4 text-yellow-600" />}
+                        </button>
+                        {availableSiteEngineers.map(([name, count]) => (
+                          <button
+                            key={name}
+                            type="button"
+                            onClick={() => {
+                              setSelectedSiteEngineer(name);
+                              setActiveFilterDropdown(null);
+                            }}
+                            className={`w-full text-left px-3 py-2 flex items-center justify-between hover:bg-gray-50 transition-colors ${
+                              selectedSiteEngineer === name ? 'font-semibold text-yellow-600 bg-yellow-50/60' : 'text-gray-700'
+                            }`}
+                          >
+                            <span className="truncate pr-2">{name}</span>
+                            <span className="text-[10px] bg-gray-100 text-gray-500 font-medium rounded-full px-2 py-0.5">{count}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </th>
                 <th
                   scope="col"
@@ -593,7 +824,7 @@ export default function ProjectsPage() {
                     })()}
                   </td>
                   <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{project.assigned_employee?.name || project.designer?.username || project.designer?.full_name || '-'}</div>
+                    <div className="text-sm text-gray-900">{getDesignerName(project)}</div>
                   </td>
                   <td onClick={() => window.location.href = `/dashboard/projects/${project.id}`} className="px-3 py-3 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{getSupervisorName(project)}</div>
