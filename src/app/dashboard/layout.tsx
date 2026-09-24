@@ -399,30 +399,7 @@ function DashboardLayoutContent({
                 <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Attendance</span>
               </Link>
             )}
-            {hasPermission('payroll.view') && (
-              <Link
-                href="/dashboard/payroll"
-                className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
-                onClick={() => setSidebarOpen(false)}
-                title="Payroll"
-                id="sidebar-payroll"
-              >
-                <TbCurrencyRupee className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
-                <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Payroll</span>
-              </Link>
-            )}
-            {hasAnyPermission(['popups.view', 'popups.manage']) && (
-                <Link
-                  href="/dashboard/organization?tab=broadcast"
-                  className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
-                  onClick={() => setSidebarOpen(false)}
-                  title="Broadcast"
-                >
-                  <FiRadio className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
-                  <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Broadcast</span>
-                </Link>
-            )}
-            {hasAnyPermission(['users.view', 'users.create', 'users.edit', 'users.delete', 'users.manage_roles', 'settings.view', 'settings.edit', 'popups.view', 'popups.manage']) && (
+            {hasAnyPermission(['users.view', 'users.create', 'users.edit', 'users.delete', 'users.manage_roles', 'settings.view', 'settings.edit', 'popups.view', 'popups.manage', 'payroll.view', 'payroll.manage']) && (
                 <Link
                   href="/dashboard/organization"
                   className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"

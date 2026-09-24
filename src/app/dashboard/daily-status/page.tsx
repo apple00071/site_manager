@@ -490,10 +490,10 @@ export default function DailyStatusPage() {
   const router = useRouter();
   const canAccess = hasAnyPermission(['designs.daily_status', 'daily_status.view', 'designs.view_all']);
   const canViewAll = hasPermission('designs.view_all');
-
   const userDesig = (user?.designation || permDesignation || '').toLowerCase();
   const userRole = (roleName || user?.role || '').toLowerCase();
   const isLead = userDesig.includes('lead') || userRole.includes('lead');
+  const canExport = Boolean(isAdmin || isLead || canViewAll || hasPermission('designs.export'));
 
   const [isServerManagement, setIsServerManagement] = useState<boolean | null>(null);
   const isManagement = isServerManagement !== null 
@@ -802,6 +802,10 @@ export default function DailyStatusPage() {
 
   // Export to Excel (.xlsx) matching CRM
   const handleExportExcel = () => {
+    if (!canExport) {
+      showToast('error', 'You do not have permission to export daily status reports');
+      return;
+    }
     try {
       const todayStr = new Date().toISOString().split('T')[0];
       const rows: any[] = [];
@@ -850,6 +854,10 @@ export default function DailyStatusPage() {
 
   // Export to Landscape PDF with exact status colors
   const handleExportPDF = () => {
+    if (!canExport) {
+      showToast('error', 'You do not have permission to export daily status reports');
+      return;
+    }
     try {
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
       const todayStr = new Date().toLocaleDateString('en-IN', {
@@ -1017,23 +1025,27 @@ export default function DailyStatusPage() {
             <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-yellow-600' : ''}`} />
           </button>
 
-          <button
-            onClick={handleExportExcel}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs shadow-2xs transition-all cursor-pointer"
-            title="Export to Excel Spreadsheet (.xlsx)"
-          >
-            <FiDownload className="w-3.5 h-3.5" />
-            <span>Export Excel</span>
-          </button>
+          {canExport && (
+            <>
+              <button
+                onClick={handleExportExcel}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs shadow-2xs transition-all cursor-pointer"
+                title="Export to Excel Spreadsheet (.xlsx)"
+              >
+                <FiDownload className="w-3.5 h-3.5" />
+                <span>Export Excel</span>
+              </button>
 
-          <button
-            onClick={handleExportPDF}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold rounded-lg text-xs shadow-2xs transition-all cursor-pointer"
-            title="Download Landscape EOD PDF"
-          >
-            <FiFileText className="w-3.5 h-3.5" />
-            <span>Download PDF</span>
-          </button>
+              <button
+                onClick={handleExportPDF}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold rounded-lg text-xs shadow-2xs transition-all cursor-pointer"
+                title="Download Landscape EOD PDF"
+              >
+                <FiFileText className="w-3.5 h-3.5" />
+                <span>Download PDF</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 

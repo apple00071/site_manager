@@ -57,7 +57,8 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         icon: '📑',
         permissions: [
             { id: 'designs.daily_status', label: 'View & update daily design status tracker' },
-            { id: 'designs.view_all', label: 'View all designers projects (Lead Designer / View All)' }
+            { id: 'designs.view_all', label: 'View all designers projects (Lead Designer / View All)' },
+            { id: 'designs.export', label: 'Export daily status to Excel and PDF' }
         ],
         notifications: ['Design status updated']
     },

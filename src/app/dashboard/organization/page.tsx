@@ -10,6 +10,7 @@ import BasicDetailsTab from './BasicDetailsTab';
 import ApprovalHierarchyTab from './ApprovalHierarchyTab';
 import HolidaysTab from './HolidaysTab';
 import BroadcastTab from './BroadcastTab';
+import AdminPayrollDashboard from '@/components/payroll/AdminPayrollDashboard';
 import { useSearchParams } from 'next/navigation';
 
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
@@ -18,7 +19,7 @@ import { CustomDropdown } from '@/components/ui/CustomControls';
 
 export default function OrganizationPage() {
   const { isLoading: authLoading } = useAuth();
-  const { hasPermission, hasAnyPermission, isLoading: permLoading } = useUserPermissions();
+  const { hasPermission, hasAnyPermission, isAdmin, isLoading: permLoading } = useUserPermissions();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setTitle, setSubtitle } = useHeaderTitle();
@@ -28,6 +29,7 @@ export default function OrganizationPage() {
   const canAccessBasic = hasAnyPermission(['settings.view', 'settings.edit']);
   const canAccessApprovals = hasAnyPermission(['settings.workflows', 'settings.edit', 'settings.view']);
   const canAccessHolidays = hasAnyPermission(['holidays.view', 'holidays.manage']);
+  const canAccessPayroll = Boolean(isAdmin || hasAnyPermission(['payroll.view', 'payroll.manage']));
   const canAccessBroadcast = hasAnyPermission(['popups.view', 'popups.manage']);
 
   const tabs = [
@@ -36,6 +38,7 @@ export default function OrganizationPage() {
     canAccessBasic && { id: 'basic', label: 'Basic Details' },
     canAccessApprovals && { id: 'approvals', label: 'Approval Hierarchy' },
     canAccessHolidays && { id: 'holidays', label: 'Holidays' },
+    canAccessPayroll && { id: 'payroll', label: 'Payroll' },
     canAccessBroadcast && { id: 'broadcast', label: 'In-App Popups' },
   ].filter(Boolean) as { id: string; label: string }[];
 
@@ -102,6 +105,7 @@ export default function OrganizationPage() {
         {activeTab === 'basic' && <BasicDetailsTab />}
         {activeTab === 'approvals' && <ApprovalHierarchyTab />}
         {activeTab === 'holidays' && <HolidaysTab />}
+        {activeTab === 'payroll' && <AdminPayrollDashboard />}
         {activeTab === 'broadcast' && <BroadcastTab />}
       </div>
     </div>
