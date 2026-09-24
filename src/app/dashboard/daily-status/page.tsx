@@ -49,6 +49,13 @@ interface ProjectStatusItem {
   project_notes: string | null;
   created_at: string;
   assigned_employee_id?: string | null;
+  designer_id?: string | null;
+  designer?: {
+    id: string;
+    email: string;
+    username?: string;
+    full_name?: string;
+  } | null;
   assigned_employee?: {
     id: string;
     email: string;
@@ -57,6 +64,16 @@ interface ProjectStatusItem {
     designation?: string;
   } | null;
 }
+
+const getProjectDesignerName = (p: ProjectStatusItem): string => {
+  return (
+    p.assigned_employee?.full_name?.trim() ||
+    p.assigned_employee?.name?.trim() ||
+    p.designer?.full_name?.trim() ||
+    p.designer?.username?.trim() ||
+    '(Unassigned)'
+  );
+};
 
 interface SheetColumn {
   id: string;
@@ -320,15 +337,20 @@ function StatusUpdaterModal({
 }
 
 export default function DailyStatusPage() {
-  const { hasAnyPermission, isAdmin, isLoading: permLoading } = useUserPermissions();
+  const { hasPermission, hasAnyPermission, isAdmin, roleName, designation: permDesignation, isLoading: permLoading } = useUserPermissions();
   const { user } = useAuth();
   const router = useRouter();
-  const canAccess = hasAnyPermission(['designs.daily_status', 'daily_status.view']);
+  const canAccess = hasAnyPermission(['designs.daily_status', 'daily_status.view', 'designs.view_all']);
+  const canViewAll = hasPermission('designs.view_all');
+
+  const userDesig = (user?.designation || permDesignation || '').toLowerCase();
+  const userRole = (roleName || user?.role || '').toLowerCase();
+  const isLead = userDesig.includes('lead') || userRole.includes('lead');
 
   const [isServerManagement, setIsServerManagement] = useState<boolean | null>(null);
   const isManagement = isServerManagement !== null 
     ? isServerManagement 
-    : Boolean(isAdmin || user?.designation?.toLowerCase().includes('lead'));
+    : Boolean(isAdmin || isLead || canViewAll);
 
   const [projects, setProjects] = useState<ProjectStatusItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -589,8 +611,8 @@ export default function DailyStatusPage() {
   const designersList = useMemo(() => {
     const set = new Set<string>();
     activeProjects.forEach(p => {
-      const name = p.assigned_employee?.full_name?.trim() || p.assigned_employee?.name?.trim();
-      if (name) set.add(name);
+      const name = getProjectDesignerName(p);
+      if (name && name !== '(Unassigned)') set.add(name);
     });
     return Array.from(set).sort();
   }, [activeProjects]);
@@ -621,10 +643,10 @@ export default function DailyStatusPage() {
       const code = (p.project_code || p.ref_no || '').replace('AI/PRJ/', 'AI/').replace('PRJ/', '').toLowerCase();
       const title = (p.title || '').toLowerCase();
       const client = (p.customer_name || '').toLowerCase();
-      const designer = (p.assigned_employee?.full_name || p.assigned_employee?.name || '').toLowerCase();
+      const designer = getProjectDesignerName(p).toLowerCase();
 
       const matchesSearch = !searchQuery || code.includes(q) || title.includes(q) || client.includes(q) || designer.includes(q);
-      const dName = p.assigned_employee?.full_name?.trim() || p.assigned_employee?.name?.trim() || '(Unassigned)';
+      const dName = getProjectDesignerName(p);
       const matchesDesigner = selectedDesigner === 'all' || dName === selectedDesigner;
       const phase = formatPhaseDisplay(p.workflow_stage, p.status);
       const matchesPhase = selectedPhase === 'all' || phase.toLowerCase() === selectedPhase.toLowerCase();
@@ -637,7 +659,7 @@ export default function DailyStatusPage() {
   const groupedProjects = useMemo(() => {
     const map = new Map<string, ProjectStatusItem[]>();
     filteredProjects.forEach(p => {
-      const dName = p.assigned_employee?.full_name?.trim() || p.assigned_employee?.name?.trim() || '(Unassigned)';
+      const dName = getProjectDesignerName(p);
       if (!map.has(dName)) map.set(dName, []);
       map.get(dName)!.push(p);
     });

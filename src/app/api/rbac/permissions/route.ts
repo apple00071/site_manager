@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
             { code: 'popups.view', module: 'popups', action: 'view', description: 'View popups and recipient history' },
             { code: 'popups.manage', module: 'popups', action: 'manage', description: 'Create, toggle, and delete in-app popups' },
             { code: 'designs.daily_status', module: 'designs', action: 'daily_status', description: 'View & update daily design status tracker' },
+            { code: 'designs.view_all', module: 'designs', action: 'view_all', description: 'View all designers projects in Design Status tracker (Lead Designer / View All)' },
             { code: 'snags.view', module: 'snags', action: 'view', description: 'View assigned snags' },
             { code: 'snags.view_all', module: 'snags', action: 'view_all', description: 'View all snags across sites (not just assigned)' },
             { code: 'snags.create', module: 'snags', action: 'create', description: 'Create snags' },

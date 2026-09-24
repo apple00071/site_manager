@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const includeCompleted = searchParams.get('include_completed') === 'true';
 
-    // Check if user has management oversight (admin or lead designer)
+    // Check if user has management oversight (admin, lead designer, or designs.view_all permission)
     const { data: userData } = await supabaseAdmin
       .from('users')
       .select('id, role, designation, roles:role_id(name)')
@@ -35,15 +35,29 @@ export async function GET(request: NextRequest) {
       .single();
 
     const { checkPermission } = await import('@/lib/rbac');
-    const permStatus = await checkPermission(user.id, 'designs.daily_status');
+    const viewAllPerm = await checkPermission(user.id, 'designs.view_all');
+    const pagePerm = await checkPermission(user.id, 'designs.daily_status');
 
-    const isManagement = Boolean(
+    const isAdmin = Boolean(
       user.role === 'admin' ||
       userData?.role === 'admin' ||
-      (userData?.roles as any)?.name?.toLowerCase() === 'admin' ||
-      userData?.designation?.toLowerCase().includes('lead') ||
-      permStatus.allowed
+      (userData?.roles as any)?.name?.toLowerCase() === 'admin'
     );
+    const isLead = Boolean(
+      userData?.designation?.toLowerCase().includes('lead') ||
+      (userData?.roles as any)?.name?.toLowerCase().includes('lead')
+    );
+
+    const isManagement = Boolean(
+      isAdmin ||
+      isLead ||
+      viewAllPerm.allowed
+    );
+
+    // Permission check to access daily status at all
+    if (!isAdmin && !pagePerm.allowed && !viewAllPerm.allowed && !isLead && userData?.role !== 'employee') {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
 
     let query = supabaseAdmin
       .from('projects')
@@ -62,12 +76,19 @@ export async function GET(request: NextRequest) {
         project_notes,
         created_at,
         assigned_employee_id,
+        designer_id,
         assigned_employee:assigned_employee_id(
           id,
           email,
           name:username,
           full_name,
           designation
+        ),
+        designer:designer_id(
+          id,
+          email,
+          username,
+          full_name
         )
       `)
       .order('created_at', { ascending: false });
@@ -167,6 +188,51 @@ export async function PATCH(request: NextRequest) {
     if (updateFields.project_notes !== undefined) payload.project_notes = updateFields.project_notes;
     if (updateFields.deadline !== undefined) payload.deadline = updateFields.deadline;
     if (updateFields.estimated_completion_date !== undefined) payload.estimated_completion_date = updateFields.estimated_completion_date;
+
+    // Check if user has management oversight (admin, lead designer, or designs.view_all permission)
+    const { data: updaterUserData } = await supabaseAdmin
+      .from('users')
+      .select('id, role, designation, roles:role_id(name)')
+      .eq('id', user.id)
+      .single();
+
+    const { checkPermission: checkPermPatch } = await import('@/lib/rbac');
+    const viewAllPerm = await checkPermPatch(user.id, 'designs.view_all');
+
+    const isAdmin = Boolean(
+      user.role === 'admin' ||
+      updaterUserData?.role === 'admin' ||
+      (updaterUserData?.roles as any)?.name?.toLowerCase() === 'admin'
+    );
+    const isLead = Boolean(
+      updaterUserData?.designation?.toLowerCase().includes('lead') ||
+      (updaterUserData?.roles as any)?.name?.toLowerCase().includes('lead')
+    );
+    const isManagement = Boolean(isAdmin || isLead || viewAllPerm.allowed);
+
+    // Non-management designers can only update projects assigned to them
+    if (!isManagement) {
+      const { data: targetProj } = await supabaseAdmin
+        .from('projects')
+        .select('assigned_employee_id, designer_id')
+        .eq('id', projectId)
+        .single();
+
+      let isAssigned = targetProj && (targetProj.assigned_employee_id === user.id || targetProj.designer_id === user.id);
+      if (!isAssigned) {
+        const { data: member } = await supabaseAdmin
+          .from('project_members')
+          .select('id')
+          .eq('project_id', projectId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (member) isAssigned = true;
+      }
+
+      if (!isAssigned) {
+        return NextResponse.json({ error: 'Forbidden: You can only update your own assigned projects' }, { status: 403 });
+      }
+    }
 
     const { data, error } = await supabaseAdmin
       .from('projects')

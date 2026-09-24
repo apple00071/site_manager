@@ -17,6 +17,7 @@ export const PERMISSION_NODES = {
 
     // Design Permissions
     DESIGNS_VIEW: 'designs.view',
+    DESIGNS_VIEW_ALL: 'designs.view_all',
     DESIGNS_DAILY_STATUS: 'designs.daily_status',
     DESIGNS_UPLOAD: 'designs.upload',
     DESIGNS_DELETE: 'designs.delete',
