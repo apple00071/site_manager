@@ -243,11 +243,6 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
   }, [project, setTitle, setSubtitle, clearHeader]);
 
   const stageActions = useMemo<ActionItem[]>(() => {
-    if (activeStage === 'work_progress') {
-      if (activeSubTab === 'daily_logs' && hasPermission('site_logs.create')) {
-        return [{ label: 'Add Work Entry', onClick: () => siteLogRef.current?.openAddLog(), icon: <FiPlus className="w-4 h-4" /> }];
-      }
-    }
     if (activeStage === 'boq') {
       if (activeSubTab === 'delivery_bills') {
         return [];
@@ -445,10 +440,7 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
             />
           )}
           {activeStage === 'work_progress' && (
-            <>
-              {activeSubTab === 'updates' && <UpdatesTab projectId={project.id} />}
-              {activeSubTab === 'daily_logs' && <SiteLogTab projectId={project.id} ref={siteLogRef} />}
-            </>
+            <UpdatesTab projectId={project.id} />
           )}
           {activeStage === 'snag' && <SnagTab projectId={project.id} userId={user?.id || ''} userRole={isAdmin ? 'admin' : 'user'} ref={snagRef} />}
           {activeStage === 'finance' && (

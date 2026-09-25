@@ -293,10 +293,10 @@ export default function ProjectFinanceTab({
           </div>
         </div>
 
-        {/* Site Expenses vs Margin */}
+        {/* Project Expenses vs Margin */}
         <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between text-gray-500 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider">Site Expenses & Margin</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">Project Expenses & Margin</span>
             <span className="p-1.5 bg-yellow-50 text-yellow-600 rounded-lg">
               <FiTrendingUp className="w-4 h-4" />
             </span>

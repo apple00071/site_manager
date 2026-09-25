@@ -76,15 +76,14 @@ export const STAGE_SUB_TABS: Record<string, SubTab[]> = {
         { id: 'delivery_bills', label: 'Delivery Bills', permission: 'boq.view' },
     ],
     work_progress: [
-        { id: 'updates', label: 'Timeline', permission: 'updates.view' },
-        { id: 'daily_logs', label: 'Work Entry', permission: 'site_logs.view' },
+        { id: 'updates', label: 'Updates', permission: 'updates.view' },
     ],
     snag: [
         { id: 'snag_list', label: 'Snag List', permission: 'snags.view' },
     ],
     finance: [
-        { id: 'overview', label: 'Overview & Payments', permission: 'finance.view' },
-        { id: 'expenses', label: 'Site Expenses', permission: 'inventory.view' },
+        { id: 'overview', label: 'Payments', permission: 'finance.view' },
+        { id: 'expenses', label: 'Project Expenses', permission: 'inventory.view' },
     ],
 };
 
