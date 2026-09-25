@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { FiMoreVertical, FiEdit2, FiTrash2, FiX, FiPlus } from 'react-icons/fi';
 import { formatDateReadable, formatDateTimeReadable, formatTimeIST, getTodayDateString } from '@/lib/dateUtils';
 import { ImageModal } from '@/components/ui/ImageModal';
 import { MentionTextarea } from '@/components/ui/MentionTextarea';
@@ -167,6 +169,29 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [currentImages, setCurrentImages] = useState<string[]>([]);
   const updatesListRef = useRef<HTMLDivElement | null>(null);
+  const { hasPermission, isAdmin } = useUserPermissions();
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  // Edit Update state
+  const [editingUpdate, setEditingUpdate] = useState<ProjectUpdate | null>(null);
+  const [editDescription, setEditDescription] = useState('');
+  const [editPhotos, setEditPhotos] = useState<string[]>([]);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [uploadingEditPhotos, setUploadingEditPhotos] = useState(false);
+  const editFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const canEditUpdate = (up: ProjectUpdate) => Boolean(isAdmin || hasPermission('updates.edit') || (user && up.user_id === user.id));
+  const canDeleteUpdate = (up: ProjectUpdate) => Boolean(isAdmin || hasPermission('updates.delete') || (user && up.user_id === user.id));
+
+  // Close kebab menu on outside click
+  useEffect(() => {
+    const handleOutsideClick = () => setActiveMenuId(null);
+    if (activeMenuId) {
+      document.addEventListener('click', handleOutsideClick);
+      return () => document.removeEventListener('click', handleOutsideClick);
+    }
+  }, [activeMenuId]);
+
   const [form, setForm] = useState({
     update_date: getTodayDateString(),
     description: '',
@@ -511,6 +536,98 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
       ...prev,
       photos: prev.photos.filter((_, i) => i !== index),
     }));
+  };
+
+  const handleOpenEdit = (up: ProjectUpdate) => {
+    setEditingUpdate(up);
+    setEditDescription(up.description);
+    setEditPhotos([...(up.photos || [])]);
+    setActiveMenuId(null);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingUpdate) return;
+    if (!editDescription.trim() && editPhotos.length === 0) {
+      alert('Description or photos required.');
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      const res = await fetch('/api/project-updates', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingUpdate.id,
+          description: editDescription,
+          photos: editPhotos,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to update');
+      }
+      const data = await res.json();
+      const updated = data.update;
+      setUpdates(prev => prev.map(u => u.id === editingUpdate.id ? { ...u, ...updated, photos: updated.photos || [] } : u));
+      setEditingUpdate(null);
+    } catch (err: any) {
+      alert('Error updating: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDeleteUpdate = async (id: string) => {
+    setActiveMenuId(null);
+    if (!confirm('Are you sure you want to delete this project update? This action cannot be undone.')) return;
+    try {
+      const res = await fetch(`/api/project-updates?id=${id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to delete update');
+      }
+      setUpdates(prev => prev.filter(u => u.id !== id));
+    } catch (err: any) {
+      alert('Error deleting update: ' + (err?.message || 'Unknown error'));
+    }
+  };
+
+  const handleEditPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (files.length === 0) return;
+    setUploadingEditPhotos(true);
+    try {
+      const { watermarkPhotoWithLocation } = await import('@/lib/photoWatermark');
+      const { uploadFile } = await import('@/lib/uploadUtils');
+      const folder = user?.id || 'anonymous';
+
+      const stampedFiles: File[] = [];
+      for (const file of files) {
+        try {
+          const stamped = await watermarkPhotoWithLocation(file, {
+            projectTitle: projectTitle || undefined,
+            projectAddress: projectAddress || undefined,
+            locationName: deviceLocation?.address,
+            coords: deviceLocation?.coords,
+            timestamp: new Date(),
+          });
+          stampedFiles.push(stamped);
+        } catch {
+          stampedFiles.push(file);
+        }
+      }
+
+      const uploadPromises = stampedFiles.map(f => uploadFile(f, 'project-update-photos', folder));
+      const urls = await Promise.all(uploadPromises);
+      setEditPhotos(prev => [...prev, ...urls.filter(Boolean)]);
+    } catch (err: any) {
+      alert('Error uploading photos: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setUploadingEditPhotos(false);
+      if (editFileInputRef.current) editFileInputRef.current.value = '';
+    }
   };
 
   const startRecording = async () => {
@@ -1458,31 +1575,79 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                             </div>
                           </div>
                           
-                          {/* Share to WhatsApp Button */}
-                          <button
-                            type="button"
-                            onClick={() => shareToWhatsApp(update)}
-                            disabled={sharingId !== null}
-                            className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-[#25D366] hover:bg-[#20ba5a] disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-full shadow-sm hover:shadow transition-all shrink-0 active:scale-95 cursor-pointer"
-                            title="Share update to WhatsApp"
-                          >
-                            {sharingId === update.id ? (
-                              <>
-                                <svg className="animate-spin h-3.5 w-3.5 text-white" viewBox="0 0 24 24" fill="none">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                </svg>
-                                <span>Preparing...</span>
-                              </>
-                            ) : (
-                              <>
-                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.197 1.489 4.921 1.49 5.518 0 10.017-4.493 10.02-10.007.003-2.67-1.03-5.178-2.91-7.06C16.745 1.696 14.25 1.662 11.995 1.66c-5.521 0-10.02 4.494-10.022 10.009-.001 1.767.469 3.493 1.36 5.011L2.247 21.91l4.4-1.756zM16.96 13.43c-.27-.135-1.597-.788-1.845-.878-.248-.09-.43-.135-.61.135-.18.27-.698.878-.857 1.058-.158.18-.317.202-.587.067-.27-.135-1.14-.42-2.172-1.34-.803-.715-1.344-1.6-1.503-1.87-.158-.27-.017-.417.118-.552.122-.122.27-.315.405-.472.135-.158.18-.27.27-.45.09-.18.045-.337-.023-.472-.068-.135-.61-1.47-.837-2.013-.218-.527-.44-.456-.6-.464-.166-.008-.356-.01-.546-.01-.19 0-.5.07-.76.36-.26.29-1.02 1-1.02 2.43 0 1.43 1.04 2.81 1.18 3 .14.19 2.05 3.13 4.96 4.385.69.3 1.23.48 1.65.61.697.22 1.33.19 1.83.12.558-.08 1.598-.65 1.828-1.28.23-.63.23-1.17.16-1.28-.07-.11-.25-.19-.52-.325z"/>
-                                </svg>
-                                <span>Share</span>
-                              </>
+                          {/* Actions: Share, Edit, Delete */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {/* Share to WhatsApp Button */}
+                            <button
+                              type="button"
+                              onClick={() => shareToWhatsApp(update)}
+                              disabled={sharingId !== null}
+                              className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-[#25D366] hover:bg-[#20ba5a] disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-full shadow-sm hover:shadow transition-all shrink-0 active:scale-95 cursor-pointer"
+                              title="Share update to WhatsApp"
+                            >
+                              {sharingId === update.id ? (
+                                <>
+                                  <svg className="animate-spin h-3.5 w-3.5 text-white" viewBox="0 0 24 24" fill="none">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                  </svg>
+                                  <span>Preparing...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.197 1.489 4.921 1.49 5.518 0 10.017-4.493 10.02-10.007.003-2.67-1.03-5.178-2.91-7.06C16.745 1.696 14.25 1.662 11.995 1.66c-5.521 0-10.02 4.494-10.022 10.009-.001 1.767.469 3.493 1.36 5.011L2.247 21.91l4.4-1.756zM16.96 13.43c-.27-.135-1.597-.788-1.845-.878-.248-.09-.43-.135-.61.135-.18.27-.698.878-.857 1.058-.158.18-.317.202-.587.067-.27-.135-1.14-.42-2.172-1.34-.803-.715-1.344-1.6-1.503-1.87-.158-.27-.017-.417.118-.552.122-.122.27-.315.405-.472.135-.158.18-.27.27-.45.09-.18.045-.337-.023-.472-.068-.135-.61-1.47-.837-2.013-.218-.527-.44-.456-.6-.464-.166-.008-.356-.01-.546-.01-.19 0-.5.07-.76.36-.26.29-1.02 1-1.02 2.43 0 1.43 1.04 2.81 1.18 3 .14.19 2.05 3.13 4.96 4.385.69.3 1.23.48 1.65.61.697.22 1.33.19 1.83.12.558-.08 1.598-.65 1.828-1.28.23-.63.23-1.17.16-1.28-.07-.11-.25-.19-.52-.325z"/>
+                                  </svg>
+                                  <span>Share</span>
+                                </>
+                              )}
+                            </button>
+
+                            {/* Kebab Menu: Edit / Delete */}
+                            {(canEditUpdate(update) || canDeleteUpdate(update)) && (
+                              <div className="relative">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMenuId(activeMenuId === update.id ? null : update.id);
+                                  }}
+                                  className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
+                                  title="Update actions"
+                                >
+                                  <FiMoreVertical className="w-4 h-4" />
+                                </button>
+
+                                {activeMenuId === update.id && (
+                                  <div
+                                    className="absolute right-0 mt-1 w-32 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-30 animate-in fade-in zoom-in-95 duration-100"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {canEditUpdate(update) && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenEdit(update)}
+                                        className="w-full text-left px-3.5 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer"
+                                      >
+                                        <FiEdit2 className="w-3.5 h-3.5 text-gray-500" />
+                                        <span>Edit</span>
+                                      </button>
+                                    )}
+                                    {canDeleteUpdate(update) && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteUpdate(update.id)}
+                                        className="w-full text-left px-3.5 py-2 text-xs font-medium text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer"
+                                      >
+                                        <FiTrash2 className="w-3.5 h-3.5 text-red-500" />
+                                        <span>Delete</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             )}
-                          </button>
+                          </div>
                         </div>
 
                         <div className="text-gray-700 mb-3 whitespace-pre-wrap">{update.description}</div>
@@ -1571,6 +1736,109 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
           setSelectedImage(currentImages[index]);
         }}
       />
+
+      {/* Edit Update Modal */}
+      {editingUpdate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="text-base font-bold text-gray-900">Edit Project Update</h3>
+              <button
+                type="button"
+                onClick={() => setEditingUpdate(null)}
+                className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 cursor-pointer"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">Description</label>
+                <textarea
+                  rows={4}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="w-full text-sm border border-gray-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 resize-none"
+                  placeholder="Update description..."
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-bold text-gray-700">Photos ({editPhotos.length})</label>
+                  <button
+                    type="button"
+                    onClick={() => editFileInputRef.current?.click()}
+                    disabled={uploadingEditPhotos}
+                    className="text-xs font-semibold text-yellow-600 hover:text-yellow-700 flex items-center gap-1 cursor-pointer"
+                  >
+                    <FiPlus className="w-3.5 h-3.5" />
+                    <span>Add Photos</span>
+                  </button>
+                  <input
+                    ref={editFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleEditPhotoUpload}
+                    className="hidden"
+                  />
+                </div>
+
+                {uploadingEditPhotos && (
+                  <div className="text-xs text-yellow-600 font-medium py-1 animate-pulse flex items-center gap-1.5 mb-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-ping"></span>
+                    <span>Watermarking and uploading new photos...</span>
+                  </div>
+                )}
+
+                {editPhotos.length > 0 ? (
+                  <div className="grid grid-cols-4 gap-2">
+                    {editPhotos.map((url, pIdx) => (
+                      <div key={pIdx} className="relative group rounded-lg overflow-hidden border border-gray-200 aspect-square">
+                        <img src={url} className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setEditPhotos(prev => prev.filter((_, i) => i !== pIdx))}
+                          className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center shadow-md hover:bg-red-700 cursor-pointer"
+                          title="Remove photo"
+                        >
+                          <FiX className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 italic">No photos attached</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+              <button
+                type="button"
+                onClick={() => setEditingUpdate(null)}
+                disabled={savingEdit}
+                className="px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 rounded-xl cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEdit}
+                disabled={savingEdit || uploadingEditPhotos || (!editDescription.trim() && editPhotos.length === 0)}
+                className="px-5 py-2 text-sm font-semibold text-white bg-yellow-500 hover:bg-yellow-600 rounded-xl shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {savingEdit ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

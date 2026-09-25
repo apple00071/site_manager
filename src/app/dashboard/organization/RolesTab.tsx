@@ -137,7 +137,9 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         icon: '📣',
         permissions: [
             { id: 'updates.view', label: 'View project updates' },
-            { id: 'updates.create', label: 'Post project updates' }
+            { id: 'updates.create', label: 'Post project updates' },
+            { id: 'updates.edit', label: 'Edit project updates' },
+            { id: 'updates.delete', label: 'Delete project updates' }
         ],
         notifications: ['New update posted']
     },

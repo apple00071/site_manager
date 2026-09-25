@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { NotificationService } from '@/lib/notificationService';
 import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { verifyPermission } from '@/lib/rbac';
+import { PERMISSION_NODES } from '@/lib/rbac-constants';
 
 // Force dynamic rendering - never cache project updates
 export const dynamic = 'force-dynamic';
@@ -241,9 +243,10 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Update not found' }, { status: 404 });
     }
 
-    // Only allow update if user is the creator or is an admin
-    if (existingUpdate.user_id !== userId && userRole !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden: You can only edit your own updates' }, { status: 403 });
+    // Allow update if user is the creator, an admin, or has updates.edit permission
+    const canEdit = existingUpdate.user_id === userId || userRole === 'admin' || (await verifyPermission(userId, PERMISSION_NODES.UPDATES_EDIT));
+    if (!canEdit) {
+      return NextResponse.json({ error: 'Forbidden: You do not have permission to edit this update' }, { status: 403 });
     }
 
     const { data: update, error } = await supabaseAdmin
@@ -326,9 +329,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Update not found' }, { status: 404 });
     }
 
-    // Only allow deletion if user is the creator or is an admin
-    if (existingUpdate.user_id !== userId && userRole !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden: You can only delete your own updates' }, { status: 403 });
+    // Allow deletion if user is the creator, an admin, or has updates.delete permission
+    const canDelete = existingUpdate.user_id === userId || userRole === 'admin' || (await verifyPermission(userId, PERMISSION_NODES.UPDATES_DELETE));
+    if (!canDelete) {
+      return NextResponse.json({ error: 'Forbidden: You do not have permission to delete this update' }, { status: 403 });
     }
 
     const { error } = await supabaseAdmin

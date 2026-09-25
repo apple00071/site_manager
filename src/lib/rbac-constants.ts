@@ -64,6 +64,8 @@ export const PERMISSION_NODES = {
     // Update Permissions (Work Progress)
     UPDATES_VIEW: 'updates.view',
     UPDATES_CREATE: 'updates.create',
+    UPDATES_EDIT: 'updates.edit',
+    UPDATES_DELETE: 'updates.delete',
 
     // Site Logs Permissions
     SITE_LOGS_VIEW: 'site_logs.view',
