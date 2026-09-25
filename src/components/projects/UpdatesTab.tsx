@@ -149,6 +149,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
   const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [uploadStatusText, setUploadStatusText] = useState('');
   const [showMediaMenu, setShowMediaMenu] = useState(false);
 
   // Refs for audio recording & photo inputs
@@ -173,12 +174,17 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
   });
   const [projectUsers, setProjectUsers] = useState<any[]>([]);
   const [projectTitle, setProjectTitle] = useState<string>('');
+  const [projectAddress, setProjectAddress] = useState<string>('');
   const [sharingId, setSharingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUpdates();
     fetchStages();
     fetchProjectUsers();
+    // Pre-warm GPS location in background for instant photo stamping
+    import('@/lib/locationUtils').then(({ acquireLocation }) => {
+      acquireLocation().catch(() => {});
+    });
   }, [projectId, user]);
 
   // Restore draft if WebView reloads on mobile
@@ -331,6 +337,9 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
       if (project?.title) {
         setProjectTitle(project.title);
       }
+      if (project?.address || project?.apartment_name) {
+        setProjectAddress(project.address || project.apartment_name);
+      }
 
       const combinedUsers: any[] = [];
       const userIds = new Set<string>();
@@ -398,12 +407,45 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     if (!files || files.length === 0) return;
 
     setUploadingPhotos(true);
+    setUploadStatusText('Capturing site location...');
 
     try {
+      // 1. Acquire current GPS coordinates and reverse-geocode address
+      let locDetails: any = null;
+      try {
+        const { getLocationDetails } = await import('@/lib/locationUtils');
+        locDetails = await getLocationDetails({ timeout: 4000 });
+      } catch (locErr) {
+        console.warn('Could not acquire location for photos:', locErr);
+      }
+
+      // 2. Watermark photos with verified site location, GPS, timestamp & project info
+      setUploadStatusText('Stamping location on photos...');
+      const { watermarkPhotoWithLocation } = await import('@/lib/photoWatermark');
+
+      const stampedFiles: File[] = [];
+      for (const file of files) {
+        try {
+          const stamped = await watermarkPhotoWithLocation(file, {
+            projectTitle: projectTitle || undefined,
+            projectAddress: projectAddress || undefined,
+            locationName: locDetails?.address,
+            coords: locDetails?.coords,
+            timestamp: new Date()
+          });
+          stampedFiles.push(stamped);
+        } catch (stampErr) {
+          console.warn(`Failed to stamp ${file.name}, uploading original:`, stampErr);
+          stampedFiles.push(file);
+        }
+      }
+
+      // 3. Upload stamped files
+      setUploadStatusText('Uploading photos...');
       const { uploadFile } = await import('@/lib/uploadUtils');
       const folder = user?.id || 'anonymous';
 
-      const uploadPromises = files.map(async (file) => {
+      const uploadPromises = stampedFiles.map(async (file) => {
         try {
           const url = await uploadFile(file, 'project-update-photos', folder);
           return { url, error: null };
@@ -421,16 +463,17 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         setForm(prev => ({ ...prev, photos: [...prev.photos, ...successfulUrls] }));
       }
 
-      if (successfulUrls.length < files.length) {
-        const failedCount = files.length - successfulUrls.length;
+      if (successfulUrls.length < stampedFiles.length) {
+        const failedCount = stampedFiles.length - successfulUrls.length;
         const errorDetails = errors.length > 0 ? `\n\nErrors:\n${errors.join('\n')}` : '';
         alert(`Successfully uploaded ${successfulUrls.length} files. ${failedCount} file(s) failed.${errorDetails}`);
       }
     } catch (error: any) {
-      console.error('Error uploading files:', error);
+      console.error('Error processing and uploading files:', error);
       alert(`Failed to upload files: ${error?.message || 'Unknown error'}`);
     } finally {
       setUploadingPhotos(false);
+      setUploadStatusText('');
       if (input && 'target' in input && input.target) {
         (input.target as HTMLInputElement).value = '';
       }
@@ -1178,7 +1221,7 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                   ref={cameraInputRef}
                   type="file"
                   accept="image/*"
-                  capture="user"
+                  capture="environment"
                   onChange={handlePhotoUpload}
                   className="hidden"
                 />
@@ -1229,11 +1272,11 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
             </div>
             {uploadingPhotos && (
               <div className="flex items-center gap-2 text-xs text-yellow-600 font-medium animate-pulse">
-                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Processing {form.photos.length > 0 ? 'additional' : ''} files...
+                {uploadStatusText || `Processing ${form.photos.length > 0 ? 'additional' : ''} files...`}
               </div>
             )}
             <button
@@ -1282,11 +1325,16 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                   return (
                     <div key={idx} className="relative group">
                       {isPDF ? (
-                        <div className="w-12 h-12 bg-gray-50 rounded border border-gray-200 flex flex-col items-center justify-center p-1">
+                        <div className="w-14 h-14 bg-gray-50 rounded-lg border border-gray-200 flex flex-col items-center justify-center p-1">
                           <span className="text-[10px] text-red-600 font-bold">PDF</span>
                         </div>
                       ) : (
-                        <img src={url} className="w-12 h-12 object-cover rounded border border-gray-200" />
+                        <div className="relative">
+                          <img src={url} className="w-14 h-14 object-cover rounded-lg border border-gray-200 shadow-xs" />
+                          <div className="absolute bottom-0 left-0 right-0 bg-slate-900/80 text-[8px] text-amber-300 font-semibold px-1 py-0.5 rounded-b-lg flex items-center justify-center gap-0.5 truncate backdrop-blur-xs">
+                            <span>📍 Stamped</span>
+                          </div>
+                        </div>
                       )}
                       <button
                         type="button"
