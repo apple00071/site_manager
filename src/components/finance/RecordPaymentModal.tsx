@@ -220,11 +220,11 @@ export default function RecordPaymentModal({
     <div>
       <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center justify-between">
         <span>Project <span className="text-red-500">*</span></span>
-        {selectedProj?.project_budget && (
+        {Number(selectedProj?.project_budget) > 0 ? (
           <span className="text-[11px] font-semibold text-yellow-700 bg-yellow-50 px-2 py-0.5 rounded-md border border-yellow-200">
-            Contract: ₹{selectedProj.project_budget.toLocaleString('en-IN')}
+            Contract: ₹{selectedProj!.project_budget!.toLocaleString('en-IN')}
           </span>
-        )}
+        ) : null}
       </label>
       {defaultProjectId && selectedProj ? (
         <div className="p-3 bg-yellow-50/70 border border-yellow-200/80 rounded-xl text-sm">
