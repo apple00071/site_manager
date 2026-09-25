@@ -324,48 +324,21 @@ export function generatePaymentReceiptPDF(payment: PaymentReceiptData): jsPDF {
     y += 16;
   }
 
-  // 7. FOOTER & AUTHORIZATION STAMP
-  const footerY = Math.max(y + 8, 170);
+  // 7. FOOTER NOTE (Digitally Generated - No Signature Required)
+  const footerY = Math.max(y + 12, 175);
 
-  // Terms & Conditions card on left
   doc.setFillColor(249, 250, 251);
   doc.setDrawColor(229, 231, 235);
-  doc.roundedRect(14, footerY, 105, 28, 1.5, 1.5, 'FD');
-
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(75, 85, 99);
-  doc.text('Terms & Conditions:', 18, footerY + 5.5);
-
-  doc.setFontSize(7.5);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(107, 114, 128);
-  doc.text('1. All payments are subject to bank realization.', 18, footerY + 11);
-  doc.text('2. Computer-generated official receipt from Apple Interiors.', 18, footerY + 16.5);
-  doc.text('3. Inquiries: accounts@appleinteriors.in | +91 9603 9603 37', 18, footerY + 22);
-
-  // Authorization Box on right
-  doc.setFillColor(249, 250, 251);
-  doc.setDrawColor(229, 231, 235);
-  doc.roundedRect(125, footerY, 71, 28, 1.5, 1.5, 'FD');
+  doc.roundedRect(14, footerY, 182, 13, 1.5, 1.5, 'FD');
 
   doc.setFontSize(8.5);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(31, 41, 55);
-  doc.text('For APPLE INTERIORS', 160.5, footerY + 6.5, { align: 'center' });
-
-  // Signature line
-  doc.setDrawColor(209, 213, 219);
-  doc.line(135, footerY + 19, 186, footerY + 19);
-
-  doc.setFontSize(7.5);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(107, 114, 128);
-  doc.text('Authorized Signatory', 160.5, footerY + 23.5, { align: 'center' });
+  doc.text('This is a digitally generated document. No signature required.', 105, footerY + 8, { align: 'center' });
 
   // Bottom Amber Gold Bar
   doc.setFillColor(245, 197, 24);
-  doc.rect(14, footerY + 33, 182, 1.5, 'F');
+  doc.rect(14, footerY + 18, 182, 1.5, 'F');
 
   return doc;
 }
