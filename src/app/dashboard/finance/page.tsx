@@ -8,6 +8,7 @@ import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { useToast } from '@/components/ui/Toast';
 import { formatDateIST } from '@/lib/dateUtils';
 import RecordPaymentModal from '@/components/finance/RecordPaymentModal';
+import { downloadPaymentReceiptPDF } from '@/lib/reports/paymentReceiptPdfGenerator';
 import {
   FiPlus,
   FiSearch,
@@ -16,6 +17,7 @@ import {
   FiCreditCard,
   FiFileText,
   FiExternalLink,
+  FiDownload,
   FiEdit2,
   FiTrash2,
   FiFilter,
@@ -454,19 +456,29 @@ export default function FinanceOverviewPage() {
 
                       {/* Footer Actions / Receipt */}
                       <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-100">
-                        {p.receipt_url ? (
-                          <a
-                            href={p.receipt_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center justify-center text-center gap-1.5 h-8 px-3 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => downloadPaymentReceiptPDF(p)}
+                            title="Download Official Receipt (PDF)"
+                            className="inline-flex items-center justify-center text-center gap-1.5 h-8 px-2.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 transition-colors cursor-pointer"
                           >
-                            <FiExternalLink className="w-3.5 h-3.5" />
-                            <span>View Receipt</span>
-                          </a>
-                        ) : (
-                          <span className="text-xs text-gray-400">No Receipt</span>
-                        )}
+                            <FiDownload className="w-3.5 h-3.5" />
+                            <span>Receipt PDF</span>
+                          </button>
+                          {p.receipt_url && (
+                            <a
+                              href={p.receipt_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              title="View Uploaded Bank Screenshot"
+                              className="inline-flex items-center justify-center text-center gap-1 h-8 px-2 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
+                            >
+                              <FiExternalLink className="w-3.5 h-3.5" />
+                              <span>Proof</span>
+                            </a>
+                          )}
+                        </div>
 
                         {canManage && (
                           <div className="flex items-center gap-1.5">
@@ -550,19 +562,29 @@ export default function FinanceOverviewPage() {
                             )}
                           </td>
                           <td className="px-4 py-3.5 text-center">
-                            {p.receipt_url ? (
-                              <a
-                                href={p.receipt_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center justify-center text-center gap-1 h-7 px-2.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
+                            <div className="inline-flex items-center justify-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => downloadPaymentReceiptPDF(p)}
+                                title="Download Official Receipt PDF"
+                                className="inline-flex items-center justify-center text-center gap-1 h-7 px-2 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 transition-colors cursor-pointer"
                               >
-                                <FiExternalLink className="w-3.5 h-3.5" />
-                                <span>View</span>
-                              </a>
-                            ) : (
-                              <span className="text-gray-300 text-xs">-</span>
-                            )}
+                                <FiDownload className="w-3.5 h-3.5" />
+                                <span>Receipt</span>
+                              </button>
+                              {p.receipt_url && (
+                                <a
+                                  href={p.receipt_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  title="View Uploaded Bank Screenshot"
+                                  className="inline-flex items-center justify-center text-center gap-1 h-7 px-2 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
+                                >
+                                  <FiExternalLink className="w-3.5 h-3.5" />
+                                  <span>Proof</span>
+                                </a>
+                              )}
+                            </div>
                           </td>
                           {canManage && (
                             <td className="px-4 py-3.5 text-right whitespace-nowrap">

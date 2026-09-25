@@ -17,6 +17,7 @@ import { TbCurrencyRupee } from 'react-icons/tb';
 import { useToast } from '@/components/ui/Toast';
 import { uploadFile } from '@/lib/uploadUtils';
 import BottomSheet from '@/components/ui/BottomSheet';
+import { downloadPaymentReceiptPDF } from '@/lib/reports/paymentReceiptPdfGenerator';
 
 interface ProjectOption {
   id: string;
@@ -208,7 +209,21 @@ export default function RecordPaymentModal({
         return;
       }
 
-      showToast('success', editingPayment ? 'Payment updated successfully' : 'Client payment recorded successfully');
+      const createdPayment = data.payment || {
+        ...payload,
+        id: data.id,
+        project: selectedProj ? { title: selectedProj.title, customer_name: selectedProj.customer_name } : undefined,
+      };
+
+      if (!editingPayment) {
+        try {
+          downloadPaymentReceiptPDF(createdPayment);
+        } catch (pdfErr) {
+          console.error('Error auto-generating receipt PDF:', pdfErr);
+        }
+      }
+
+      showToast('success', editingPayment ? 'Payment updated successfully' : 'Payment recorded & official receipt downloaded!');
       onSuccess();
       onClose();
     } catch (err: any) {

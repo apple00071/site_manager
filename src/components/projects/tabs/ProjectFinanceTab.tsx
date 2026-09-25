@@ -13,11 +13,13 @@ import {
   FiTrendingUp,
   FiCreditCard,
   FiExternalLink,
+  FiDownload,
   FiEdit2,
   FiTrash2,
   FiRefreshCw,
   FiFileText
 } from 'react-icons/fi';
+import { downloadPaymentReceiptPDF } from '@/lib/reports/paymentReceiptPdfGenerator';
 import { TbCurrencyRupee } from 'react-icons/tb';
 
 interface ProjectFinanceTabProps {
@@ -403,19 +405,32 @@ export default function ProjectFinanceTab({
                       {p.reference_number || '-'}
                     </td>
                     <td className="px-4 py-3.5 text-center">
-                      {p.receipt_url ? (
-                        <a
-                          href={p.receipt_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
+                      <div className="inline-flex items-center justify-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => downloadPaymentReceiptPDF({
+                            ...p,
+                            project: { title: projectTitle, customer_name: customerName }
+                          })}
+                          title="Download Official Receipt PDF"
+                          className="inline-flex items-center justify-center text-center gap-1 h-7 px-2 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 transition-colors cursor-pointer"
                         >
-                          <FiExternalLink className="w-3.5 h-3.5" />
-                          <span>View</span>
-                        </a>
-                      ) : (
-                        <span className="text-gray-300 text-xs">-</span>
-                      )}
+                          <FiDownload className="w-3.5 h-3.5" />
+                          <span>Receipt</span>
+                        </button>
+                        {p.receipt_url && (
+                          <a
+                            href={p.receipt_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="View Uploaded Bank Screenshot"
+                            className="inline-flex items-center justify-center text-center gap-1 h-7 px-2 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
+                          >
+                            <FiExternalLink className="w-3.5 h-3.5" />
+                            <span>Proof</span>
+                          </a>
+                        )}
+                      </div>
                     </td>
                     {canManage && (
                       <td className="px-4 py-3.5 text-right whitespace-nowrap">
