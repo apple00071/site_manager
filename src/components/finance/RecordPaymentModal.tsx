@@ -216,7 +216,7 @@ export default function RecordPaymentModal({
   // --- SHARED FORM FIELDS ---
 
   // Project selector component
-  const ProjectField = () => (
+  const renderProjectField = () => (
     <div>
       <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center justify-between">
         <span>Project <span className="text-red-500">*</span></span>
@@ -253,7 +253,7 @@ export default function RecordPaymentModal({
   );
 
   // Amount & Date fields
-  const AmountAndDateField = () => (
+  const renderAmountAndDateField = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
       <div>
         <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center justify-between">
@@ -295,7 +295,7 @@ export default function RecordPaymentModal({
   );
 
   // Payment Mode & UTR fields
-  const ModeAndRefField = () => (
+  const renderModeAndRefField = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
       <div>
         <label className="block text-xs font-bold text-gray-700 mb-1.5">
@@ -330,7 +330,7 @@ export default function RecordPaymentModal({
   );
 
   // Invoice Number field
-  const InvoiceField = () => (
+  const renderInvoiceField = () => (
     <div>
       <label className="block text-xs font-bold text-gray-700 mb-1.5">
         Invoice # (Optional)
@@ -346,7 +346,7 @@ export default function RecordPaymentModal({
   );
 
   // Receipt / Proof upload field
-  const ReceiptField = () => (
+  const renderReceiptField = () => (
     <div>
       <label className="block text-xs font-bold text-gray-700 mb-1.5">
         Payment Receipt / Screenshot
@@ -398,7 +398,7 @@ export default function RecordPaymentModal({
   );
 
   // Notes field
-  const NotesField = () => (
+  const renderNotesField = () => (
     <div>
       <label className="block text-xs font-bold text-gray-700 mb-1.5">
         Notes / Remarks
@@ -443,12 +443,12 @@ export default function RecordPaymentModal({
         }
       >
         <div className="space-y-4 pb-4">
-          <ProjectField />
-          <AmountAndDateField />
-          <ModeAndRefField />
-          <InvoiceField />
-          <ReceiptField />
-          <NotesField />
+          {renderProjectField()}
+          {renderAmountAndDateField()}
+          {renderModeAndRefField()}
+          {renderInvoiceField()}
+          {renderReceiptField()}
+          {renderNotesField()}
         </div>
       </BottomSheet>
     );
@@ -479,16 +479,16 @@ export default function RecordPaymentModal({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
             {/* Left Column: Financials & Identifiers */}
             <div className="space-y-4">
-              <ProjectField />
-              <AmountAndDateField />
-              <ModeAndRefField />
+              {renderProjectField()}
+              {renderAmountAndDateField()}
+              {renderModeAndRefField()}
             </div>
 
             {/* Right Column: Invoice, Receipt, Notes */}
             <div className="space-y-4">
-              <InvoiceField />
-              <ReceiptField />
-              <NotesField />
+              {renderInvoiceField()}
+              {renderReceiptField()}
+              {renderNotesField()}
             </div>
           </div>
         </form>
