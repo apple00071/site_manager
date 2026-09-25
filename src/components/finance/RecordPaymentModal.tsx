@@ -43,6 +43,14 @@ const PAYMENT_MODES = [
   'Credit / Debit Card',
 ];
 
+const COMMON_MILESTONES = [
+  'Booking Advance',
+  '2D/3D Design Approval',
+  'Material at Site',
+  'Carpentry Stage',
+  'Final Finishing / Handover',
+];
+
 export default function RecordPaymentModal({
   isOpen,
   onClose,
@@ -59,7 +67,7 @@ export default function RecordPaymentModal({
   const [projectId, setProjectId] = useState<string>(defaultProjectId || '');
   const [amount, setAmount] = useState<string>('');
   const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [milestoneName, setMilestoneName] = useState<string>('Booking Advance');
+  const [milestoneName, setMilestoneName] = useState<string>('');
   const [paymentMode, setPaymentMode] = useState<string>('Bank Transfer');
   const [referenceNumber, setReferenceNumber] = useState<string>('');
   const [invoiceNumber, setInvoiceNumber] = useState<string>('');
@@ -89,7 +97,7 @@ export default function RecordPaymentModal({
       setProjectId(editingPayment.project_id || '');
       setAmount(editingPayment.amount?.toString() || '');
       setPaymentDate(editingPayment.payment_date || new Date().toISOString().split('T')[0]);
-      setMilestoneName(editingPayment.milestone_name || 'Booking Advance');
+      setMilestoneName(editingPayment.milestone_name || '');
       setPaymentMode(editingPayment.payment_mode || 'Bank Transfer');
       setReferenceNumber(editingPayment.reference_number || '');
       setInvoiceNumber(editingPayment.invoice_number || '');
@@ -99,7 +107,7 @@ export default function RecordPaymentModal({
       setProjectId(defaultProjectId || '');
       setAmount('');
       setPaymentDate(new Date().toISOString().split('T')[0]);
-      setMilestoneName('Booking Advance');
+      setMilestoneName('');
       setPaymentMode('Bank Transfer');
       setReferenceNumber('');
       setInvoiceNumber('');
@@ -159,6 +167,10 @@ export default function RecordPaymentModal({
       showToast('error', 'Please select a project');
       return;
     }
+    if (!milestoneName.trim()) {
+      showToast('error', 'Please enter or select a milestone / purpose');
+      return;
+    }
     const numAmount = parseFloat(amount);
     if (!numAmount || numAmount <= 0) {
       showToast('error', 'Please enter a valid payment amount');
@@ -171,7 +183,7 @@ export default function RecordPaymentModal({
         project_id: projectId,
         amount: numAmount,
         payment_date: paymentDate,
-        milestone_name: milestoneName?.trim() || 'Client Payment',
+        milestone_name: milestoneName.trim(),
         payment_mode: paymentMode,
         reference_number: referenceNumber.trim() || null,
         invoice_number: invoiceNumber.trim() || null,
@@ -249,6 +261,39 @@ export default function RecordPaymentModal({
           ))}
         </select>
       )}
+    </div>
+  );
+
+  // Milestone / Purpose selector & custom input
+  const renderMilestoneField = () => (
+    <div>
+      <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center justify-between">
+        <span>Milestone / Purpose <span className="text-red-500">*</span></span>
+      </label>
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {COMMON_MILESTONES.map((m) => (
+          <button
+            type="button"
+            key={m}
+            onClick={() => setMilestoneName(m)}
+            className={`text-xs px-2.5 py-1 rounded-full border transition-all cursor-pointer ${
+              milestoneName === m
+                ? 'bg-yellow-500 text-gray-950 font-bold border-yellow-600 shadow-xs'
+                : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100 font-medium'
+            }`}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+      <input
+        type="text"
+        required
+        placeholder="Or type custom purpose (e.g. Booking Advance)"
+        value={milestoneName}
+        onChange={(e) => setMilestoneName(e.target.value)}
+        className="w-full px-3.5 py-2.5 bg-gray-50 hover:bg-white border border-gray-300 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all font-medium"
+      />
     </div>
   );
 
@@ -444,6 +489,7 @@ export default function RecordPaymentModal({
       >
         <div className="space-y-4 pb-4">
           {renderProjectField()}
+          {renderMilestoneField()}
           {renderAmountAndDateField()}
           {renderModeAndRefField()}
           {renderInvoiceField()}
@@ -480,6 +526,7 @@ export default function RecordPaymentModal({
             {/* Left Column: Financials & Identifiers */}
             <div className="space-y-4">
               {renderProjectField()}
+              {renderMilestoneField()}
               {renderAmountAndDateField()}
               {renderModeAndRefField()}
             </div>
