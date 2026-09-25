@@ -48,7 +48,32 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
           }
         }
 
+        // 1. Try coarse/network location first for fast indoor & battery response
         try {
+          const coarse = await Geolocation.getCurrentPosition({
+            enableHighAccuracy: false,
+            timeout: 3000,
+            maximumAge: 180000
+          });
+          sessionLocationCache = {
+            latitude: coarse.coords.latitude,
+            longitude: coarse.coords.longitude,
+            timestamp: Date.now()
+          };
+          // Try high accuracy in background
+          Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 })
+            .then(pos => {
+              sessionLocationCache = {
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+                timestamp: Date.now()
+              };
+            })
+            .catch(() => {});
+
+          return sessionLocationCache;
+        } catch (_) {
+          // If coarse failed, try high accuracy directly
           const pos = await Geolocation.getCurrentPosition({
             enableHighAccuracy: true,
             timeout: timeoutMs,
@@ -60,29 +85,12 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
             timestamp: Date.now()
           };
           return sessionLocationCache;
-        } catch (gpsErr: any) {
-          // Fallback to coarse/network location (critical inside concrete buildings)
-          try {
-            const coarse = await Geolocation.getCurrentPosition({
-              enableHighAccuracy: false,
-              timeout: timeoutMs + 1500,
-              maximumAge: 180000
-            });
-            sessionLocationCache = {
-              latitude: coarse.coords.latitude,
-              longitude: coarse.coords.longitude,
-              timestamp: Date.now()
-            };
-            return sessionLocationCache;
-          } catch (fallbackErr: any) {
-            const msg = (gpsErr?.message || fallbackErr?.message || '').toLowerCase();
-            if (msg.includes('disabled') || msg.includes('unavailable') || msg.includes('location services')) {
-              throw new Error('GPS_DISABLED');
-            }
-            throw fallbackErr;
-          }
         }
       } catch (err: any) {
+        const msg = (err?.message || '').toLowerCase();
+        if (msg.includes('disabled') || msg.includes('unavailable') || msg.includes('location services')) {
+          throw new Error('GPS_DISABLED');
+        }
         throw err;
       }
     } else {
@@ -100,36 +108,52 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
           navigator.geolocation.getCurrentPosition(resolve, reject, opts);
         });
 
+      // 1. Try fast coarse positioning first (Wi-Fi / Cell tower / IP) - works in 200ms
       try {
-        const pos = await getWebPos({
-          enableHighAccuracy: true,
-          timeout: timeoutMs,
-          maximumAge: 60000
+        const coarse = await getWebPos({
+          enableHighAccuracy: false,
+          timeout: 3500,
+          maximumAge: 180000
         });
+
         sessionLocationCache = {
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
+          latitude: coarse.coords.latitude,
+          longitude: coarse.coords.longitude,
           timestamp: Date.now()
         };
+
+        // In background, upgrade to high-accuracy GPS if satellite fix is available
+        getWebPos({ enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 })
+          .then(high => {
+            sessionLocationCache = {
+              latitude: high.coords.latitude,
+              longitude: high.coords.longitude,
+              timestamp: Date.now()
+            };
+          })
+          .catch(() => {});
+
         return sessionLocationCache;
-      } catch (err: any) {
-        if (err?.code === 1) throw new Error('PERMISSION_DENIED');
+      } catch (coarseErr: any) {
+        if (coarseErr?.code === 1) throw new Error('PERMISSION_DENIED');
+
+        // 2. If coarse failed, try high-accuracy GPS
         try {
-          const coarse = await getWebPos({
-            enableHighAccuracy: false,
-            timeout: timeoutMs + 1500,
-            maximumAge: 180000
+          const highPos = await getWebPos({
+            enableHighAccuracy: true,
+            timeout: timeoutMs,
+            maximumAge: 60000
           });
           sessionLocationCache = {
-            latitude: coarse.coords.latitude,
-            longitude: coarse.coords.longitude,
+            latitude: highPos.coords.latitude,
+            longitude: highPos.coords.longitude,
             timestamp: Date.now()
           };
           return sessionLocationCache;
-        } catch (fallbackErr: any) {
-          if (fallbackErr?.code === 1) throw new Error('PERMISSION_DENIED');
-          if (fallbackErr?.code === 2) throw new Error('GPS_DISABLED');
-          throw fallbackErr;
+        } catch (highErr: any) {
+          if (highErr?.code === 1) throw new Error('PERMISSION_DENIED');
+          if (highErr?.code === 2) throw new Error('GPS_DISABLED');
+          throw highErr;
         }
       }
     }

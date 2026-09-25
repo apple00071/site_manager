@@ -90,24 +90,32 @@ export async function watermarkPhotoWithLocation(
         // Determine lines of text to display
         const lines: { text: string; font: string; color: string }[] = [];
 
-        // Line 1: Primary Location
-        const locTitle = options.locationName || options.projectAddress || projectStr || 'Site Location';
-        lines.push({
-          text: `📍 ${locTitle}`,
-          font: `bold ${Math.round(16 * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`,
-          color: '#FFFFFF'
-        });
-
-        // Line 2: GPS Coordinates (if available)
-        if (options.coords) {
-          const lat = options.coords.latitude;
-          const lon = options.coords.longitude;
-          const latStr = `${Math.abs(lat).toFixed(6)}° ${lat >= 0 ? 'N' : 'S'}`;
-          const lonStr = `${Math.abs(lon).toFixed(6)}° ${lon >= 0 ? 'E' : 'W'}`;
+        // Line 1 & Line 2: Device Location & GPS Coordinates
+        if (options.coords || options.locationName) {
+          const locTitle = options.locationName || 'Device Location Detected';
           lines.push({
-            text: `🌐 GPS: ${latStr}, ${lonStr}`,
-            font: `${Math.round(12.5 * scale)}px "SF Mono", Consolas, "Courier New", monospace, sans-serif`,
-            color: '#FDE68A' // Light amber
+            text: `📍 ${locTitle}`,
+            font: `bold ${Math.round(16 * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`,
+            color: '#FFFFFF'
+          });
+
+          if (options.coords) {
+            const lat = options.coords.latitude;
+            const lon = options.coords.longitude;
+            const latStr = `${Math.abs(lat).toFixed(6)}° ${lat >= 0 ? 'N' : 'S'}`;
+            const lonStr = `${Math.abs(lon).toFixed(6)}° ${lon >= 0 ? 'E' : 'W'}`;
+            lines.push({
+              text: `🌐 GPS: ${latStr}, ${lonStr}`,
+              font: `${Math.round(12.5 * scale)}px "SF Mono", Consolas, "Courier New", monospace, sans-serif`,
+              color: '#FDE68A' // Light amber
+            });
+          }
+        } else {
+          // Clearly show device GPS was unavailable so user knows to grant browser permission
+          lines.push({
+            text: `📍 Device GPS: Unavailable (Turn ON location)`,
+            font: `bold ${Math.round(14 * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`,
+            color: '#FCA5A5'
           });
         }
 
