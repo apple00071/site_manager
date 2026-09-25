@@ -9,7 +9,6 @@ import { FiMoreVertical, FiEdit2, FiTrash2, FiX, FiPlus } from 'react-icons/fi';
 import { formatDateReadable, formatDateTimeReadable, formatTimeIST, getTodayDateString } from '@/lib/dateUtils';
 import { ImageModal } from '@/components/ui/ImageModal';
 import { MentionTextarea } from '@/components/ui/MentionTextarea';
-import { CustomDropdown } from '@/components/ui/CustomControls';
 
 declare global {
   interface Window {
@@ -33,11 +32,6 @@ type ProjectUpdate = {
     full_name: string;
     email: string;
   } | null;
-};
-
-type ProjectStage = {
-  id: string;
-  title: string;
 };
 
 type UpdatesTabProps = {
@@ -161,9 +155,6 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Project state
-  const [selectedStageId, setSelectedStageId] = useState('all');
-  const [stages, setStages] = useState<ProjectStage[]>([]);
   const [showAll, setShowAll] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -205,31 +196,22 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     address: string;
     formattedCoords: string;
   } | null>(null);
-  const [locDetecting, setLocDetecting] = useState(false);
   const [sharingId, setSharingId] = useState<string | null>(null);
 
-  const refreshDeviceLocation = async (showError = false) => {
+  const refreshDeviceLocation = async () => {
     try {
-      setLocDetecting(true);
       const { getLocationDetails } = await import('@/lib/locationUtils');
       const details = await getLocationDetails({ timeout: 6000 });
       if (details) {
         setDeviceLocation(details);
-      } else if (showError) {
-        alert('Device location could not be captured. Please ensure Location/GPS is turned ON and browser permission is allowed.');
       }
-    } catch (err: any) {
-      if (showError) {
-        alert('Location error: ' + (err?.message || 'Unable to access device location'));
-      }
-    } finally {
-      setLocDetecting(false);
+    } catch {
+      // silent background acquisition
     }
   };
 
   useEffect(() => {
     fetchUpdates();
-    fetchStages();
     fetchProjectUsers();
     // Proactively acquire device location on tab mount
     refreshDeviceLocation();
@@ -336,40 +318,6 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     }
   };
 
-  const fetchStages = async () => {
-    try {
-      // Fetch unique work descriptions from site_logs to use as stages
-      const response = await fetch(`/api/site-logs?project_id=${projectId}`);
-      if (!response.ok) {
-        console.error('Failed to fetch site logs for stages');
-        return;
-      }
-
-      const data = await response.json();
-      const logs = data.logs || [];
-
-      // Extract unique work descriptions as stages
-      const uniqueDescriptions = new Map<string, string>();
-      logs.forEach((log: any) => {
-        if (log.work_description && log.id) {
-          // Use first occurrence of each work description
-          const desc = log.work_description.trim();
-          if (!uniqueDescriptions.has(desc)) {
-            uniqueDescriptions.set(desc, log.id);
-          }
-        }
-      });
-
-      const mapped = Array.from(uniqueDescriptions.entries()).map(([title, id]) => ({
-        id,
-        title
-      }));
-
-      setStages(mapped);
-    } catch (error) {
-      console.error('Error fetching stages from site logs:', error);
-    }
-  };
 
   const fetchProjectUsers = async () => {
     try {
@@ -931,13 +879,6 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
         descriptionToSend = '';
       }
 
-      // Prepend selected work name if a specific work is selected
-      if (selectedStageId && selectedStageId !== 'all') {
-        const selectedWork = stages.find(s => s.id === selectedStageId);
-        if (selectedWork) {
-          descriptionToSend = `[${selectedWork.title}] ${descriptionToSend}`;
-        }
-      }
 
       const response = await fetch('/api/project-updates', {
         method: 'POST',
@@ -1280,19 +1221,6 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
       {/* Add Update Section */}
       <div className="border-b border-gray-200 p-4">
         <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            {/* Stage selector */}
-            <div className="flex-1 sm:flex-none sm:w-48">
-              <CustomDropdown
-                value={selectedStageId}
-                options={[
-                  { id: 'all', title: 'All stages' },
-                  ...stages.map(stage => ({ id: stage.id, title: stage.title }))
-                ]}
-                onChange={setSelectedStageId}
-              />
-            </div>
-          </div>
 
           {/* Description field */}
           <div>
@@ -1415,35 +1343,6 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
                 )}
               </div>
 
-              {/* Live Device Location Status Pill */}
-              {deviceLocation ? (
-                <div
-                  className="flex items-center gap-1.5 text-xs text-emerald-850 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1 select-none"
-                  title={`Device GPS: ${deviceLocation.address} (${deviceLocation.formattedCoords})`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span className="font-medium text-emerald-900 truncate max-w-[130px] sm:max-w-xs">
-                    📍 {deviceLocation.address}
-                  </span>
-                </div>
-              ) : locDetecting ? (
-                <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1 animate-pulse select-none">
-                  <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  <span>Detecting GPS...</span>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => refreshDeviceLocation(true)}
-                  className="flex items-center gap-1 text-[11px] text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-full px-2.5 py-1 cursor-pointer transition-colors"
-                  title="Click to detect device location"
-                >
-                  <span>📍 GPS Check</span>
-                </button>
-              )}
             </div>
             {uploadingPhotos && (
               <div className="flex items-center gap-2 text-xs text-yellow-600 font-medium animate-pulse">
