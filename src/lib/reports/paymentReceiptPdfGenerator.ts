@@ -138,14 +138,19 @@ export function generatePaymentReceiptPDF(payment: PaymentReceiptData): jsPDF {
   doc.setTextColor(31, 41, 55); // Gray 800
   doc.text('PAYMENT RECEIPT', 14, y);
 
-  // Status Badge on Right ("PAID / RECEIVED")
+  // Status Badge on Right ("PAYMENT RECEIVED")
   doc.setFillColor(236, 253, 245); // Emerald-50
   doc.setDrawColor(167, 243, 208); // Emerald-200
-  doc.roundedRect(154, y - 5.5, 42, 7.5, 1.5, 1.5, 'FD');
-  doc.setFontSize(8.5);
+  doc.roundedRect(148, y - 5.5, 48, 7.5, 1.5, 1.5, 'FD');
+
+  // Draw green status dot natively (no unicode symbol encoding issues)
+  doc.setFillColor(16, 185, 129); // Emerald-500
+  doc.circle(154, y - 1.8, 1.3, 'F');
+
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(5, 150, 105); // Emerald-600
-  doc.text('● PAYMENT RECEIVED', 175, y - 0.5, { align: 'center' });
+  doc.text('PAYMENT RECEIVED', 158, y - 0.7);
 
   // Thin separator line
   y += 5;
@@ -251,7 +256,7 @@ export function generatePaymentReceiptPDF(payment: PaymentReceiptData): jsPDF {
   const tableBody = [
     [
       '1',
-      payment.milestone_name || 'Project Milestone Collection',
+      payment.milestone_name || 'Client Payment',
       payment.payment_mode + (payment.reference_number ? ` (UTR: ${payment.reference_number})` : ''),
       formattedAmount
     ]
@@ -259,7 +264,7 @@ export function generatePaymentReceiptPDF(payment: PaymentReceiptData): jsPDF {
 
   autoTable(doc, {
     startY: y,
-    head: [['#', 'Milestone / Payment Purpose', 'Payment Details', 'Amount']],
+    head: [['#', 'Particulars / Description', 'Payment Details', 'Amount']],
     body: tableBody,
     foot: [['', 'TOTAL RECEIVED', '', formattedAmount]],
     theme: 'grid',
@@ -297,7 +302,7 @@ export function generatePaymentReceiptPDF(payment: PaymentReceiptData): jsPDF {
   // 5. AMOUNT IN WORDS BOX
   doc.setFillColor(254, 252, 232); // Amber-50
   doc.setDrawColor(254, 240, 138); // Amber-200
-  doc.roundedRect(14, y, 182, 12, 1.5, 1.5, 'FD');
+  doc.roundedRect(14, y, 182, 11, 1.5, 1.5, 'FD');
 
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'bold');
@@ -309,58 +314,70 @@ export function generatePaymentReceiptPDF(payment: PaymentReceiptData): jsPDF {
   const words = numberToIndianWords(numAmount);
   doc.text(words, 48, y + 5);
 
-  y += 18;
+  y += 15;
 
   // 6. NOTES / REMARKS (if provided)
   if (payment.notes) {
     doc.setFillColor(249, 250, 251);
     doc.setDrawColor(229, 231, 235);
-    doc.roundedRect(14, y, 182, 14, 1.5, 1.5, 'FD');
+    doc.roundedRect(14, y, 182, 12, 1.5, 1.5, 'FD');
 
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(107, 114, 128);
-    doc.text('Notes / Remarks:', 18, y + 5);
+    doc.text('Notes / Remarks:', 18, y + 4.5);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(55, 65, 81);
     const splitNotes = doc.splitTextToSize(payment.notes, 140);
-    doc.text(splitNotes, 48, y + 5);
+    doc.text(splitNotes, 48, y + 4.5);
 
-    y += 20;
+    y += 16;
   }
 
   // 7. FOOTER & AUTHORIZATION STAMP
-  const footerY = 240;
+  const footerY = Math.max(y + 8, 170);
 
-  // Terms & Note on bottom left
+  // Terms & Conditions card on left
+  doc.setFillColor(249, 250, 251);
+  doc.setDrawColor(229, 231, 235);
+  doc.roundedRect(14, footerY, 105, 28, 1.5, 1.5, 'FD');
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(75, 85, 99);
+  doc.text('Terms & Conditions:', 18, footerY + 5.5);
+
   doc.setFontSize(7.5);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(156, 163, 175);
-  doc.text('Terms & Conditions:', 14, footerY);
-  doc.text('1. All payments are subject to bank realization.', 14, footerY + 4.5);
-  doc.text('2. This is an electronically generated official receipt from Apple Interiors.', 14, footerY + 9);
-  doc.text('3. For questions regarding this receipt, contact accounts@appleinteriors.in.', 14, footerY + 13.5);
+  doc.setTextColor(107, 114, 128);
+  doc.text('1. All payments are subject to bank realization.', 18, footerY + 11);
+  doc.text('2. Computer-generated official receipt from Apple Interiors.', 18, footerY + 16.5);
+  doc.text('3. Inquiries: accounts@appleinteriors.in | +91 9603 9603 37', 18, footerY + 22);
 
-  // Authorized Signatory on bottom right
-  doc.setFontSize(9);
+  // Authorization Box on right
+  doc.setFillColor(249, 250, 251);
+  doc.setDrawColor(229, 231, 235);
+  doc.roundedRect(125, footerY, 71, 28, 1.5, 1.5, 'FD');
+
+  doc.setFontSize(8.5);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(31, 41, 55);
-  doc.text('For APPLE INTERIORS', 190, footerY, { align: 'right' });
+  doc.text('For APPLE INTERIORS', 160.5, footerY + 6.5, { align: 'center' });
 
   // Signature line
   doc.setDrawColor(209, 213, 219);
-  doc.line(140, footerY + 22, 190, footerY + 22);
+  doc.line(135, footerY + 19, 186, footerY + 19);
 
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(107, 114, 128);
-  doc.text('Authorized Signatory', 190, footerY + 27, { align: 'right' });
+  doc.text('Authorized Signatory', 160.5, footerY + 23.5, { align: 'center' });
 
   // Bottom Amber Gold Bar
   doc.setFillColor(245, 197, 24);
-  doc.rect(14, 282, 182, 1.5, 'F');
+  doc.rect(14, footerY + 33, 182, 1.5, 'F');
 
   return doc;
 }
