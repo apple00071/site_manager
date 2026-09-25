@@ -33,6 +33,7 @@ interface RecordPaymentModalProps {
   defaultProjectId?: string;
   editingPayment?: any | null;
   projectsList?: ProjectOption[];
+  nextSeqNumber?: number;
 }
 
 
@@ -59,6 +60,7 @@ export default function RecordPaymentModal({
   defaultProjectId,
   editingPayment,
   projectsList,
+  nextSeqNumber,
 }: RecordPaymentModalProps) {
   const { showToast } = useToast();
 
@@ -209,10 +211,11 @@ export default function RecordPaymentModal({
         return;
       }
 
-      const createdPayment = data.payment || {
-        ...payload,
-        id: data.id,
-        project: selectedProj ? { title: selectedProj.title, customer_name: selectedProj.customer_name } : undefined,
+      const createdPayment = {
+        ...(data.payment || payload),
+        id: data.payment?.id || data.id,
+        seq_number: data.payment?.seq_number || nextSeqNumber || 1,
+        project: data.payment?.project || (selectedProj ? { title: selectedProj.title, customer_name: selectedProj.customer_name } : undefined),
       };
 
       if (!editingPayment) {

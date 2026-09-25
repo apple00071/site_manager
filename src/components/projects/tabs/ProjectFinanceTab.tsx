@@ -75,7 +75,23 @@ export default function ProjectFinanceTab({
 
       if (paymentsRes.ok) {
         const data = await paymentsRes.json();
-        setPayments(data.payments || []);
+        const rawPayments = data.payments || [];
+        const sortedAsc = [...rawPayments].sort((a, b) => 
+          new Date(a.created_at || a.payment_date).getTime() - new Date(b.created_at || b.payment_date).getTime()
+        );
+        const seqMap = new Map<string, number>();
+        sortedAsc.forEach((p, idx) => seqMap.set(p.id, idx + 1));
+
+        const paymentsWithSeq = rawPayments.map((p: any) => {
+          const seq = seqMap.get(p.id) || 1;
+          const yr = new Date(p.payment_date || p.created_at || Date.now()).getFullYear();
+          return {
+            ...p,
+            seq_number: seq,
+            receipt_number: `AI/REC-${yr}-${String(seq).padStart(3, '0')}`,
+          };
+        });
+        setPayments(paymentsWithSeq);
       }
 
       if (expensesRes.ok) {
@@ -478,6 +494,7 @@ export default function ProjectFinanceTab({
             project_budget: currentBudget,
           },
         ]}
+        nextSeqNumber={payments.length + 1}
       />
     </div>
   );

@@ -104,7 +104,23 @@ export default function FinanceOverviewPage() {
 
       if (paymentsRes.ok) {
         const paymentsData = await paymentsRes.json();
-        setPayments(paymentsData.payments || []);
+        const rawPayments = paymentsData.payments || [];
+        const sortedAsc = [...rawPayments].sort((a, b) => 
+          new Date(a.created_at || a.payment_date).getTime() - new Date(b.created_at || b.payment_date).getTime()
+        );
+        const seqMap = new Map<string, number>();
+        sortedAsc.forEach((p, idx) => seqMap.set(p.id, idx + 1));
+
+        const paymentsWithSeq = rawPayments.map((p: any) => {
+          const seq = seqMap.get(p.id) || 1;
+          const yr = new Date(p.payment_date || p.created_at || Date.now()).getFullYear();
+          return {
+            ...p,
+            seq_number: seq,
+            receipt_number: `AI/REC-${yr}-${String(seq).padStart(3, '0')}`,
+          };
+        });
+        setPayments(paymentsWithSeq);
       }
     } catch (err) {
       console.error('Failed to load finance data:', err);
@@ -866,6 +882,7 @@ export default function FinanceOverviewPage() {
         onSuccess={() => loadData()}
         defaultProjectId={recordForProjectId}
         editingPayment={editingPayment}
+        nextSeqNumber={payments.length + 1}
         projectsList={projectSummaries.map((p) => ({
           id: p.id,
           title: p.title,

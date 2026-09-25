@@ -5,6 +5,8 @@ import { formatDateIST } from '@/lib/dateUtils';
 
 export interface PaymentReceiptData {
   id?: string;
+  receipt_number?: string | null;
+  seq_number?: number | null;
   project_id?: string;
   amount: number;
   payment_date: string;
@@ -85,9 +87,9 @@ export function generatePaymentReceiptPDF(payment: PaymentReceiptData): jsPDF {
   }) as any;
 
   const dateObj = payment.payment_date ? new Date(payment.payment_date) : new Date();
-  const year = dateObj.getFullYear();
-  const rawId = payment.id ? payment.id.replace(/-/g, '').slice(0, 6).toUpperCase() : '001';
-  const receiptNo = `AI/REC-${year}-${rawId}`;
+  const year = isNaN(dateObj.getFullYear()) ? new Date().getFullYear() : dateObj.getFullYear();
+  const seq = payment.seq_number ? String(payment.seq_number).padStart(3, '0') : '001';
+  const receiptNo = payment.receipt_number || `AI/REC-${year}-${seq}`;
   const formattedDate = payment.payment_date ? formatDateIST(payment.payment_date) : formatDateIST(new Date().toISOString());
 
   // 0. TOP ACCENT BAR (#f5c518 Amber Gold)
@@ -131,26 +133,12 @@ export function generatePaymentReceiptPDF(payment: PaymentReceiptData): jsPDF {
   doc.text('+91 9603 9603 37 · +91 91606 77899', 190, 30.5, { align: 'right' });
   doc.text('www.appleinteriors.in', 190, 35.5, { align: 'right' });
 
-  // 2. RECEIPT TITLE & BADGE
+  // 2. RECEIPT TITLE
   let y = 49;
   doc.setFontSize(15);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(31, 41, 55); // Gray 800
   doc.text('PAYMENT RECEIPT', 14, y);
-
-  // Status Badge on Right ("PAYMENT RECEIVED")
-  doc.setFillColor(236, 253, 245); // Emerald-50
-  doc.setDrawColor(167, 243, 208); // Emerald-200
-  doc.roundedRect(148, y - 5.5, 48, 7.5, 1.5, 1.5, 'FD');
-
-  // Draw green status dot natively (no unicode symbol encoding issues)
-  doc.setFillColor(16, 185, 129); // Emerald-500
-  doc.circle(154, y - 1.8, 1.3, 'F');
-
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(5, 150, 105); // Emerald-600
-  doc.text('PAYMENT RECEIVED', 158, y - 0.7);
 
   // Thin separator line
   y += 5;
@@ -384,8 +372,11 @@ export function generatePaymentReceiptPDF(payment: PaymentReceiptData): jsPDF {
 
 export function downloadPaymentReceiptPDF(payment: PaymentReceiptData, filename?: string): void {
   const doc = generatePaymentReceiptPDF(payment);
-  const cleanTitle = (payment.project?.title || 'Client').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 25);
-  const dateStr = payment.payment_date || new Date().toISOString().split('T')[0];
-  const name = filename || `Receipt_${cleanTitle}_${dateStr}.pdf`;
+  const dateObj = payment.payment_date ? new Date(payment.payment_date) : new Date();
+  const year = isNaN(dateObj.getFullYear()) ? new Date().getFullYear() : dateObj.getFullYear();
+  const seq = payment.seq_number ? String(payment.seq_number).padStart(3, '0') : '001';
+  const receiptNo = payment.receipt_number || `AI/REC-${year}-${seq}`;
+  const cleanReceiptNo = receiptNo.replace(/[\/\\?%*:|"<>]/g, '_');
+  const name = filename || `Receipt_${cleanReceiptNo}.pdf`;
   doc.save(name);
 }
