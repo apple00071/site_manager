@@ -334,7 +334,7 @@ export function generatePaymentReceiptPDF(payment: PaymentReceiptData): jsPDF {
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(107, 114, 128);
-  doc.text('This is a digitally generated document. No signature required.', 105, footerY + 8, { align: 'center' });
+  doc.text('This is a digitally generated receipt. No signature required', 105, footerY + 8, { align: 'center' });
 
   // Bottom Amber Gold Bar
   doc.setFillColor(245, 197, 24);
