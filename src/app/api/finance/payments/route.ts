@@ -10,7 +10,7 @@ const paymentSchema = z.object({
   project_id: z.string().uuid({ message: 'Valid project ID is required' }),
   amount: z.coerce.number().positive({ message: 'Amount must be greater than 0' }),
   payment_date: z.string().min(1, { message: 'Payment date is required' }),
-  milestone_name: z.string().min(1, { message: 'Milestone name is required' }),
+  milestone_name: z.string().nullable().optional().default('Client Payment'),
   payment_mode: z.string().default('Bank Transfer'),
   reference_number: z.string().nullable().optional(),
   invoice_number: z.string().nullable().optional(),

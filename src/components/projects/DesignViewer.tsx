@@ -189,7 +189,7 @@ export function DesignViewer({
                 const response = await fetch('/api/admin/users');
                 if (response.ok) {
                     const data = await response.json();
-                    setUsers(data);
+                    setUsers((data || []).filter((u: any) => u.is_active !== false));
                 }
             } catch (error) {
                 console.error('Failed to fetch users:', error);

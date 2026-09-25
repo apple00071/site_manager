@@ -176,12 +176,17 @@ export async function sendPushNotificationByUserId(
         // Import supabaseAdmin dynamically to avoid circular dependencies
         const { supabaseAdmin } = await import('@/lib/supabase-server');
 
-        // Fetch user's OneSignal Player ID from database (as fallback/verification)
+        // Fetch user's OneSignal Player ID and active status from database
         const { data: user } = await supabaseAdmin
             .from('users')
-            .select('onesignal_player_id')
+            .select('onesignal_player_id, is_active')
             .eq('id', userId)
             .single();
+
+        if (user && user.is_active === false) {
+            console.log('🚫 User is deactivated, skipping push notification:', userId);
+            return false;
+        }
 
         // Match both `user_${id}` and raw `${id}` so all client SDK registrations receive the push
         const externalUserIds = Array.from(new Set([`user_${userId}`, userId]));
@@ -223,20 +228,27 @@ export async function sendPushNotificationToMultipleUsers(
         // Import supabaseAdmin dynamically to avoid circular dependencies
         const { supabaseAdmin } = await import('@/lib/supabase-server');
 
-        // Fetch OneSignal Player IDs for all users (as fallback)
+        // Fetch OneSignal Player IDs for active users only
         const { data: users } = await supabaseAdmin
             .from('users')
-            .select('onesignal_player_id')
+            .select('id, onesignal_player_id, is_active')
             .in('id', userIds);
 
-        const playerIds = users
-            ? users.map((u: { onesignal_player_id: string | null }) => u.onesignal_player_id).filter((id: string | null): id is string => !!id)
-            : [];
+        const activeUsers = (users || []).filter((u: any) => u.is_active !== false);
+        const activeUserIds: string[] = activeUsers.map((u: any) => u.id as string);
+        const playerIds: string[] = activeUsers
+            .map((u: any) => u.onesignal_player_id as string | null)
+            .filter((id: string | null): id is string => !!id);
 
-        console.log(`✅ Targeted ${userIds.length} users (Found ${playerIds.length} Player IDs in DB)`);
+        if (activeUserIds.length === 0) {
+            console.log('🚫 No active users to notify in list, skipping push');
+            return true;
+        }
 
-        // Target both formats for all users
-        const formattedExternalIds = Array.from(new Set(userIds.flatMap(id => [`user_${id}`, id])));
+        console.log(`✅ Targeted ${activeUserIds.length} active users (Found ${playerIds.length} Player IDs in DB)`);
+
+        // Target both formats for active users only
+        const formattedExternalIds: string[] = Array.from(new Set<string>(activeUserIds.flatMap((id: string) => [`user_${id}`, id])));
 
         // Send using both for maximum reliability
         return await sendPushNotification({

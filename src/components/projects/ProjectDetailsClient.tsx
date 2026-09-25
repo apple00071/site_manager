@@ -123,8 +123,9 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
   const { hasPermission, isAdmin: permIsAdmin } = useUserPermissions();
   const canEditProject = hasPermission('projects.edit');
 
-  const [activeStage, setActiveStage] = useState<StageId>((searchParams?.get('stage') as StageId) || 'visit');
-  const [activeSubTab, setActiveSubTab] = useState<string>(searchParams?.get('tab') || 'details');
+  const initialStage = ((searchParams?.get('stage') as StageId) || 'visit');
+  const [activeStage, setActiveStage] = useState<StageId>(initialStage);
+  const [activeSubTab, setActiveSubTab] = useState<string>(searchParams?.get('tab') || getDefaultSubTab(initialStage));
   const [editSection, setEditSection] = useState<'info' | 'customer' | 'property' | 'workers' | null>(null);
   const [editingWorker, setEditingWorker] = useState<string | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
@@ -303,14 +304,19 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
   };
 
   useEffect(() => {
-    const stageParam = searchParams?.get('stage');
+    const stageParam = searchParams?.get('stage') as StageId;
     const tabParam = searchParams?.get('tab');
 
     if (stageParam && ['visit', 'design', 'boq', 'work_progress', 'snag', 'finance'].includes(stageParam)) {
-      if (stageParam !== activeStage) setActiveStage(stageParam as StageId);
+      if (stageParam !== activeStage) {
+        setActiveStage(stageParam);
+        setActiveSubTab(tabParam || getDefaultSubTab(stageParam));
+      }
     }
-    if (tabParam && tabParam !== activeSubTab) setActiveSubTab(tabParam);
-  }, [searchParams]);
+    if (tabParam && tabParam !== activeSubTab) {
+      setActiveSubTab(tabParam);
+    }
+  }, [searchParams, activeStage, activeSubTab]);
 
   const handleStageChange = (stage: StageId) => {
     setActiveStage(stage);
@@ -447,7 +453,7 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
           {activeStage === 'snag' && <SnagTab projectId={project.id} userId={user?.id || ''} userRole={isAdmin ? 'admin' : 'user'} ref={snagRef} />}
           {activeStage === 'finance' && (
             <>
-              {(activeSubTab === 'overview' || !activeSubTab) && (isAdmin || hasPermission('finance.view')) && (
+              {activeSubTab !== 'expenses' && (isAdmin || hasPermission('finance.view')) && (
                 <ProjectFinanceTab
                   projectId={project.id}
                   projectBudget={project.project_budget}

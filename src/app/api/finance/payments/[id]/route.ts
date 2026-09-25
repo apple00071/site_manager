@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 const updateSchema = z.object({
   amount: z.coerce.number().positive().optional(),
   payment_date: z.string().min(1).optional(),
-  milestone_name: z.string().min(1).optional(),
+  milestone_name: z.string().nullable().optional(),
   payment_mode: z.string().optional(),
   reference_number: z.string().nullable().optional(),
   invoice_number: z.string().nullable().optional(),

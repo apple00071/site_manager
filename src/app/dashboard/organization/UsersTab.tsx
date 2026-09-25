@@ -40,8 +40,8 @@ export default function UsersTab() {
                 const allRoles = rolesData.roles || [];
                 setRoles(allRoles);
 
-                // Fetch users via API
-                const usersRes = await fetch('/api/admin/users');
+                // Fetch users via API (include inactive users so admins can manage and reactivate them)
+                const usersRes = await fetch('/api/admin/users?include_inactive=true');
                 const usersData = await usersRes.json();
                 setUsers(usersData || []);
             } catch (error) {

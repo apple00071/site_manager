@@ -49,6 +49,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: projectsError.message }, { status: 500 });
     }
 
+    // 1b. Fetch approved quotation leads for fallback / budget reconciliation
+    const { data: approvedLeads } = await supabaseAdmin
+      .from('quotation_leads')
+      .select('id, client_name, site_project, quote_value, approved_value, status')
+      .eq('status', 'Approved');
+
     // 2. Fetch all client payments
     const { data: payments, error: paymentsError } = await supabaseAdmin
       .from('client_payments')
@@ -97,7 +103,24 @@ export async function GET(request: NextRequest) {
     let totalExpenses = 0;
 
     const projectBreakdown = (projects || []).map((proj: any) => {
-      const budget = Number(proj.project_budget) || 0;
+      let budget = Number(proj.project_budget) || 0;
+
+      // Fallback: if project_budget is not yet set, reconcile with approved CRM quotation lead
+      if (budget === 0 && approvedLeads && approvedLeads.length > 0) {
+        const cName = (proj.customer_name || proj.client?.name || '').toLowerCase().trim();
+        const pTitle = (proj.title || '').toLowerCase().trim();
+        const matched = approvedLeads.find((al: any) => {
+          const lName = (al.client_name || '').toLowerCase().trim();
+          return lName && (cName === lName || pTitle.includes(lName) || lName.includes(cName));
+        });
+        if (matched) {
+          budget = Number(matched.approved_value || matched.quote_value) || 0;
+          if (budget > 0) {
+            // Self-healing backfill in background
+            supabaseAdmin.from('projects').update({ project_budget: budget }).eq('id', proj.id).then();
+          }
+        }
+      }
       const pStats = paymentsByProject.get(proj.id) || { total: 0, count: 0, lastDate: null };
       const collected = pStats.total;
       const projectExp = expensesByProject.get(proj.id) || 0;
@@ -115,7 +138,7 @@ export async function GET(request: NextRequest) {
         title: proj.title,
         customerName: proj.customer_name || proj.client?.name || 'Unknown Client',
         clientPhone: proj.client?.phone || null,
-        status: proj.unified_status || proj.status || 'in_progress',
+        status: proj.status || 'pending',
         budget,
         collected,
         pending,

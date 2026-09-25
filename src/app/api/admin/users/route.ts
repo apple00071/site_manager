@@ -90,6 +90,12 @@ export async function GET(request: NextRequest) {
       .neq('role', 'client') // Exclude legacy clients
       .order('created_at', { ascending: false });
 
+    // Filter out inactive users unless explicitly requested
+    const includeInactive = searchParams.get('include_inactive') === 'true' || searchParams.get('all') === 'true';
+    if (!includeInactive) {
+      query = query.or('is_active.is.null,is_active.eq.true');
+    }
+
     // Add role filter if provided
     if (roleFilter) {
       query = query.eq('role', roleFilter);

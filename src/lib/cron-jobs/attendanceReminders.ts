@@ -14,7 +14,8 @@ export async function runPunchInReminder() {
     const { data: employees, error: employeesError } = await supabaseAdmin
         .from('users')
         .select('id, full_name')
-        .eq('role', 'employee');
+        .eq('role', 'employee')
+        .or('is_active.is.null,is_active.eq.true');
 
     if (employeesError) throw employeesError;
     if (!employees || employees.length === 0) return { success: true, message: 'No employees found' };

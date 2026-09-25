@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -93,6 +93,7 @@ export default function NewProjectPage() {
   const { isAdmin, isLoading: authLoading, user } = useAuth();
   const { hasPermission } = useUserPermissions();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -101,13 +102,42 @@ export default function NewProjectPage() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [uploadingPDF, setUploadingPDF] = useState(false);
 
-  const { register, handleSubmit, control, formState: { errors } } = useForm<ProjectFormValues>({
+  const { register, handleSubmit, control, reset, formState: { errors } } = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
     mode: 'onChange',
     defaultValues: {
       status: 'pending',
     },
   });
+
+  // Prefill form from query parameters if converting from CRM Quote
+  useEffect(() => {
+    if (!searchParams) return;
+    const title = searchParams.get('title');
+    const customer_name = searchParams.get('customer_name');
+    const phone_number = searchParams.get('phone_number');
+    const address = searchParams.get('address');
+    const apartment_name = searchParams.get('apartment_name');
+    const area_sqft = searchParams.get('area_sqft');
+    const budget = searchParams.get('budget') || searchParams.get('project_budget');
+    const notes = searchParams.get('notes') || searchParams.get('project_notes');
+
+    if (title || customer_name || phone_number || budget) {
+      reset({
+        status: 'pending',
+        title: title || '',
+        customer_name: customer_name || '',
+        phone_number: phone_number || '',
+        address: address || '',
+        apartment_name: apartment_name || address || '',
+        area_sqft: area_sqft || '',
+        project_budget: budget || '',
+        project_notes: notes || '',
+        start_date: new Date().toISOString().split('T')[0],
+        estimated_completion_date: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      });
+    }
+  }, [searchParams, reset]);
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -153,16 +183,18 @@ export default function NewProjectPage() {
 
         console.log('Employees loaded:', employeesData?.length, employeesData);
 
-        // Map to the expected format with 'name' field and include role for logic
-        const mappedEmployees = (employeesData || []).map((u: any) => ({
-          id: u.id,
-          name: u.full_name,
-          email: u.email,
-          designation: u.designation,
-          role: u.role,
-          role_name: u.roles?.name,
-          is_active: u.is_active !== false,
-        }));
+        // Map to the expected format with 'name' field and include role for logic (exclude inactive)
+        const mappedEmployees = (employeesData || [])
+          .filter((u: any) => u.is_active !== false)
+          .map((u: any) => ({
+            id: u.id,
+            name: u.full_name,
+            email: u.email,
+            designation: u.designation,
+            role: u.role,
+            role_name: u.roles?.name,
+            is_active: true,
+          }));
 
         console.log('Mapped employees:', mappedEmployees);
         setEmployees(mappedEmployees);

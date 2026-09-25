@@ -11,7 +11,6 @@ import RecordPaymentModal from '@/components/finance/RecordPaymentModal';
 import {
   FiPlus,
   FiSearch,
-  FiDollarSign,
   FiTrendingUp,
   FiClock,
   FiCreditCard,
@@ -26,6 +25,19 @@ import {
   FiRefreshCw
 } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
+
+const getProjectStatusConfig = (status?: string | null) => {
+  const st = (status || 'pending').toLowerCase();
+  const configs: Record<string, { bg: string; text: string; label: string }> = {
+    pending: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Design Phase' },
+    in_progress: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Execution Phase' },
+    on_hold: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'On Hold' },
+    completed: { bg: 'bg-green-100', text: 'text-green-800', label: 'Completed' },
+    handover: { bg: 'bg-purple-100', text: 'text-purple-800', label: 'Handover Phase' },
+    cancelled: { bg: 'bg-red-100', text: 'text-red-800', label: 'Cancelled' },
+  };
+  return configs[st] || { bg: 'bg-gray-100', text: 'text-gray-700', label: st.replace(/_/g, ' ') };
+};
 
 export default function FinanceOverviewPage() {
   const { user } = useAuth();
@@ -67,7 +79,7 @@ export default function FinanceOverviewPage() {
 
   useEffect(() => {
     setTitle('Finance Overview');
-    setSubtitle('Client milestone collections, receivables, and project profitability');
+    setSubtitle(null);
   }, [setTitle, setSubtitle]);
 
   const loadData = async () => {
@@ -187,43 +199,29 @@ export default function FinanceOverviewPage() {
 
   return (
     <div className="w-full mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
-      {/* Top Header / Actions */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-gray-900 flex items-center gap-2 tracking-tight">
-            <span className="p-2 bg-yellow-50 text-yellow-600 rounded-xl">
-              <TbCurrencyRupee className="w-6 h-6" />
-            </span>
-            Finance Overview
-          </h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-1">
-            Track client milestone payments, pending receivables, and project profitability.
-          </p>
-        </div>
+      {/* Top Actions Bar */}
+      <div className="flex items-center justify-end gap-2.5">
+        <button
+          onClick={() => loadData()}
+          title="Refresh Financials"
+          className="inline-flex items-center justify-center p-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all cursor-pointer"
+        >
+          <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
 
-        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+        {canManage && (
           <button
-            onClick={() => loadData()}
-            title="Refresh Financials"
-            className="p-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all"
+            onClick={() => {
+              setRecordForProjectId(undefined);
+              setEditingPayment(null);
+              setIsRecordModalOpen(true);
+            }}
+            className="inline-flex items-center justify-center text-center gap-2 px-4 py-2.5 bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700 text-gray-950 text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-all cursor-pointer"
           >
-            <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <FiPlus className="w-4 h-4" />
+            <span>Record Client Payment</span>
           </button>
-
-          {canManage && (
-            <button
-              onClick={() => {
-                setRecordForProjectId(undefined);
-                setEditingPayment(null);
-                setIsRecordModalOpen(true);
-              }}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700 text-white text-xs sm:text-sm font-bold rounded-xl shadow-md transition-all flex-1 sm:flex-initial"
-            >
-              <FiPlus className="w-4 h-4" />
-              <span>Record Client Payment</span>
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
       {/* KPI Cards Grid */}
@@ -378,7 +376,7 @@ export default function FinanceOverviewPage() {
               </div>
             ) : filteredPayments.length === 0 ? (
               <div className="p-12 text-center text-gray-500">
-                <FiDollarSign className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <TbCurrencyRupee className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                 <h3 className="text-base font-bold text-gray-700">No client payments found</h3>
                 <p className="text-xs text-gray-400 mt-1 max-w-sm mx-auto">
                   {searchQuery || selectedMode !== 'all'
@@ -399,103 +397,198 @@ export default function FinanceOverviewPage() {
                 )}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs sm:text-sm">
-                  <thead className="bg-gray-50/75 border-b border-gray-100 text-gray-500 font-semibold uppercase text-[11px] tracking-wider">
-                    <tr>
-                      <th className="px-4 py-3.5">Date</th>
-                      <th className="px-4 py-3.5">Project & Client</th>
-                      <th className="px-4 py-3.5">Milestone / Purpose</th>
-                      <th className="px-4 py-3.5 text-right">Amount (₹)</th>
-                      <th className="px-4 py-3.5">Mode & Ref</th>
-                      <th className="px-4 py-3.5 text-center">Receipt</th>
-                      {canManage && <th className="px-4 py-3.5 text-right">Actions</th>}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {filteredPayments.map((p) => (
-                      <tr key={p.id} className="hover:bg-yellow-50/30 transition-colors">
-                        <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap font-medium">
+              <>
+                {/* Mobile Cards View */}
+                <div className="block md:hidden divide-y divide-gray-100 p-3 space-y-3 bg-gray-50/40">
+                  {filteredPayments.map((p) => (
+                    <div key={p.id} className="bg-white rounded-2xl border border-gray-200/80 shadow-xs p-4 space-y-3">
+                      {/* Date & Milestone Badge */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-gray-500">
                           {p.payment_date ? formatDateIST(p.payment_date) : '-'}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <Link
-                            href={`/dashboard/projects/${p.project_id}?stage=finance`}
-                            className="font-bold text-gray-900 hover:text-yellow-600 flex items-center gap-1.5 transition-colors group"
-                          >
-                            <span>{p.project?.title || 'Unknown Project'}</span>
-                            <FiArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 text-yellow-600 transition-opacity" />
-                          </Link>
-                          {(p.project?.customer_name || p.project?.client?.name) && (
-                            <span className="text-xs text-gray-500 block mt-0.5">
-                              {p.project.customer_name || p.project.client?.name}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className="inline-block px-2.5 py-1 bg-yellow-50 text-yellow-700 font-semibold text-xs rounded-full border border-yellow-200/60">
-                            {p.milestone_name}
-                          </span>
-                          {p.notes && (
-                            <span className="text-[11px] text-gray-400 block mt-1 line-clamp-1">
-                              {p.notes}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3.5 text-right font-black text-green-700 whitespace-nowrap text-sm sm:text-base">
-                          ₹{Number(p.amount).toLocaleString('en-IN')}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <div className="font-medium text-gray-800 text-xs">{p.payment_mode}</div>
-                          {p.reference_number && (
-                            <span className="text-[11px] text-gray-400 font-mono block">
-                              Ref: {p.reference_number}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3.5 text-center">
-                          {p.receipt_url ? (
-                            <a
-                              href={p.receipt_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
-                            >
-                              <FiExternalLink className="w-3.5 h-3.5" />
-                              <span>View</span>
-                            </a>
-                          ) : (
-                            <span className="text-gray-300 text-xs">-</span>
-                          )}
-                        </td>
-                        {canManage && (
-                          <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                onClick={() => {
-                                  setEditingPayment(p);
-                                  setIsRecordModalOpen(true);
-                                }}
-                                title="Edit Payment"
-                                className="p-1.5 text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
-                              >
-                                <FiEdit2 className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDeletePayment(p.id)}
-                                title="Delete Payment"
-                                className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              >
-                                <FiTrash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
+                        </span>
+                        <span className="inline-flex items-center justify-center text-center px-2.5 py-0.5 bg-yellow-50 text-yellow-800 font-semibold text-[11px] rounded-full border border-yellow-200/60">
+                          {p.milestone_name}
+                        </span>
+                      </div>
+
+                      {/* Project & Client */}
+                      <div>
+                        <Link
+                          href={`/dashboard/projects/${p.project_id}?stage=finance&tab=overview`}
+                          className="font-bold text-sm text-gray-900 hover:text-yellow-600 inline-flex items-center gap-1 group leading-snug"
+                        >
+                          <span className="break-words">{p.project?.title || 'Unknown Project'}</span>
+                          <FiArrowUpRight className="w-3.5 h-3.5 shrink-0 text-gray-400 group-hover:text-yellow-600 transition-colors" />
+                        </Link>
+                        {(p.project?.customer_name || p.project?.client?.name) && (
+                          <p className="text-xs text-gray-500 font-medium mt-0.5">
+                            {p.project.customer_name || p.project.client?.name}
+                          </p>
                         )}
+                      </div>
+
+                      {/* Amount and Mode Banner */}
+                      <div className="flex items-center justify-between bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                        <div>
+                          <span className="text-[10px] text-gray-400 uppercase font-semibold block">Amount Paid</span>
+                          <span className="text-base font-black text-green-700">₹{Number(p.amount).toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-semibold text-gray-800 block">{p.payment_mode}</span>
+                          {p.reference_number && (
+                            <span className="text-[10px] text-gray-400 font-mono block">Ref: {p.reference_number}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {p.notes && (
+                        <p className="text-xs text-gray-600 bg-gray-50/70 p-2.5 rounded-xl border border-gray-100">
+                          {p.notes}
+                        </p>
+                      )}
+
+                      {/* Footer Actions / Receipt */}
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-100">
+                        {p.receipt_url ? (
+                          <a
+                            href={p.receipt_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center justify-center text-center gap-1.5 h-8 px-3 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
+                          >
+                            <FiExternalLink className="w-3.5 h-3.5" />
+                            <span>View Receipt</span>
+                          </a>
+                        ) : (
+                          <span className="text-xs text-gray-400">No Receipt</span>
+                        )}
+
+                        {canManage && (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => {
+                                setEditingPayment(p);
+                                setIsRecordModalOpen(true);
+                              }}
+                              title="Edit Payment"
+                              className="inline-flex items-center justify-center text-center h-8 w-8 text-gray-500 hover:text-yellow-700 hover:bg-yellow-50 rounded-lg border border-gray-200 transition-colors cursor-pointer"
+                            >
+                              <FiEdit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeletePayment(p.id)}
+                              title="Delete Payment"
+                              className="inline-flex items-center justify-center text-center h-8 w-8 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg border border-gray-200 transition-colors cursor-pointer"
+                            >
+                              <FiTrash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                    <thead className="bg-gray-50/75 border-b border-gray-100 text-gray-500 font-semibold uppercase text-[11px] tracking-wider">
+                      <tr>
+                        <th className="px-4 py-3.5">Date</th>
+                        <th className="px-4 py-3.5">Project & Client</th>
+                        <th className="px-4 py-3.5">Milestone / Purpose</th>
+                        <th className="px-4 py-3.5 text-right">Amount (₹)</th>
+                        <th className="px-4 py-3.5">Mode & Ref</th>
+                        <th className="px-4 py-3.5 text-center">Receipt</th>
+                        {canManage && <th className="px-4 py-3.5 text-right">Actions</th>}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {filteredPayments.map((p) => (
+                        <tr key={p.id} className="hover:bg-yellow-50/30 transition-colors">
+                          <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap font-medium">
+                            {p.payment_date ? formatDateIST(p.payment_date) : '-'}
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <Link
+                              href={`/dashboard/projects/${p.project_id}?stage=finance&tab=overview`}
+                              className="font-bold text-gray-900 hover:text-yellow-600 inline-flex items-center gap-1.5 transition-colors group"
+                            >
+                              <span>{p.project?.title || 'Unknown Project'}</span>
+                              <FiArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 text-yellow-600 transition-opacity" />
+                            </Link>
+                            {(p.project?.customer_name || p.project?.client?.name) && (
+                              <span className="text-xs text-gray-500 block mt-0.5">
+                                {p.project.customer_name || p.project.client?.name}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span className="inline-flex items-center justify-center text-center px-2.5 py-1 bg-yellow-50 text-yellow-700 font-semibold text-xs rounded-full border border-yellow-200/60">
+                              {p.milestone_name}
+                            </span>
+                            {p.notes && (
+                              <span className="text-[11px] text-gray-400 block mt-1 line-clamp-1">
+                                {p.notes}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5 text-right font-black text-green-700 whitespace-nowrap text-sm sm:text-base">
+                            ₹{Number(p.amount).toLocaleString('en-IN')}
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <div className="font-medium text-gray-800 text-xs">{p.payment_mode}</div>
+                            {p.reference_number && (
+                              <span className="text-[11px] text-gray-400 font-mono block">
+                                Ref: {p.reference_number}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5 text-center">
+                            {p.receipt_url ? (
+                              <a
+                                href={p.receipt_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center justify-center text-center gap-1 h-7 px-2.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
+                              >
+                                <FiExternalLink className="w-3.5 h-3.5" />
+                                <span>View</span>
+                              </a>
+                            ) : (
+                              <span className="text-gray-300 text-xs">-</span>
+                            )}
+                          </td>
+                          {canManage && (
+                            <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => {
+                                    setEditingPayment(p);
+                                    setIsRecordModalOpen(true);
+                                  }}
+                                  title="Edit Payment"
+                                  className="inline-flex items-center justify-center text-center h-7 w-7 text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <FiEdit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeletePayment(p.id)}
+                                  title="Delete Payment"
+                                  className="inline-flex items-center justify-center text-center h-7 w-7 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <FiTrash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -514,107 +607,228 @@ export default function FinanceOverviewPage() {
               No projects found.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm">
-                <thead className="bg-gray-50/75 border-b border-gray-100 text-gray-500 font-semibold uppercase text-[11px] tracking-wider">
-                  <tr>
-                    <th className="px-4 py-3.5">Project</th>
-                    <th className="px-4 py-3.5">Customer</th>
-                    <th className="px-4 py-3.5 text-right">Contract Budget (₹)</th>
-                    <th className="px-4 py-3.5">Collection Status</th>
-                    <th className="px-4 py-3.5 text-right">Pending (₹)</th>
-                    <th className="px-4 py-3.5 text-right">Site Expenses (₹)</th>
-                    <th className="px-4 py-3.5 text-right">Gross Margin (₹)</th>
-                    <th className="px-4 py-3.5 text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {projectSummaries.map((p) => (
-                    <tr key={p.id} className="hover:bg-yellow-50/30 transition-colors">
-                      <td className="px-4 py-3.5">
+            <>
+              {/* Mobile Cards View */}
+              <div className="block md:hidden space-y-3 p-3 bg-gray-50/40">
+                {projectSummaries.map((p) => {
+                  const cfg = getProjectStatusConfig(p.status);
+                  return (
+                    <div key={p.id} className="bg-white rounded-2xl border border-gray-200/80 shadow-xs p-4 space-y-3">
+                      {/* Header: Title full width, then Customer & Status */}
+                      <div className="space-y-1.5">
                         <Link
-                          href={`/dashboard/projects/${p.id}?stage=finance`}
-                          className="font-bold text-gray-900 hover:text-yellow-600 flex items-center gap-1.5 transition-colors group"
+                          href={`/dashboard/projects/${p.id}?stage=finance&tab=overview`}
+                          className="font-bold text-sm text-gray-900 hover:text-yellow-600 flex items-start justify-between gap-1.5 group leading-snug"
                         >
-                          <span>{p.title}</span>
-                          <FiArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 text-yellow-600 transition-opacity" />
+                          <span className="break-all">{p.title}</span>
+                          <FiArrowUpRight className="w-3.5 h-3.5 shrink-0 text-gray-400 group-hover:text-yellow-600 transition-colors mt-0.5" />
                         </Link>
-                        <span className="text-[11px] text-gray-400 capitalize block mt-0.5">
-                          Status: {p.status?.replace('_', ' ')}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5 font-medium text-gray-700">
-                        {p.customerName}
-                      </td>
-                      <td className="px-4 py-3.5 text-right font-semibold text-gray-900 whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <span>₹{p.budget ? p.budget.toLocaleString('en-IN') : '0'}</span>
-                          {canManage && (
-                            <button
-                              onClick={() => {
-                                setEditingBudgetProj({ id: p.id, title: p.title, currentBudget: p.budget });
-                                setNewBudgetVal(p.budget ? p.budget.toString() : '');
-                              }}
-                              title="Edit Project Budget"
-                              className="text-gray-400 hover:text-yellow-600 p-1 rounded transition-colors"
-                            >
-                              <FiEdit2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5 min-w-[160px]">
-                        <div className="flex items-center justify-between text-xs mb-1">
-                          <span className="font-bold text-green-700">
-                            ₹{p.collected.toLocaleString('en-IN')}
-                          </span>
-                          <span className="font-semibold text-gray-500">
-                            {p.collectionRate}%
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs text-gray-500 font-medium truncate">{p.customerName}</p>
+                          <span className={`inline-flex items-center justify-center text-center px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${cfg.bg} ${cfg.text}`}>
+                            {cfg.label}
                           </span>
                         </div>
-                        <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                      </div>
+
+                      {/* Collections Progress */}
+                      <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100 space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-500 font-medium">Collections</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-green-700">₹{p.collected.toLocaleString('en-IN')}</span>
+                            <span className="text-[11px] font-semibold text-gray-400">({p.collectionRate}%)</span>
+                          </div>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
                           <div
-                            className="bg-green-500 h-2 rounded-full transition-all duration-500"
+                            className="bg-green-500 h-1.5 rounded-full transition-all duration-500"
                             style={{ width: `${Math.min(100, p.collectionRate)}%` }}
                           />
                         </div>
-                      </td>
-                      <td className="px-4 py-3.5 text-right font-semibold text-amber-600 whitespace-nowrap">
-                        ₹{p.pending.toLocaleString('en-IN')}
-                      </td>
-                      <td className="px-4 py-3.5 text-right font-semibold text-purple-600 whitespace-nowrap">
-                        ₹{p.expenses.toLocaleString('en-IN')}
-                      </td>
-                      <td className={`px-4 py-3.5 text-right font-black whitespace-nowrap ${p.netMargin >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
-                        ₹{p.netMargin.toLocaleString('en-IN')}
-                      </td>
-                      <td className="px-4 py-3.5 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-2">
-                          {canManage && (
-                            <button
-                              onClick={() => {
-                                setRecordForProjectId(p.id);
-                                setEditingPayment(null);
-                                setIsRecordModalOpen(true);
-                              }}
-                              className="px-2.5 py-1 text-xs font-semibold text-yellow-700 bg-yellow-50 hover:bg-yellow-100 rounded-lg border border-yellow-200 transition-colors"
-                            >
-                              + Pay
-                            </button>
-                          )}
-                          <Link
-                            href={`/dashboard/projects/${p.id}?stage=finance`}
-                            className="px-2.5 py-1 text-xs font-semibold text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors"
-                          >
-                            Details
-                          </Link>
+                      </div>
+
+                      {/* Financial Metrics 2x2 Grid */}
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] text-gray-500">Contract Budget</span>
+                            {canManage && (
+                              <button
+                                onClick={() => {
+                                  setEditingBudgetProj({ id: p.id, title: p.title, currentBudget: p.budget });
+                                  setNewBudgetVal(p.budget ? p.budget.toString() : '');
+                                }}
+                                title="Edit Project Budget"
+                                className="inline-flex items-center justify-center text-center p-1 text-gray-400 hover:text-yellow-600 rounded transition-colors cursor-pointer"
+                              >
+                                <FiEdit2 className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                          <div className="font-bold text-gray-900 mt-0.5">
+                            ₹{p.budget ? p.budget.toLocaleString('en-IN') : '0'}
+                          </div>
                         </div>
-                      </td>
+
+                        <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100">
+                          <span className="text-[11px] text-gray-500 block">Pending Balance</span>
+                          <div className="font-bold text-amber-600 mt-0.5">
+                            ₹{p.pending.toLocaleString('en-IN')}
+                          </div>
+                        </div>
+
+                        <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100">
+                          <span className="text-[11px] text-gray-500 block">Site Expenses</span>
+                          <div className="font-bold text-purple-600 mt-0.5">
+                            ₹{p.expenses.toLocaleString('en-IN')}
+                          </div>
+                        </div>
+
+                        <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100">
+                          <span className="text-[11px] text-gray-500 block">Gross Margin</span>
+                          <div className={`font-black mt-0.5 ${p.netMargin >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
+                            ₹{p.netMargin.toLocaleString('en-IN')}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card Action Buttons with centered text */}
+                      <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
+                        {canManage && (
+                          <button
+                            onClick={() => {
+                              setRecordForProjectId(p.id);
+                              setEditingPayment(null);
+                              setIsRecordModalOpen(true);
+                            }}
+                            className="inline-flex items-center justify-center text-center flex-1 h-9 px-3 text-xs font-bold text-gray-950 bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700 rounded-xl transition-colors shadow-xs cursor-pointer"
+                          >
+                            + Record Payment
+                          </button>
+                        )}
+                        <Link
+                          href={`/dashboard/projects/${p.id}?stage=finance&tab=overview`}
+                          className="inline-flex items-center justify-center text-center flex-1 h-9 px-3 text-xs font-semibold text-gray-700 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors cursor-pointer"
+                        >
+                          Project Details
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left text-xs sm:text-sm">
+                  <thead className="bg-gray-50/75 border-b border-gray-100 text-gray-500 font-semibold uppercase text-[11px] tracking-wider">
+                    <tr>
+                      <th className="px-4 py-3.5">Project</th>
+                      <th className="px-4 py-3.5">Customer</th>
+                      <th className="px-4 py-3.5 text-right">Contract Budget (₹)</th>
+                      <th className="px-4 py-3.5">Collection Status</th>
+                      <th className="px-4 py-3.5 text-right">Pending (₹)</th>
+                      <th className="px-4 py-3.5 text-right">Site Expenses (₹)</th>
+                      <th className="px-4 py-3.5 text-right">Gross Margin (₹)</th>
+                      <th className="px-4 py-3.5 text-center">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {projectSummaries.map((p) => (
+                      <tr key={p.id} className="hover:bg-yellow-50/30 transition-colors">
+                        <td className="px-4 py-3.5">
+                          <Link
+                            href={`/dashboard/projects/${p.id}?stage=finance&tab=overview`}
+                            className="font-bold text-gray-900 hover:text-yellow-600 inline-flex items-center gap-1.5 transition-colors group"
+                          >
+                            <span>{p.title}</span>
+                            <FiArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 text-yellow-600 transition-opacity" />
+                          </Link>
+                          {(() => {
+                            const cfg = getProjectStatusConfig(p.status);
+                            return (
+                              <div className="mt-1">
+                                <span className={`inline-flex items-center justify-center text-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${cfg.bg} ${cfg.text}`}>
+                                  {cfg.label}
+                                </span>
+                              </div>
+                            );
+                          })()}
+                        </td>
+                        <td className="px-4 py-3.5 font-medium text-gray-700">
+                          {p.customerName}
+                        </td>
+                        <td className="px-4 py-3.5 text-right font-semibold text-gray-900 whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <span>₹{p.budget ? p.budget.toLocaleString('en-IN') : '0'}</span>
+                            {canManage && (
+                              <button
+                                onClick={() => {
+                                  setEditingBudgetProj({ id: p.id, title: p.title, currentBudget: p.budget });
+                                  setNewBudgetVal(p.budget ? p.budget.toString() : '');
+                                }}
+                                title="Edit Project Budget"
+                                className="inline-flex items-center justify-center text-center text-gray-400 hover:text-yellow-600 p-1 rounded transition-colors cursor-pointer"
+                              >
+                                <FiEdit2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5 min-w-[160px]">
+                          <div className="flex items-center justify-between text-xs mb-1">
+                            <span className="font-bold text-green-700">
+                              ₹{p.collected.toLocaleString('en-IN')}
+                            </span>
+                            <span className="font-semibold text-gray-500">
+                              {p.collectionRate}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="bg-green-500 h-2 rounded-full transition-all duration-500"
+                              style={{ width: `${Math.min(100, p.collectionRate)}%` }}
+                            />
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5 text-right font-semibold text-amber-600 whitespace-nowrap">
+                          ₹{p.pending.toLocaleString('en-IN')}
+                        </td>
+                        <td className="px-4 py-3.5 text-right font-semibold text-purple-600 whitespace-nowrap">
+                          ₹{p.expenses.toLocaleString('en-IN')}
+                        </td>
+                        <td className={`px-4 py-3.5 text-right font-black whitespace-nowrap ${p.netMargin >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
+                          ₹{p.netMargin.toLocaleString('en-IN')}
+                        </td>
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-2">
+                            {canManage && (
+                              <button
+                                onClick={() => {
+                                  setRecordForProjectId(p.id);
+                                  setEditingPayment(null);
+                                  setIsRecordModalOpen(true);
+                                }}
+                                className="inline-flex items-center justify-center text-center h-7 px-3 text-xs font-bold text-yellow-800 bg-yellow-50 hover:bg-yellow-100 rounded-lg border border-yellow-200 transition-colors cursor-pointer"
+                              >
+                                + Pay
+                              </button>
+                            )}
+                            <Link
+                              href={`/dashboard/projects/${p.id}?stage=finance&tab=overview`}
+                              className="inline-flex items-center justify-center text-center h-7 px-3 text-xs font-semibold text-gray-700 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors cursor-pointer"
+                            >
+                              Details
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       )}
@@ -662,7 +876,7 @@ export default function FinanceOverviewPage() {
               <button
                 type="button"
                 onClick={() => setEditingBudgetProj(null)}
-                className="px-3.5 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="inline-flex items-center justify-center text-center px-3.5 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -670,7 +884,7 @@ export default function FinanceOverviewPage() {
                 type="button"
                 disabled={savingBudget}
                 onClick={handleSaveBudget}
-                className="px-4 py-1.5 text-xs font-bold text-white bg-yellow-600 hover:bg-yellow-700 rounded-lg shadow transition-all"
+                className="inline-flex items-center justify-center text-center px-4 py-1.5 text-xs font-bold text-gray-950 bg-yellow-500 hover:bg-yellow-600 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
               >
                 {savingBudget ? 'Saving...' : 'Save Budget'}
               </button>

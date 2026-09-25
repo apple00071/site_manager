@@ -831,7 +831,9 @@ export default function TasksPage() {
             const isClient = roleStr.includes('client') || roleStr.includes('customer') ||
                             roleName.includes('client') || roleName.includes('customer');
 
-            if (isStaff && !isClient) {
+            const isActive = user.is_active !== false;
+
+            if (isStaff && !isClient && isActive) {
                 // If we have a duplicate ID, we favor the one with more data (e.g. full_name)
                 if (!staffMap.has(user.id) || (!staffMap.get(user.id).full_name && user.full_name)) {
                     staffMap.set(user.id, user);

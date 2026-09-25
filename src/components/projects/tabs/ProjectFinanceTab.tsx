@@ -8,7 +8,6 @@ import { formatDateIST } from '@/lib/dateUtils';
 import RecordPaymentModal from '@/components/finance/RecordPaymentModal';
 import {
   FiPlus,
-  FiDollarSign,
   FiClock,
   FiCheckCircle,
   FiTrendingUp,
@@ -347,7 +346,7 @@ export default function ProjectFinanceTab({
           </div>
         ) : payments.length === 0 ? (
           <div className="p-12 text-center text-gray-500">
-            <FiDollarSign className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <TbCurrencyRupee className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <h4 className="text-sm font-bold text-gray-700">No client payments recorded yet</h4>
             <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
               Record payments as the client clears milestone invoices (e.g. advance, design approval, site execution).

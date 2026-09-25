@@ -135,7 +135,7 @@ const SnagTab = forwardRef<SnagTabHandle, SnagTabProps>(({ projectId, userRole, 
 
             if (Array.isArray(data)) {
                 const outputUsers: ProjectUser[] = data
-                    .filter((u: any) => u.role !== 'admin')
+                    .filter((u: any) => u.role !== 'admin' && u.is_active !== false)
                     .map((u: any) => ({
                         id: u.id,
                         name: u.full_name || u.email,

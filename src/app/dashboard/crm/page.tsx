@@ -8,7 +8,7 @@ import {
   FiAlertTriangle, FiCloud,
   FiDownload, FiUpload, FiEdit, FiPrinter, FiSend,
   FiTrendingUp, FiCheckCircle, FiClock, FiXCircle, FiFilter,
-  FiChevronRight, FiUsers, FiDollarSign, FiArrowUpRight, FiZap, FiTarget, FiLayers, FiX
+  FiChevronRight, FiUsers, FiArrowUpRight, FiZap, FiTarget, FiLayers, FiX, FiFolderPlus
 } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
 import { TbCurrencyRupee } from 'react-icons/tb';
@@ -16,6 +16,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import * as XLSX from 'xlsx';
 import dynamic from 'next/dynamic';
 import { buildQuotationHtmlString } from '@/lib/reports/quotationHtmlBuilder';
+import CreateProjectFromLeadModal from '@/components/crm/CreateProjectFromLeadModal';
 const QuotationBuilder = dynamic(() => import('@/components/crm/QuotationBuilder'), { ssr: false });
 
 interface Lead {
@@ -84,6 +85,37 @@ export default function CRMPage() {
   // Selected leads for bulk actions
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
+
+  // Add to Project from approved quote modal state
+  const [projectModalLead, setProjectModalLead] = useState<Lead | null>(null);
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [existingProjects, setExistingProjects] = useState<any[]>([]);
+
+  const fetchExistingProjects = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/projects');
+      if (res.ok) {
+        const data = await res.json();
+        setExistingProjects(data.projects || data.data || (Array.isArray(data) ? data : []));
+      }
+    } catch (err) {
+      console.warn('Could not load projects in CRM:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchExistingProjects();
+  }, [fetchExistingProjects]);
+
+  const getLinkedProject = useCallback((lead: Lead) => {
+    if (!lead?.client_name || !existingProjects?.length) return null;
+    const lName = lead.client_name.toLowerCase().trim();
+    return existingProjects.find((p: any) => {
+      const cName = (p.customer_name || '').toLowerCase().trim();
+      const pTitle = (p.title || '').toLowerCase().trim();
+      return cName === lName || cName.includes(lName) || pTitle.includes(lName) || lName.includes(cName);
+    });
+  }, [existingProjects]);
 
   // Default column widths state (loaded from localStorage if exists)
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
@@ -190,6 +222,10 @@ export default function CRMPage() {
       if (response.ok) {
         setLeads(prev => prev.map(l => l.id === id ? updatedLead : l));
         setSyncStatus('synced');
+        if (targetStatus === 'Approved') {
+          setProjectModalLead(updatedLead);
+          setIsProjectModalOpen(true);
+        }
       } else {
         setSyncStatus('error');
       }
@@ -345,7 +381,7 @@ export default function CRMPage() {
         const response = await fetch('/api/admin/users');
         if (response.ok) {
           const data = await response.json();
-          setEmployees(data || []);
+          setEmployees((data || []).filter((u: any) => u.is_active !== false));
         }
       } catch (err) {
         console.error('Error fetching employees:', err);
@@ -1014,8 +1050,12 @@ export default function CRMPage() {
 
       // Automations
       if (col.id === 'status') {
-        if (newValue === 'Approved' && !updatedLead.approved_value) {
-          updatedLead.approved_value = lead.quote_value;
+        if (newValue === 'Approved') {
+          if (!updatedLead.approved_value) {
+            updatedLead.approved_value = lead.quote_value;
+          }
+          setProjectModalLead(updatedLead);
+          setIsProjectModalOpen(true);
         } else if (newValue === 'Follow-up') {
           const followUpCols = ['follow_up_1', 'follow_up_2', 'follow_up_3'];
           const colIdx = columns.findIndex(c => followUpCols.includes(c.id) && !lead[c.id as keyof Lead]);
@@ -1590,6 +1630,40 @@ export default function CRMPage() {
                                     </button>
                                   </div>
                                 </div>
+
+                                {/* Add to Projects action for Approved leads */}
+                                {(colStatus === 'Approved' || lead.status === 'Approved') && (
+                                  <div className="pt-2 border-t border-gray-100 flex items-center">
+                                    {getLinkedProject(lead) ? (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setProjectModalLead(lead);
+                                          setIsProjectModalOpen(true);
+                                        }}
+                                        className="w-full py-1.5 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/90 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                        title="View project connection"
+                                      >
+                                        <FiCheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                                        <span className="truncate">In Projects: {getLinkedProject(lead)?.title?.split('_')[0]}</span>
+                                      </button>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setProjectModalLead(lead);
+                                          setIsProjectModalOpen(true);
+                                        }}
+                                        className="w-full py-1.5 px-2.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                      >
+                                        <FiFolderPlus className="w-3.5 h-3.5" />
+                                        <span>+ Add to Projects</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             );
                           })
@@ -2042,6 +2116,39 @@ export default function CRMPage() {
                         </div>
                       )}
 
+                      {/* Project Link / Add to Projects in Mobile Card */}
+                      {lead.status === 'Approved' && (
+                        <div className="mb-2.5">
+                          {getLinkedProject(lead) ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setProjectModalLead(lead);
+                                setIsProjectModalOpen(true);
+                              }}
+                              className="w-full py-1.5 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                            >
+                              <FiCheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                              <span className="truncate">In Projects ({getLinkedProject(lead)?.title?.split('_')[0]})</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setProjectModalLead(lead);
+                                setIsProjectModalOpen(true);
+                              }}
+                              className="w-full py-1.5 px-3 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                            >
+                              <FiFolderPlus className="w-3.5 h-3.5" />
+                              <span>+ Add to Projects</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
+
                       {/* Action Bar */}
                       <div className="flex items-center gap-1.5 pt-2 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
                         <button
@@ -2414,6 +2521,35 @@ export default function CRMPage() {
                     )}
                   </div>
 
+                  {/* Add to Projects Button if Approved */}
+                  {activeLead.status === 'Approved' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProjectModalLead(activeLead);
+                        setIsProjectModalOpen(true);
+                      }}
+                      className={`px-3 py-1.5 font-bold rounded-lg text-xs transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 ${
+                        getLinkedProject(activeLead)
+                          ? 'bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800'
+                          : 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                      }`}
+                      title={getLinkedProject(activeLead) ? 'View linked project' : 'Add to Projects'}
+                    >
+                      {getLinkedProject(activeLead) ? (
+                        <>
+                          <FiCheckCircle className="h-3.5 w-3.5 text-emerald-600" />
+                          <span>In Projects</span>
+                        </>
+                      ) : (
+                        <>
+                          <FiFolderPlus className="h-3.5 w-3.5" />
+                          <span>+ Add to Projects</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+
                   {/* Edit Details */}
                   <button
                     type="button"
@@ -2575,6 +2711,34 @@ export default function CRMPage() {
       >
         {mobileEditForm && (
           <div className="space-y-4 text-xs font-medium text-gray-700">
+            {/* Approved Lead Projects Banner */}
+            {mobileEditForm.status === 'Approved' && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <FiCheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div className="min-w-0">
+                    <span className="font-bold text-gray-900 block text-xs truncate">
+                      {getLinkedProject(mobileEditForm) ? 'Linked to Project' : 'Ready for Projects'}
+                    </span>
+                    <span className="text-[11px] text-gray-500 truncate block">
+                      {getLinkedProject(mobileEditForm) ? getLinkedProject(mobileEditForm)?.title : 'Convert into active project with approved budget'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileEditOpen(false);
+                    setProjectModalLead(mobileEditForm);
+                    setIsProjectModalOpen(true);
+                  }}
+                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold shrink-0 transition-colors shadow-2xs cursor-pointer"
+                >
+                  {getLinkedProject(mobileEditForm) ? 'View Project' : '+ Add to Project'}
+                </button>
+              </div>
+            )}
+
             {/* Row 1: Date & Client Name */}
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -2758,6 +2922,23 @@ export default function CRMPage() {
               } : l
             ));
             setQuotationLead(null);
+            fetchLeads();
+          }}
+        />
+      )}
+
+      {/* Add to Projects Modal for Approved Quotes */}
+      {isProjectModalOpen && projectModalLead && (
+        <CreateProjectFromLeadModal
+          isOpen={isProjectModalOpen}
+          onClose={() => {
+            setIsProjectModalOpen(false);
+            setProjectModalLead(null);
+          }}
+          lead={projectModalLead}
+          existingProjects={existingProjects}
+          onProjectCreated={(proj) => {
+            fetchExistingProjects();
             fetchLeads();
           }}
         />

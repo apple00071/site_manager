@@ -128,6 +128,23 @@ export class NotificationService {
     console.log('📢 NotificationService called:', JSON.stringify(params, null, 2));
 
     try {
+      // 0. Verify user exists and is active
+      const { data: user, error: userError } = await supabaseAdmin
+        .from('users')
+        .select('phone_number, onesignal_player_id, is_active')
+        .eq('id', params.userId)
+        .single();
+
+      if (userError) {
+        console.error('User lookup error:', userError);
+      }
+
+      // If user is deactivated, do not send in-app, push, or WhatsApp notifications
+      if (user && user.is_active === false) {
+        console.log('🚫 User is deactivated, skipping notification delivery:', params.userId);
+        return { success: false, inAppSaved: false, whatsappSent: false, pushSent: false, reason: 'user_deactivated' };
+      }
+
       // 1. In-App Notification (Database Insertion)
       let savedNotification = null;
       if (!params.skipInApp) {
@@ -153,17 +170,6 @@ export class NotificationService {
         }
       } else {
         console.log('⏭️ Skipping in-app storage for this notification (reminder).');
-      }
-
-      // 2. Fetch User Data (Phone & OneSignal ID)
-      const { data: user, error: userError } = await supabaseAdmin
-        .from('users')
-        .select('phone_number, onesignal_player_id')
-        .eq('id', params.userId)
-        .single();
-
-      if (userError) {
-        console.error('User lookup error:', userError);
       }
 
       const deepLinkRoute = this.getNotificationUrl(params.type, params.relatedId, params.relatedType, params.metadata);

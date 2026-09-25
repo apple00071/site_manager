@@ -120,15 +120,17 @@ export default function EditProjectPage() {
         const response = await fetch('/api/admin/users');
         if (!response.ok) throw new Error('Failed to fetch employees');
         const employeesData = await response.json();
-        setEmployees((employeesData || []).map((u: any) => ({
-          id: u.id,
-          name: u.full_name,
-          email: u.email,
-          designation: u.designation,
-          role: u.role,
-          role_name: u.roles?.name,
-          is_active: u.is_active !== false,
-        })));
+        setEmployees((employeesData || [])
+          .filter((u: any) => u.is_active !== false)
+          .map((u: any) => ({
+            id: u.id,
+            name: u.full_name,
+            email: u.email,
+            designation: u.designation,
+            role: u.role,
+            role_name: u.roles?.name,
+            is_active: true,
+          })));
 
         // Reset form with project data
         reset({

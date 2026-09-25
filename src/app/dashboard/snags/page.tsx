@@ -202,10 +202,12 @@ export default function SnagsPage() {
             console.log('DEBUG: raw data sample:', Array.isArray(data) ? data.slice(0, 2) : data);
 
             if (Array.isArray(data)) {
-                const mapped = data.map((u: any) => ({
-                    id: u.id,
-                    name: (u.full_name || u.email || 'Unknown') + (u.role === 'admin' ? ' (Admin)' : '')
-                }));
+                const mapped = data
+                    .filter((u: any) => u.is_active !== false)
+                    .map((u: any) => ({
+                        id: u.id,
+                        name: (u.full_name || u.email || 'Unknown') + (u.role === 'admin' ? ' (Admin)' : '')
+                    }));
                 console.log('DEBUG: mapped users count:', mapped.length);
                 setProjectUsers(mapped);
             } else {

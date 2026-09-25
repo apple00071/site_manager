@@ -185,6 +185,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Auto-sync approved value to project budget if new lead is approved
+    if (data && data.status === 'Approved') {
+      const approvedVal = Number(data.approved_value || data.quote_value) || 0;
+      const clientName = (data.client_name || '').trim();
+      if (clientName && approvedVal > 0) {
+        supabaseAdmin
+          .from('projects')
+          .select('id, customer_name, title, project_budget')
+          .then(({ data: matchedProjects }: any) => {
+            if (matchedProjects && matchedProjects.length > 0) {
+              const lName = clientName.toLowerCase();
+              const target = matchedProjects.filter((p: any) => {
+                const cName = (p.customer_name || '').toLowerCase().trim();
+                const pTitle = (p.title || '').toLowerCase().trim();
+                return cName === lName || cName.includes(lName) || pTitle.includes(lName) || lName.includes(cName);
+              });
+              for (const p of target) {
+                supabaseAdmin.from('projects').update({ project_budget: approvedVal }).eq('id', p.id).then();
+              }
+            }
+          })
+          .catch((err: any) => console.warn('Error syncing approved lead on insert:', err));
+      }
+    }
+
     return NextResponse.json({ success: true, data });
   } catch (err: any) {
     console.error('CRM POST API Error:', err);
@@ -247,6 +272,38 @@ export async function PUT(request: NextRequest) {
     if (error) {
       console.error('Error updating quotation lead:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Auto-sync approved value to project budget if lead is approved
+    try {
+      const updatedList = Array.isArray(data) ? data : data ? [data] : [];
+      for (const lead of updatedList) {
+        if (lead.status === 'Approved') {
+          const approvedVal = Number(lead.approved_value || lead.quote_value) || 0;
+          const clientName = (lead.client_name || '').trim();
+          if (clientName && approvedVal > 0) {
+            const { data: matchedProjects } = await supabaseAdmin
+              .from('projects')
+              .select('id, customer_name, title, project_budget');
+            if (matchedProjects && matchedProjects.length > 0) {
+              const lName = clientName.toLowerCase();
+              const target = matchedProjects.filter((p: any) => {
+                const cName = (p.customer_name || '').toLowerCase().trim();
+                const pTitle = (p.title || '').toLowerCase().trim();
+                return cName === lName || cName.includes(lName) || pTitle.includes(lName) || lName.includes(cName);
+              });
+              for (const p of target) {
+                await supabaseAdmin
+                  .from('projects')
+                  .update({ project_budget: approvedVal })
+                  .eq('id', p.id);
+              }
+            }
+          }
+        }
+      }
+    } catch (syncErr) {
+      console.warn('Error syncing approved quotation to project budget:', syncErr);
     }
 
     return NextResponse.json({ success: true, data });
