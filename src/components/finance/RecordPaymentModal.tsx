@@ -47,11 +47,11 @@ const PAYMENT_MODES = [
 ];
 
 const COMMON_MILESTONES = [
-  'Booking Advance',
-  '2D/3D Design Approval',
-  'Material at Site',
-  'Carpentry Stage',
-  'Final Finishing / Handover',
+  { stage: 'Stage 1', name: 'Token Advance', value: 'Stage 1: Token Advance' },
+  { stage: 'Stage 2', name: 'Before Start of Work', value: 'Stage 2: Before Start of Work' },
+  { stage: 'Stage 3', name: 'Completion of Boxes & Inside Laminate', value: 'Stage 3: Completion of Boxes & Inside Laminate' },
+  { stage: 'Stage 4', name: 'Completion of Outside Laminate', value: 'Stage 4: Completion of Outside Laminate' },
+  { stage: 'Stage 5', name: 'At Handover', value: 'Stage 5: At Handover' },
 ];
 
 export default function RecordPaymentModal({
@@ -290,25 +290,35 @@ export default function RecordPaymentModal({
         <span>Milestone / Purpose <span className="text-red-500">*</span></span>
       </label>
       <div className="flex flex-wrap gap-1.5 mb-2">
-        {COMMON_MILESTONES.map((m) => (
-          <button
-            type="button"
-            key={m}
-            onClick={() => setMilestoneName(m)}
-            className={`text-xs px-2.5 py-1 rounded-full border transition-all cursor-pointer ${
-              milestoneName === m
-                ? 'bg-yellow-500 text-gray-950 font-bold border-yellow-600 shadow-xs'
-                : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100 font-medium'
-            }`}
-          >
-            {m}
-          </button>
-        ))}
+        {COMMON_MILESTONES.map((m) => {
+          const isSelected =
+            milestoneName === m.value ||
+            milestoneName === m.name ||
+            milestoneName.toLowerCase() === m.value.toLowerCase() ||
+            milestoneName.toLowerCase() === m.name.toLowerCase();
+          return (
+            <button
+              type="button"
+              key={m.value}
+              onClick={() => setMilestoneName(m.value)}
+              className={`text-xs px-2.5 py-1 rounded-full border transition-all cursor-pointer ${
+                isSelected
+                  ? 'bg-yellow-500 text-gray-950 font-bold border-yellow-600 shadow-xs'
+                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100 font-medium'
+              }`}
+            >
+              <span className={`mr-1 text-[11px] ${isSelected ? 'text-gray-950 font-bold' : 'text-gray-500 font-semibold'}`}>
+                {m.stage}:
+              </span>
+              {m.name}
+            </button>
+          );
+        })}
       </div>
       <input
         type="text"
         required
-        placeholder="Or type custom purpose (e.g. Booking Advance)"
+        placeholder="Or type custom purpose (e.g. Stage 1: Token Advance)"
         value={milestoneName}
         onChange={(e) => setMilestoneName(e.target.value)}
         className="w-full px-3.5 py-2.5 bg-gray-50 hover:bg-white border border-gray-300 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all font-medium"
