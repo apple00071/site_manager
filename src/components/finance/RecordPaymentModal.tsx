@@ -43,6 +43,7 @@ const PAYMENT_MODES = [
   'Cheque',
   'Cash',
   'Credit / Debit Card',
+  'Third Party',
 ];
 
 const COMMON_MILESTONES = [

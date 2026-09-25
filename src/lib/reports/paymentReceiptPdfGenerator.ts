@@ -241,11 +241,12 @@ export function generatePaymentReceiptPDF(payment: PaymentReceiptData): jsPDF {
   const numAmount = Number(payment.amount) || 0;
   const formattedAmount = `INR ${numAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+  const refLabel = payment.payment_mode === 'Bank Transfer' ? 'UTR' : payment.payment_mode === 'Cheque' ? 'Cheque #' : 'Ref';
   const tableBody = [
     [
       '1',
       payment.milestone_name || 'Client Payment',
-      payment.payment_mode + (payment.reference_number ? ` (UTR: ${payment.reference_number})` : ''),
+      payment.payment_mode + (payment.reference_number ? ` (${refLabel}: ${payment.reference_number})` : ''),
       formattedAmount
     ]
   ];

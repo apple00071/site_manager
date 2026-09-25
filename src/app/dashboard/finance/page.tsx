@@ -385,6 +385,8 @@ export default function FinanceOverviewPage() {
                 <option value="UPI">UPI</option>
                 <option value="Cheque">Cheque</option>
                 <option value="Cash">Cash</option>
+                <option value="Credit / Debit Card">Credit / Debit Card</option>
+                <option value="Third Party">Third Party</option>
               </select>
             </div>
           </div>
