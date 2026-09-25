@@ -15,6 +15,7 @@ import { TbCurrencyRupee } from 'react-icons/tb';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import * as XLSX from 'xlsx';
 import dynamic from 'next/dynamic';
+import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { buildQuotationHtmlString } from '@/lib/reports/quotationHtmlBuilder';
 import CreateProjectFromLeadModal from '@/components/crm/CreateProjectFromLeadModal';
 const QuotationBuilder = dynamic(() => import('@/components/crm/QuotationBuilder'), { ssr: false });
@@ -67,10 +68,20 @@ const getQuotationButtonLabel = (l?: Lead | null) => {
 };
 
 export default function CRMPage() {
+  const { setTitle, setSubtitle } = useHeaderTitle();
   const { hasPermission, isAdmin: permIsAdmin } = useUserPermissions();
   const { user, isAdmin: authIsAdmin } = useAuth();
   const isAdmin = Boolean(authIsAdmin || permIsAdmin || user?.role?.toLowerCase() === 'admin');
   const canEditApproved = Boolean(isAdmin || hasPermission('crm.edit_approved'));
+
+  useEffect(() => {
+    setTitle('CRM');
+    setSubtitle(null);
+    return () => {
+      setTitle(null);
+      setSubtitle(null);
+    };
+  }, [setTitle, setSubtitle]);
   
   const [activeTab, setActiveTab] = useState<'dashboard' | 'log'>('dashboard');
   const [leads, setLeads] = useState<Lead[]>([]);

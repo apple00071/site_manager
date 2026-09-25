@@ -173,7 +173,12 @@ function DashboardLayoutContent({
 
 
   // Get dynamic page title based on current route
-  const { title: customTitle, subtitle, tabs, activeTab, onTabChange, actions } = useHeaderTitle();
+  const { title: customTitle, subtitle, tabs, activeTab, onTabChange, actions, clearHeader } = useHeaderTitle();
+
+  // Reset custom header elements when route changes
+  useEffect(() => {
+    clearHeader();
+  }, [pathname, clearHeader]);
 
   // Use useMemo to ensure title updates when customTitle changes
   const pageTitle = useMemo(() => {
@@ -191,7 +196,7 @@ function DashboardLayoutContent({
     if (pathname === '/dashboard/settings') return 'Settings';
     if (pathname === '/dashboard/tasks') return 'All Tasks';
     if (pathname === '/dashboard/office-expenses') return 'Expenses';
-    if (pathname === '/dashboard/crm') return 'CRM & Quotation Log';
+    if (pathname === '/dashboard/crm') return 'CRM';
     if (pathname === '/dashboard/vendors-workers') return 'Vendors & Workers';
     if (pathname === '/dashboard/attendance') return 'Attendance';
     if (pathname === '/dashboard/finance') return 'Finance Overview';

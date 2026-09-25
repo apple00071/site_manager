@@ -80,6 +80,10 @@ export default function FinanceOverviewPage() {
   useEffect(() => {
     setTitle('Finance Overview');
     setSubtitle(null);
+    return () => {
+      setTitle(null);
+      setSubtitle(null);
+    };
   }, [setTitle, setSubtitle]);
 
   const loadData = async () => {
