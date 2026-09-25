@@ -6,6 +6,7 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useToast } from '@/components/ui/Toast';
 import { formatDateIST } from '@/lib/dateUtils';
 import RecordPaymentModal from '@/components/finance/RecordPaymentModal';
+import FinalBillModal from '@/components/finance/FinalBillModal';
 import {
   FiPlus,
   FiClock,
@@ -51,6 +52,7 @@ export default function ProjectFinanceTab({
   // Modal & Edit state
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<any | null>(null);
+  const [isFinalBillModalOpen, setIsFinalBillModalOpen] = useState(false);
 
   // Quick edit budget state
   const [isEditingBudget, setIsEditingBudget] = useState(false);
@@ -190,7 +192,17 @@ export default function ProjectFinanceTab({
         <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between text-gray-500 mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider">Contract Budget</span>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
+              {canManage && (
+                <button
+                  type="button"
+                  onClick={() => setIsFinalBillModalOpen(true)}
+                  className="px-2 py-0.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] font-bold rounded-md border border-purple-200 transition-colors cursor-pointer"
+                  title="Final Bill & Settlement"
+                >
+                  Final Bill
+                </button>
+              )}
               {canManage && (
                 <button
                   onClick={() => setIsEditingBudget(!isEditingBudget)}
@@ -344,6 +356,17 @@ export default function ProjectFinanceTab({
 
             {canManage && (
               <button
+                type="button"
+                onClick={() => setIsFinalBillModalOpen(true)}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 text-xs font-bold rounded-xl shadow-2xs transition-all cursor-pointer"
+                title="Create or Edit Final Settlement Bill"
+              >
+                <FiFileText className="w-4 h-4" />
+                <span>Final Bill</span>
+              </button>
+            )}
+            {canManage && (
+              <button
                 onClick={() => {
                   setEditingPayment(null);
                   setIsRecordModalOpen(true);
@@ -492,9 +515,33 @@ export default function ProjectFinanceTab({
             title: projectTitle,
             customer_name: customerName,
             project_budget: currentBudget,
+            collected: totalCollected,
+            pending: pendingAmount,
           },
         ]}
         nextSeqNumber={payments.length + 1}
+      />
+
+      {/* Final Bill & Settlement Modal */}
+      <FinalBillModal
+        isOpen={isFinalBillModalOpen}
+        onClose={() => setIsFinalBillModalOpen(false)}
+        projectId={projectId}
+        projectTitle={projectTitle}
+        customerName={customerName}
+        onSuccess={() => {
+          loadProjectFinances();
+          if (onBudgetUpdated) {
+            fetch(`/api/projects/${projectId}`)
+              .then((r) => (r.ok ? r.json() : null))
+              .then((d) => {
+                if (d?.project?.project_budget) {
+                  setCurrentBudget(d.project.project_budget);
+                  onBudgetUpdated(d.project.project_budget);
+                }
+              });
+          }
+        }}
       />
     </div>
   );

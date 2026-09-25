@@ -14,16 +14,20 @@ import {
   FiEdit3
 } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
-import { useToast } from '@/components/ui/Toast';
 import { uploadFile } from '@/lib/uploadUtils';
+import { useToast } from '@/components/ui/Toast';
 import BottomSheet from '@/components/ui/BottomSheet';
+import { formatDateIST } from '@/lib/dateUtils';
 import { downloadPaymentReceiptPDF } from '@/lib/reports/paymentReceiptPdfGenerator';
+import FinalBillModal from './FinalBillModal';
 
-interface ProjectOption {
+export interface ProjectOption {
   id: string;
   title: string;
   customer_name?: string | null;
   project_budget?: number | null;
+  collected?: number | null;
+  pending?: number | null;
 }
 
 interface RecordPaymentModalProps {
@@ -81,6 +85,17 @@ export default function RecordPaymentModal({
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Financial balance state for selected project
+  const [projectFinancials, setProjectFinancials] = useState<{
+    budget: number;
+    collected: number;
+    pending: number;
+    loading: boolean;
+  } | null>(null);
+
+  // Final bill modal state
+  const [isFinalBillModalOpen, setIsFinalBillModalOpen] = useState(false);
+
   // Responsive device check: Mobile uses BottomSheet, Desktop uses 2-column modal
   const [isMobile, setIsMobile] = useState(false);
 
@@ -92,6 +107,74 @@ export default function RecordPaymentModal({
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Sync project financials when projectId changes
+  useEffect(() => {
+    if (!projectId) {
+      setProjectFinancials(null);
+      return;
+    }
+
+    const proj = projects.find((p) => p.id === projectId);
+    if (
+      proj &&
+      Number(proj.project_budget) > 0 &&
+      proj.collected !== undefined &&
+      proj.collected !== null &&
+      proj.pending !== undefined &&
+      proj.pending !== null
+    ) {
+      setProjectFinancials({
+        budget: Number(proj.project_budget) || 0,
+        collected: Number(proj.collected) || 0,
+        pending: Number(proj.pending) || 0,
+        loading: false,
+      });
+      return;
+    }
+
+    let isMounted = true;
+    setProjectFinancials((prev) =>
+      prev
+        ? { ...prev, loading: true }
+        : { budget: Number(proj?.project_budget) || 0, collected: 0, pending: 0, loading: true }
+    );
+
+    Promise.all([
+      fetch(`/api/projects/${projectId}/final-bill`).then((r) => (r.ok ? r.json() : null)),
+      fetch(`/api/projects/${projectId}`).then((r) => (r.ok ? r.json() : { project: null })),
+    ])
+      .then(([fbData, projData]) => {
+        if (!isMounted) return;
+        const pList = fbData?.payments || [];
+        const totalPaid =
+          fbData?.financials?.collected ??
+          pList.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+        let b = Number(
+          fbData?.financials?.budget ||
+          projData?.project?.project_budget ||
+          proj?.project_budget ||
+          0
+        );
+        const pend = b > 0 ? Math.max(0, b - totalPaid) : 0;
+        setProjectFinancials({
+          budget: b,
+          collected: totalPaid,
+          pending: pend,
+          loading: false,
+        });
+      })
+      .catch((err) => {
+        console.error('Failed to load project financials in modal:', err);
+        if (isMounted) {
+          setProjectFinancials((prev) => (prev ? { ...prev, loading: false } : null));
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [projectId, projects]);
 
   // Fetch projects list if not provided and not inside a specific project
   useEffect(() => {
@@ -249,14 +332,30 @@ export default function RecordPaymentModal({
   // Project selector component
   const renderProjectField = () => (
     <div>
-      <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-        <span>Project <span className="text-red-500">*</span></span>
-        {Number(selectedProj?.project_budget) > 0 ? (
-          <span className="text-[11px] font-semibold text-yellow-700 bg-yellow-50 px-2 py-0.5 rounded-md border border-yellow-200">
-            Contract: ₹{selectedProj!.project_budget!.toLocaleString('en-IN')}
-          </span>
-        ) : null}
-      </label>
+      <div className="flex items-center justify-between mb-1.5 gap-2">
+        <label className="text-xs font-bold text-gray-700 flex items-center gap-1">
+          <span>Project</span>
+          <span className="text-red-500">*</span>
+        </label>
+        <div className="flex items-center gap-2">
+          {projectFinancials && projectFinancials.budget > 0 ? (
+            <span className="text-xs font-semibold text-yellow-800 bg-yellow-50 px-2.5 py-1 rounded-lg border border-yellow-200">
+              Contract: ₹{projectFinancials.budget.toLocaleString('en-IN')}
+            </span>
+          ) : null}
+          {projectId && (
+            <button
+              type="button"
+              onClick={() => setIsFinalBillModalOpen(true)}
+              className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white text-xs font-bold rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+              title="Open Final Bill & Adjust Quotation Items"
+            >
+              <FiFileText className="w-4 h-4 text-yellow-300" />
+              <span>Final Bill & Variations</span>
+            </button>
+          )}
+        </div>
+      </div>
       {defaultProjectId && selectedProj ? (
         <div className="p-3 bg-yellow-50/70 border border-yellow-200/80 rounded-xl text-sm">
           <span className="font-bold text-gray-900 block truncate">{selectedProj.title}</span>
@@ -279,6 +378,42 @@ export default function RecordPaymentModal({
             </option>
           ))}
         </select>
+      )}
+
+      {/* Project Financial Balance Card */}
+      {projectId && projectFinancials && (
+        <div className="mt-2.5 p-3.5 bg-gradient-to-br from-gray-50 via-amber-50/20 to-purple-50/30 border border-gray-200 rounded-xl shadow-2xs">
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="bg-white p-2 rounded-lg border border-gray-200/80 shadow-2xs">
+              <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold block">Contract Total</span>
+              <span className="text-xs sm:text-sm font-black text-gray-900 block truncate mt-0.5">
+                ₹{projectFinancials.budget.toLocaleString('en-IN')}
+              </span>
+            </div>
+            <div className="bg-white p-2 rounded-lg border border-emerald-200/80 shadow-2xs">
+              <span className="text-[10px] uppercase tracking-wider text-emerald-700 font-bold block">Received</span>
+              <span className="text-xs sm:text-sm font-black text-emerald-600 block truncate mt-0.5">
+                ₹{projectFinancials.collected.toLocaleString('en-IN')}
+              </span>
+            </div>
+            <div className="bg-white p-2 rounded-lg border border-amber-300 shadow-2xs bg-amber-50/20">
+              <span className="text-[10px] uppercase tracking-wider text-amber-900 font-bold block">Balance to Pay</span>
+              <span className="text-xs sm:text-sm font-black text-amber-700 block truncate mt-0.5">
+                ₹{projectFinancials.pending.toLocaleString('en-IN')}
+              </span>
+            </div>
+          </div>
+
+          {parsedAmount > 0 && (
+            <div className="mt-2.5 pt-2 border-t border-gray-200/80 flex items-center justify-between py-1.5 px-2 bg-white rounded-lg border border-gray-200 text-xs">
+              <span className="font-semibold text-gray-600">Remaining balance after this:</span>
+              <span className={`font-black ${projectFinancials.pending - parsedAmount <= 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                ₹{Math.max(0, projectFinancials.pending - parsedAmount).toLocaleString('en-IN')}
+                {projectFinancials.pending - parsedAmount <= 0 && ' (Fully Paid 🎉)'}
+              </span>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -487,49 +622,6 @@ export default function RecordPaymentModal({
     </div>
   );
 
-  // --- MOBILE VIEW (BOTTOM SHEET) ---
-  if (isMobile) {
-    return (
-      <BottomSheet
-        isOpen={isOpen}
-        onClose={onClose}
-        title={editingPayment ? 'Edit Client Payment' : 'Record Client Payment'}
-        maxHeight="92vh"
-        footer={
-          <div className="flex items-center gap-2 w-full">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2.5 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSubmit()}
-              disabled={submitting || uploadingReceipt}
-              className="flex-2 py-2.5 text-xs font-bold text-white bg-yellow-500 hover:bg-yellow-600 rounded-xl flex items-center justify-center gap-1.5 transition-colors disabled:opacity-60 cursor-pointer"
-            >
-              {submitting && <FiLoader className="w-3.5 h-3.5 animate-spin" />}
-              <span>{editingPayment ? 'Save Changes' : 'Record Payment'}</span>
-            </button>
-          </div>
-        }
-      >
-        <div className="space-y-4 pb-4">
-          {renderProjectField()}
-          {renderMilestoneField()}
-          {renderAmountAndDateField()}
-          {renderModeAndRefField()}
-          {renderInvoiceField()}
-          {renderReceiptField()}
-          {renderNotesField()}
-        </div>
-      </BottomSheet>
-    );
-  }
-
-  // --- DESKTOP VIEW (SPACIOUS 2-COLUMN MODAL) ---
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
       <div 
@@ -549,19 +641,19 @@ export default function RecordPaymentModal({
           </button>
         </div>
 
-        {/* 2-Column Form Body */}
+        {/* 2-Column Form Body (Balanced distribution) */}
         <form id="record-payment-desktop-form" onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-            {/* Left Column: Financials & Identifiers */}
+            {/* Left Column: Project, Financial Balance, Amount, Mode & Ref */}
             <div className="space-y-4">
               {renderProjectField()}
-              {renderMilestoneField()}
               {renderAmountAndDateField()}
               {renderModeAndRefField()}
             </div>
 
-            {/* Right Column: Invoice, Receipt, Notes */}
+            {/* Right Column: Milestone / Purpose, Invoice #, Receipt, Notes */}
             <div className="space-y-4">
+              {renderMilestoneField()}
               {renderInvoiceField()}
               {renderReceiptField()}
               {renderNotesField()}
@@ -605,6 +697,36 @@ export default function RecordPaymentModal({
           </div>
         </div>
       </div>
+
+      {/* Final Bill Modal inside payment modal */}
+      {selectedProj && isFinalBillModalOpen && (
+        <FinalBillModal
+          isOpen={isFinalBillModalOpen}
+          onClose={() => setIsFinalBillModalOpen(false)}
+          projectId={selectedProj.id}
+          projectTitle={selectedProj.title}
+          customerName={selectedProj.customer_name}
+          onSuccess={() => {
+            // Re-fetch project finances live
+            Promise.all([
+              fetch(`/api/finance/payments?projectId=${selectedProj.id}`).then((r) => (r.ok ? r.json() : { payments: [] })),
+              fetch(`/api/projects/${selectedProj.id}`).then((r) => (r.ok ? r.json() : { project: null })),
+            ]).then(([pData, prData]) => {
+              const pList = pData.payments || [];
+              const totalPaid = pList.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+              const b = Number(prData.project?.project_budget ?? 0);
+              const pend = b > 0 ? Math.max(0, b - totalPaid) : 0;
+              setProjectFinancials({
+                budget: b,
+                collected: totalPaid,
+                pending: pend,
+                loading: false,
+              });
+            });
+            onSuccess();
+          }}
+        />
+      )}
     </div>
   );
 }
