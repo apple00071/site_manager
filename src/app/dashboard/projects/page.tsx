@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { FiPlus, FiEdit2, FiTrash2, FiEye, FiMoreVertical, FiSearch, FiX, FiSend, FiBriefcase, FiFilter, FiCheck } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiEye, FiMoreVertical, FiSearch, FiX, FiSend, FiBriefcase, FiFilter, FiCheck, FiGrid, FiList, FiPhone, FiUser, FiArrowRight } from 'react-icons/fi';
 import { formatDateIST } from '@/lib/dateUtils';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -62,6 +62,26 @@ export default function ProjectsPage() {
     key: 'start_date' | 'estimated_completion_date' | 'project_code' | null;
     direction: 'asc' | 'desc';
   }>({ key: null, direction: 'asc' });
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+
+  // Load user preference for view mode from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('projects_view_mode');
+      if (saved === 'cards' || saved === 'table') {
+        setViewMode(saved);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleSetViewMode = (mode: 'cards' | 'table') => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('projects_view_mode', mode);
+    } catch {}
+  };
   const searchParams = useSearchParams();
   const { setTitle, setSubtitle } = useHeaderTitle();
 
@@ -455,10 +475,109 @@ export default function ProjectsPage() {
         )}
       </div>
 
-      {/* Projects Table */}
-      <div className="bg-white shadow-card overflow-visible rounded-xl border border-gray-100">
-        {/* Mobile view - cards */}
-        <div className="lg:hidden">
+      {/* View & Filter Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-1">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Designer Filter */}
+          <div className="relative">
+            <select
+              value={selectedDesigner}
+              onChange={(e) => setSelectedDesigner(e.target.value)}
+              className="text-xs bg-white border border-gray-200 text-gray-700 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-yellow-500 font-medium cursor-pointer shadow-2xs hover:border-gray-300"
+            >
+              <option value="">All Designers</option>
+              {availableDesigners.map(([name, count]) => (
+                <option key={name} value={name}>
+                  {name} ({count})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Site Engineer Filter */}
+          <div className="relative">
+            <select
+              value={selectedSiteEngineer}
+              onChange={(e) => setSelectedSiteEngineer(e.target.value)}
+              className="text-xs bg-white border border-gray-200 text-gray-700 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-yellow-500 font-medium cursor-pointer shadow-2xs hover:border-gray-300"
+            >
+              <option value="">All Site Engineers</option>
+              {availableSiteEngineers.map(([name, count]) => (
+                <option key={name} value={name}>
+                  {name} ({count})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Clear all active filters if any */}
+          {(selectedDesigner || selectedSiteEngineer) && (
+            <button
+              type="button"
+              onClick={() => { setSelectedDesigner(''); setSelectedSiteEngineer(''); }}
+              className="text-xs text-yellow-700 hover:text-yellow-900 font-medium underline px-1 cursor-pointer"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 ml-auto">
+          {/* Total count */}
+          <span className="text-xs text-gray-500 font-medium hidden sm:inline">
+            {filteredProjects.length} {filteredProjects.length === 1 ? 'project' : 'projects'}
+          </span>
+
+          {/* View Mode Toggle: Cards | Table (Desktop only) */}
+          <div className="hidden lg:flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => handleSetViewMode('cards')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                viewMode === 'cards'
+                  ? 'bg-white text-gray-900 shadow-xs'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+              title="Card View"
+            >
+              <FiGrid className="w-3.5 h-3.5" />
+              <span>Cards</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetViewMode('table')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                viewMode === 'table'
+                  ? 'bg-white text-gray-900 shadow-xs'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+              title="Table View"
+            >
+              <FiList className="w-3.5 h-3.5" />
+              <span>Table</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Empty State */}
+      {filteredProjects.length === 0 && (
+        <div className="bg-white border border-gray-100 rounded-xl shadow-card p-8 sm:p-12 text-center text-gray-500 mt-4">
+          <div className="h-12 w-12 mx-auto mb-4 bg-gray-50 rounded-full flex items-center justify-center">
+            {canCreateProject ? <FiPlus className="h-6 w-6 text-gray-400" /> : <FiSearch className="h-6 w-6 text-gray-400" />}
+          </div>
+          <p className="text-sm sm:text-base font-medium">No projects found</p>
+          {canCreateProject ? (
+            <p className="text-xs sm:text-sm mt-1 text-gray-400">Click the + button to create a new project</p>
+          ) : (
+            <p className="text-xs sm:text-sm mt-1 text-gray-400">No projects have been assigned to you yet</p>
+          )}
+        </div>
+      )}
+
+      {/* Mobile view - original card model */}
+      {filteredProjects.length > 0 && (
+        <div className="lg:hidden bg-white shadow-card overflow-visible rounded-xl border border-gray-100">
           {filteredProjects.map((project, index) => (
             <div
               key={project.id}
@@ -468,10 +587,17 @@ export default function ProjectsPage() {
               {/* Main card link (covers entire card) */}
               <Link
                 href={`/dashboard/projects/${project.id}`}
-                className="block p-4 sm:p-5 pr-16" // Right padding for absolute buttons
+                className="block p-4 sm:p-5 pr-16"
               >
                 <div className="flex flex-col gap-3">
                   <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                      {(project.project_code || project.ref_no || project.id) && (
+                        <span className="px-2 py-0.5 rounded-md text-xs font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200/70" title="Project ID">
+                          {project.project_code || project.ref_no || `AI-${project.id.slice(0, 5).toUpperCase()}`}
+                        </span>
+                      )}
+                    </div>
                     <h3 className="text-sm sm:text-base font-semibold text-gray-900 truncate leading-tight">
                       {project.title}
                     </h3>
@@ -565,7 +691,7 @@ export default function ProjectsPage() {
                         e.stopPropagation();
                         handleDeleteProject(project.id);
                       }}
-                      className="flex items-center justify-center w-10 h-10 text-red-600 bg-red-50/50 hover:bg-red-100 rounded-xl transition-colors"
+                      className="flex items-center justify-center w-10 h-10 text-red-600 bg-red-50/50 hover:bg-red-100 rounded-xl transition-colors cursor-pointer"
                       title="Delete project"
                     >
                       <FiTrash2 className="h-4 w-4" />
@@ -576,25 +702,193 @@ export default function ProjectsPage() {
             </div>
           ))}
         </div>
-      </div>
+      )}
 
-      {filteredProjects.length === 0 && (
-        <div className="bg-white border border-gray-100 rounded-xl shadow-card p-8 sm:p-12 text-center text-gray-500 mt-4">
-          <div className="h-12 w-12 mx-auto mb-4 bg-gray-50 rounded-full flex items-center justify-center">
-            {canCreateProject ? <FiPlus className="h-6 w-6 text-gray-400" /> : <FiSearch className="h-6 w-6 text-gray-400" />}
-          </div>
-          <p className="text-sm sm:text-base font-medium">No projects found</p>
-          {canCreateProject ? (
-            <p className="text-xs sm:text-sm mt-1 text-gray-400">Click the + button to create a new project</p>
-          ) : (
-            <p className="text-xs sm:text-sm mt-1 text-gray-400">No projects have been assigned to you yet</p>
-          )}
+      {/* Desktop Card View */}
+      {filteredProjects.length > 0 && viewMode === 'cards' && (
+        <div className="hidden lg:grid lg:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filteredProjects.map((project, index) => {
+            const statusConfig = getStatusConfig(project);
+            return (
+              <div
+                key={project.id}
+                onClick={(e) => {
+                  const target = e.target as HTMLElement;
+                  if (target.closest('button, a, select, input')) return;
+                  router.push(`/dashboard/projects/${project.id}`);
+                }}
+                className="bg-white rounded-2xl border border-gray-200/80 hover:border-yellow-400 hover:shadow-md transition-all duration-200 flex flex-col justify-between p-5 relative cursor-pointer group"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                {/* Card Top: Badges & Action Menu */}
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {(project.project_code || project.ref_no || project.id) && (
+                      <span className="px-2 py-0.5 rounded-md text-xs font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200/70" title="Project ID">
+                        {project.project_code || project.ref_no || `AI-${project.id.slice(0, 5).toUpperCase()}`}
+                      </span>
+                    )}
+                    <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full inline-flex items-center gap-1.5 ${statusConfig.bg} ${statusConfig.text}`}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                      {statusConfig.label}
+                    </span>
+                  </div>
+
+                  {/* Actions dropdown */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveDropdown(activeDropdown === project.id ? null : project.id);
+                      }}
+                      className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                      title="Project Actions"
+                    >
+                      <FiMoreVertical className="w-4 h-4" />
+                    </button>
+
+                    {activeDropdown === project.id && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-40 text-xs animate-in fade-in zoom-in-95 duration-100"
+                      >
+                        <Link
+                          href={`/dashboard/projects/${project.id}`}
+                          className="flex items-center gap-2 px-3.5 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
+                          onClick={() => setActiveDropdown(null)}
+                        >
+                          <FiEye className="w-3.5 h-3.5 text-gray-500" />
+                          <span>View Details</span>
+                        </Link>
+                        {isAdmin && (
+                          <Link
+                            href={`/dashboard/projects/${project.id}?share=1`}
+                            className="flex items-center gap-2 px-3.5 py-2 text-yellow-700 hover:bg-yellow-50 transition-colors"
+                            onClick={() => setActiveDropdown(null)}
+                          >
+                            <FiSend className="w-3.5 h-3.5 text-yellow-600" />
+                            <span>Share Live Link</span>
+                          </Link>
+                        )}
+                        {canEditProject && (
+                          <Link
+                            href={`/dashboard/projects/${project.id}/edit`}
+                            className="flex items-center gap-2 px-3.5 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
+                            onClick={() => setActiveDropdown(null)}
+                          >
+                            <FiEdit2 className="w-3.5 h-3.5 text-gray-500" />
+                            <span>Edit Project</span>
+                          </Link>
+                        )}
+                        {canDeleteProject && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveDropdown(null);
+                              handleDeleteProject(project.id);
+                            }}
+                            className="flex items-center gap-2 w-full px-3.5 py-2 text-red-600 hover:bg-red-50 text-left transition-colors cursor-pointer"
+                          >
+                            <FiTrash2 className="w-3.5 h-3.5" />
+                            <span>Delete Project</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Project Title */}
+                <div className="mb-2">
+                  <Link
+                    href={`/dashboard/projects/${project.id}`}
+                    className="text-base font-bold text-gray-900 group-hover:text-yellow-600 transition-colors line-clamp-1 block leading-snug"
+                    title={project.title}
+                  >
+                    {project.title}
+                  </Link>
+                </div>
+
+                {/* Customer & Contact Row */}
+                <div className="flex items-center justify-between gap-2 text-xs mb-3 pb-3 border-b border-gray-100">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <FiUser className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                    <span className="font-medium text-gray-700 truncate">{project.customer_name || 'N/A'}</span>
+                  </div>
+                  {project.phone_number ? (
+                    <a
+                      href={`tel:${project.phone_number}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline font-medium shrink-0"
+                      title={`Call ${project.phone_number}`}
+                    >
+                      <FiPhone className="w-3 h-3" />
+                      <span>{project.phone_number}</span>
+                    </a>
+                  ) : (
+                    <span className="text-gray-400 text-[11px]">—</span>
+                  )}
+                </div>
+
+                {/* Specs Grid: Designer, Site Engineer, Start Date, Est. Completion */}
+                <div className="grid grid-cols-2 gap-2 text-xs mb-4">
+                  <div className="p-2.5 rounded-xl bg-gray-50/80 border border-gray-100 flex flex-col justify-center">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Designer</span>
+                    <span className="font-semibold text-gray-800 truncate mt-0.5" title={getDesignerName(project)}>
+                      {getDesignerName(project)}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-gray-50/80 border border-gray-100 flex flex-col justify-center">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Site Engineer</span>
+                    <span className="font-semibold text-gray-800 truncate mt-0.5" title={getSupervisorName(project)}>
+                      {getSupervisorName(project)}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-gray-50/80 border border-gray-100 flex flex-col justify-center">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Start Date</span>
+                    <span className="font-semibold text-gray-800 truncate mt-0.5">
+                      {project.start_date ? formatDateIST(project.start_date) : '—'}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-gray-50/80 border border-gray-100 flex flex-col justify-center">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Est. Completion</span>
+                    <span className="font-semibold text-gray-800 truncate mt-0.5">
+                      {project.estimated_completion_date ? formatDateIST(project.estimated_completion_date) : '—'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card Footer: Property info & View Project button */}
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100 mt-auto">
+                  <div className="text-xs text-gray-500 font-medium truncate pr-2">
+                    {project.flat_number && <span>Flat {project.flat_number}</span>}
+                    {project.flat_number && (project.property_type || project.area_sqft) && <span className="mx-1">·</span>}
+                    {project.property_type && (
+                      <span className="capitalize">{project.property_type.replace(/_/g, ' ')}</span>
+                    )}
+                    {project.property_type && project.area_sqft && <span className="mx-1">·</span>}
+                    {project.area_sqft && <span>{project.area_sqft} sq ft</span>}
+                  </div>
+
+                  <Link
+                    href={`/dashboard/projects/${project.id}`}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-yellow-600 hover:text-yellow-700 group-hover:translate-x-0.5 transition-all shrink-0"
+                  >
+                    <span>View Project</span>
+                    <FiArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* Desktop view - table */}
-      {filteredProjects.length > 0 && (
-        <div className="hidden lg:block overflow-visible bg-white border border-gray-100 rounded-xl shadow-card">
+      {/* Desktop / Table View */}
+      {filteredProjects.length > 0 && viewMode === 'table' && (
+        <div className="hidden lg:block overflow-x-auto bg-white border border-gray-100 rounded-xl shadow-card">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>

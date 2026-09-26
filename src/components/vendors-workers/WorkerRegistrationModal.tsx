@@ -27,7 +27,7 @@ export interface ContractWorker {
   secondary_phone?: string | null;
   trade: string;
   skill_level: 'Helper' | 'Semi-Skilled' | 'Skilled' | 'Master / Foreman';
-  wage_type: 'Daily' | 'Hourly' | 'Monthly' | 'Piece Rate';
+  wage_type: string;
   daily_wage: number;
   aadhaar_number?: string | null;
   id_proof_url?: string | null;
@@ -84,7 +84,7 @@ const TRADE_PRESETS = [
 ];
 
 const SKILL_LEVELS = ['Helper', 'Semi-Skilled', 'Skilled', 'Master / Foreman'] as const;
-const WAGE_TYPES = ['Daily', 'Hourly', 'Monthly', 'Piece Rate'] as const;
+const WAGE_TYPE_PRESETS = ['Daily Basis', 'Hourly Basis', 'Monthly Salary', 'Piece Rate', 'Weekly', 'Contract Lump Sum'];
 
 export function WorkerRegistrationModal({
   isOpen,
@@ -103,8 +103,8 @@ export function WorkerRegistrationModal({
     secondary_phone: '',
     trade: 'Carpentry',
     skill_level: 'Skilled',
-    wage_type: 'Daily',
-    daily_wage: 800,
+    wage_type: 'Daily Basis',
+    daily_wage: 0,
     aadhaar_number: '',
     id_proof_url: '',
     photo_url: '',
@@ -120,6 +120,9 @@ export function WorkerRegistrationModal({
     notes: '',
   });
 
+  // Multiple wage rates state
+  const [wageEntries, setWageEntries] = useState<{ type: string; rate: string }[]>([{ type: 'Daily Basis', rate: '' }]);
+
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -130,16 +133,35 @@ export function WorkerRegistrationModal({
 
   useEffect(() => {
     if (initialData) {
+      // Parse wage rates and real user notes out of the combined notes string
+      let parsedEntries: { type: string; rate: string }[] | null = null;
+      const notesStr = initialData.notes || '';
+      const WAGE_TAG = '__wage_rates__:';
+      const NOTES_TAG = '\n__notes__:';
+      let cleanNotes = notesStr;
+      if (notesStr.startsWith(WAGE_TAG)) {
+        const notesTagIdx = notesStr.indexOf(NOTES_TAG);
+        const wagePart = notesTagIdx >= 0 ? notesStr.slice(WAGE_TAG.length, notesTagIdx) : notesStr.slice(WAGE_TAG.length);
+        cleanNotes = notesTagIdx >= 0 ? notesStr.slice(notesTagIdx + NOTES_TAG.length) : '';
+        try { parsedEntries = JSON.parse(wagePart); } catch (_) {}
+      }
+      setWageEntries(
+        parsedEntries?.length
+          ? parsedEntries
+          : [{ type: initialData.wage_type || 'Daily Basis', rate: String(initialData.daily_wage || '') }]
+      );
       setFormData({
         ...initialData,
         vendor_id: initialData.vendor_id || null,
         assigned_project_id: initialData.assigned_project_id || null,
         skill_level: initialData.skill_level || 'Skilled',
-        wage_type: initialData.wage_type || 'Daily',
+        wage_type: initialData.wage_type || 'Daily Basis',
         daily_wage: initialData.daily_wage || 0,
         is_active: initialData.is_active !== undefined ? initialData.is_active : true,
+        notes: cleanNotes,
       });
     } else {
+      setWageEntries([{ type: 'Daily Basis', rate: '' }]);
       setFormData({
         vendor_id: null,
         full_name: '',
@@ -147,8 +169,8 @@ export function WorkerRegistrationModal({
         secondary_phone: '',
         trade: 'Carpentry',
         skill_level: 'Skilled',
-        wage_type: 'Daily',
-        daily_wage: 800,
+        wage_type: 'Daily Basis',
+        daily_wage: 0,
         aadhaar_number: '',
         id_proof_url: '',
         photo_url: '',
@@ -226,9 +248,20 @@ export function WorkerRegistrationModal({
     try {
       const url = '/api/contract-workers';
       const method = isEditing ? 'PATCH' : 'POST';
+
+      // Serialize wage entries + preserve real user notes
+      const validEntries = wageEntries.filter(e => e.type.trim());
+      const primary = validEntries[0] || { type: 'Daily Basis', rate: '' };
+      const userNotes = formData.notes?.trim() || '';
+      const notesStr = validEntries.length > 0
+        ? `__wage_rates__:${JSON.stringify(validEntries)}${userNotes ? `\n__notes__:${userNotes}` : ''}`
+        : userNotes;
+
       const payload = {
         ...(isEditing ? { ...formData, id: initialData?.id } : formData),
-        daily_wage: Number(formData.daily_wage) || 0,
+        wage_type: primary.type,
+        daily_wage: Number(primary.rate) || 0,
+        notes: notesStr,
       };
 
       const res = await fetch(url, {
@@ -441,93 +474,64 @@ export function WorkerRegistrationModal({
           </div>
         </div>
 
-        {/* Section 3: Wages & Payment Info */}
-        <div className="bg-gray-50/70 p-4 rounded-xl border border-gray-200/80 space-y-4">
-          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-            <TbCurrencyRupee className="text-yellow-600 text-sm" /> Wage & Payment Information
-          </h3>
+        {/* Section 3: Wage */}
+        <div className="bg-gray-50/70 p-4 rounded-xl border border-gray-200/80 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+              <TbCurrencyRupee className="text-yellow-600 text-sm" /> Wage Rates
+            </h3>
+            <button
+              type="button"
+              onClick={() => setWageEntries(prev => [...prev, { type: '', rate: '' }])}
+              className="flex items-center gap-1 px-2 py-1 text-xs font-semibold text-yellow-700 bg-yellow-50 hover:bg-yellow-100 border border-yellow-200 rounded-lg transition"
+            >
+              <FiCreditCard className="w-3 h-3" /> Add Rate
+            </button>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Wage Rate Type</label>
-              <select
-                value={formData.wage_type || 'Daily'}
-                onChange={(e) => handleChange('wage_type', e.target.value)}
-                className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
-              >
-                {WAGE_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type} Basis
-                  </option>
-                ))}
-              </select>
-            </div>
+          <datalist id="wage-type-presets">
+            {WAGE_TYPE_PRESETS.map((t) => <option key={t} value={t} />)}
+          </datalist>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Rate / Wage Amount (₹)
-              </label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 text-sm">
-                  ₹
-                </span>
+          <div className="space-y-2">
+            {wageEntries.map((entry, idx) => (
+              <div key={idx} className="flex items-center gap-2">
                 <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={formData.daily_wage ?? ''}
-                  onChange={(e) => handleChange('daily_wage', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
-                  className="w-full pl-7 pr-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  list="wage-type-presets"
+                  type="text"
+                  value={entry.type}
+                  onChange={(e) => setWageEntries(prev => prev.map((w, i) => i === idx ? { ...w, type: e.target.value } : w))}
+                  placeholder="Wage type (e.g. Daily Basis)"
+                  className="flex-1 px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
                 />
+                <div className="relative w-36 shrink-0">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 text-sm">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={entry.rate}
+                    onChange={(e) => setWageEntries(prev => prev.map((w, i) => i === idx ? { ...w, rate: e.target.value } : w))}
+                    placeholder="Rate"
+                    className="w-full pl-7 pr-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  />
+                </div>
+                {wageEntries.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setWageEntries(prev => prev.filter((_, i) => i !== idx))}
+                    className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition shrink-0"
+                    title="Remove this rate"
+                  >
+                    <FiX className="w-4 h-4" />
+                  </button>
+                )}
               </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">UPI ID (VPA)</label>
-              <input
-                type="text"
-                value={formData.upi_id || ''}
-                onChange={(e) => handleChange('upi_id', e.target.value)}
-                placeholder="e.g. 9876543210@upi"
-                className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
-              />
-            </div>
+            ))}
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Bank Name</label>
-              <input
-                type="text"
-                value={formData.bank_name || ''}
-                onChange={(e) => handleChange('bank_name', e.target.value)}
-                placeholder="e.g. State Bank of India"
-                className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Account Number</label>
-              <input
-                type="text"
-                value={formData.bank_account_number || ''}
-                onChange={(e) => handleChange('bank_account_number', e.target.value)}
-                placeholder="Account number"
-                className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">IFSC Code</label>
-              <input
-                type="text"
-                value={formData.bank_ifsc || ''}
-                onChange={(e) => handleChange('bank_ifsc', e.target.value.toUpperCase())}
-                placeholder="SBIN0001234"
-                className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 uppercase"
-              />
-            </div>
-          </div>
+          {wageEntries.length === 0 && (
+            <p className="text-xs text-gray-400 italic">No rates added yet. Click "Add Rate" above.</p>
+          )}
         </div>
 
         {/* Section 4: Identity & Compliance */}

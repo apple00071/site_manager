@@ -25,12 +25,27 @@ import {
   FiList,
   FiCalendar,
   FiPhone,
-  FiClock
+  FiClock,
+  FiAlertTriangle,
+  FiArrowRight,
+  FiRotateCcw,
+  FiPlus,
+  FiEdit2,
+  FiTrash2
 } from 'react-icons/fi';
 import { useToast } from '@/components/ui/Toast';
-import { formatDateIST } from '@/lib/dateUtils';
+import { formatDateIST, getTodayDateString } from '@/lib/dateUtils';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  DailyTaskItem,
+  ProjectTasksData,
+  parseProjectTasks,
+  serializeProjectTasks,
+  getReadableProjectNotes,
+  addTaskToProject,
+  updateTaskInProject
+} from '@/lib/designTaskUtils';
 
 interface ProjectStatusItem {
   id: string;
@@ -74,6 +89,9 @@ const getProjectDesignerName = (p: ProjectStatusItem): string => {
     '(Unassigned)'
   );
 };
+
+export type { DailyTaskItem, ProjectTasksData };
+export { parseProjectTasks, serializeProjectTasks, getReadableProjectNotes };
 
 interface SheetColumn {
   id: string;
@@ -166,6 +184,76 @@ const getStatusStyle = (colorHex?: string | null, statusText?: string | null) =>
   return { backgroundColor: '#E2E8F0', color: '#1E293B' };
 };
 
+export type TimelineFilter = 'all' | 'overdue' | 'today' | 'upcoming' | 'completed';
+
+export interface TaskTimelineInfo {
+  type: 'overdue' | 'today' | 'upcoming' | 'completed' | 'no_date';
+  label: string;
+  badgeClass: string;
+  isOverdue: boolean;
+  daysDiff: number;
+}
+
+export const getTaskTimelineInfo = (p: ProjectStatusItem, today: string): TaskTimelineInfo => {
+  const isDone = (p.unified_status || '').toLowerCase().trim() === 'done' ||
+                 (p.unified_status || '').toLowerCase().trim() === 'design completed' ||
+                 (p.status || '').toLowerCase() === 'completed';
+
+  if (isDone) {
+    return {
+      type: 'completed',
+      label: 'Done',
+      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      isOverdue: false,
+      daysDiff: 0,
+    };
+  }
+
+  const dateVal = p.deadline ? p.deadline.split('T')[0] : null;
+
+  if (!dateVal) {
+    return {
+      type: 'no_date',
+      label: 'No target set',
+      badgeClass: 'bg-gray-100 text-gray-500 border-gray-200',
+      isOverdue: false,
+      daysDiff: 0,
+    };
+  }
+
+  if (dateVal === today) {
+    return {
+      type: 'today',
+      label: "Today's Focus",
+      badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 font-bold',
+      isOverdue: false,
+      daysDiff: 0,
+    };
+  }
+
+  if (dateVal < today) {
+    const dTarget = new Date(dateVal);
+    const dToday = new Date(today);
+    const diffDays = Math.max(1, Math.round((dToday.getTime() - dTarget.getTime()) / (1000 * 60 * 60 * 24)));
+    const label = diffDays === 1 ? 'Due Yesterday (Rolled Over)' : `Overdue (${diffDays}d ago)`;
+    return {
+      type: 'overdue',
+      label,
+      badgeClass: 'bg-rose-50 text-rose-700 border-rose-300 font-bold',
+      isOverdue: true,
+      daysDiff: diffDays,
+    };
+  }
+
+  return {
+    type: 'upcoming',
+    label: `Target: ${formatDateIST(dateVal)}`,
+    badgeClass: 'bg-slate-50 text-slate-600 border-slate-200',
+    isOverdue: false,
+    daysDiff: 0,
+  };
+};
+
 const hexToRgb = (hex: string | null | undefined): [number, number, number] => {
   if (!hex) return [226, 232, 240];
   const clean = hex.replace('#', '').trim();
@@ -180,22 +268,29 @@ const hexToRgb = (hex: string | null | undefined): [number, number, number] => {
 
 interface StatusUpdaterModalProps {
   project: ProjectStatusItem | null;
+  initialMode?: 'update' | 'add_new';
+  taskId?: string | null;
   onClose: () => void;
   onSave: (data: {
     statusName: string;
     colorHex: string;
     deadline: string;
     notes: string;
+    mode: 'update' | 'add_new';
+    taskId?: string | null;
   }) => Promise<void> | void;
   isSaving?: boolean;
 }
 
 function StatusUpdaterModal({
   project,
+  initialMode = 'update',
+  taskId = null,
   onClose,
   onSave,
   isSaving = false,
 }: StatusUpdaterModalProps) {
+  const [mode, setMode] = useState<'update' | 'add_new'>(initialMode);
   const [statusName, setStatusName] = useState<string>('In Progress');
   const [colorHex, setColorHex] = useState<string>('#FF3366');
   const [deadline, setDeadline] = useState<string>('');
@@ -203,24 +298,43 @@ function StatusUpdaterModal({
 
   useEffect(() => {
     if (!project) return;
-    const rawStatus = project.unified_status || 'In Progress';
-    let matched = PREPOPULATED_STATUSES.find(
-      (s) => s.name.toLowerCase() === rawStatus.toLowerCase()
-    );
-    if (!matched) {
-      if (rawStatus.toLowerCase().includes('complet')) {
-        matched = PREPOPULATED_STATUSES.find((s) => s.name === 'Done');
-      } else if (rawStatus.toLowerCase().includes('review')) {
-        matched = PREPOPULATED_STATUSES.find((s) => s.name === 'Under Review');
-      } else {
-        matched = PREPOPULATED_STATUSES.find((s) => s.name === 'In Progress');
-      }
+    setMode(initialMode);
+
+    const tasksData = parseProjectTasks(project.project_notes, project);
+
+    if (initialMode === 'add_new') {
+      setStatusName('In Progress');
+      setColorHex('#FF3366');
+      setDeadline(getTodayDateString());
+      setNotes('');
+      return;
     }
-    setStatusName(matched ? matched.name : rawStatus);
-    setColorHex(project.status_color || matched?.color || '#FF3366');
-    setDeadline(project.deadline ? project.deadline.split('T')[0] : '');
-    setNotes(project.project_notes || '');
-  }, [project]);
+
+    // Update mode: check taskId or first task
+    let targetTask: DailyTaskItem | undefined;
+    if (taskId) {
+      targetTask = tasksData.tasks.find(t => t.id === taskId);
+    }
+    if (!targetTask && tasksData.tasks.length > 0) {
+      targetTask = tasksData.tasks[0];
+    }
+
+    if (targetTask) {
+      setStatusName(targetTask.status);
+      setColorHex(targetTask.status_color || '#FF3366');
+      setDeadline(targetTask.deadline ? targetTask.deadline.split('T')[0] : '');
+      setNotes(targetTask.title);
+    } else {
+      const rawStatus = project.unified_status || 'In Progress';
+      let matched = PREPOPULATED_STATUSES.find(
+        (s) => s.name.toLowerCase() === rawStatus.toLowerCase()
+      );
+      setStatusName(matched ? matched.name : rawStatus);
+      setColorHex(project.status_color || matched?.color || '#FF3366');
+      setDeadline(project.deadline ? project.deadline.split('T')[0] : '');
+      setNotes(project.project_notes || '');
+    }
+  }, [project, initialMode, taskId]);
 
   useEffect(() => {
     if (!project) return;
@@ -243,12 +357,33 @@ function StatusUpdaterModal({
     setColorHex(opt.color);
   };
 
+  const handleSwitchMode = (newMode: 'update' | 'add_new') => {
+    setMode(newMode);
+    if (newMode === 'add_new') {
+      setStatusName('In Progress');
+      setColorHex('#FF3366');
+      setDeadline(getTodayDateString());
+      setNotes('');
+    } else {
+      const tasksData = parseProjectTasks(project.project_notes, project);
+      const targetTask = taskId ? tasksData.tasks.find(t => t.id === taskId) : tasksData.tasks[0];
+      if (targetTask) {
+        setStatusName(targetTask.status);
+        setColorHex(targetTask.status_color || '#FF3366');
+        setDeadline(targetTask.deadline ? targetTask.deadline.split('T')[0] : '');
+        setNotes(targetTask.title);
+      }
+    }
+  };
+
   const handleSave = () => {
     onSave({
       statusName,
       colorHex,
       deadline,
       notes: notes.trim(),
+      mode,
+      taskId: mode === 'update' ? taskId : null,
     });
   };
 
@@ -282,7 +417,7 @@ function StatusUpdaterModal({
                 </span>
               )}
               <h3 className="text-sm sm:text-base font-bold text-gray-900 truncate">
-                Update Status
+                {mode === 'add_new' ? 'Add Another Task' : 'Update Task'}
               </h3>
             </div>
             <p className="text-xs text-gray-500 font-medium truncate mt-0.5">
@@ -300,7 +435,41 @@ function StatusUpdaterModal({
         </div>
 
         {/* Modal Body (Clean & Compact) */}
-        <div className="p-4 sm:p-5 space-y-3.5">
+        <div className="p-4 sm:p-5 space-y-3.5 max-h-[70vh] overflow-y-auto">
+          {/* Mode Switcher Toggle: Update Current Task vs Add New Task */}
+          <div className="grid grid-cols-2 p-1 bg-gray-100 rounded-xl gap-1">
+            <button
+              type="button"
+              onClick={() => handleSwitchMode('update')}
+              className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                mode === 'update'
+                  ? 'bg-white text-gray-900 shadow-2xs'
+                  : 'text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              <FiEdit2 className="w-3.5 h-3.5" />
+              <span>Update Task</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSwitchMode('add_new')}
+              className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                mode === 'add_new'
+                  ? 'bg-yellow-500 text-gray-950 shadow-2xs font-black'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <FiPlus className="w-3.5 h-3.5" />
+              <span>Add Another Task</span>
+            </button>
+          </div>
+
+          {mode === 'update' && statusName.toLowerCase() === 'done' && (
+            <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-[11px] text-emerald-900 font-medium flex items-center gap-1.5">
+              <FiCheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>Marking this task Done will archive it safely into Task History.</span>
+            </div>
+          )}
           {/* Status Selection (Compact 2-col Grid) */}
           <div>
             <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
@@ -406,19 +575,27 @@ function StatusUpdaterModal({
               />
               <button
                 type="button"
-                onClick={() => {
-                  const d = new Date();
-                  setDeadline(d.toISOString().split('T')[0]);
-                }}
-                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-xs font-semibold text-gray-600 rounded-lg transition cursor-pointer shrink-0"
+                onClick={() => setDeadline(getTodayDateString())}
+                className="px-2.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg transition cursor-pointer shrink-0 border border-blue-200"
               >
                 Today
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const d = new Date();
+                  d.setDate(d.getDate() + 1);
+                  setDeadline(d.toISOString().split('T')[0]);
+                }}
+                className="px-2.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition cursor-pointer shrink-0"
+              >
+                Tomorrow
               </button>
               {deadline && (
                 <button
                   type="button"
                   onClick={() => setDeadline('')}
-                  className="px-2.5 py-2 text-xs text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer shrink-0 font-medium"
+                  className="px-2 py-2 text-xs text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer shrink-0 font-medium"
                 >
                   Clear
                 </button>
@@ -426,14 +603,16 @@ function StatusUpdaterModal({
             </div>
           </div>
 
-          {/* Daily Notes */}
+          {/* Daily Notes / Task Description */}
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">Daily Notes</label>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">
+              {mode === 'add_new' ? 'Task Description / Notes' : 'Task Description / Notes'}
+            </label>
             <textarea
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add design notes, client comments, or scope..."
+              placeholder={mode === 'add_new' ? 'e.g. Living room 3D revision, kitchen elevations...' : 'Task details, client comments, or scope...'}
               className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white resize-none"
             />
           </div>
@@ -472,11 +651,328 @@ function StatusUpdaterModal({
               ) : (
                 <>
                   <FiCheck className="w-3.5 h-3.5" />
-                  Save Status
+                  {mode === 'add_new' ? 'Add Task' : 'Save Status'}
                 </>
               )}
             </button>
           </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+interface ReopenProjectModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onReopen: (p: ProjectStatusItem, options?: { customNotes?: string; targetDate?: string }) => Promise<boolean>;
+  todayStr: string;
+}
+
+function ReopenProjectModal({
+  isOpen,
+  onClose,
+  onReopen,
+  todayStr,
+}: ReopenProjectModalProps) {
+  const [loading, setLoading] = useState(false);
+  const [completedProjects, setCompletedProjects] = useState<ProjectStatusItem[]>([]);
+  const [search, setSearch] = useState('');
+  const [selectedProject, setSelectedProject] = useState<ProjectStatusItem | null>(null);
+  const [targetDate, setTargetDate] = useState(todayStr);
+  const [revisionNotes, setRevisionNotes] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const tomorrowStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedProject(null);
+      setSearch('');
+      setRevisionNotes('');
+      setTargetDate(todayStr);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchCompleted = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/daily-status?include_completed=true', { cache: 'no-store' });
+        if (!res.ok) throw new Error('Failed to load completed projects');
+        const data = await res.json();
+        const list: ProjectStatusItem[] = Array.isArray(data?.projects) ? data.projects : Array.isArray(data) ? data : [];
+        if (isMounted) {
+          // Strictly show projects where design is marked completed AND overall project is not closed
+          const completedOnly = list.filter(p => {
+            const isDesignCompleted = (p.unified_status || '').toLowerCase().trim() === 'design completed';
+            const isProjectClosed = (p.status || '').toLowerCase() === 'completed';
+            return isDesignCompleted && !isProjectClosed;
+          });
+          setCompletedProjects(completedOnly);
+        }
+      } catch (err) {
+        console.error('Error fetching completed projects:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchCompleted();
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, todayStr]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    if (isOpen) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = prevOverflow;
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [isOpen, onClose]);
+
+  if (!isOpen || typeof document === 'undefined') return null;
+
+  const filtered = completedProjects.filter(p => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    const code = (p.project_code || p.ref_no || '').replace('AI/PRJ/', 'AI/').replace('PRJ/', '').toLowerCase();
+    const title = (p.title || '').toLowerCase();
+    const client = (p.customer_name || '').toLowerCase();
+    const designer = getProjectDesignerName(p).toLowerCase();
+    return code.includes(q) || title.includes(q) || client.includes(q) || designer.includes(q);
+  });
+
+  const handleConfirm = async () => {
+    if (!selectedProject) return;
+    setIsSubmitting(true);
+    try {
+      const ok = await onReopen(selectedProject, {
+        targetDate,
+        customNotes: revisionNotes.trim() || undefined,
+      });
+      if (ok) {
+        onClose();
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden transition-all duration-200 animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-0 sm:zoom-in-95"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Mobile Grab Handle */}
+        <div className="flex sm:hidden justify-center pt-3 pb-1 shrink-0 bg-white">
+          <div className="w-10 h-1 bg-gray-300 rounded-full" />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 shrink-0 bg-white">
+          <div>
+            <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+              <FiRotateCcw className="w-4 h-4 text-yellow-600" />
+              <span>Re-open Completed Project</span>
+            </h3>
+            <p className="text-xs text-gray-500 font-medium mt-0.5">
+              Select a finished project to bring back into active daily design status
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0 cursor-pointer"
+            aria-label="Close"
+          >
+            <FiX className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="p-3 border-b border-gray-100 bg-gray-50/50 shrink-0">
+          <div className="relative">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search by project name, code, client, or designer..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500 transition-all"
+            />
+          </div>
+        </div>
+
+        {/* Project List */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-2 max-h-60 sm:max-h-72">
+          {loading ? (
+            <div className="py-12 text-center text-xs text-gray-400 flex flex-col items-center justify-center gap-2">
+              <span className="w-6 h-6 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+              <span>Loading design completed projects...</span>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="py-10 text-center text-xs text-gray-400">
+              {search.trim() ? 'No matching design completed projects found' : 'No design completed projects found'}
+            </div>
+          ) : (
+            filtered.map((p) => {
+              const rawCode = p.project_code || p.ref_no || `AI-${p.id.slice(0, 4)}`;
+              const displayCode = rawCode.replace('AI/PRJ/', 'AI/').replace('PRJ/', '');
+              const isSelected = selectedProject?.id === p.id;
+              const designer = getProjectDesignerName(p);
+              const phase = formatPhaseDisplay(p.workflow_stage, p.status);
+
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setSelectedProject(p)}
+                  className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                    isSelected
+                      ? 'border-yellow-500 bg-yellow-50/80 shadow-xs ring-1 ring-yellow-400'
+                      : 'border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="px-1.5 py-0.5 bg-gray-100 text-gray-700 text-[10px] font-bold rounded">
+                        {displayCode}
+                      </span>
+                      <span className="text-xs font-bold text-gray-900 truncate">
+                        {p.title || 'Untitled'}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
+                      <span>Client: <strong className="text-gray-700">{p.customer_name || '-'}</strong></span>
+                      <span>•</span>
+                      <span>Designer: <strong className="text-gray-700">{designer}</strong></span>
+                      <span>•</span>
+                      <span className="px-1.5 py-0.2 rounded text-[10px] bg-gray-100 text-gray-600 font-semibold">
+                        Phase: {phase}
+                      </span>
+                    </div>
+                  </div>
+                  {isSelected ? (
+                    <div className="w-5 h-5 rounded-full bg-yellow-500 text-gray-950 flex items-center justify-center shrink-0">
+                      <FiCheck className="w-3.5 h-3.5 stroke-[3]" />
+                    </div>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200 shrink-0">
+                      Design Completed
+                    </span>
+                  )}
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        {/* Selected Project Revision Options */}
+        {selectedProject && (
+          <div className="p-4 border-t border-gray-100 bg-gray-50 space-y-3 shrink-0 animate-in fade-in duration-150">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-gray-700">
+                Re-opening: <span className="text-yellow-700">{selectedProject.title}</span>
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                New Target Date
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={targetDate}
+                  onChange={(e) => setTargetDate(e.target.value)}
+                  className="flex-1 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-800 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setTargetDate(todayStr)}
+                  className={`px-2.5 py-1.5 text-xs font-bold rounded-lg border transition cursor-pointer shrink-0 ${
+                    targetDate === todayStr ? 'bg-yellow-500 text-gray-950 border-yellow-500' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
+                  }`}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTargetDate(tomorrowStr)}
+                  className={`px-2.5 py-1.5 text-xs font-bold rounded-lg border transition cursor-pointer shrink-0 ${
+                    targetDate === tomorrowStr ? 'bg-yellow-500 text-gray-950 border-yellow-500' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
+                  }`}
+                >
+                  Tomorrow
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                Revision Notes / Reason (Optional)
+              </label>
+              <input
+                type="text"
+                value={revisionNotes}
+                onChange={(e) => setRevisionNotes(e.target.value)}
+                placeholder="e.g. Client requested 3D revisions on master bedroom"
+                className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="p-4 border-t border-gray-100 bg-white flex items-center justify-end gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3.5 py-2 rounded-lg text-xs font-semibold text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!selectedProject || isSubmitting}
+            onClick={handleConfirm}
+            className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 active:scale-95 text-gray-950 font-bold rounded-lg text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-gray-950 border-t-transparent rounded-full animate-spin" />
+                <span>Re-opening...</span>
+              </>
+            ) : (
+              <>
+                <FiRotateCcw className="w-3.5 h-3.5" />
+                <span>Add Back to Active Design Status</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>,
@@ -507,10 +1003,15 @@ export default function DailyStatusPage() {
   const [selectedDesigner, setSelectedDesigner] = useState<string>('all');
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'active' | 'completed' | 'all'>('active');
+  const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>('all');
   const [activeColorPickerId, setActiveColorPickerId] = useState<string | null>(null);
   const [collapsedDesigners, setCollapsedDesigners] = useState<Record<string, boolean>>({});
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [activeBottomSheetProject, setActiveBottomSheetProject] = useState<ProjectStatusItem | null>(null);
+  const [modalInitialMode, setModalInitialMode] = useState<'update' | 'add_new'>('update');
+  const [modalTaskId, setModalTaskId] = useState<string | null>(null);
+  const [expandedHistories, setExpandedHistories] = useState<Record<string, boolean>>({});
+  const [showReopenModal, setShowReopenModal] = useState(false);
   const { showToast } = useToast();
 
 
@@ -659,19 +1160,48 @@ export default function DailyStatusPage() {
   };
 
   // 3. Re-open design when a new task is assigned later
-  const handleReopenDesign = async (p: ProjectStatusItem) => {
-    const ok = await handleUpdate(p.id, {
+  const handleReopenDesign = async (
+    p: ProjectStatusItem,
+    options?: { customNotes?: string; targetDate?: string }
+  ): Promise<boolean> => {
+    const payload: Partial<ProjectStatusItem> = {
       unified_status: 'In Progress',
       status_color: '#FF3366',
-    });
+      deadline: options?.targetDate || todayStr,
+      ...(options?.customNotes ? { project_notes: options.customNotes } : {}),
+      ...(p.status === 'completed' ? { status: 'in_progress', workflow_stage: 'in_progress' } : {})
+    };
+    const ok = await handleUpdate(p.id, payload);
     if (ok) {
-      showToast('info', `Design task re-opened for "${p.title}" (moved to active sheet)`);
+      showToast('success', `"${p.title}" re-opened and added back to Active Design Status`);
     }
+    return Boolean(ok);
   };
 
-  // Bottom Sheet Handlers
+  // Bottom Sheet Handlers & Multi-Task Management
   const openBottomSheet = (p: ProjectStatusItem) => {
     setActiveBottomSheetProject(p);
+    setModalInitialMode('update');
+    setModalTaskId(null);
+  };
+
+  const openUpdateModal = (p: ProjectStatusItem, taskId?: string | null) => {
+    setActiveBottomSheetProject(p);
+    setModalInitialMode('update');
+    setModalTaskId(taskId || null);
+  };
+
+  const openAddTaskModal = (p: ProjectStatusItem) => {
+    setActiveBottomSheetProject(p);
+    setModalInitialMode('add_new');
+    setModalTaskId(null);
+  };
+
+  const toggleHistory = (projectId: string) => {
+    setExpandedHistories(prev => ({
+      ...prev,
+      [projectId]: !prev[projectId]
+    }));
   };
 
   const handleSaveStatusModal = async (data: {
@@ -679,41 +1209,158 @@ export default function DailyStatusPage() {
     colorHex: string;
     deadline: string;
     notes: string;
+    mode: 'update' | 'add_new';
+    taskId?: string | null;
   }) => {
     if (!activeBottomSheetProject) return;
-    const p = activeBottomSheetProject;
+    const p = safeProjects.find(item => item.id === activeBottomSheetProject.id) || activeBottomSheetProject;
 
     const isDesignCompleted = data.statusName === 'Design Completed';
+    let tasksData = parseProjectTasks(p.project_notes, p);
+
+    if (data.mode === 'add_new') {
+      tasksData = addTaskToProject(tasksData, {
+        title: data.notes || 'Design Task',
+        status: data.statusName,
+        status_color: data.colorHex,
+        deadline: data.deadline || null,
+      });
+    } else {
+      tasksData = updateTaskInProject(tasksData, data.taskId, {
+        title: data.notes || undefined,
+        status: data.statusName,
+        status_color: data.colorHex,
+        deadline: data.deadline || null,
+      });
+    }
+
+    const serializedNotes = serializeProjectTasks(tasksData);
+    const primaryTask = tasksData.tasks[0];
+
     const payload: Partial<ProjectStatusItem> = {
-      unified_status: data.statusName,
-      status_color: data.colorHex,
-      deadline: data.deadline || null,
-      project_notes: data.notes || null,
+      project_notes: serializedNotes,
     };
 
-    if (isDesignCompleted && formatPhaseDisplay(p.workflow_stage, p.status) === 'Designing') {
-      payload.workflow_stage = 'Execution';
+    if (isDesignCompleted) {
+      payload.unified_status = 'Design Completed';
+      payload.status_color = data.colorHex;
+      if (formatPhaseDisplay(p.workflow_stage, p.status) === 'Designing') {
+        payload.workflow_stage = 'Execution';
+      }
+    } else if (primaryTask) {
+      payload.unified_status = primaryTask.status;
+      payload.status_color = primaryTask.status_color;
+      payload.deadline = primaryTask.deadline || null;
+    } else if (tasksData.history.length > 0) {
+      payload.unified_status = 'Done';
+      payload.status_color = '#10B981';
+      payload.deadline = null;
+    } else {
+      payload.unified_status = data.statusName;
+      payload.status_color = data.colorHex;
+      payload.deadline = data.deadline || null;
     }
 
     const ok = await handleUpdate(p.id, payload);
     if (ok) {
       setActiveBottomSheetProject(null);
+      setModalTaskId(null);
       showToast(
         'success',
-        isDesignCompleted && formatPhaseDisplay(p.workflow_stage, p.status) === 'Designing'
+        data.mode === 'add_new'
+          ? `Added new task to "${p.title}"`
+          : isDesignCompleted && formatPhaseDisplay(p.workflow_stage, p.status) === 'Designing'
           ? `Design completed for "${p.title}" (moved to Execution)`
-          : `Status updated to "${data.statusName}" for "${p.title}"`
+          : `Updated task for "${p.title}"`
       );
     }
   };
 
-  // Filter projects by status: active vs closed projects
+  // Quick complete a specific task and archive to history
+  const handleCompleteSpecificTask = async (p: ProjectStatusItem, taskId: string) => {
+    let tasksData = parseProjectTasks(p.project_notes, p);
+    tasksData = updateTaskInProject(tasksData, taskId, {
+      status: 'Done',
+      status_color: '#10B981',
+    });
+
+    const serializedNotes = serializeProjectTasks(tasksData);
+    const primaryTask = tasksData.tasks[0];
+
+    const payload: Partial<ProjectStatusItem> = {
+      project_notes: serializedNotes,
+      unified_status: primaryTask ? primaryTask.status : 'Done',
+      status_color: primaryTask ? primaryTask.status_color : '#10B981',
+      deadline: primaryTask ? primaryTask.deadline || null : null,
+    };
+
+    const ok = await handleUpdate(p.id, payload);
+    if (ok) {
+      showToast('success', 'Task completed and archived to history');
+    }
+  };
+
+  // Re-open a task from history
+  const handleReopenSpecificTask = async (p: ProjectStatusItem, historyTaskId: string) => {
+    const tasksData = parseProjectTasks(p.project_notes, p);
+    const targetIdx = tasksData.history.findIndex(h => h.id === historyTaskId);
+    if (targetIdx === -1) return;
+
+    const [reopenedTask] = tasksData.history.splice(targetIdx, 1);
+    reopenedTask.status = 'In Progress';
+    reopenedTask.status_color = '#FF3366';
+    reopenedTask.deadline = todayStr;
+    delete reopenedTask.completed_at;
+    tasksData.tasks.push(reopenedTask);
+
+    const serializedNotes = serializeProjectTasks(tasksData);
+    const payload: Partial<ProjectStatusItem> = {
+      project_notes: serializedNotes,
+      unified_status: 'In Progress',
+      status_color: '#FF3366',
+      deadline: todayStr,
+    };
+
+    const ok = await handleUpdate(p.id, payload);
+    if (ok) {
+      showToast('success', `Re-opened "${reopenedTask.title}" as active task`);
+    }
+  };
+
+  // Delete a specific task
+  const handleDeleteSpecificTask = async (p: ProjectStatusItem, taskId: string, isHistory = false) => {
+    const tasksData = parseProjectTasks(p.project_notes, p);
+    if (isHistory) {
+      tasksData.history = tasksData.history.filter(h => h.id !== taskId);
+    } else {
+      tasksData.tasks = tasksData.tasks.filter(t => t.id !== taskId);
+    }
+
+    const serializedNotes = serializeProjectTasks(tasksData);
+    const primaryTask = tasksData.tasks[0];
+
+    const payload: Partial<ProjectStatusItem> = {
+      project_notes: serializedNotes,
+      unified_status: primaryTask ? primaryTask.status : (tasksData.history.length > 0 ? 'Done' : 'In Progress'),
+      status_color: primaryTask ? primaryTask.status_color : (tasksData.history.length > 0 ? '#10B981' : '#FF3366'),
+      deadline: primaryTask ? primaryTask.deadline || null : null,
+    };
+
+    const ok = await handleUpdate(p.id, payload);
+    if (ok) {
+      showToast('success', 'Task removed');
+    }
+  };
+
+  // Filter projects by status: active vs design completed
   const activeProjects = useMemo(() => {
     return safeProjects.filter(p => {
       const isDesignCompleted = (p.unified_status || '').toLowerCase().trim() === 'design completed';
-      const isProjectClosed = (p.status || '').toLowerCase() === 'completed' || isDesignCompleted;
-      if (statusFilter === 'active') return !isProjectClosed;
-      if (statusFilter === 'completed') return isProjectClosed;
+      const isProjectClosed = (p.status || '').toLowerCase() === 'completed';
+      // Completely exclude closed site projects from Daily Design Status
+      if (isProjectClosed) return false;
+      if (statusFilter === 'active') return !isDesignCompleted;
+      if (statusFilter === 'completed') return isDesignCompleted;
       return true;
     });
   }, [safeProjects, statusFilter]);
@@ -748,6 +1395,50 @@ export default function DailyStatusPage() {
   }, [hasAutoFiltered, isAdmin, designersList, user]);
 
   // Filtered projects by search, designer, and phase
+  const todayStr = useMemo(() => getTodayDateString(), []);
+
+  // Quick actions: One-click rollover to today or mark done
+  const handleRolloverToToday = async (p: ProjectStatusItem) => {
+    const tasksData = parseProjectTasks(p.project_notes, p);
+    if (tasksData.tasks.length > 0) {
+      tasksData.tasks[0].deadline = todayStr;
+      if (tasksData.tasks[0].status.toLowerCase() === 'done') {
+        tasksData.tasks[0].status = 'In Progress';
+        tasksData.tasks[0].status_color = '#FF3366';
+      }
+    }
+    const ok = await handleUpdate(p.id, {
+      deadline: todayStr,
+      unified_status: p.unified_status === 'Done' ? 'In Progress' : (p.unified_status || 'In Progress'),
+      status_color: p.status_color || '#FF3366',
+      project_notes: serializeProjectTasks(tasksData),
+    });
+    if (ok) {
+      showToast('success', `Moved "${p.title}" to Today's Tasks`);
+    }
+  };
+
+  const handleQuickMarkDone = async (p: ProjectStatusItem) => {
+    const tasksData = parseProjectTasks(p.project_notes, p);
+    if (tasksData.tasks.length > 0) {
+      while (tasksData.tasks.length > 0) {
+        const t = tasksData.tasks.shift()!;
+        t.status = 'Done';
+        t.status_color = '#10B981';
+        t.completed_at = new Date().toISOString();
+        tasksData.history.unshift(t);
+      }
+    }
+    const ok = await handleUpdate(p.id, {
+      unified_status: 'Done',
+      status_color: '#10B981',
+      project_notes: serializeProjectTasks(tasksData),
+    });
+    if (ok) {
+      showToast('success', `Marked "${p.title}" as Done`);
+    }
+  };
+
   const filteredProjects = useMemo(() => {
     return activeProjects.filter(p => {
       const q = searchQuery.toLowerCase();
@@ -762,9 +1453,18 @@ export default function DailyStatusPage() {
       const phase = formatPhaseDisplay(p.workflow_stage, p.status);
       const matchesPhase = selectedPhase === 'all' || phase.toLowerCase() === selectedPhase.toLowerCase();
 
+      // Timeline filter (Overdue rollover vs Today vs Upcoming vs Done)
+      if (timelineFilter !== 'all') {
+        const info = getTaskTimelineInfo(p, todayStr);
+        if (timelineFilter === 'overdue' && info.type !== 'overdue') return false;
+        if (timelineFilter === 'today' && info.type !== 'today') return false;
+        if (timelineFilter === 'upcoming' && info.type !== 'upcoming' && info.type !== 'no_date') return false;
+        if (timelineFilter === 'completed' && info.type !== 'completed') return false;
+      }
+
       return matchesSearch && matchesDesigner && matchesPhase;
     });
-  }, [activeProjects, searchQuery, selectedDesigner, selectedPhase]);
+  }, [activeProjects, searchQuery, selectedDesigner, selectedPhase, timelineFilter, todayStr]);
 
   // Group filtered projects by Designer (matching CRM month-group pattern)
   const groupedProjects = useMemo(() => {
@@ -789,7 +1489,24 @@ export default function DailyStatusPage() {
 
   // Summary counts
   const totalActiveCount = activeProjects.length;
-  const tasksDoneCount = activeProjects.filter(p => (p.unified_status || '').toLowerCase().trim() === 'done').length;
+  const overdueCount = useMemo(() => {
+    return activeProjects.filter(p => getTaskTimelineInfo(p, todayStr).type === 'overdue').length;
+  }, [activeProjects, todayStr]);
+
+  const todayCount = useMemo(() => {
+    return activeProjects.filter(p => getTaskTimelineInfo(p, todayStr).type === 'today').length;
+  }, [activeProjects, todayStr]);
+
+  const upcomingCount = useMemo(() => {
+    return activeProjects.filter(p => {
+      const t = getTaskTimelineInfo(p, todayStr).type;
+      return t === 'upcoming' || t === 'no_date';
+    }).length;
+  }, [activeProjects, todayStr]);
+
+  const tasksDoneCount = useMemo(() => {
+    return activeProjects.filter(p => (p.unified_status || '').toLowerCase().trim() === 'done').length;
+  }, [activeProjects]);
   const tasksInProgressCount = Math.max(0, totalActiveCount - tasksDoneCount);
 
   // Toggle Collapse Designer Group
@@ -827,6 +1544,11 @@ export default function DailyStatusPage() {
         group.items.forEach(p => {
           const rawCode = p.project_code || p.ref_no || `AI-${p.id.slice(0, 4)}`;
           const code = rawCode.replace('AI/PRJ/', 'AI/').replace('PRJ/', '');
+          const tData = parseProjectTasks(p.project_notes, p);
+          const effectiveDl = tData.tasks[0]?.deadline !== undefined && tData.tasks[0]?.deadline !== null
+            ? tData.tasks[0]?.deadline
+            : (p.deadline || null);
+
           rows.push({
             'Project ID': code,
             'Project Name': p.title || '-',
@@ -835,8 +1557,8 @@ export default function DailyStatusPage() {
             'Phase': formatPhaseDisplay(p.workflow_stage, p.status),
             'Task Status': p.unified_status || 'Pending',
             'Start Date': p.start_date ? formatDateIST(p.start_date) : '-',
-            'Target Date': p.deadline ? formatDateIST(p.deadline) : (p.estimated_completion_date ? formatDateIST(p.estimated_completion_date) : '-'),
-            'Notes': p.project_notes || ''
+            'Target Date': effectiveDl ? formatDateIST(effectiveDl) : '-',
+            'Notes': getReadableProjectNotes(p.project_notes, p)
           });
         });
       });
@@ -898,9 +1620,11 @@ export default function DailyStatusPage() {
 
         group.items.forEach(p => {
           const startDateStr = p.start_date ? formatDateIST(p.start_date) : '-';
-          const targetDateStr = p.deadline
-            ? formatDateIST(p.deadline)
-            : (p.estimated_completion_date ? formatDateIST(p.estimated_completion_date) : '-');
+          const tData = parseProjectTasks(p.project_notes, p);
+          const effectiveDl = tData.tasks[0]?.deadline !== undefined && tData.tasks[0]?.deadline !== null
+            ? tData.tasks[0]?.deadline
+            : (p.deadline || null);
+          const targetDateStr = effectiveDl ? formatDateIST(effectiveDl) : '-';
 
           const rawCode = p.project_code || p.ref_no || `AI-${p.id.slice(0, 4)}`;
           const code = rawCode.replace('AI/PRJ/', 'AI/').replace('PRJ/', '');
@@ -928,7 +1652,7 @@ export default function DailyStatusPage() {
             statusCell,
             startDateStr,
             targetDateStr,
-            p.project_notes || '-'
+            getReadableProjectNotes(p.project_notes, p)
           ]);
         });
       });
@@ -994,6 +1718,328 @@ export default function DailyStatusPage() {
     }
   };
 
+  const renderProjectCard = (p: ProjectStatusItem) => {
+    const rawCode = p.project_code || p.ref_no || `AI-${p.id.slice(0, 4)}`;
+    const displayCode = rawCode.replace('AI/PRJ/', 'AI/').replace('PRJ/', '');
+    const phase = formatPhaseDisplay(p.workflow_stage, p.status);
+    const statusStyle = getStatusStyle(p.status_color, p.unified_status);
+    const tasksData = parseProjectTasks(p.project_notes, p);
+    const activeTasks = tasksData.tasks;
+    const historyTasks = tasksData.history;
+    const isHistoryOpen = Boolean(expandedHistories[p.id]);
+
+    const primaryTask = activeTasks[0];
+    const effectiveDeadline = primaryTask?.deadline !== undefined && primaryTask.deadline !== null ? primaryTask.deadline : (p.deadline || null);
+    const effectiveStatus = primaryTask?.status || p.unified_status;
+
+    const timelineInfo = getTaskTimelineInfo({
+      ...p,
+      deadline: effectiveDeadline,
+      unified_status: effectiveStatus,
+    }, todayStr);
+
+    return (
+      <div
+        key={p.id}
+        className={`compact-card bg-white rounded-xl p-2 sm:p-2.5 shadow-2xs hover:shadow-xs transition-all flex flex-col gap-1 sm:gap-1.5 ${
+          timelineInfo.isOverdue
+            ? 'border-2 border-rose-300 bg-rose-50/15'
+            : timelineInfo.type === 'today'
+            ? 'border-2 border-blue-300 bg-blue-50/15'
+            : 'border border-gray-200 hover:border-gray-300'
+        }`}
+      >
+        {/* Card Header: Project ID, Phase & Timeline Indicator */}
+        <div className="flex items-center justify-between gap-1">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Link
+              href={`/dashboard/projects/${p.id}`}
+              className="no-touch-target min-w-0 font-mono font-bold text-blue-600 hover:underline text-xs flex items-center gap-0.5 shrink-0"
+              title={`Open project ${displayCode}`}
+            >
+              <span>{displayCode}</span>
+              <FiExternalLink className="w-2.5 h-2.5 text-gray-400 shrink-0" />
+            </Link>
+
+            <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider shrink-0 ${
+              phase === 'Designing' ? 'bg-amber-100 text-amber-800' :
+              phase === 'Execution' ? 'bg-blue-100 text-blue-800' :
+              phase === 'Handover' ? 'bg-purple-100 text-purple-800' :
+              'bg-emerald-100 text-emerald-800'
+            }`}>
+              {phase}
+            </span>
+          </div>
+
+          {/* Timeline Badge */}
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0 ${timelineInfo.badgeClass}`}>
+            {timelineInfo.isOverdue && <FiAlertTriangle className="w-2.5 h-2.5 text-rose-600 shrink-0" />}
+            {timelineInfo.type === 'today' && <FiClock className="w-2.5 h-2.5 text-blue-600 shrink-0" />}
+            {timelineInfo.type === 'completed' && <FiCheck className="w-2.5 h-2.5 text-emerald-600 flex-shrink-0" />}
+            <span>{timelineInfo.label}</span>
+          </span>
+        </div>
+
+        {/* Project Title & Customer */}
+        <div>
+          <Link
+            href={`/dashboard/projects/${p.id}`}
+            className="no-touch-target min-w-0 font-bold text-gray-900 hover:text-blue-600 text-xs sm:text-sm line-clamp-1 block transition-colors leading-tight"
+          >
+            {p.title || 'Untitled Project'}
+          </Link>
+          <div className="text-[11px] text-gray-500 flex items-center gap-1 truncate leading-tight mt-0.5">
+            <span>Client:</span>
+            <span className="font-medium text-gray-700 truncate">{p.customer_name || '-'}</span>
+            {p.phone_number && (
+              <a
+                href={`tel:${p.phone_number}`}
+                className="no-touch-target min-w-0 w-4 h-4 inline-flex items-center justify-center text-gray-400 hover:text-yellow-600 hover:bg-gray-100 rounded ml-0.5 shrink-0 transition"
+                title={p.phone_number}
+              >
+                <FiPhone className="w-2.5 h-2.5 shrink-0" />
+              </a>
+            )}
+          </div>
+        </div>
+
+        {/* Multi-Task Section: Active Tasks List + Add Task Button */}
+        <div className="space-y-1 pt-1 border-t border-gray-100 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1 text-[10px] font-bold text-gray-600 uppercase tracking-wider">
+              <span>Active Tasks</span>
+              <span className="px-1.5 py-0.2 bg-gray-100 text-gray-700 text-[10px] rounded-full font-bold">
+                {activeTasks.length}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={() => openAddTaskModal(p)}
+              className="no-touch-target min-w-0 px-2 py-0.5 bg-yellow-500 hover:bg-yellow-600 active:scale-95 text-gray-950 font-bold text-[10px] rounded shadow-2xs transition flex items-center gap-1 cursor-pointer shrink-0"
+              title="Add another task to this project"
+            >
+              <FiPlus className="w-2.5 h-2.5 shrink-0" />
+              <span>Add Task</span>
+            </button>
+          </div>
+
+          {activeTasks.length > 0 ? (
+            <div className="space-y-1">
+              {activeTasks.map((t, idx) => {
+                const taskTimeline = getTaskTimelineInfo({ ...p, deadline: t.deadline, unified_status: t.status }, todayStr);
+                const taskStatusStyle = getStatusStyle(t.status_color, t.status);
+                return (
+                  <div
+                    key={t.id || idx}
+                    className="p-1 px-1.5 rounded-lg bg-gray-50/90 border border-gray-200/90 hover:bg-white hover:border-gray-300 transition-all text-xs flex flex-col gap-0.5"
+                  >
+                    <div className="flex items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                        <span
+                          style={taskStatusStyle}
+                          className="px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 shadow-2xs"
+                        >
+                          {t.status}
+                        </span>
+                        <span className="font-semibold text-gray-900 truncate text-[11px]" title={t.title}>
+                          {t.title}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => openUpdateModal(p, t.id)}
+                          className="no-touch-target min-w-0 w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded cursor-pointer transition shrink-0"
+                          title="Edit task"
+                        >
+                          <FiEdit2 className="w-2.5 h-2.5 shrink-0" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCompleteSpecificTask(p, t.id)}
+                          className="no-touch-target min-w-0 px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded font-bold text-[10px] flex items-center gap-0.5 cursor-pointer transition shrink-0"
+                          title="Mark task done (archives to history)"
+                        >
+                          <FiCheck className="w-2.5 h-2.5 shrink-0" />
+                          <span>Done</span>
+                        </button>
+                        {activeTasks.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSpecificTask(p, t.id)}
+                            className="no-touch-target min-w-0 w-5 h-5 flex items-center justify-center text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded cursor-pointer transition shrink-0"
+                            title="Delete task"
+                          >
+                            <FiTrash2 className="w-2.5 h-2.5 shrink-0" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {/* Task Target Date */}
+                    <div className="flex items-center justify-between text-[10px] text-gray-500 leading-none">
+                      <button
+                        type="button"
+                        onClick={() => openUpdateModal(p, t.id)}
+                        className="no-touch-target min-w-0 flex items-center gap-1 hover:text-blue-600 cursor-pointer transition text-left"
+                        title="Click to set or change target date"
+                      >
+                        <FiCalendar className="w-2.5 h-2.5 text-gray-400 shrink-0" />
+                        <span className={t.deadline ? 'font-medium text-gray-700' : 'text-gray-400 italic hover:underline'}>
+                          {t.deadline ? formatDateIST(t.deadline) : 'No target date (click to set)'}
+                        </span>
+                      </button>
+                      {taskTimeline.isOverdue && (
+                        <span className="text-[10px] font-bold text-rose-600 flex items-center gap-0.5 shrink-0">
+                          <FiAlertTriangle className="w-2.5 h-2.5 shrink-0" />
+                          Overdue
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-2 rounded-lg bg-emerald-50/60 border border-emerald-200/60 text-center">
+              <p className="text-[11px] text-emerald-800 font-medium">All active tasks completed!</p>
+              <button
+                type="button"
+                onClick={() => openAddTaskModal(p)}
+                className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold text-[10px] rounded-md shadow-2xs cursor-pointer transition"
+              >
+                <FiPlus className="w-2.5 h-2.5 shrink-0" />
+                <span>Add Next Task</span>
+              </button>
+            </div>
+          )}
+
+          {/* Collapsible Task History Section */}
+          {historyTasks.length > 0 && (
+            <div className="border-t border-gray-100 pt-1">
+              <button
+                type="button"
+                onClick={() => toggleHistory(p.id)}
+                className="no-touch-target min-w-0 w-full flex items-center justify-between py-0.5 text-[11px] text-gray-500 hover:text-gray-800 font-medium transition cursor-pointer"
+              >
+                <span className="flex items-center gap-1">
+                  <FiCheckCircle className="w-3 h-3 text-emerald-600 shrink-0" />
+                  <span>Task History ({historyTasks.length})</span>
+                </span>
+                {isHistoryOpen ? <FiChevronDown className="w-3 h-3 shrink-0" /> : <FiChevronRight className="w-3 h-3 shrink-0" />}
+              </button>
+
+              {isHistoryOpen && (
+                <div className="mt-1 space-y-0.5 bg-gray-50/70 p-1.5 rounded-lg border border-gray-100 animate-in fade-in duration-150">
+                  {historyTasks.map((h, hIdx) => (
+                    <div key={h.id || hIdx} className="flex items-center justify-between text-[11px] py-0.5 border-b border-gray-200/50 last:border-none">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <FiCheck className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                        <span className="line-through text-gray-500 truncate" title={h.title}>
+                          {h.title}
+                        </span>
+                        {h.completed_at && (
+                          <span className="text-[9px] text-gray-400 shrink-0">
+                            ({formatDateIST(h.completed_at)})
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0 ml-1">
+                        <button
+                          type="button"
+                          onClick={() => handleReopenSpecificTask(p, h.id)}
+                          className="no-touch-target min-w-0 text-[9px] text-blue-600 hover:underline font-bold cursor-pointer"
+                          title="Re-open this completed task"
+                        >
+                          Re-open
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSpecificTask(p, h.id, true)}
+                          className="no-touch-target min-w-0 w-4 h-4 flex items-center justify-center text-gray-400 hover:text-rose-500 rounded cursor-pointer shrink-0"
+                          title="Delete from history"
+                        >
+                          <FiTrash2 className="w-2.5 h-2.5 shrink-0" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Card Footer: Interactive Status Pill Button + Quick Actions (Single Sleek Row, Identical Height) */}
+        <div className="pt-1 border-t border-gray-100 flex items-center gap-1.5">
+          {/* If the project is Design Completed or closed, show direct Re-open button */}
+          {(p.unified_status?.toLowerCase().trim() === 'design completed' || p.status?.toLowerCase() === 'completed') ? (
+            <button
+              type="button"
+              onClick={() => handleReopenDesign(p)}
+              className="no-touch-target min-w-0 w-full h-8 px-2.5 bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold text-xs rounded-lg shadow-2xs transition-colors flex items-center justify-center gap-1 cursor-pointer"
+              title="Add this project back into the active daily design status sheet"
+            >
+              <FiRotateCcw className="w-3.5 h-3.5 shrink-0" />
+              <span>Re-open Design (Add Back)</span>
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => openUpdateModal(p, activeTasks[0]?.id)}
+                className="no-touch-target min-w-0 flex-1 h-8 px-2.5 rounded-lg text-xs font-bold transition-all shadow-2xs flex items-center justify-between cursor-pointer border border-black/5 hover:opacity-90"
+                style={{
+                  backgroundColor: statusStyle.backgroundColor,
+                  color: statusStyle.color,
+                }}
+              >
+                <span className="truncate">{p.unified_status || 'Select Status'}</span>
+                <FiChevronDown className="w-3.5 h-3.5 ml-1 shrink-0 opacity-80" />
+              </button>
+
+              {/* Quick Action for Today tasks - side by side */}
+              {timelineInfo.type === 'today' && (p.unified_status || '').toLowerCase() !== 'done' && (
+                <button
+                  type="button"
+                  onClick={() => handleQuickMarkDone(p)}
+                  className="no-touch-target min-w-0 shrink-0 h-8 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-2xs transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                  title="Mark completed today"
+                >
+                  <FiCheck className="w-3.5 h-3.5 shrink-0" />
+                  <span className="whitespace-nowrap">Done Today</span>
+                </button>
+              )}
+
+              {/* Quick Actions for Overdue tasks - side by side */}
+              {timelineInfo.isOverdue && (
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleRolloverToToday(p)}
+                    className="no-touch-target min-w-0 h-8 px-2.5 bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold text-xs rounded-lg shadow-2xs transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                    title="Roll over to Today's Tasks"
+                  >
+                    <FiArrowRight className="w-3 h-3 shrink-0" />
+                    <span>Roll</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickMarkDone(p)}
+                    className="no-touch-target min-w-0 h-8 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-2xs transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                    title="Mark all tasks done"
+                  >
+                    <FiCheck className="w-3 h-3 shrink-0" />
+                    <span>Done</span>
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   let runningRowNumber = 1;
 
   // ponytail: redirect unauthorized users silently — sidebar already hides the link
@@ -1019,10 +2065,20 @@ export default function DailyStatusPage() {
           <button
             onClick={fetchProjects}
             disabled={loading}
-            className="p-2 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg text-gray-700 shadow-2xs transition-colors cursor-pointer"
+            className="w-9 h-9 inline-flex items-center justify-center p-0 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg text-gray-700 shadow-2xs transition-colors cursor-pointer shrink-0"
             title="Refresh Status"
           >
-            <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-yellow-600' : ''}`} />
+            <FiRefreshCw className={`w-4 h-4 shrink-0 ${loading ? 'animate-spin text-yellow-600' : ''}`} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowReopenModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-yellow-50 text-gray-800 border border-gray-200 hover:border-yellow-400 font-bold rounded-lg text-xs shadow-2xs transition-all cursor-pointer"
+            title="Add a completed project back into active design status"
+          >
+            <FiPlus className="w-3.5 h-3.5 text-yellow-600" />
+            <span>Re-open Completed Project</span>
           </button>
 
           {canExport && (
@@ -1049,32 +2105,182 @@ export default function DailyStatusPage() {
         </div>
       </div>
 
-      {/* KPI Cards Row (Role-tailored: Executive 4-card for Management, Focused 3-card for Individual Designers) */}
-      <div className={`grid gap-3 ${isManagement ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'}`}>
-        <div className="p-3.5 bg-white border border-gray-200 rounded-xl shadow-2xs">
+      {/* KPI Cards Row (Role-tailored & Interactive: Click any card to filter) */}
+      <div className={`grid gap-3 ${isManagement ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4'}`}>
+        <button
+          type="button"
+          onClick={() => setTimelineFilter('all')}
+          className={`p-3.5 bg-white border rounded-xl shadow-2xs text-left transition-all cursor-pointer ${
+            timelineFilter === 'all' ? 'ring-2 ring-yellow-500 border-yellow-500' : 'border-gray-200 hover:border-gray-300'
+          }`}
+        >
           <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
             {isManagement ? 'Active Projects' : 'My Active Projects'}
           </span>
           <span className="text-2xl font-black text-gray-900 mt-0.5 block">{totalActiveCount}</span>
-        </div>
+        </button>
+
         {isManagement && (
           <div className="p-3.5 bg-white border border-gray-200 rounded-xl shadow-2xs">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Active Designers</span>
             <span className="text-2xl font-black text-yellow-600 mt-0.5 block">{designersList.length}</span>
           </div>
         )}
-        <div className="p-3.5 bg-white border border-gray-200 rounded-xl shadow-2xs">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
-            {isManagement ? 'Tasks In Progress' : 'My Tasks In Progress'}
+
+        <button
+          type="button"
+          onClick={() => setTimelineFilter('overdue')}
+          className={`p-3.5 bg-white border rounded-xl shadow-2xs text-left transition-all cursor-pointer ${
+            timelineFilter === 'overdue'
+              ? 'ring-2 ring-rose-500 border-rose-500 bg-rose-50/40'
+              : overdueCount > 0
+              ? 'border-rose-300 bg-rose-50/20 hover:border-rose-400'
+              : 'border-gray-200 hover:border-gray-300'
+          }`}
+        >
+          <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1">
+            <FiAlertTriangle className="w-3 h-3 text-rose-500 flex-shrink-0" />
+            <span className="truncate">Carried Over</span>
           </span>
-          <span className="text-2xl font-black text-rose-600 mt-0.5 block">{tasksInProgressCount}</span>
-        </div>
-        <div className="p-3.5 bg-white border border-gray-200 rounded-xl shadow-2xs">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
-            {isManagement ? 'Tasks Done Today' : 'My Tasks Done Today'}
+          <span className="text-2xl font-black text-rose-600 mt-0.5 block">{overdueCount}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setTimelineFilter('today')}
+          className={`p-3.5 bg-white border rounded-xl shadow-2xs text-left transition-all cursor-pointer ${
+            timelineFilter === 'today'
+              ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50/40'
+              : todayCount > 0
+              ? 'border-blue-300 bg-blue-50/20 hover:border-blue-400'
+              : 'border-gray-200 hover:border-gray-300'
+          }`}
+        >
+          <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1">
+            <FiClock className="w-3 h-3 text-blue-500 flex-shrink-0" />
+            <span className="truncate">Today's Focus</span>
+          </span>
+          <span className="text-2xl font-black text-blue-600 mt-0.5 block">{todayCount}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setTimelineFilter('completed')}
+          className={`p-3.5 bg-white border rounded-xl shadow-2xs text-left transition-all cursor-pointer ${
+            timelineFilter === 'completed'
+              ? 'ring-2 ring-emerald-500 border-emerald-500 bg-emerald-50/40'
+              : 'border-gray-200 hover:border-gray-300'
+          }`}
+        >
+          <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1">
+            <FiCheck className="w-3 h-3 text-emerald-500 flex-shrink-0" />
+            <span className="truncate">Tasks Done</span>
           </span>
           <span className="text-2xl font-black text-emerald-600 mt-0.5 block">{tasksDoneCount}</span>
-        </div>
+        </button>
+      </div>
+
+      {/* Task Timeline Segmented Tabs: Overdue Rollover vs Today vs Upcoming vs Done */}
+      <div className="flex items-center gap-1.5 p-1 bg-gray-100/90 rounded-xl border border-gray-200 overflow-x-auto no-scrollbar scroll-smooth">
+        <button
+          type="button"
+          onClick={() => setTimelineFilter('all')}
+          className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            timelineFilter === 'all'
+              ? 'bg-white text-gray-900 shadow-2xs'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+          }`}
+        >
+          <span>All Tasks</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+            timelineFilter === 'all' ? 'bg-gray-100 text-gray-800' : 'bg-gray-200 text-gray-600'
+          }`}>
+            {totalActiveCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setTimelineFilter('overdue')}
+          className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            timelineFilter === 'overdue'
+              ? 'bg-rose-600 text-white shadow-xs'
+              : overdueCount > 0
+              ? 'bg-rose-50 text-rose-700 hover:bg-rose-100/80 border border-rose-200/80'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+          }`}
+        >
+          <FiAlertTriangle className={`w-3.5 h-3.5 shrink-0 ${timelineFilter === 'overdue' ? 'text-white' : 'text-rose-600'}`} />
+          <span>Carried Over / Overdue</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black shrink-0 ${
+            timelineFilter === 'overdue'
+              ? 'bg-white/20 text-white'
+              : overdueCount > 0
+              ? 'bg-rose-200 text-rose-900'
+              : 'bg-gray-200 text-gray-600'
+          }`}>
+            {overdueCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setTimelineFilter('today')}
+          className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            timelineFilter === 'today'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : todayCount > 0
+              ? 'bg-blue-50 text-blue-700 hover:bg-blue-100/80 border border-blue-200/80'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+          }`}
+        >
+          <FiClock className={`w-3.5 h-3.5 shrink-0 ${timelineFilter === 'today' ? 'text-white' : 'text-blue-600'}`} />
+          <span>Today's Focus</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black shrink-0 ${
+            timelineFilter === 'today'
+              ? 'bg-white/20 text-white'
+              : todayCount > 0
+              ? 'bg-blue-200 text-blue-900'
+              : 'bg-gray-200 text-gray-600'
+          }`}>
+            {todayCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setTimelineFilter('upcoming')}
+          className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            timelineFilter === 'upcoming'
+              ? 'bg-white text-gray-900 shadow-2xs'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+          }`}
+        >
+          <span>Upcoming / Queue</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+            timelineFilter === 'upcoming' ? 'bg-gray-100 text-gray-800' : 'bg-gray-200 text-gray-600'
+          }`}>
+            {upcomingCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setTimelineFilter('completed')}
+          className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            timelineFilter === 'completed'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+          }`}
+        >
+          <FiCheck className={`w-3.5 h-3.5 shrink-0 ${timelineFilter === 'completed' ? 'text-white' : 'text-emerald-600'}`} />
+          <span>Completed</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+            timelineFilter === 'completed' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600'
+          }`}>
+            {tasksDoneCount}
+          </span>
+        </button>
       </div>
 
       {/* Spreadsheet Filter Bar */}
@@ -1133,8 +2339,8 @@ export default function DailyStatusPage() {
             className="w-full px-2.5 py-1.5 bg-gray-50/70 border border-gray-200 rounded-lg text-xs font-medium text-gray-800 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:bg-white transition-all"
           >
             <option value="active">Active Projects ({totalActiveCount})</option>
-            <option value="completed">Completed Projects</option>
-            <option value="all">All Projects</option>
+            <option value="completed">Design Completed</option>
+            <option value="all">All (Active & Design Completed)</option>
           </select>
         </div>
 
@@ -1178,107 +2384,13 @@ export default function DailyStatusPage() {
             </div>
           ) : (
             groupedProjects.map((group) => {
-              const isCollapsed = collapsedDesigners[group.designerName];
+              const isCollapsed = Boolean(collapsedDesigners[group.designerName]);
 
               // If individual designer, render the cards directly without redundant group headers
               if (!isManagement) {
                 return (
-                  <div key={group.designerName} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                    {group.items.map((p) => {
-                      const rawCode = p.project_code || p.ref_no || `AI-${p.id.slice(0, 4)}`;
-                      const displayCode = rawCode.replace('AI/PRJ/', 'AI/').replace('PRJ/', '');
-                      const isTaskDone = (p.unified_status || '').toLowerCase().trim() === 'done';
-                      const phase = formatPhaseDisplay(p.workflow_stage, p.status);
-                      const statusStyle = getStatusStyle(p.status_color, p.unified_status);
-
-                      return (
-                        <div
-                          key={p.id}
-                          className="bg-white border border-gray-200 hover:border-gray-300 rounded-xl p-3.5 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between gap-3"
-                        >
-                          {/* Card Header: Project ID & Phase */}
-                          <div className="flex items-center justify-between gap-2">
-                            <Link
-                              href={`/dashboard/projects/${p.id}`}
-                              className="font-mono font-bold text-blue-600 hover:underline text-xs flex items-center gap-1"
-                              title={`Open project ${displayCode}`}
-                            >
-                              <span>{displayCode}</span>
-                              <FiExternalLink className="w-3 h-3 text-gray-400" />
-                            </Link>
-
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                              phase === 'Designing' ? 'bg-amber-100 text-amber-800' :
-                              phase === 'Execution' ? 'bg-blue-100 text-blue-800' :
-                              phase === 'Handover' ? 'bg-purple-100 text-purple-800' :
-                              'bg-emerald-100 text-emerald-800'
-                            }`}>
-                              {phase}
-                            </span>
-                          </div>
-
-                          {/* Project Title & Customer */}
-                          <div>
-                            <Link
-                              href={`/dashboard/projects/${p.id}`}
-                              className="font-bold text-gray-900 hover:text-blue-600 text-sm line-clamp-1 block transition-colors"
-                            >
-                              {p.title || 'Untitled Project'}
-                            </Link>
-                            <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1 truncate">
-                              <span>Client:</span>
-                              <span className="font-medium text-gray-700 truncate">{p.customer_name || '-'}</span>
-                              {p.phone_number && (
-                                <a
-                                  href={`tel:${p.phone_number}`}
-                                  className="text-gray-400 hover:text-yellow-600 ml-1 inline-flex items-center"
-                                  title={p.phone_number}
-                                >
-                                  <FiPhone className="w-2.5 h-2.5" />
-                                </a>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Target Date & Notes */}
-                          <div className="space-y-1.5 pt-2 border-t border-gray-100 text-xs">
-                            <div className="flex items-center justify-between text-gray-600">
-                              <span className="flex items-center gap-1 text-[11px] text-gray-400">
-                                <FiCalendar className="w-3 h-3" />
-                                Target Date:
-                              </span>
-                              <span className="font-semibold text-gray-800 text-[11px]">
-                                {p.deadline ? formatDateIST(p.deadline) : (p.estimated_completion_date ? formatDateIST(p.estimated_completion_date) : 'Not set')}
-                              </span>
-                            </div>
-
-                            {p.project_notes ? (
-                              <div className="bg-gray-50 p-2 rounded-lg text-xs text-gray-700 italic line-clamp-2 border border-gray-100">
-                                "{p.project_notes}"
-                              </div>
-                            ) : (
-                              <div className="text-[11px] text-gray-400 italic">No notes added</div>
-                            )}
-                          </div>
-
-                          {/* Card Footer: Interactive Status Pill Button */}
-                          <div className="pt-2 border-t border-gray-100">
-                            <button
-                              type="button"
-                              onClick={() => openBottomSheet(p)}
-                              className="w-full py-1.5 px-3 rounded-lg text-xs font-bold transition-all shadow-2xs flex items-center justify-between cursor-pointer border border-black/5 hover:opacity-90"
-                              style={{
-                                backgroundColor: statusStyle.backgroundColor,
-                                color: statusStyle.color,
-                              }}
-                            >
-                              <span className="truncate">{p.unified_status || 'Select Status'}</span>
-                              <FiChevronDown className="w-3.5 h-3.5 ml-1 flex-shrink-0 opacity-80" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div key={group.designerName} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5 items-start">
+                    {group.items.map(renderProjectCard)}
                   </div>
                 );
               }
@@ -1305,103 +2417,8 @@ export default function DailyStatusPage() {
 
                   {/* Cards Grid */}
                   {!isCollapsed && (
-                    <div className="p-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                      {group.items.map((p) => {
-                        const rawCode = p.project_code || p.ref_no || `AI-${p.id.slice(0, 4)}`;
-                        const displayCode = rawCode.replace('AI/PRJ/', 'AI/').replace('PRJ/', '');
-                        const isTaskDone = (p.unified_status || '').toLowerCase().trim() === 'done';
-                        const phase = formatPhaseDisplay(p.workflow_stage, p.status);
-                        const statusStyle = getStatusStyle(p.status_color, p.unified_status);
-
-                        return (
-                          <div
-                            key={p.id}
-                            className="bg-white border border-gray-200 hover:border-gray-300 rounded-xl p-3.5 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between gap-3"
-                          >
-                            {/* Card Header: Project ID & Phase */}
-                            <div className="flex items-center justify-between gap-2">
-                              <Link
-                                href={`/dashboard/projects/${p.id}`}
-                                className="font-mono font-bold text-blue-600 hover:underline text-xs flex items-center gap-1"
-                                title={`Open project ${displayCode}`}
-                              >
-                                <span>{displayCode}</span>
-                                <FiExternalLink className="w-3 h-3 text-gray-400" />
-                              </Link>
-
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                phase === 'Designing' ? 'bg-amber-100 text-amber-800' :
-                                phase === 'Execution' ? 'bg-blue-100 text-blue-800' :
-                                phase === 'Handover' ? 'bg-purple-100 text-purple-800' :
-                                'bg-emerald-100 text-emerald-800'
-                              }`}>
-                                {phase}
-                              </span>
-                            </div>
-
-                            {/* Project Title & Customer */}
-                            <div>
-                              <Link
-                                href={`/dashboard/projects/${p.id}`}
-                                className="font-bold text-gray-900 hover:text-blue-600 text-sm line-clamp-1 block transition-colors"
-                              >
-                                {p.title || 'Untitled Project'}
-                              </Link>
-                              <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1 truncate">
-                                <span>Client:</span>
-                                <span className="font-medium text-gray-700 truncate">{p.customer_name || '-'}</span>
-                                {p.phone_number && (
-                                  <a
-                                    href={`tel:${p.phone_number}`}
-                                    className="text-gray-400 hover:text-yellow-600 ml-1 inline-flex items-center"
-                                    title={p.phone_number}
-                                  >
-                                    <FiPhone className="w-2.5 h-2.5" />
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Target Date & Notes */}
-                            <div className="space-y-1.5 pt-2 border-t border-gray-100 text-xs">
-                              <div className="flex items-center justify-between text-gray-600">
-                                <span className="flex items-center gap-1 text-[11px] text-gray-400">
-                                  <FiCalendar className="w-3 h-3" />
-                                  Target Date:
-                                </span>
-                                <span className="font-semibold text-gray-800 text-[11px]">
-                                  {p.deadline ? formatDateIST(p.deadline) : (p.estimated_completion_date ? formatDateIST(p.estimated_completion_date) : 'Not set')}
-                                </span>
-                              </div>
-
-                              {/* Notes snippet */}
-                              {p.project_notes ? (
-                                <div className="bg-gray-50 p-2 rounded-lg text-xs text-gray-700 italic line-clamp-2 border border-gray-100">
-                                  "{p.project_notes}"
-                                </div>
-                              ) : (
-                                <div className="text-[11px] text-gray-400 italic">No notes added</div>
-                              )}
-                            </div>
-
-                            {/* Card Footer: Interactive Status Pill Button */}
-                            <div className="pt-2 border-t border-gray-100">
-                              <button
-                                type="button"
-                                onClick={() => openBottomSheet(p)}
-                                className="w-full py-1.5 px-3 rounded-lg text-xs font-bold transition-all shadow-2xs flex items-center justify-between cursor-pointer border border-black/5 hover:opacity-90"
-                                style={{
-                                  backgroundColor: statusStyle.backgroundColor,
-                                  color: statusStyle.color,
-                                }}
-                              >
-                                <span className="truncate">{p.unified_status || 'Select Status'}</span>
-                                <FiChevronDown className="w-3.5 h-3.5 ml-1 flex-shrink-0 opacity-80" />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
+                    <div className="p-2.5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5 items-start">
+                      {group.items.map(renderProjectCard)}
                     </div>
                   )}
                 </div>
@@ -1501,13 +2518,24 @@ export default function DailyStatusPage() {
                         const rowNum = runningRowNumber++;
                         const rawCode = p.project_code || p.ref_no || `AI-${p.id.slice(0, 4)}`;
                         const displayCode = rawCode.replace('AI/PRJ/', 'AI/').replace('PRJ/', '');
+                        const tData = parseProjectTasks(p.project_notes, p);
+                        const effectiveDeadline = tData.tasks[0]?.deadline !== undefined && tData.tasks[0]?.deadline !== null
+                          ? tData.tasks[0]?.deadline
+                          : (p.deadline || null);
                         const isTaskDone = (p.unified_status || '').toLowerCase().trim() === 'done';
+                        const timelineInfo = getTaskTimelineInfo({ ...p, deadline: effectiveDeadline }, todayStr);
 
                         return (
                           <tr 
                             key={p.id}
                             className={`divide-x divide-gray-200 transition-colors ${
-                              isTaskDone ? 'bg-emerald-50/20 hover:bg-emerald-50/40' : 'hover:bg-gray-50/60'
+                              isTaskDone
+                                ? 'bg-emerald-50/20 hover:bg-emerald-50/40'
+                                : timelineInfo.isOverdue
+                                ? 'bg-rose-50/30 hover:bg-rose-50/50'
+                                : timelineInfo.type === 'today'
+                                ? 'bg-blue-50/20 hover:bg-blue-50/40'
+                                : 'hover:bg-gray-50/60'
                             }`}
                           >
                             {/* Column #: Row index */}
@@ -1659,6 +2687,19 @@ export default function DailyStatusPage() {
                                       </button>
                                     </div>
 
+                                    {/* If completed, show quick Re-open button */}
+                                    {(p.unified_status?.toLowerCase().trim() === 'design completed' || p.status?.toLowerCase() === 'completed') && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleReopenDesign(p)}
+                                        className="mt-1 w-full py-0.5 px-1.5 bg-yellow-100 hover:bg-yellow-200 text-yellow-900 border border-yellow-300 rounded text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                                        title="Re-open Design (Moves back to active daily sheet)"
+                                      >
+                                        <FiRotateCcw className="w-2.5 h-2.5" />
+                                        <span>Re-open</span>
+                                      </button>
+                                    )}
+
                                     {/* Color Picker Dropdown Popover */}
                                     {isOpen && (
                                       <>
@@ -1741,37 +2782,130 @@ export default function DailyStatusPage() {
                               {p.start_date ? formatDateIST(p.start_date) : '-'}
                             </td>
 
-                            {/* Column H: Target Date Inline Picker */}
+                            {/* Column H: Target Date Inline Picker + Rollover Quick-Action */}
                             <td 
                               className="py-1 px-1.5 align-middle"
-                              style={{ width: columnWidths['deadline'] || 115 }}
+                              style={{ width: columnWidths['deadline'] || 145 }}
                             >
-                              <input
-                                type="date"
-                                value={p.deadline ? p.deadline.split('T')[0] : (p.estimated_completion_date ? p.estimated_completion_date.split('T')[0] : '')}
-                                onChange={(e) => handleUpdate(p.id, { deadline: e.target.value || null })}
-                                title="Target date for this design milestone"
-                                className="w-full px-1.5 py-1 bg-white border border-gray-200 hover:border-gray-300 rounded text-xs text-gray-700 focus:ring-1 focus:ring-yellow-500 focus:outline-none"
-                              />
+                              <div className="space-y-1">
+                                <input
+                                  type="date"
+                                  value={effectiveDeadline ? effectiveDeadline.split('T')[0] : ''}
+                                  onChange={(e) => {
+                                    const newVal = e.target.value || null;
+                                    if (tData.tasks.length > 0) {
+                                      tData.tasks[0].deadline = newVal;
+                                      handleUpdate(p.id, {
+                                        deadline: newVal,
+                                        project_notes: serializeProjectTasks(tData),
+                                      });
+                                    } else {
+                                      handleUpdate(p.id, { deadline: newVal });
+                                    }
+                                  }}
+                                  title="Target date for this design milestone"
+                                  className={`w-full px-1.5 py-1 bg-white border rounded text-xs focus:ring-1 focus:ring-yellow-500 focus:outline-none ${
+                                    timelineInfo.isOverdue ? 'border-rose-300 text-rose-700 font-semibold bg-rose-50/30' : 'border-gray-200 text-gray-700'
+                                  }`}
+                                />
+                                {timelineInfo.isOverdue && (
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="text-[10px] font-bold text-rose-600 truncate" title={timelineInfo.label}>
+                                      {timelineInfo.daysDiff === 1 ? 'Yesterday' : `Overdue ${timelineInfo.daysDiff}d`}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRolloverToToday(p)}
+                                      className="px-1.5 py-0.5 bg-yellow-100 hover:bg-yellow-200 text-yellow-900 rounded text-[10px] font-bold flex-shrink-0 cursor-pointer"
+                                      title="Roll over target date to Today"
+                                    >
+                                      → Today
+                                    </button>
+                                  </div>
+                                )}
+                                {timelineInfo.type === 'today' && !isTaskDone && (
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="text-[10px] font-bold text-blue-600 flex items-center gap-0.5">
+                                      <FiClock className="w-2.5 h-2.5" />
+                                      Today
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleQuickMarkDone(p)}
+                                      className="px-1.5 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded text-[10px] font-bold flex-shrink-0 cursor-pointer"
+                                      title="Mark Done"
+                                    >
+                                      ✓ Done
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </td>
 
-                            {/* Column I: Notes Inline Input */}
+                            {/* Column I: Notes / Tasks Cell */}
                             <td 
                               className="py-1 px-1.5 align-middle"
                               style={{ width: columnWidths['notes'] || 230 }}
                             >
-                              <input
-                                type="text"
-                                defaultValue={p.project_notes || ''}
-                                onBlur={(e) => {
-                                  if (e.target.value !== (p.project_notes || '')) {
-                                    handleUpdate(p.id, { project_notes: e.target.value });
-                                  }
-                                }}
-                                placeholder="Add daily notes..."
-                                title={p.project_notes || 'Add daily notes...'}
-                                className="w-full px-2 py-1 bg-gray-50/60 hover:bg-white focus:bg-white border border-transparent hover:border-gray-200 focus:border-yellow-400 rounded text-xs text-gray-800 placeholder-gray-400 focus:outline-none transition-all"
-                              />
+                              {(() => {
+                                const tData = parseProjectTasks(p.project_notes, p);
+                                const isStructured = tData.tasks.length > 1 || tData.history.length > 0;
+                                if (isStructured) {
+                                  return (
+                                    <div className="flex items-center justify-between gap-1 w-full">
+                                      <button
+                                        type="button"
+                                        onClick={() => openUpdateModal(p, tData.tasks[0]?.id)}
+                                        className="text-left text-xs text-gray-800 hover:text-blue-600 truncate flex-1 flex items-center gap-1 cursor-pointer"
+                                        title={getReadableProjectNotes(p.project_notes, p)}
+                                      >
+                                        <span className="px-1.5 py-0.2 bg-yellow-100 text-yellow-900 font-bold rounded text-[10px] shrink-0">
+                                          {tData.tasks.length} tasks
+                                        </span>
+                                        <span className="truncate">{tData.tasks[0]?.title || 'Tasks'}</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => openAddTaskModal(p)}
+                                        className="p-1 text-gray-400 hover:text-yellow-700 hover:bg-yellow-50 rounded shrink-0 cursor-pointer"
+                                        title="Add another task"
+                                      >
+                                        <FiPlus className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <div className="flex items-center gap-1 w-full">
+                                    <input
+                                      type="text"
+                                      defaultValue={tData.tasks[0]?.title || p.project_notes || ''}
+                                      onBlur={(e) => {
+                                        const val = e.target.value.trim();
+                                        if (val !== (tData.tasks[0]?.title || '')) {
+                                          if (tData.tasks.length > 0) {
+                                            tData.tasks[0].title = val;
+                                            handleUpdate(p.id, { project_notes: serializeProjectTasks(tData) });
+                                          } else {
+                                            handleUpdate(p.id, { project_notes: val });
+                                          }
+                                        }
+                                      }}
+                                      placeholder="Add daily notes..."
+                                      title={tData.tasks[0]?.title || p.project_notes || 'Add daily notes...'}
+                                      className="w-full px-2 py-1 bg-gray-50/60 hover:bg-white focus:bg-white border border-transparent hover:border-gray-200 focus:border-yellow-400 rounded text-xs text-gray-800 placeholder-gray-400 focus:outline-none transition-all"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => openAddTaskModal(p)}
+                                      className="p-1 text-gray-400 hover:text-yellow-700 hover:bg-yellow-50 rounded shrink-0 cursor-pointer"
+                                      title="Add another task"
+                                    >
+                                      <FiPlus className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                );
+                              })()}
                             </td>
                           </tr>
                         );
@@ -1789,9 +2923,22 @@ export default function DailyStatusPage() {
       {/* Quick Status Modal */}
       <StatusUpdaterModal
         project={activeBottomSheetProject}
-        onClose={() => setActiveBottomSheetProject(null)}
+        initialMode={modalInitialMode}
+        taskId={modalTaskId}
+        onClose={() => {
+          setActiveBottomSheetProject(null);
+          setModalTaskId(null);
+        }}
         onSave={handleSaveStatusModal}
         isSaving={savingId === activeBottomSheetProject?.id}
+      />
+
+      {/* Re-open Completed Project Modal */}
+      <ReopenProjectModal
+        isOpen={showReopenModal}
+        onClose={() => setShowReopenModal(false)}
+        onReopen={handleReopenDesign}
+        todayStr={todayStr}
       />
     </div>
   );

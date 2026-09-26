@@ -43,6 +43,27 @@ export function WorkerDetailsModal({
 
   if (!worker) return null;
 
+  // Parse multiple wage rates and real user notes stored in notes field
+  const WAGE_TAG = '__wage_rates__:';
+  const NOTES_TAG = '\n__notes__:';
+  const wageEntries: { type: string; rate: string }[] = (() => {
+    const n = worker.notes || '';
+    if (n.startsWith(WAGE_TAG)) {
+      try {
+        const notesTagIdx = n.indexOf(NOTES_TAG);
+        const wagePart = notesTagIdx >= 0 ? n.slice(WAGE_TAG.length, notesTagIdx) : n.slice(WAGE_TAG.length);
+        return JSON.parse(wagePart);
+      } catch (_) {}
+    }
+    return [{ type: worker.wage_type || '', rate: String(worker.daily_wage || 0) }];
+  })();
+  const visibleNotes = (() => {
+    const n = worker.notes || '';
+    if (!n.startsWith(WAGE_TAG)) return n;
+    const idx = n.indexOf(NOTES_TAG);
+    return idx >= 0 ? n.slice(idx + NOTES_TAG.length) : '';
+  })();
+
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(label);
@@ -105,10 +126,13 @@ export function WorkerDetailsModal({
               <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md">
                 {worker.skill_level}
               </span>
-              <span className="font-semibold text-gray-800 flex items-center">
-                <TbCurrencyRupee className="inline" />
-                {worker.daily_wage || 0}/{worker.wage_type?.toLowerCase() || 'day'}
-              </span>
+              {wageEntries.map((w, i) => (
+                <span key={i} className="font-semibold text-gray-800 flex items-center gap-0.5 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-md">
+                  <TbCurrencyRupee className="inline shrink-0" />
+                  {w.rate || '0'}
+                  {w.type && <span className="text-gray-500 font-normal">/{w.type}</span>}
+                </span>
+              ))}
             </div>
 
             {/* Quick Contact Buttons */}
@@ -260,8 +284,25 @@ export function WorkerDetailsModal({
             )}
           </div>
 
-          {/* Address & Notes */}
-          {(worker.address || worker.notes) && (
+          {/* Wage Rates */}
+          <div className="md:col-span-2 p-3.5 rounded-lg border border-gray-200 bg-gray-50/50 space-y-2">
+            <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+              <TbCurrencyRupee className="text-yellow-600" /> Wage Rates
+            </span>
+            <div className="divide-y divide-gray-100">
+              {wageEntries.map((w, i) => (
+                <div key={i} className="flex items-center justify-between py-1.5 text-sm">
+                  <span className="text-gray-600">{w.type || '—'}</span>
+                  <span className="font-semibold text-gray-900 flex items-center gap-0.5">
+                    <TbCurrencyRupee className="text-gray-500" />{w.rate || '0'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Address & Notes (real notes only, not the wage JSON) */}
+          {(worker.address || visibleNotes) && (
             <div className="md:col-span-2 p-3.5 rounded-lg border border-gray-200 bg-gray-50/50 space-y-2 text-xs">
               {worker.address && (
                 <div>
@@ -269,10 +310,10 @@ export function WorkerDetailsModal({
                   <span className="text-gray-800">{worker.address}</span>
                 </div>
               )}
-              {worker.notes && (
+              {visibleNotes && (
                 <div>
                   <span className="text-gray-500 font-semibold block">Notes:</span>
-                  <span className="text-gray-800">{worker.notes}</span>
+                  <span className="text-gray-800">{visibleNotes}</span>
                 </div>
               )}
             </div>

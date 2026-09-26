@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/Toast';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { SidePanel } from '@/components/ui/SidePanel';
 import { DesignViewer } from '@/components/projects/DesignViewer';
+import { DesignTaskHistory } from '@/components/projects/DesignTaskHistory';
 import { uploadFile } from '@/lib/uploadUtils';
 import {
   FiUpload, FiFileText, FiPaperclip, FiEye, FiPlus,
@@ -192,9 +193,21 @@ const DesignUploadForm = ({ uploadForm, setUploadForm, onClose, onUpload, upload
 
 type DesignsTabProps = {
   projectId: string;
+  project?: any;
+  activeSubTab?: string;
+  onSubTabChange?: (tabId: string) => void;
+  onProjectUpdated?: () => void;
 };
 
-export function DesignsTab({ projectId }: DesignsTabProps) {
+export function DesignsTab({
+  projectId,
+  project,
+  activeSubTab,
+  onSubTabChange,
+  onProjectUpdated,
+}: DesignsTabProps) {
+  const [localSubTab, setLocalSubTab] = useState<'files' | 'task_history'>('files');
+  const effectiveSubTab = activeSubTab === 'task_history' || activeSubTab === 'files' ? activeSubTab : localSubTab;
   const { user, isAdmin } = useAuth();
   const { hasPermission } = useUserPermissions();
 
@@ -729,7 +742,15 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
 
   return (
     <div className="bg-white shadow sm:rounded-lg overflow-hidden max-w-full">
-      {/* Desktop Side Panel for Upload */}
+      {effectiveSubTab === 'task_history' ? (
+        <DesignTaskHistory
+          projectId={projectId}
+          project={project}
+          onProjectUpdated={onProjectUpdated}
+        />
+      ) : (
+        <>
+          {/* Desktop Side Panel for Upload */}
       <SidePanel
         isOpen={isAddingNew && !isMobile}
         onClose={handleCloseForm}
@@ -1444,6 +1465,8 @@ export function DesignsTab({ projectId }: DesignsTabProps) {
             );
           })()}
         </div>
+      )}
+        </>
       )}
     </div>
   );

@@ -427,7 +427,15 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
             />
           )}
 
-          {activeStage === 'design' && <DesignsTab projectId={project.id} />}
+          {activeStage === 'design' && (
+            <DesignsTab 
+              projectId={project.id} 
+              project={project} 
+              activeSubTab={activeSubTab} 
+              onSubTabChange={handleTabChange} 
+              onProjectUpdated={() => fetchProject(true)} 
+            />
+          )}
           {activeStage === 'boq' && (
             <BOQTab 
               projectId={project.id} 

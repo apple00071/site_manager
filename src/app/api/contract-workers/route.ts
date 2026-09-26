@@ -11,7 +11,7 @@ const contractWorkerSchema = z.object({
   secondary_phone: z.string().optional().nullable(),
   trade: z.string().min(1, 'Trade / Skill category is required'),
   skill_level: z.enum(['Helper', 'Semi-Skilled', 'Skilled', 'Master / Foreman']).default('Skilled'),
-  wage_type: z.enum(['Daily', 'Hourly', 'Monthly', 'Piece Rate']).default('Daily'),
+  wage_type: z.string().min(1).default('Daily Basis'),
   daily_wage: z.coerce.number().min(0).default(0),
   aadhaar_number: z.string().optional().nullable(),
   id_proof_url: z.string().optional().nullable(),
