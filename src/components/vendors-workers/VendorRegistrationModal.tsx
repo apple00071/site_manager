@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
-import { FiBriefcase, FiUser, FiPhone, FiMail, FiMapPin, FiCreditCard, FiCheck, FiLoader, FiTag } from 'react-icons/fi';
+import { FiBriefcase, FiUser, FiPhone, FiMail, FiMapPin, FiCreditCard, FiCheck, FiLoader, FiTag, FiPlus, FiTrash2 } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
 
 export interface Vendor {
@@ -60,7 +60,24 @@ const VENDOR_TYPES = [
   { value: 'service_partner', label: 'Service Partner / Specialist' },
 ];
 
-const WAGE_TYPES = ['Daily', 'Hourly', 'Monthly', 'Piece Rate'] as const;
+const WAGE_TAG = '__wage_rates__:';
+const NOTES_TAG = '\n__notes__:';
+
+function parseWageAndNotes(raw: string | null | undefined): {
+  entries: { type: string; rate: string }[];
+  userNotes: string;
+} {
+  const str = raw || '';
+  if (!str.startsWith(WAGE_TAG)) return { entries: [], userNotes: str };
+  const notesIdx = str.indexOf(NOTES_TAG);
+  const wagePart = notesIdx >= 0 ? str.slice(WAGE_TAG.length, notesIdx) : str.slice(WAGE_TAG.length);
+  const userNotes = notesIdx >= 0 ? str.slice(notesIdx + NOTES_TAG.length) : '';
+  try {
+    const parsed = JSON.parse(wagePart);
+    if (Array.isArray(parsed) && parsed.length > 0) return { entries: parsed, userNotes };
+  } catch (_) {}
+  return { entries: [], userNotes };
+}
 
 export function VendorRegistrationModal({
   isOpen,
@@ -77,8 +94,6 @@ export function VendorRegistrationModal({
     contact_email: '',
     vendor_type: 'subcontractor',
     trade_category: 'Carpentry & Woodwork',
-    wage_type: 'Daily',
-    daily_wage: 0,
     upi_id: '',
     gst_number: '',
     pan_number: '',
@@ -92,21 +107,32 @@ export function VendorRegistrationModal({
     is_active: true,
   });
 
+  const [wageEntries, setWageEntries] = useState<{ type: string; rate: string }[]>([
+    { type: '', rate: '' },
+  ]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialData) {
+      const { entries, userNotes } = parseWageAndNotes(initialData.notes);
+      setWageEntries(
+        entries.length > 0
+          ? entries
+          : initialData.wage_type
+          ? [{ type: initialData.wage_type, rate: String(initialData.daily_wage || '') }]
+          : [{ type: '', rate: '' }]
+      );
       setFormData({
         ...initialData,
         vendor_type: initialData.vendor_type || 'subcontractor',
         trade_category: initialData.trade_category || 'Carpentry & Woodwork',
-        wage_type: initialData.wage_type || 'Daily',
-        daily_wage: initialData.daily_wage !== undefined && initialData.daily_wage !== null ? initialData.daily_wage : 0,
-        upi_id: initialData.upi_id || '',
         is_active: initialData.is_active !== undefined ? initialData.is_active : true,
+        notes: userNotes,
       });
     } else {
+      setWageEntries([{ type: '', rate: '' }]);
       setFormData({
         name: '',
         contact_name: '',
@@ -114,8 +140,6 @@ export function VendorRegistrationModal({
         contact_email: '',
         vendor_type: 'subcontractor',
         trade_category: 'Carpentry & Woodwork',
-        wage_type: 'Daily',
-        daily_wage: 0,
         upi_id: '',
         gst_number: '',
         pan_number: '',
@@ -136,6 +160,13 @@ export function VendorRegistrationModal({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const updateEntry = (i: number, field: 'type' | 'rate', val: string) => {
+    setWageEntries(prev => prev.map((e, idx) => idx === i ? { ...e, [field]: val } : e));
+  };
+
+  const addEntry = () => setWageEntries(prev => [...prev, { type: '', rate: '' }]);
+  const removeEntry = (i: number) => setWageEntries(prev => prev.filter((_, idx) => idx !== i));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name?.trim()) {
@@ -149,11 +180,19 @@ export function VendorRegistrationModal({
     try {
       const url = '/api/suppliers';
       const method = isEditing ? 'PATCH' : 'POST';
+
+      const validEntries = wageEntries.filter(e => e.type.trim());
+      const primary = validEntries[0] || { type: '', rate: '' };
+      const userNotes = formData.notes?.trim() || '';
+      const notesStr = validEntries.length > 0
+        ? `${WAGE_TAG}${JSON.stringify(validEntries)}${userNotes ? `${NOTES_TAG}${userNotes}` : ''}`
+        : userNotes;
+
       const payload = {
         ...(isEditing ? { ...formData, id: initialData?.id } : formData),
-        daily_wage: formData.daily_wage !== undefined && formData.daily_wage !== null && formData.daily_wage !== ('' as any)
-          ? Number(formData.daily_wage) || 0
-          : 0,
+        wage_type: primary.type || null,
+        daily_wage: Number(primary.rate) || 0,
+        notes: notesStr,
       };
 
       const res = await fetch(url, {
@@ -221,9 +260,7 @@ export function VendorRegistrationModal({
                 className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
               >
                 {VENDOR_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
+                  <option key={t.value} value={t.value}>{t.label}</option>
                 ))}
               </select>
             </div>
@@ -236,9 +273,7 @@ export function VendorRegistrationModal({
                 className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
               >
                 {TRADE_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
+                  <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
             </div>
@@ -287,58 +322,66 @@ export function VendorRegistrationModal({
           </div>
         </div>
 
-        {/* Section 3: Wage & Payment Information */}
-        <div className="bg-gray-50/70 p-4 rounded-xl border border-gray-200/80 space-y-4">
-          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-            <TbCurrencyRupee className="text-yellow-600 text-sm" /> Wage & Payment Information
-          </h3>
+        {/* Section 3: Wage Rates (multi-rate, same as Worker form) */}
+        <div className="bg-gray-50/70 p-4 rounded-xl border border-gray-200/80 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+              <TbCurrencyRupee className="text-yellow-600 text-sm" /> Wage Rates
+            </h3>
+            <button
+              type="button"
+              onClick={addEntry}
+              className="flex items-center gap-1 text-xs font-semibold text-yellow-700 hover:text-yellow-900 bg-yellow-50 hover:bg-yellow-100 px-2.5 py-1 rounded-lg transition"
+            >
+              <FiPlus className="w-3.5 h-3.5" /> Add Rate
+            </button>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Wage Rate Type</label>
-              <select
-                value={formData.wage_type || 'Daily'}
-                onChange={(e) => handleChange('wage_type', e.target.value)}
-                className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
-              >
-                {WAGE_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type} Basis
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Rate / Wage Amount (₹)
-              </label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 text-sm">
-                  ₹
-                </span>
+          <div className="space-y-2">
+            {wageEntries.map((entry, i) => (
+              <div key={i} className="flex items-center gap-2">
                 <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={formData.daily_wage ?? ''}
-                  onChange={(e) => handleChange('daily_wage', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
-                  placeholder="0"
-                  className="w-full pl-7 pr-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  type="text"
+                  value={entry.type}
+                  onChange={e => updateEntry(i, 'type', e.target.value)}
+                  placeholder="e.g. 2BHK, Per Sqft, Daily…"
+                  className="flex-1 px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
                 />
+                <div className="relative w-36">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 text-sm pointer-events-none">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={entry.rate}
+                    onChange={e => updateEntry(i, 'rate', e.target.value)}
+                    placeholder="0"
+                    className="w-full pl-7 pr-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  />
+                </div>
+                {wageEntries.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeEntry(i)}
+                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                  >
+                    <FiTrash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
-            </div>
+            ))}
+          </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">UPI ID (VPA)</label>
-              <input
-                type="text"
-                value={formData.upi_id || ''}
-                onChange={(e) => handleChange('upi_id', e.target.value)}
-                placeholder="e.g. 9876543210@upi"
-                className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
-              />
-            </div>
+          {/* UPI ID kept in this section */}
+          <div className="pt-1">
+            <label className="block text-xs font-semibold text-gray-700 mb-1">UPI ID (VPA)</label>
+            <input
+              type="text"
+              value={formData.upi_id || ''}
+              onChange={(e) => handleChange('upi_id', e.target.value)}
+              placeholder="e.g. 9876543210@upi"
+              className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+            />
           </div>
         </div>
 

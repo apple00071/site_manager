@@ -1487,6 +1487,31 @@ export default function DailyStatusPage() {
     return groups.sort((a, b) => a.designerName.localeCompare(b.designerName));
   }, [filteredProjects]);
 
+  // Export grouping: always all active projects (no timeline/phase filter) so PDF/Excel is never clipped by the current tab
+  const exportGroupedProjects = useMemo(() => {
+    const exportBase = activeProjects.filter(p => {
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const code = (p.project_code || p.ref_no || '').toLowerCase();
+        const title = (p.title || '').toLowerCase();
+        const client = (p.customer_name || '').toLowerCase();
+        const designer = getProjectDesignerName(p).toLowerCase();
+        if (!code.includes(q) && !title.includes(q) && !client.includes(q) && !designer.includes(q)) return false;
+      }
+      if (selectedDesigner !== 'all' && getProjectDesignerName(p) !== selectedDesigner) return false;
+      return true;
+    });
+    const map = new Map<string, ProjectStatusItem[]>();
+    exportBase.forEach(p => {
+      const dName = getProjectDesignerName(p);
+      if (!map.has(dName)) map.set(dName, []);
+      map.get(dName)!.push(p);
+    });
+    const groups: { designerName: string; count: number; items: ProjectStatusItem[] }[] = [];
+    map.forEach((items, designerName) => groups.push({ designerName, count: items.length, items }));
+    return groups.sort((a, b) => a.designerName.localeCompare(b.designerName));
+  }, [activeProjects, searchQuery, selectedDesigner]);
+
   // Summary counts
   const totalActiveCount = activeProjects.length;
   const overdueCount = useMemo(() => {
@@ -1527,7 +1552,7 @@ export default function DailyStatusPage() {
       const todayStr = new Date().toISOString().split('T')[0];
       const rows: any[] = [];
 
-      groupedProjects.forEach(group => {
+      exportGroupedProjects.forEach(group => {
         // Group Header banner row
         rows.push({
           'Project ID': `${group.designerName} (${group.count} projects)`,
@@ -1603,7 +1628,7 @@ export default function DailyStatusPage() {
 
       const tableRows: any[] = [];
 
-      groupedProjects.forEach((group) => {
+      exportGroupedProjects.forEach((group) => {
         tableRows.push([
           {
             content: `${group.designerName} (${group.count} projects)`,

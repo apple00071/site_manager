@@ -146,28 +146,45 @@ export function VendorDetailsModal({
           </div>
 
           {/* Wage & Payment Details */}
-          {(vendor.daily_wage || vendor.upi_id || vendor.wage_type) && (
-            <div className="md:col-span-2 p-3.5 rounded-lg border border-yellow-200 bg-yellow-50/40 space-y-2 text-xs">
-              <span className="text-[11px] font-semibold text-yellow-800 uppercase tracking-wider flex items-center gap-1">
-                <TbCurrencyRupee className="text-yellow-600 text-sm" /> Wage & Rate Information
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <span className="text-gray-500 block">Standard Rate / Wage:</span>
-                  <span className="font-bold text-gray-900 text-sm flex items-center gap-0.5">
-                    ₹{vendor.daily_wage || 0}
-                    <span className="text-xs font-normal text-gray-500">
-                      /{vendor.wage_type?.toLowerCase() || 'day'}
-                    </span>
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-500 block">UPI ID (VPA):</span>
-                  <span className="font-mono font-semibold text-gray-800">{vendor.upi_id || '—'}</span>
-                </div>
+          {(() => {
+            const WAGE_TAG = '__wage_rates__:';
+            const NOTES_TAG = '\n__notes__:';
+            const raw = vendor.notes || '';
+            let wageEntries: { type: string; rate: string }[] = [];
+            if (raw.startsWith(WAGE_TAG)) {
+              try {
+                const notesIdx = raw.indexOf(NOTES_TAG);
+                const wagePart = notesIdx >= 0 ? raw.slice(WAGE_TAG.length, notesIdx) : raw.slice(WAGE_TAG.length);
+                wageEntries = JSON.parse(wagePart);
+              } catch (_) {}
+            } else if (vendor.daily_wage || vendor.wage_type) {
+              wageEntries = [{ type: vendor.wage_type || 'Daily', rate: String(vendor.daily_wage || 0) }];
+            }
+            if (wageEntries.length === 0 && !vendor.upi_id) return null;
+            return (
+              <div className="md:col-span-2 p-3.5 rounded-lg border border-yellow-200 bg-yellow-50/40 space-y-2 text-xs">
+                <span className="text-[11px] font-semibold text-yellow-800 uppercase tracking-wider flex items-center gap-1">
+                  <TbCurrencyRupee className="text-yellow-600 text-sm" /> Wage & Rate Information
+                </span>
+                {wageEntries.length > 0 && (
+                  <div className="space-y-1">
+                    {wageEntries.map((e, i) => (
+                      <div key={i} className="flex items-center justify-between">
+                        <span className="text-gray-600">{e.type || '—'}</span>
+                        <span className="font-bold text-gray-900">₹{e.rate || '0'}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {vendor.upi_id && (
+                  <div className="pt-1 border-t border-yellow-100">
+                    <span className="text-gray-500 block">UPI ID (VPA):</span>
+                    <span className="font-mono font-semibold text-gray-800">{vendor.upi_id}</span>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Banking details */}
           {(vendor.bank_name || vendor.bank_account_number) && (
