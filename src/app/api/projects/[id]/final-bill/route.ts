@@ -112,7 +112,7 @@ export async function GET(
       }
     }
 
-    // 5. If project budget is 0, auto-populate from quotation or lead
+    // 5. If project budget is 0, auto-populate from quotation or lead in response
     let finalBudget = currentBudget;
     if (finalBudget === 0) {
       if (quotation && Number(quotation.final_amount) > 0) {
@@ -121,9 +121,6 @@ export async function GET(
         finalBudget = Number(matchedLead.approved_value);
       } else if (matchedLead && Number(matchedLead.quote_value) > 0) {
         finalBudget = Number(matchedLead.quote_value);
-      }
-      if (finalBudget > 0) {
-        supabaseAdmin.from('projects').update({ project_budget: finalBudget }).eq('id', projectId).then();
       }
     }
     const finalPending = finalBudget > 0 ? Math.max(0, finalBudget - totalCollected) : 0;

@@ -79,6 +79,49 @@ export function numberToIndianWords(num: number): string {
   return trimmed ? `${trimmed} Rupees Only` : 'Zero Rupees Only';
 }
 
+// Helper to split text by whitespace, underscores, or hyphens so long names
+// like "Vidhyulatha_GothicPentagon_B608_3BHK_Bachupally" wrap naturally without clipping through dividers
+function splitPdfText(doc: any, text: string, maxWidth: number): string[] {
+  if (!text) return [];
+
+  const segments = text.split(/([_ \-]+)/);
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const seg of segments) {
+    if (!seg) continue;
+    const candidate = currentLine + seg;
+    if (doc.getTextWidth(candidate) <= maxWidth) {
+      currentLine = candidate;
+    } else {
+      if (currentLine.trim()) {
+        lines.push(currentLine.replace(/[_\s\-]+$/, ''));
+        currentLine = '';
+      }
+      if (doc.getTextWidth(seg) > maxWidth) {
+        let chunk = '';
+        for (const ch of seg) {
+          if (doc.getTextWidth(chunk + ch) <= maxWidth) {
+            chunk += ch;
+          } else {
+            if (chunk) lines.push(chunk);
+            chunk = ch;
+          }
+        }
+        currentLine = chunk;
+      } else {
+        currentLine = seg.replace(/^[_\s\-]+/, '');
+      }
+    }
+  }
+
+  if (currentLine.trim()) {
+    lines.push(currentLine.replace(/[_\s\-]+$/, ''));
+  }
+
+  return lines.length > 0 ? lines : [text];
+}
+
 export function generatePaymentReceiptPDF(payment: PaymentReceiptData): jsPDF {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -149,7 +192,7 @@ export function generatePaymentReceiptPDF(payment: PaymentReceiptData): jsPDF {
   // 3. TWO-COLUMN METADATA GRID (Client & Payment Information)
   y += 6;
   const boxTop = y;
-  const boxHeight = 38;
+  const boxHeight = 42;
 
   // Background card for metadata
   doc.setFillColor(249, 250, 251); // Gray-50
@@ -169,24 +212,31 @@ export function generatePaymentReceiptPDF(payment: PaymentReceiptData): jsPDF {
   doc.setFontSize(10.5);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(17, 24, 39); // Gray-900
-  doc.text(clientName, 20, boxTop + 13.5);
+  const clientLines = splitPdfText(doc, clientName, 80);
+  doc.text(clientLines[0] || clientName, 20, boxTop + 13.5);
 
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(107, 114, 128); // Gray-500
   doc.text('Project:', 20, boxTop + 20);
+
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(31, 41, 55);
-  const splitProject = doc.splitTextToSize(projectTitle, 75);
-  doc.text(splitProject, 35, boxTop + 20);
+  // Available width between x=35 and divider at x=105 (with safety margin) is 65mm
+  const projectLines = splitPdfText(doc, projectTitle, 65);
+  const displayProjectLines = projectLines.slice(0, 2);
+  displayProjectLines.forEach((line, idx) => {
+    doc.text(line, 35, boxTop + 20 + idx * 4.5);
+  });
 
   if (clientPhone && clientPhone !== '-') {
+    const phoneY = displayProjectLines.length > 1 ? boxTop + 31 : boxTop + 27;
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(107, 114, 128);
-    doc.text('Phone:', 20, boxTop + 29);
+    doc.text('Phone:', 20, phoneY);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(31, 41, 55);
-    doc.text(clientPhone, 35, boxTop + 29);
+    doc.text(clientPhone, 35, phoneY);
   }
 
   // Vertical divider between columns
@@ -207,32 +257,32 @@ export function generatePaymentReceiptPDF(payment: PaymentReceiptData): jsPDF {
 
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(107, 114, 128);
-  doc.text('Receipt Date:', rightX, boxTop + 15);
+  doc.text('Receipt Date:', rightX, boxTop + 14.5);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(31, 41, 55);
-  doc.text(formattedDate, valX, boxTop + 15);
+  doc.text(formattedDate, valX, boxTop + 14.5);
 
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(107, 114, 128);
-  doc.text('Payment Mode:', rightX, boxTop + 22);
+  doc.text('Payment Mode:', rightX, boxTop + 21);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(31, 41, 55);
-  doc.text(payment.payment_mode || 'Bank Transfer', valX, boxTop + 22);
+  doc.text(payment.payment_mode || 'Bank Transfer', valX, boxTop + 21);
 
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(107, 114, 128);
-  doc.text('Ref / UTR No:', rightX, boxTop + 29);
+  doc.text('Ref / UTR No:', rightX, boxTop + 27.5);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(31, 41, 55);
-  doc.text(payment.reference_number || 'N/A', valX, boxTop + 29);
+  doc.text(payment.reference_number || 'N/A', valX, boxTop + 27.5);
 
   if (payment.invoice_number) {
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(107, 114, 128);
-    doc.text('Invoice Ref:', rightX, boxTop + 35);
+    doc.text('Invoice Ref:', rightX, boxTop + 34);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(31, 41, 55);
-    doc.text(payment.invoice_number, valX, boxTop + 35);
+    doc.text(payment.invoice_number, valX, boxTop + 34);
   }
 
   y = boxTop + boxHeight + 8;
@@ -301,7 +351,8 @@ export function generatePaymentReceiptPDF(payment: PaymentReceiptData): jsPDF {
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(31, 41, 55);
   const words = numberToIndianWords(numAmount);
-  doc.text(words, 48, y + 5);
+  const splitWords = doc.splitTextToSize(words, 142);
+  doc.text(splitWords, 48, y + 5);
 
   y += 15;
 

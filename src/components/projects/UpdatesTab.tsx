@@ -36,6 +36,8 @@ type ProjectUpdate = {
 
 type UpdatesTabProps = {
   projectId: string;
+  projectTitle?: string | null;
+  projectAddress?: string | null;
 };
 
 type VoiceNotePlayerProps = {
@@ -135,7 +137,11 @@ const openExternalLink = (url: string) => {
   }
 };
 
-export function UpdatesTab({ projectId }: UpdatesTabProps) {
+export function UpdatesTab({
+  projectId,
+  projectTitle: initialProjectTitle,
+  projectAddress: initialProjectAddress,
+}: UpdatesTabProps) {
   const { user } = useAuth();
   const [updates, setUpdates] = useState<ProjectUpdate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -189,8 +195,13 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     photos: [] as string[],
   });
   const [projectUsers, setProjectUsers] = useState<any[]>([]);
-  const [projectTitle, setProjectTitle] = useState<string>('');
-  const [projectAddress, setProjectAddress] = useState<string>('');
+  const [projectTitle, setProjectTitle] = useState<string>(initialProjectTitle || '');
+  const [projectAddress, setProjectAddress] = useState<string>(initialProjectAddress || '');
+
+  useEffect(() => {
+    if (initialProjectTitle) setProjectTitle(initialProjectTitle);
+    if (initialProjectAddress) setProjectAddress(initialProjectAddress);
+  }, [initialProjectTitle, initialProjectAddress]);
   const [deviceLocation, setDeviceLocation] = useState<{
     coords: { latitude: number; longitude: number };
     address: string;
@@ -547,6 +558,14 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
     if (files.length === 0) return;
     setUploadingEditPhotos(true);
     try {
+      let locDetails = deviceLocation;
+      if (!locDetails) {
+        try {
+          const { getLocationDetails } = await import('@/lib/locationUtils');
+          locDetails = await getLocationDetails({ timeout: 4000 });
+          if (locDetails) setDeviceLocation(locDetails);
+        } catch {}
+      }
       const { watermarkPhotoWithLocation } = await import('@/lib/photoWatermark');
       const { uploadFile } = await import('@/lib/uploadUtils');
       const folder = user?.id || 'anonymous';
@@ -557,8 +576,8 @@ export function UpdatesTab({ projectId }: UpdatesTabProps) {
           const stamped = await watermarkPhotoWithLocation(file, {
             projectTitle: projectTitle || undefined,
             projectAddress: projectAddress || undefined,
-            locationName: deviceLocation?.address,
-            coords: deviceLocation?.coords,
+            locationName: locDetails?.address,
+            coords: locDetails?.coords,
             timestamp: new Date(),
           });
           stampedFiles.push(stamped);

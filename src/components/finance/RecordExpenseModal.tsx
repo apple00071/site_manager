@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   FiX, 
   FiUpload, 
@@ -51,6 +51,7 @@ export default function RecordExpenseModal({
 
   const [uploadingBill, setUploadingBill] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const billInputRef = useRef<HTMLInputElement | null>(null);
 
   // Responsive device check
   const [isMobile, setIsMobile] = useState(false);
@@ -63,23 +64,28 @@ export default function RecordExpenseModal({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Sync defaultProjectId when opened
+  // Reset form when modal opens
   useEffect(() => {
     if (!isOpen) return;
 
-    setProjectId(defaultProjectId || (projectsList.length > 0 ? projectsList[0].id : ''));
+    setProjectId(defaultProjectId || '');
     setItemName('');
     setAmount('');
     setDatePurchased(new Date().toISOString().split('T')[0]);
     setBillUrls([]);
     setNotes('');
+  }, [isOpen, defaultProjectId]);
+
+  // Keep projects list in sync without resetting form fields
+  useEffect(() => {
+    if (!isOpen) return;
 
     if (projectsList.length === 0) {
       fetchProjects();
     } else {
       setProjects(projectsList);
     }
-  }, [isOpen, defaultProjectId, projectsList]);
+  }, [isOpen, projectsList]);
 
   const fetchProjects = async () => {
     try {
@@ -298,7 +304,27 @@ export default function RecordExpenseModal({
             ))}
           </div>
         )}
-        <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-gray-300 hover:border-purple-500 rounded-xl cursor-pointer bg-gray-50/70 hover:bg-purple-50/30 transition-all text-gray-600">
+        <input
+          ref={billInputRef}
+          type="file"
+          accept="image/*,application/pdf"
+          multiple
+          onChange={handleFileUpload}
+          disabled={uploadingBill}
+          className="hidden"
+        />
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => !uploadingBill && billInputRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              !uploadingBill && billInputRef.current?.click();
+            }
+          }}
+          className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-gray-300 hover:border-purple-500 rounded-xl cursor-pointer bg-gray-50/70 hover:bg-purple-50/30 transition-all text-gray-600 select-none"
+        >
           {uploadingBill ? (
             <>
               <FiLoader className="w-4 h-4 animate-spin text-purple-600" />
@@ -310,15 +336,7 @@ export default function RecordExpenseModal({
               <span className="text-xs font-medium">Upload bill / invoice receipt</span>
             </>
           )}
-          <input
-            type="file"
-            accept="image/*,application/pdf"
-            multiple
-            onChange={handleFileUpload}
-            disabled={uploadingBill}
-            className="hidden"
-          />
-        </label>
+        </div>
       </div>
 
       {/* Notes / Remarks */}

@@ -211,6 +211,25 @@ export default function FinanceOverviewPage() {
     });
   }, [payments, searchQuery, selectedMode]);
 
+  const paymentProjectsList = useMemo(() => {
+    return projectSummaries.map((p) => ({
+      id: p.id,
+      title: p.title,
+      customer_name: p.customerName,
+      project_budget: p.budget,
+      collected: p.collected,
+      pending: p.pending,
+    }));
+  }, [projectSummaries]);
+
+  const expenseProjectsList = useMemo(() => {
+    return projectSummaries.map((p) => ({
+      id: p.id,
+      title: p.title,
+      customer_name: p.customerName,
+    }));
+  }, [projectSummaries]);
+
   // Overall collection rate percentage
   const overallCollectionPercent = kpis.totalBudget > 0
     ? Math.min(100, Math.round((kpis.totalCollected / kpis.totalBudget) * 100))
@@ -919,14 +938,7 @@ export default function FinanceOverviewPage() {
         defaultProjectId={recordForProjectId}
         editingPayment={editingPayment}
         nextSeqNumber={payments.length + 1}
-        projectsList={projectSummaries.map((p) => ({
-          id: p.id,
-          title: p.title,
-          customer_name: p.customerName,
-          project_budget: p.budget,
-          collected: p.collected,
-          pending: p.pending,
-        }))}
+        projectsList={paymentProjectsList}
       />
 
       {/* Edit Budget Quick Modal */}
@@ -983,11 +995,7 @@ export default function FinanceOverviewPage() {
         }}
         onSuccess={() => loadData()}
         defaultProjectId={expenseForProjectId}
-        projectsList={projectSummaries.map((p) => ({
-          id: p.id,
-          title: p.title,
-          customer_name: p.customerName,
-        }))}
+        projectsList={expenseProjectsList}
       />
     </div>
   );

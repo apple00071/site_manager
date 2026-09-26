@@ -440,7 +440,11 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
             />
           )}
           {activeStage === 'work_progress' && (
-            <UpdatesTab projectId={project.id} />
+            <UpdatesTab
+              projectId={project.id}
+              projectTitle={project.title || undefined}
+              projectAddress={project.address || project.apartment_name || undefined}
+            />
           )}
           {activeStage === 'snag' && <SnagTab projectId={project.id} userId={user?.id || ''} userRole={isAdmin ? 'admin' : 'user'} ref={snagRef} />}
           {activeStage === 'finance' && (

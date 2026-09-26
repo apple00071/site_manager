@@ -23,6 +23,8 @@ function fitText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number):
 /**
  * Stamps verified site location, GPS coordinates, date/time, and project info
  * directly onto a photo canvas before upload.
+ * Automatically extracts embedded EXIF GPS/timestamp from gallery photos if present,
+ * with fallbacks to current device location and project site address.
  */
 export async function watermarkPhotoWithLocation(
   file: File,
@@ -33,12 +35,41 @@ export async function watermarkPhotoWithLocation(
     return file;
   }
 
+  // 1. Check if the photo itself has embedded EXIF GPS / timestamp (e.g. photo taken with phone camera and uploaded from gallery)
+  let photoCoords: { latitude: number; longitude: number } | undefined = options.coords;
+  let photoLocationName: string | undefined = options.locationName;
+  let photoTimestamp: Date | undefined = options.timestamp;
+
+  try {
+    const { extractExifData } = await import('./exifUtils');
+    const exif = await extractExifData(file);
+    if (exif?.coords) {
+      photoCoords = exif.coords;
+      try {
+        const { reverseGeocode } = await import('./locationUtils');
+        const resolvedAddress = await reverseGeocode(exif.coords.latitude, exif.coords.longitude);
+        if (resolvedAddress) photoLocationName = resolvedAddress;
+      } catch {
+        // Fallback to coordinates
+      }
+    }
+    if (exif?.timestamp) {
+      photoTimestamp = exif.timestamp;
+    }
+  } catch (exifErr) {
+    console.warn('Could not extract EXIF from photo:', exifErr);
+  }
+
+  // 2. Reliable location fallback hierarchy:
+  // - Address: photo EXIF location -> device location name -> projectAddress -> projectTitle -> 'Site Location'
+  const effectiveLocation = photoLocationName || options.projectAddress || options.projectTitle || 'Site Location';
+
   return new Promise((resolve) => {
-    // Fail-safe timeout: if canvas processing takes > 4 seconds, return original file
+    // Fail-safe timeout: if canvas processing takes > 5 seconds, return original file
     const safetyTimeout = setTimeout(() => {
       console.warn('Watermark timed out, uploading original photo');
       resolve(file);
-    }, 4000);
+    }, 5000);
 
     const objectUrl = URL.createObjectURL(file);
     const img = new Image();
@@ -84,44 +115,47 @@ export async function watermarkPhotoWithLocation(
         const scale = Math.max(0.65, Math.min(2.4, width / 1100));
 
         // Format dates and text
-        const dateTimeStr = formatDateTimeIST(options.timestamp || new Date());
+        const dateTimeStr = formatDateTimeIST(photoTimestamp || options.timestamp || new Date());
         const projectStr = options.projectTitle ? options.projectTitle.trim() : '';
 
         // Determine lines of text to display
         const lines: { text: string; font: string; color: string }[] = [];
 
-        // Line 1 & Line 2: Device Location & GPS Coordinates
-        if (options.coords || options.locationName) {
-          const locTitle = options.locationName || 'Device Location Detected';
-          lines.push({
-            text: `📍 ${locTitle}`,
-            font: `bold ${Math.round(16 * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`,
-            color: '#FFFFFF'
-          });
+        // Line 1: Primary Location (Address or Project Name)
+        lines.push({
+          text: `📍 ${effectiveLocation}`,
+          font: `bold ${Math.round(16 * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`,
+          color: '#FFFFFF'
+        });
 
-          if (options.coords) {
-            const lat = options.coords.latitude;
-            const lon = options.coords.longitude;
-            const latStr = `${Math.abs(lat).toFixed(6)}° ${lat >= 0 ? 'N' : 'S'}`;
-            const lonStr = `${Math.abs(lon).toFixed(6)}° ${lon >= 0 ? 'E' : 'W'}`;
-            lines.push({
-              text: `🌐 GPS: ${latStr}, ${lonStr}`,
-              font: `${Math.round(12.5 * scale)}px "SF Mono", Consolas, "Courier New", monospace, sans-serif`,
-              color: '#FDE68A' // Light amber
-            });
-          }
-        } else {
-          // Clearly show device GPS was unavailable so user knows to grant browser permission
+        // Line 2: GPS Coordinates or Site Address/Details
+        if (photoCoords) {
+          const lat = photoCoords.latitude;
+          const lon = photoCoords.longitude;
+          const latStr = `${Math.abs(lat).toFixed(6)}° ${lat >= 0 ? 'N' : 'S'}`;
+          const lonStr = `${Math.abs(lon).toFixed(6)}° ${lon >= 0 ? 'E' : 'W'}`;
           lines.push({
-            text: `📍 Device GPS: Unavailable (Turn ON location)`,
-            font: `bold ${Math.round(14 * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`,
-            color: '#FCA5A5'
+            text: `🌐 GPS: ${latStr}, ${lonStr}`,
+            font: `${Math.round(12.5 * scale)}px "SF Mono", Consolas, "Courier New", monospace, sans-serif`,
+            color: '#FDE68A' // Light amber
+          });
+        } else if (options.projectAddress && effectiveLocation !== options.projectAddress) {
+          lines.push({
+            text: `🏢 Site: ${options.projectAddress}`,
+            font: `${Math.round(12.5 * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`,
+            color: '#FDE68A'
+          });
+        } else if (projectStr && effectiveLocation !== projectStr) {
+          lines.push({
+            text: `🏢 Project: ${projectStr}`,
+            font: `${Math.round(12.5 * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`,
+            color: '#FDE68A'
           });
         }
 
-        // Line 3: Timestamp & Project
+        // Line 3: Timestamp & Project info
         let metaLine = `🕒 ${dateTimeStr}`;
-        if (projectStr) {
+        if (projectStr && effectiveLocation !== projectStr) {
           metaLine += `  •  🏗️ ${projectStr}`;
         }
         lines.push({
@@ -156,8 +190,8 @@ export async function watermarkPhotoWithLocation(
 
         // Draw translucent dark card background with amber border
         ctx.save();
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.84)';
-        ctx.strokeStyle = 'rgba(245, 158, 11, 0.8)';
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.86)';
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.85)';
         ctx.lineWidth = Math.max(1, Math.round(1.5 * scale));
 
         if (typeof ctx.roundRect === 'function') {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useToast } from '@/components/ui/Toast';
@@ -175,6 +175,17 @@ export default function ProjectFinanceTab({
       setSavingBudget(false);
     }
   };
+
+  const scopedProjectsList = useMemo(() => [
+    {
+      id: projectId,
+      title: projectTitle,
+      customer_name: customerName,
+      project_budget: currentBudget,
+      collected: totalCollected,
+      pending: pendingAmount,
+    },
+  ], [projectId, projectTitle, customerName, currentBudget, totalCollected, pendingAmount]);
 
   if (!canView) {
     return (
@@ -509,16 +520,7 @@ export default function ProjectFinanceTab({
         onSuccess={() => loadProjectFinances()}
         defaultProjectId={projectId}
         editingPayment={editingPayment}
-        projectsList={[
-          {
-            id: projectId,
-            title: projectTitle,
-            customer_name: customerName,
-            project_budget: currentBudget,
-            collected: totalCollected,
-            pending: pendingAmount,
-          },
-        ]}
+        projectsList={scopedProjectsList}
         nextSeqNumber={payments.length + 1}
       />
 

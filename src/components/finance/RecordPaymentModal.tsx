@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   FiX, 
   FiUpload, 
@@ -18,7 +18,6 @@ import { uploadFile } from '@/lib/uploadUtils';
 import { useToast } from '@/components/ui/Toast';
 import BottomSheet from '@/components/ui/BottomSheet';
 import { formatDateIST } from '@/lib/dateUtils';
-import { downloadPaymentReceiptPDF } from '@/lib/reports/paymentReceiptPdfGenerator';
 import FinalBillModal from './FinalBillModal';
 
 export interface ProjectOption {
@@ -84,6 +83,8 @@ export default function RecordPaymentModal({
 
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const receiptInputRef = useRef<HTMLInputElement | null>(null);
 
   // Financial balance state for selected project
   const [projectFinancials, setProjectFinancials] = useState<{
@@ -176,7 +177,7 @@ export default function RecordPaymentModal({
     };
   }, [projectId, projects]);
 
-  // Fetch projects list if not provided and not inside a specific project
+  // Initialize form state when opened or editingPayment changes
   useEffect(() => {
     if (!isOpen) return;
 
@@ -201,13 +202,18 @@ export default function RecordPaymentModal({
       setReceiptUrl('');
       setNotes('');
     }
+  }, [isOpen, editingPayment, defaultProjectId]);
+
+  // Keep projects list in sync without resetting form fields
+  useEffect(() => {
+    if (!isOpen) return;
 
     if (!projectsList || projectsList.length === 0) {
       fetchProjects();
     } else {
       setProjects(projectsList);
     }
-  }, [isOpen, editingPayment, defaultProjectId, projectsList]);
+  }, [isOpen, projectsList]);
 
   const fetchProjects = async () => {
     try {
@@ -230,10 +236,31 @@ export default function RecordPaymentModal({
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Clipboard paste listener to upload screenshots directly (Ctrl+V)
+  useEffect(() => {
+    if (!isOpen) return;
 
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          const file = items[i].getAsFile();
+          if (file) {
+            e.preventDefault();
+            processAndUploadReceipt(file);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [isOpen]);
+
+  const processAndUploadReceipt = async (file: File) => {
     try {
       setUploadingReceipt(true);
       const publicUrl = await uploadFile(file, 'inventory-bills', 'client-payments');
@@ -241,10 +268,19 @@ export default function RecordPaymentModal({
       showToast('success', 'Receipt uploaded successfully');
     } catch (err: any) {
       console.error('Receipt upload failed:', err);
-      showToast('error', err.message || 'Failed to upload receipt');
+      showToast('error', err?.message || 'Failed to upload receipt');
     } finally {
       setUploadingReceipt(false);
+      if (receiptInputRef.current) {
+        receiptInputRef.current.value = '';
+      }
     }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processAndUploadReceipt(file);
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -295,22 +331,7 @@ export default function RecordPaymentModal({
         return;
       }
 
-      const createdPayment = {
-        ...(data.payment || payload),
-        id: data.payment?.id || data.id,
-        seq_number: data.payment?.seq_number || nextSeqNumber || 1,
-        project: data.payment?.project || (selectedProj ? { title: selectedProj.title, customer_name: selectedProj.customer_name } : undefined),
-      };
-
-      if (!editingPayment) {
-        try {
-          downloadPaymentReceiptPDF(createdPayment);
-        } catch (pdfErr) {
-          console.error('Error auto-generating receipt PDF:', pdfErr);
-        }
-      }
-
-      showToast('success', editingPayment ? 'Payment updated successfully' : 'Payment recorded & official receipt downloaded!');
+      showToast('success', editingPayment ? 'Payment updated successfully' : 'Payment recorded successfully');
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -560,6 +581,14 @@ export default function RecordPaymentModal({
       <label className="block text-xs font-bold text-gray-700 mb-1.5">
         Payment Receipt / Screenshot
       </label>
+      <input
+        ref={receiptInputRef}
+        type="file"
+        accept="image/*,application/pdf"
+        onChange={handleFileUpload}
+        disabled={uploadingReceipt}
+        className="hidden"
+      />
       {receiptUrl ? (
         <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
           <div className="flex items-center gap-2 truncate">
@@ -575,14 +604,43 @@ export default function RecordPaymentModal({
           </div>
           <button
             type="button"
-            onClick={() => setReceiptUrl('')}
+            onClick={() => {
+              setReceiptUrl('');
+              if (receiptInputRef.current) receiptInputRef.current.value = '';
+            }}
             className="text-xs text-red-600 hover:text-red-700 font-bold shrink-0 ml-2 cursor-pointer"
           >
             Remove
           </button>
         </div>
       ) : (
-        <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-gray-300 hover:border-yellow-500 rounded-xl cursor-pointer bg-gray-50/70 hover:bg-yellow-50/30 transition-all text-gray-600">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => !uploadingReceipt && receiptInputRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              !uploadingReceipt && receiptInputRef.current?.click();
+            }
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+            const file = e.dataTransfer.files?.[0];
+            if (file) processAndUploadReceipt(file);
+          }}
+          className={`flex items-center justify-center gap-2 p-3 border-2 border-dashed rounded-xl cursor-pointer transition-all select-none ${
+            isDragging
+              ? 'border-yellow-500 bg-yellow-50 text-yellow-800'
+              : 'border-gray-300 hover:border-yellow-500 bg-gray-50/70 hover:bg-yellow-50/30 text-gray-600'
+          }`}
+        >
           {uploadingReceipt ? (
             <>
               <FiLoader className="w-4 h-4 animate-spin text-yellow-600" />
@@ -591,17 +649,10 @@ export default function RecordPaymentModal({
           ) : (
             <>
               <FiUpload className="w-4 h-4 text-gray-400" />
-              <span className="text-xs font-medium">Upload receipt / bank screenshot</span>
+              <span className="text-xs font-medium">Upload receipt / bank screenshot (or paste Ctrl+V)</span>
             </>
           )}
-          <input
-            type="file"
-            accept="image/*,application/pdf"
-            onChange={handleFileUpload}
-            disabled={uploadingReceipt}
-            className="hidden"
-          />
-        </label>
+        </div>
       )}
     </div>
   );
