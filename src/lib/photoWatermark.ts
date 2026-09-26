@@ -61,8 +61,13 @@ export async function watermarkPhotoWithLocation(
   }
 
   // 2. Reliable location fallback hierarchy:
-  // - Address: photo EXIF location -> device location name -> projectAddress -> projectTitle -> 'Site Location'
-  const effectiveLocation = photoLocationName || options.projectAddress || options.projectTitle || 'Site Location';
+  // If photoLocationName looks like raw coordinates "17.3830, 78.4669", prefer projectTitle / projectAddress if available
+  const isRawCoordsName = photoLocationName && /^-?\d+(\.\d+)?[,\s]+-?\d+(\.\d+)?$/.test(photoLocationName.trim());
+  const effectiveLocation = (!isRawCoordsName && photoLocationName)
+    || options.projectAddress
+    || options.projectTitle
+    || photoLocationName
+    || 'Site Location';
 
   return new Promise((resolve) => {
     // Fail-safe timeout: if canvas processing takes > 5 seconds, return original file
@@ -111,8 +116,10 @@ export async function watermarkPhotoWithLocation(
         // Draw original photo onto canvas
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Calculate scaling factor based on canvas resolution (reference: 1100px base)
-        const scale = Math.max(0.65, Math.min(2.4, width / 1100));
+        // Calculate scaling factor based on the smaller dimension (min 1.0, max 2.6)
+        // so portrait and landscape mobile photos have large, crystal-clear, readable stamps
+        const minDim = Math.min(width, height);
+        const scale = Math.max(1.0, Math.min(2.6, minDim / 800));
 
         // Format dates and text
         const dateTimeStr = formatDateTimeIST(photoTimestamp || options.timestamp || new Date());
@@ -121,14 +128,14 @@ export async function watermarkPhotoWithLocation(
         // Determine lines of text to display
         const lines: { text: string; font: string; color: string }[] = [];
 
-        // Line 1: Primary Location (Address or Project Name)
+        // Line 1: Primary Location / Project (Bold & High Contrast)
         lines.push({
           text: `📍 ${effectiveLocation}`,
-          font: `bold ${Math.round(16 * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`,
+          font: `bold ${Math.round(20 * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif`,
           color: '#FFFFFF'
         });
 
-        // Line 2: GPS Coordinates or Site Address/Details
+        // Line 2: GPS Coordinates (Bold Vivid Gold, crisp sans-serif for crystal clarity)
         if (photoCoords) {
           const lat = photoCoords.latitude;
           const lon = photoCoords.longitude;
@@ -136,20 +143,20 @@ export async function watermarkPhotoWithLocation(
           const lonStr = `${Math.abs(lon).toFixed(6)}° ${lon >= 0 ? 'E' : 'W'}`;
           lines.push({
             text: `🌐 GPS: ${latStr}, ${lonStr}`,
-            font: `${Math.round(12.5 * scale)}px "SF Mono", Consolas, "Courier New", monospace, sans-serif`,
-            color: '#FDE68A' // Light amber
+            font: `bold ${Math.round(16 * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif`,
+            color: '#FDE047' // Vivid bright yellow
           });
         } else if (options.projectAddress && effectiveLocation !== options.projectAddress) {
           lines.push({
             text: `🏢 Site: ${options.projectAddress}`,
-            font: `${Math.round(12.5 * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`,
-            color: '#FDE68A'
+            font: `bold ${Math.round(16 * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif`,
+            color: '#FDE047'
           });
         } else if (projectStr && effectiveLocation !== projectStr) {
           lines.push({
             text: `🏢 Project: ${projectStr}`,
-            font: `${Math.round(12.5 * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`,
-            color: '#FDE68A'
+            font: `bold ${Math.round(16 * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif`,
+            color: '#FDE047'
           });
         }
 
@@ -160,20 +167,20 @@ export async function watermarkPhotoWithLocation(
         }
         lines.push({
           text: metaLine,
-          font: `${Math.round(12 * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`,
-          color: '#E2E8F0' // Light slate
+          font: `bold ${Math.round(15 * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif`,
+          color: '#F1F5F9' // Crisp slate white
         });
 
         // Compute badge dimensions
-        const padX = Math.round(16 * scale);
-        const padY = Math.round(12 * scale);
-        const accentWidth = Math.round(4 * scale);
-        const textOffsetX = padX + accentWidth + Math.round(8 * scale);
-        const lineHeight = Math.round(21 * scale);
+        const padX = Math.round(20 * scale);
+        const padY = Math.round(16 * scale);
+        const accentWidth = Math.round(5 * scale);
+        const textOffsetX = padX + accentWidth + Math.round(10 * scale);
+        const lineHeight = Math.round(26 * scale);
         const badgeHeight = padY * 2 + lines.length * lineHeight;
 
-        const margin = Math.round(20 * scale);
-        const maxBadgeWidth = Math.min(width - margin * 2, Math.round(width * 0.92));
+        const margin = Math.round(24 * scale);
+        const maxBadgeWidth = Math.min(width - margin * 2, Math.round(width * 0.94));
 
         // Measure text widths to make the badge neatly shrink-wrap or cap at maxBadgeWidth
         let maxTextW = 0;
@@ -186,13 +193,13 @@ export async function watermarkPhotoWithLocation(
         const badgeWidth = Math.min(maxBadgeWidth, maxTextW + textOffsetX + padX);
         const badgeX = margin;
         const badgeY = height - badgeHeight - margin;
-        const radius = Math.round(10 * scale);
+        const radius = Math.round(12 * scale);
 
-        // Draw translucent dark card background with amber border
+        // Draw solid dark card background with vibrant amber border
         ctx.save();
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.86)';
-        ctx.strokeStyle = 'rgba(245, 158, 11, 0.85)';
-        ctx.lineWidth = Math.max(1, Math.round(1.5 * scale));
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.95)';
+        ctx.lineWidth = Math.max(1.5, Math.round(2 * scale));
 
         if (typeof ctx.roundRect === 'function') {
           ctx.beginPath();
@@ -209,11 +216,11 @@ export async function watermarkPhotoWithLocation(
         const accentHeight = badgeHeight - padY * 2;
         ctx.fillRect(badgeX + padX, badgeY + padY, accentWidth, accentHeight);
 
-        // Draw text with subtle drop shadow for high contrast on any photo
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-        ctx.shadowBlur = 3 * scale;
-        ctx.shadowOffsetX = 1;
-        ctx.shadowOffsetY = 1;
+        // Render text crisp with zero blur (dark background provides maximum contrast)
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
 
         const maxAvailableTextWidth = badgeWidth - textOffsetX - padX;
 
@@ -227,7 +234,7 @@ export async function watermarkPhotoWithLocation(
 
         ctx.restore();
 
-        // Convert canvas back to File
+        // Convert canvas back to File with high 94% JPEG quality for sharp text
         canvas.toBlob(
           (blob) => {
             clearTimeout(safetyTimeout);
@@ -244,7 +251,7 @@ export async function watermarkPhotoWithLocation(
             }
           },
           'image/jpeg',
-          0.88
+          0.94
         );
       } catch (err) {
         clearTimeout(safetyTimeout);

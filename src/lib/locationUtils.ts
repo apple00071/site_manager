@@ -53,7 +53,7 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
           const coarse = await Geolocation.getCurrentPosition({
             enableHighAccuracy: false,
             timeout: 3000,
-            maximumAge: 180000
+            maximumAge: options.forceFresh ? 0 : 180000
           });
           sessionLocationCache = {
             latitude: coarse.coords.latitude,
@@ -61,7 +61,7 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
             timestamp: Date.now()
           };
           // Try high accuracy in background
-          Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 })
+          Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 5000, maximumAge: options.forceFresh ? 0 : 60000 })
             .then(pos => {
               sessionLocationCache = {
                 latitude: pos.coords.latitude,
@@ -77,7 +77,7 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
           const pos = await Geolocation.getCurrentPosition({
             enableHighAccuracy: true,
             timeout: timeoutMs,
-            maximumAge: 60000
+            maximumAge: options.forceFresh ? 0 : 60000
           });
           sessionLocationCache = {
             latitude: pos.coords.latitude,
@@ -113,7 +113,7 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
         const coarse = await getWebPos({
           enableHighAccuracy: false,
           timeout: 3500,
-          maximumAge: 180000
+          maximumAge: options.forceFresh ? 0 : 180000
         });
 
         sessionLocationCache = {
@@ -123,7 +123,7 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
         };
 
         // In background, upgrade to high-accuracy GPS if satellite fix is available
-        getWebPos({ enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 })
+        getWebPos({ enableHighAccuracy: true, timeout: 6000, maximumAge: options.forceFresh ? 0 : 60000 })
           .then(high => {
             sessionLocationCache = {
               latitude: high.coords.latitude,
@@ -142,7 +142,7 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
           const highPos = await getWebPos({
             enableHighAccuracy: true,
             timeout: timeoutMs,
-            maximumAge: 60000
+            maximumAge: options.forceFresh ? 0 : 60000
           });
           sessionLocationCache = {
             latitude: highPos.coords.latitude,
@@ -215,10 +215,13 @@ export interface LocationDetails {
 /**
  * Convenience helper to get location coordinates and reverse-geocoded address
  */
-export async function getLocationDetails(options: { timeout?: number } = {}): Promise<LocationDetails | null> {
+export async function getLocationDetails(options: { timeout?: number; forceFresh?: boolean; throwOnError?: boolean } = {}): Promise<LocationDetails | null> {
   try {
     const coords = await acquireLocation(options);
-    if (!coords) return null;
+    if (!coords || !coords.latitude || !coords.longitude) {
+      if (options.throwOnError) throw new Error('LOCATION_UNAVAILABLE');
+      return null;
+    }
 
     const address = await reverseGeocode(coords.latitude, coords.longitude);
     const latDir = coords.latitude >= 0 ? 'N' : 'S';
@@ -231,6 +234,7 @@ export async function getLocationDetails(options: { timeout?: number } = {}): Pr
       formattedCoords
     };
   } catch (err) {
+    if (options.throwOnError) throw err;
     console.warn('Location capture skipped:', err);
     return null;
   }

@@ -414,19 +414,33 @@ export function UpdatesTab({
     if (!files || files.length === 0) return;
 
     setUploadingPhotos(true);
-    setUploadStatusText('Capturing device location...');
+    setUploadStatusText('Verifying device location (GPS)...');
 
     try {
-      // 1. Acquire current device GPS coordinates and reverse-geocode address
-      let locDetails = deviceLocation;
-      if (!locDetails) {
-        try {
-          const { getLocationDetails } = await import('@/lib/locationUtils');
-          locDetails = await getLocationDetails({ timeout: 6000 });
-          if (locDetails) setDeviceLocation(locDetails);
-        } catch (locErr) {
-          console.warn('Could not acquire location for photos:', locErr);
+      // 1. Strict GPS policy: Require active device GPS coordinates
+      let locDetails = null;
+      try {
+        const { getLocationDetails } = await import('@/lib/locationUtils');
+        locDetails = await getLocationDetails({ forceFresh: true, throwOnError: true, timeout: 8000 });
+        if (locDetails) setDeviceLocation(locDetails);
+      } catch (locErr: any) {
+        let msg = 'Could not acquire your location. Please ensure device location is enabled.';
+        if (locErr?.message === 'PERMISSION_DENIED') {
+          msg = '📍 Location Permission Blocked: Please allow location access in your browser or device settings to upload site progress photos.';
+        } else if (locErr?.message === 'GPS_DISABLED') {
+          msg = '📍 Device Location (GPS) is turned OFF: You must turn ON Location in your device settings to upload site progress photos.';
+        } else if (locErr?.message === 'INSECURE_CONTEXT') {
+          msg = '📍 Location tracking requires a secure (HTTPS) connection.';
+        } else if (locErr?.message === 'LOCATION_UNAVAILABLE') {
+          msg = '📍 Location Unavailable: Could not detect your GPS coordinates. Please ensure you have GPS signal and device location turned ON.';
         }
+        alert(msg);
+        return;
+      }
+
+      if (!locDetails || !locDetails.coords?.latitude || !locDetails.coords?.longitude) {
+        alert('📍 Device Location (GPS) is required to upload site progress photos. Please turn ON location and try again.');
+        return;
       }
 
       // 2. Watermark photos with verified site location, GPS, timestamp & project info
@@ -439,8 +453,8 @@ export function UpdatesTab({
           const stamped = await watermarkPhotoWithLocation(file, {
             projectTitle: projectTitle || undefined,
             projectAddress: projectAddress || undefined,
-            locationName: locDetails?.address,
-            coords: locDetails?.coords,
+            locationName: locDetails.address,
+            coords: locDetails.coords,
             timestamp: new Date()
           });
           stampedFiles.push(stamped);
@@ -558,14 +572,32 @@ export function UpdatesTab({
     if (files.length === 0) return;
     setUploadingEditPhotos(true);
     try {
-      let locDetails = deviceLocation;
-      if (!locDetails) {
-        try {
-          const { getLocationDetails } = await import('@/lib/locationUtils');
-          locDetails = await getLocationDetails({ timeout: 4000 });
-          if (locDetails) setDeviceLocation(locDetails);
-        } catch {}
+      // Strict GPS policy: Require active device GPS coordinates
+      let locDetails = null;
+      try {
+        const { getLocationDetails } = await import('@/lib/locationUtils');
+        locDetails = await getLocationDetails({ forceFresh: true, throwOnError: true, timeout: 8000 });
+        if (locDetails) setDeviceLocation(locDetails);
+      } catch (locErr: any) {
+        let msg = 'Could not acquire your location. Please ensure device location is enabled.';
+        if (locErr?.message === 'PERMISSION_DENIED') {
+          msg = '📍 Location Permission Blocked: Please allow location access in your browser or device settings to upload site progress photos.';
+        } else if (locErr?.message === 'GPS_DISABLED') {
+          msg = '📍 Device Location (GPS) is turned OFF: You must turn ON Location in your device settings to upload site progress photos.';
+        } else if (locErr?.message === 'INSECURE_CONTEXT') {
+          msg = '📍 Location tracking requires a secure (HTTPS) connection.';
+        } else if (locErr?.message === 'LOCATION_UNAVAILABLE') {
+          msg = '📍 Location Unavailable: Could not detect your GPS coordinates. Please ensure you have GPS signal and device location turned ON.';
+        }
+        alert(msg);
+        return;
       }
+
+      if (!locDetails || !locDetails.coords?.latitude || !locDetails.coords?.longitude) {
+        alert('📍 Device Location (GPS) is required to upload site progress photos. Please turn ON location and try again.');
+        return;
+      }
+
       const { watermarkPhotoWithLocation } = await import('@/lib/photoWatermark');
       const { uploadFile } = await import('@/lib/uploadUtils');
       const folder = user?.id || 'anonymous';
@@ -576,8 +608,8 @@ export function UpdatesTab({
           const stamped = await watermarkPhotoWithLocation(file, {
             projectTitle: projectTitle || undefined,
             projectAddress: projectAddress || undefined,
-            locationName: locDetails?.address,
-            coords: locDetails?.coords,
+            locationName: locDetails.address,
+            coords: locDetails.coords,
             timestamp: new Date(),
           });
           stampedFiles.push(stamped);

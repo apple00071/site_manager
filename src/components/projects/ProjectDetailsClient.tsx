@@ -98,7 +98,6 @@ const ProjectFinanceTab = dynamic(() => import('@/components/projects/tabs/Proje
 const DesignsTab = dynamic(() => import('@/components/projects/DesignsTab').then(m => m.DesignsTab), { ssr: false, loading: () => <div className="p-6 grid grid-cols-2 gap-4 animate-pulse"><div className="aspect-video bg-gray-200 rounded"></div><div className="aspect-video bg-gray-200 rounded"></div></div> });
 const BOQTab = dynamic(() => import('@/components/projects/BOQTab').then(m => m.BOQTab), { ssr: false, loading: () => <div className="p-6 space-y-2 animate-pulse"><div className="h-10 bg-gray-200 rounded w-full"></div>{[1, 2, 3, 4, 5].map(i => <div key={i} className="h-12 bg-gray-50 rounded w-full"></div>)}</div> });
 const SnagTab = dynamic(() => import('@/components/projects/SnagTab'), { ssr: false, loading: () => <div className="p-6 space-y-4 animate-pulse"><div className="h-10 bg-gray-200 rounded w-full"></div><div className="grid grid-cols-1 gap-3"><div className="h-20 bg-gray-50 rounded"></div><div className="h-20 bg-gray-50 rounded"></div></div></div> });
-const SiteLogTab = dynamic(() => import('@/components/projects/SiteLogTab').then(m => m.SiteLogTab), { ssr: false, loading: () => <TabSkeleton /> }) as any;
 const VisitTab = dynamic(() => import('@/components/projects/tabs/VisitTab').then(m => m.VisitTab), { ssr: false, loading: () => <TabSkeleton /> });
 
 // Lazy load Modals
@@ -135,7 +134,6 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
 
   const boqRef = useRef<BOQTabHandle>(null);
   const expensesRef = useRef<any>(null);
-  const siteLogRef = useRef<any>(null);
   const snagRef = useRef<SnagTabHandle>(null);
   const shareModalOverlayRef = useRef<HTMLDivElement>(null);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -178,7 +176,7 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
     const stages: StageId[] = ['visit'];
     if (hasPermission('designs.view')) stages.push('design');
     if (hasPermission('boq.view')) stages.push('boq');
-    if (hasPermission('updates.view') || hasPermission('site_logs.view')) stages.push('work_progress');
+    if (hasPermission('updates.view')) stages.push('work_progress');
     if (hasPermission('snags.view')) stages.push('snag');
     if (hasPermission('finance.view') || hasPermission('inventory.view')) stages.push('finance');
 

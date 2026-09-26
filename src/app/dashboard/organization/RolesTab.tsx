@@ -122,17 +122,6 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         notifications: ['Snag created', 'Snag resolved', 'Snag verified']
     },
     {
-        module: 'Daily Site Logs',
-        icon: '📋',
-        permissions: [
-            { id: 'site_logs.view', label: 'View daily logs' },
-            { id: 'site_logs.create', label: 'Create daily logs' },
-            { id: 'site_logs.edit', label: 'Edit daily logs' },
-            { id: 'site_logs.delete', label: 'Delete daily logs' }
-        ],
-        notifications: ['New daily log']
-    },
-    {
         module: 'Updates',
         icon: '📣',
         permissions: [
@@ -285,7 +274,6 @@ const MODULE_PREFIX_MAP: Record<string, string[]> = {
     'Procurement (Legacy)': ['procurement.'],
     'Vendors & Contract Workers': ['vendor.', 'vendors.', 'worker.', 'workers.', 'supplier.', 'suppliers.'],
     'Snag & Audit': ['snag.', 'snags.'],
-    'Daily Site Logs': ['site_logs.', 'site_visit.'],
     'Updates': ['update.', 'updates.'],
     'Tasks': ['task.', 'tasks.'],
     'Finance': ['finance.'],

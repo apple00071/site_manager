@@ -39,6 +39,10 @@ export async function GET(request: NextRequest) {
             { code: 'rate_card.manage', module: 'crm', action: 'manage', description: 'Create, update & deactivate rate card items' },
             { code: 'finance.view', module: 'finance', action: 'view', description: 'View finance overview and project financials' },
             { code: 'finance.manage', module: 'finance', action: 'manage', description: 'Record, edit, and delete client payments' },
+            { code: 'updates.view', module: 'updates', action: 'view', description: 'View project updates' },
+            { code: 'updates.create', module: 'updates', action: 'create', description: 'Post project updates' },
+            { code: 'updates.edit', module: 'updates', action: 'edit', description: 'Edit project updates' },
+            { code: 'updates.delete', module: 'updates', action: 'delete', description: 'Delete project updates' },
         ];
 
         const missingPerms = requiredPermDefs.filter(rp => !permissions?.some((p: any) => p.code === rp.code));
