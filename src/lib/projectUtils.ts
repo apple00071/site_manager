@@ -8,7 +8,7 @@ import { supabaseAdmin } from '@/lib/supabase-server';
  */
 let codeMapCache: Map<string, string> | null = null;
 let cacheExpiresAt = 0;
-const CACHE_TTL_MS = 60_000; // 60 seconds
+const CACHE_TTL_MS = 600_000; // 10 minutes (invalidated immediately when new projects are created)
 
 async function getCodeMap(): Promise<Map<string, string>> {
   const now = Date.now();

@@ -61,10 +61,28 @@ function matchesSet(codes: Set<string>, node: PermissionNode): boolean {
   return false;
 }
 
+// In-memory cache for legacy userId string queries:
+// ponytail: short 60s cache eliminates duplicate DB hits across routes that pass userId
+interface CachedLegacyPerm {
+  isAdmin: boolean;
+  codes: Set<string>;
+  expiresAt: number;
+}
+const legacyPermCache = new Map<string, CachedLegacyPerm>();
+const LEGACY_CACHE_TTL = 60_000;
+
+export function invalidateLegacyPermCache(userId?: string) {
+  if (userId) {
+    legacyPermCache.delete(userId);
+  } else {
+    legacyPermCache.clear();
+  }
+}
+
 /**
  * Check permission.
  * - Fast path: pass `user` (AuthUser) → pure in-memory Set lookup, 0 DB hits.
- * - Slow path: pass `userId` (string) → legacy 2-query DB lookup.
+ * - Slow path: pass `userId` (string) → 60s in-memory cached lookup.
  */
 export async function checkPermission(
   userOrId: AuthUser | string,
@@ -94,32 +112,46 @@ export async function checkPermission(
       return { allowed: false, reason: 'Permission denied' };
     }
 
-    // Legacy slow path (userId string) — kept for backwards compat
+    // Legacy path (userId string) — cached for 60s to avoid repeated DB queries
     const userId = userOrId;
-    const { data: userData } = await supabaseAdmin
-      .from('users')
-      .select('role, role_id, roles(name)')
-      .eq('id', userId)
-      .single();
+    const now = Date.now();
+    const cached = legacyPermCache.get(userId);
 
-    if (!userData) return { allowed: false, reason: 'User not found' };
+    let isAdmin = false;
+    let codes = new Set<string>();
 
-    const isAdmin =
-      userData.role?.toLowerCase() === 'admin' ||
-      (userData.roles as any)?.name?.toLowerCase() === 'admin';
-    if (isAdmin) return { allowed: true };
+    if (cached && now < cached.expiresAt) {
+      isAdmin = cached.isAdmin;
+      codes = cached.codes;
+    } else {
+      const { data: userData } = await supabaseAdmin
+        .from('users')
+        .select('role, role_id, roles(name)')
+        .eq('id', userId)
+        .single();
 
-    if (userData.role_id) {
-      const { data: rolePermissions } = await supabaseAdmin
-        .from('role_permissions')
-        .select('permissions(code)')
-        .eq('role_id', userData.role_id);
+      if (!userData) return { allowed: false, reason: 'User not found' };
 
-      const codes = new Set<string>(
-        (rolePermissions || []).map((rp: any) => rp.permissions?.code).filter(Boolean)
-      );
-      if (matchesSet(codes, permissionNode)) return { allowed: true };
+      isAdmin =
+        userData.role?.toLowerCase() === 'admin' ||
+        (userData.roles as any)?.name?.toLowerCase() === 'admin';
+
+      if (!isAdmin && userData.role_id) {
+        const { data: rolePermissions } = await supabaseAdmin
+          .from('role_permissions')
+          .select('permissions(code)')
+          .eq('role_id', userData.role_id);
+
+        codes = new Set<string>(
+          (rolePermissions || []).map((rp: any) => rp.permissions?.code).filter(Boolean)
+        );
+      }
+
+      legacyPermCache.set(userId, { isAdmin, codes, expiresAt: now + LEGACY_CACHE_TTL });
     }
+
+    if (isAdmin) return { allowed: true };
+    if (matchesSet(codes, permissionNode)) return { allowed: true };
 
     if (projectId) {
       const { data: member } = await supabaseAdmin

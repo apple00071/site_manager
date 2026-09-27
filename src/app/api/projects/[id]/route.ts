@@ -183,7 +183,7 @@ export async function PATCH(
         }
 
         // Permission check: only admin or users with projects.edit permission for this project
-        const permResult = await verifyPermission(user.id, PERMISSION_NODES.PROJECTS_EDIT, projectId);
+        const permResult = await verifyPermission(user, PERMISSION_NODES.PROJECTS_EDIT, projectId);
         if (!permResult.allowed) {
             return NextResponse.json({ error: permResult.message }, { status: 403 });
         }

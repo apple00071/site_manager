@@ -49,8 +49,27 @@ export default function ProjectsPage() {
   const canCreateProject = hasPermission('projects.create');
   const canEditProject = hasPermission('projects.edit');
   const canDeleteProject = hasPermission('projects.delete');
-  const [projects, setProjects] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const PROJECTS_CACHE_KEY = 'app_projects_list_cache';
+
+  // ponytail: instant SWR cache from sessionStorage — eliminates blank skeleton on repeat navigations
+  const [projects, setProjects] = useState<any[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const cached = sessionStorage.getItem(PROJECTS_CACHE_KEY);
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [loading, setLoading] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    try {
+      const cached = sessionStorage.getItem(PROJECTS_CACHE_KEY);
+      return !cached || JSON.parse(cached).length === 0;
+    } catch {
+      return true;
+    }
+  });
   const [activeTab, setActiveTab] = useState<string>('pending');
   const [defaultTabApplied, setDefaultTabApplied] = useState(false);
   const [selectedDesigner, setSelectedDesigner] = useState<string>('');
@@ -124,11 +143,12 @@ export default function ProjectsPage() {
   }, [setTitle, setSubtitle]);
 
   useEffect(() => {
-    // ... code remains same
+    let isMounted = true;
     const fetchProjects = async () => {
-      if (!user) return;
-
-      setLoading(true);
+      // If we don't have any cached projects, show skeleton
+      if (projects.length === 0) {
+        setLoading(true);
+      }
       try {
         const response = await fetch('/api/admin/projects');
 
@@ -143,22 +163,31 @@ export default function ProjectsPage() {
 
         const projectsData = await response.json();
 
-        if (!Array.isArray(projectsData) || (projectsData.length === 0 && !isAdmin)) {
+        if (!isMounted) return;
+
+        if (!Array.isArray(projectsData)) {
           setProjects([]);
           return;
         }
         setProjects(projectsData);
+        try {
+          sessionStorage.setItem(PROJECTS_CACHE_KEY, JSON.stringify(projectsData));
+        } catch {}
       } catch (error) {
         console.error('Error fetching projects:', error);
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
-    if (user) {
-      fetchProjects();
-    }
-  }, [user, isAdmin]);
+    fetchProjects();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -206,9 +235,11 @@ export default function ProjectsPage() {
           .delete()
           .eq('id', projectId);
 
-        if (error) throw error;
-
-        setProjects(projects.filter(p => p.id !== projectId));
+        const updated = projects.filter(p => p.id !== projectId);
+        setProjects(updated);
+        try {
+          sessionStorage.setItem(PROJECTS_CACHE_KEY, JSON.stringify(updated));
+        } catch {}
       } catch (error) {
         console.error('Error deleting project:', error);
       }

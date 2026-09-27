@@ -104,11 +104,11 @@ export async function GET(request: NextRequest) {
     const isAdmin = userRole === 'admin';
     const targetUserId = searchParams.get('userId');
 
-    // RBAC: Check projects.view_all permission
-    const viewAllCheck = await verifyPermission(userId, PERMISSION_NODES.PROJECTS_VIEW_ALL);
-    const canViewAll = isAdmin || viewAllCheck.allowed;
+    // RBAC: Check projects.view_all permission using in-memory AuthUser (0 DB hits)
+    const viewAllCheck = await verifyPermission(user, PERMISSION_NODES.PROJECTS_VIEW_ALL);
+    const canViewAll = user.isAdmin || viewAllCheck.allowed;
 
-    console.log(`Fetching projects for ${isAdmin ? 'admin' : 'user'}:`, user.email, { canViewAll });
+    console.log(`Fetching projects for ${user.isAdmin ? 'admin' : 'user'}:`, user.email, { canViewAll });
 
     let projectsQuery = supabaseAdmin
       .from('projects')
@@ -198,59 +198,31 @@ export async function GET(request: NextRequest) {
     if (!canViewAll || (canViewAll && targetUserId)) {
       const filterId = isAdmin ? targetUserId : userId;
 
-      // Get project IDs the user is a member of via project_members table
-      const { data: memberProjects, error: memberError } = await supabaseAdmin
-        .from('project_members')
-        .select('project_id')
-        .eq('user_id', filterId);
+      // Parallelize project_members and assigned projects into a single concurrent roundtrip
+      const [memberResult, assignedResult] = await Promise.all([
+        supabaseAdmin
+          .from('project_members')
+          .select('project_id')
+          .eq('user_id', filterId),
+        supabaseAdmin
+          .from('projects')
+          .select('id')
+          .or(`assigned_employee_id.eq.${filterId},designer_id.eq.${filterId},site_supervisor_id.eq.${filterId}`)
+      ]);
 
-      if (memberError) {
-        console.error('Error fetching member projects:', memberError.message);
+      if (memberResult.error) {
+        console.error('Error fetching member projects:', memberResult.error.message);
         return NextResponse.json(
           { error: { message: 'Error fetching assigned projects', code: 'PROJECT_FETCH_ERROR' } },
           { status: 500 }
         );
       }
 
-      interface ProjectMember { project_id: string; }
-      const memberProjectIds = memberProjects?.map((p: ProjectMember) => p.project_id) || [];
-
-      // Get projects directly assigned via assigned_employee_id field
-      const { data: assignedProjects, error: assignedError } = await supabaseAdmin
-        .from('projects')
-        .select('id')
-        .eq('assigned_employee_id', filterId);
-
-      if (assignedError) {
-        console.error('Error fetching assigned projects:', assignedError.message);
-        return NextResponse.json(
-          { error: { message: 'Error fetching assigned projects', code: 'PROJECT_FETCH_ERROR' } },
-          { status: 500 }
-        );
-      }
-
-      interface AssignedProject { id: string; }
-      const assignedProjectIds = assignedProjects?.map((p: AssignedProject) => p.id) || [];
-
-      // Get projects assigned via designer_id field
-      const { data: designerProjects, error: designerError } = await supabaseAdmin
-        .from('projects')
-        .select('id')
-        .eq('designer_id', filterId);
-
-      // Get projects assigned via site_supervisor_id field
-      const { data: supervisorProjects } = await supabaseAdmin
-        .from('projects')
-        .select('id')
-        .eq('site_supervisor_id', filterId);
+      const memberProjectIds = memberResult.data?.map((p: any) => p.project_id) || [];
+      const directProjectIds = assignedResult.data?.map((p: any) => p.id) || [];
 
       // Combine all lists (remove duplicates)
-      const allProjectIds = [...new Set([
-        ...memberProjectIds,
-        ...assignedProjectIds,
-        ...(designerProjects?.map((p: any) => p.id) || []),
-        ...(supervisorProjects?.map((p: any) => p.id) || [])
-      ])];
+      const allProjectIds = [...new Set([...memberProjectIds, ...directProjectIds])];
 
       if (allProjectIds.length === 0) {
         // User is not assigned to any projects
@@ -283,9 +255,9 @@ export async function GET(request: NextRequest) {
 
     let responseData: any = projects;
 
-    // RBAC: Check projects.view_budget permission
-    const budgetCheck = await verifyPermission(userId, PERMISSION_NODES.PROJECTS_VIEW_BUDGET);
-    const canViewBudget = isAdmin || budgetCheck.allowed;
+    // RBAC: Check projects.view_budget permission using in-memory AuthUser (0 DB hits)
+    const budgetCheck = await verifyPermission(user, PERMISSION_NODES.PROJECTS_VIEW_BUDGET);
+    const canViewBudget = user.isAdmin || budgetCheck.allowed;
 
     if (!canViewBudget && projects) {
       if (Array.isArray(projects)) {
@@ -330,8 +302,8 @@ export async function POST(req: Request) {
 
     const userId = user.id;
 
-    // RBAC: Check project.create permission
-    const permResult = await verifyPermission(userId, PERMISSION_NODES.PROJECTS_CREATE);
+    // RBAC: Check project.create permission using in-memory AuthUser (0 DB hits)
+    const permResult = await verifyPermission(user, PERMISSION_NODES.PROJECTS_CREATE);
     if (!permResult.allowed) {
       return NextResponse.json(
         { error: { message: permResult.message, code: 'FORBIDDEN' } },
