@@ -24,6 +24,11 @@ const supplierSchema = z.object({
     bank_account_number: z.string().optional().nullable(),
     bank_ifsc: z.string().optional().nullable(),
     notes: z.string().optional().nullable(),
+    id_proof_url: z.string().optional().nullable(),
+    documents: z.array(z.object({
+        name: z.string(),
+        url: z.string(),
+    })).optional().nullable(),
     is_active: z.boolean().optional(),
 });
 
@@ -32,7 +37,33 @@ function parseWageMeta(row: any) {
     let wage_type = row.wage_type ?? null;
     let daily_wage = row.daily_wage ?? null;
     let upi_id = row.upi_id ?? null;
+    let id_proof_url = row.id_proof_url ?? null;
+    let documents: Array<{ name: string; url: string }> = [];
     let notes = row.notes ?? '';
+
+    if (notes && notes.includes('<!--doc_list:')) {
+        const docListMatch = notes.match(/<!--doc_list:(.*?)-->/);
+        if (docListMatch && docListMatch[1]) {
+            try {
+                documents = JSON.parse(docListMatch[1]);
+            } catch (_) {}
+            notes = notes.replace(/<!--doc_list:.*?-->/, '').trim();
+        }
+    }
+
+    if (notes && notes.includes('<!--doc_url:')) {
+        const docMatch = notes.match(/<!--doc_url:(.*?)-->/);
+        if (docMatch && docMatch[1]) {
+            id_proof_url = id_proof_url || docMatch[1].trim();
+            notes = notes.replace(/<!--doc_url:.*?-->/, '').trim();
+        }
+    }
+
+    if (documents.length === 0 && id_proof_url) {
+        documents = [{ name: 'Document / ID Proof', url: id_proof_url }];
+    } else if (documents.length > 0 && !id_proof_url) {
+        id_proof_url = documents[0].url;
+    }
 
     if ((wage_type === undefined || wage_type === null) && notes && notes.includes('<!--wage_meta:')) {
         try {
@@ -53,6 +84,8 @@ function parseWageMeta(row: any) {
         wage_type: wage_type || 'Daily',
         daily_wage: daily_wage !== null && daily_wage !== undefined ? Number(daily_wage) : 0,
         upi_id: upi_id || '',
+        id_proof_url: id_proof_url || '',
+        documents,
         notes,
     };
 }
@@ -124,20 +157,36 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        const { documents, ...rawPayload } = validationResult.data;
+        let initialNotes = rawPayload.notes || '';
+        if (documents !== undefined) {
+            initialNotes = (initialNotes || '').replace(/<!--doc_list:.*?-->/, '').trim();
+            if (documents && documents.length > 0) {
+                initialNotes = `${initialNotes ? initialNotes + '\n' : ''}<!--doc_list:${JSON.stringify(documents)}-->`.trim();
+            }
+        }
+        let insertPayload: any = { ...rawPayload, notes: initialNotes };
+        if (documents && documents.length > 0 && !insertPayload.id_proof_url) {
+            insertPayload.id_proof_url = documents[0].url;
+        }
+
         let { data, error } = await supabaseAdmin
             .from('suppliers')
             .insert({
-                ...validationResult.data,
+                ...insertPayload,
                 created_by: user.id,
             })
             .select()
             .single();
 
-        // Graceful fallback if wage_type / daily_wage / upi_id columns do not exist in Postgres yet
+        // Graceful fallback if wage_type / daily_wage / upi_id / id_proof_url columns do not exist in Postgres yet
         if (error && (error.code === '42703' || error.message?.includes('does not exist'))) {
-            const { wage_type, daily_wage, upi_id, ...coreData } = validationResult.data;
+            const { wage_type, daily_wage, upi_id, id_proof_url, ...coreData } = insertPayload;
             const wageMeta = { wage_type: wage_type || 'Daily', daily_wage: daily_wage || 0, upi_id: upi_id || '' };
-            const existingNotes = (coreData.notes || '').replace(/<!--wage_meta:.*?-->/, '').trim();
+            let existingNotes = (coreData.notes || '').replace(/<!--wage_meta:.*?-->/, '').replace(/<!--doc_url:.*?-->/, '').trim();
+            if (id_proof_url) {
+                existingNotes = `${existingNotes ? existingNotes + '\n' : ''}<!--doc_url:${id_proof_url}-->`.trim();
+            }
             const fallbackNotes = `${existingNotes ? existingNotes + '\n' : ''}<!--wage_meta:${JSON.stringify(wageMeta)}-->`.trim();
 
             const retry = await supabaseAdmin
@@ -198,16 +247,37 @@ export async function PATCH(request: NextRequest) {
             );
         }
 
+        const { documents, ...rawUpdates } = validationResult.data;
+        let updatePayload: any = { ...rawUpdates };
+
+        if (documents !== undefined) {
+            let baseNotes = updatePayload.notes;
+            if (baseNotes === undefined) {
+                const { data: existingRow } = await supabaseAdmin.from('suppliers').select('notes').eq('id', id).single();
+                baseNotes = existingRow?.notes || '';
+            }
+            let cleanNotes = (baseNotes || '').replace(/<!--doc_list:.*?-->/, '').trim();
+            if (documents && documents.length > 0) {
+                cleanNotes = `${cleanNotes ? cleanNotes + '\n' : ''}<!--doc_list:${JSON.stringify(documents)}-->`.trim();
+                if (!updatePayload.id_proof_url) {
+                    updatePayload.id_proof_url = documents[0].url;
+                }
+            } else {
+                updatePayload.id_proof_url = null;
+            }
+            updatePayload.notes = cleanNotes;
+        }
+
         let { data, error } = await supabaseAdmin
             .from('suppliers')
-            .update(validationResult.data)
+            .update(updatePayload)
             .eq('id', id)
             .select()
             .single();
 
-        // Graceful fallback if wage_type / daily_wage / upi_id columns do not exist in Postgres yet
+        // Graceful fallback if wage_type / daily_wage / upi_id / id_proof_url columns do not exist in Postgres yet
         if (error && (error.code === '42703' || error.message?.includes('does not exist'))) {
-            const { wage_type, daily_wage, upi_id, ...coreUpdates } = validationResult.data;
+            const { wage_type, daily_wage, upi_id, id_proof_url, ...coreUpdates } = updatePayload;
             const wageMeta = {
                 wage_type: wage_type !== undefined ? wage_type : 'Daily',
                 daily_wage: daily_wage !== undefined ? daily_wage : 0,
@@ -219,7 +289,13 @@ export async function PATCH(request: NextRequest) {
                 const { data: existingRow } = await supabaseAdmin.from('suppliers').select('notes').eq('id', id).single();
                 baseNotes = existingRow?.notes || '';
             }
-            const cleanNotes = (baseNotes || '').replace(/<!--wage_meta:.*?-->/, '').trim();
+            let cleanNotes = (baseNotes || '').replace(/<!--wage_meta:.*?-->/, '').trim();
+            if (id_proof_url !== undefined) {
+                cleanNotes = cleanNotes.replace(/<!--doc_url:.*?-->/, '').trim();
+                if (id_proof_url) {
+                    cleanNotes = `${cleanNotes ? cleanNotes + '\n' : ''}<!--doc_url:${id_proof_url}-->`.trim();
+                }
+            }
             const fallbackNotes = `${cleanNotes ? cleanNotes + '\n' : ''}<!--wage_meta:${JSON.stringify(wageMeta)}-->`.trim();
 
             const retry = await supabaseAdmin

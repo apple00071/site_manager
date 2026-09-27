@@ -26,6 +26,7 @@ import {
   FiRefreshCw,
   FiX,
   FiSliders,
+  FiFileText,
 } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
 
@@ -795,6 +796,11 @@ export default function VendorsWorkersPage() {
                       <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-[10px]">
                         {worker.skill_level}
                       </span>
+                      {(worker.documents?.length || worker.id_proof_url) && (
+                        <span className="bg-blue-50 text-blue-700 border border-blue-200/70 px-1.5 py-0.5 rounded text-[10px] flex items-center gap-1 font-medium" title="Documents attached">
+                          <FiFileText className="text-[10px]" /> {worker.documents && worker.documents.length > 1 ? `${worker.documents.length} Docs` : 'Doc'}
+                        </span>
+                      )}
                       <span className="font-bold text-gray-900 ml-auto flex items-center text-xs">
                         <TbCurrencyRupee className="inline text-xs" />
                         {worker.daily_wage || 0}/{worker.wage_type?.toLowerCase() || 'day'}
@@ -1068,6 +1074,11 @@ export default function VendorsWorkersPage() {
                         <span className="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-[10px] flex items-center gap-1">
                           <FiUsers className="text-[10px]" /> {linkedWorkersCount} workers
                         </span>
+                        {(vendor.documents?.length || vendor.id_proof_url) && (
+                          <span className="bg-blue-50 text-blue-700 border border-blue-200/70 px-1.5 py-0.5 rounded text-[10px] flex items-center gap-1 font-medium" title="Documents attached">
+                            <FiFileText className="text-[10px]" /> {vendor.documents && vendor.documents.length > 1 ? `${vendor.documents.length} Docs` : 'Doc'}
+                          </span>
+                        )}
                       </div>
 
                       {/* Representative & Contact Info */}

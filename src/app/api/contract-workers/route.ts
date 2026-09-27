@@ -28,7 +28,41 @@ const contractWorkerSchema = z.object({
   assigned_project_id: z.string().uuid().optional().nullable(),
   is_active: z.boolean().default(true),
   notes: z.string().optional().nullable(),
+  documents: z.array(z.object({
+    name: z.string(),
+    url: z.string(),
+  })).optional().nullable(),
 });
+
+function parseWorkerMeta(row: any) {
+  if (!row) return row;
+  let id_proof_url = row.id_proof_url ?? null;
+  let documents: Array<{ name: string; url: string }> = [];
+  let notes = row.notes ?? '';
+
+  if (notes && notes.includes('<!--doc_list:')) {
+    const docListMatch = notes.match(/<!--doc_list:(.*?)-->/);
+    if (docListMatch && docListMatch[1]) {
+      try {
+        documents = JSON.parse(docListMatch[1]);
+      } catch (_) {}
+      notes = notes.replace(/<!--doc_list:.*?-->/, '').trim();
+    }
+  }
+
+  if (documents.length === 0 && id_proof_url) {
+    documents = [{ name: 'ID Proof Document', url: id_proof_url }];
+  } else if (documents.length > 0 && !id_proof_url) {
+    id_proof_url = documents[0].url;
+  }
+
+  return {
+    ...row,
+    id_proof_url: id_proof_url || '',
+    documents,
+    notes,
+  };
+}
 
 // GET /api/contract-workers - List contract workers
 export async function GET(request: NextRequest) {
@@ -94,7 +128,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch contract workers', details: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ workers: data || [] });
+    return NextResponse.json({ workers: (data || []).map(parseWorkerMeta) });
   } catch (error: any) {
     console.error('Unexpected error in contract-workers GET:', error);
     return NextResponse.json({ error: 'Internal server error', details: error?.message }, { status: 500 });
@@ -126,10 +160,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const insertData = {
-      ...validationResult.data,
+    const { documents, ...rawInsert } = validationResult.data;
+    let initialNotes = rawInsert.notes || '';
+    if (documents !== undefined) {
+      initialNotes = (initialNotes || '').replace(/<!--doc_list:.*?-->/, '').trim();
+      if (documents && documents.length > 0) {
+        initialNotes = `${initialNotes ? initialNotes + '\n' : ''}<!--doc_list:${JSON.stringify(documents)}-->`.trim();
+      }
+    }
+    const insertData: any = {
+      ...rawInsert,
+      notes: initialNotes,
       created_by: user.id,
     };
+    if (documents && documents.length > 0 && !insertData.id_proof_url) {
+      insertData.id_proof_url = documents[0].url;
+    }
 
     const { data, error } = await supabaseAdmin
       .from('contract_workers')
@@ -146,7 +192,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to register contract worker', details: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ worker: data }, { status: 201 });
+    return NextResponse.json({ worker: parseWorkerMeta(data) }, { status: 201 });
   } catch (error: any) {
     console.error('Unexpected error in contract-workers POST:', error);
     return NextResponse.json({ error: 'Internal server error', details: error?.message }, { status: 500 });
@@ -184,10 +230,29 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const updateData = {
-      ...validationResult.data,
+    const { documents, ...rawUpdates } = validationResult.data;
+    const updateData: any = {
+      ...rawUpdates,
       updated_at: new Date().toISOString(),
     };
+
+    if (documents !== undefined) {
+      let baseNotes = updateData.notes;
+      if (baseNotes === undefined) {
+        const { data: existingRow } = await supabaseAdmin.from('contract_workers').select('notes').eq('id', id).single();
+        baseNotes = existingRow?.notes || '';
+      }
+      let cleanNotes = (baseNotes || '').replace(/<!--doc_list:.*?-->/, '').trim();
+      if (documents && documents.length > 0) {
+        cleanNotes = `${cleanNotes ? cleanNotes + '\n' : ''}<!--doc_list:${JSON.stringify(documents)}-->`.trim();
+        if (!updateData.id_proof_url) {
+          updateData.id_proof_url = documents[0].url;
+        }
+      } else {
+        updateData.id_proof_url = null;
+      }
+      updateData.notes = cleanNotes;
+    }
 
     const { data, error } = await supabaseAdmin
       .from('contract_workers')
@@ -205,7 +270,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to update contract worker', details: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ worker: data });
+    return NextResponse.json({ worker: parseWorkerMeta(data) });
   } catch (error: any) {
     console.error('Unexpected error in contract-workers PATCH:', error);
     return NextResponse.json({ error: 'Internal server error', details: error?.message }, { status: 500 });

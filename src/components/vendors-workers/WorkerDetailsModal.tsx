@@ -19,6 +19,7 @@ import {
   FiCheck,
   FiExternalLink,
   FiMessageCircle,
+  FiFileText,
 } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
 
@@ -204,16 +205,41 @@ export function WorkerDetailsModal({
                 {worker.aadhaar_number || 'Not Provided'}
               </span>
             </div>
-            {worker.id_proof_url && (
-              <a
-                href={worker.id_proof_url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-yellow-700 hover:text-yellow-800 font-medium underline"
-              >
-                <FiExternalLink /> View Uploaded ID Document
-              </a>
-            )}
+            {worker.documents && worker.documents.length > 0 ? (
+              <div className="pt-2 border-t border-gray-200 space-y-1.5">
+                <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                  <FiFileText className="text-yellow-600 text-xs" /> Documents ({worker.documents.length})
+                </span>
+                <div className="space-y-1 max-h-36 overflow-y-auto pr-0.5">
+                  {worker.documents.map((doc, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-xs py-1 px-2 bg-white rounded border border-gray-200">
+                      <span className="font-medium text-gray-800 truncate mr-2" title={doc.name}>
+                        {doc.name || `Document ${idx + 1}`}
+                      </span>
+                      <a
+                        href={doc.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-yellow-700 hover:text-yellow-800 font-semibold underline inline-flex items-center gap-1 flex-shrink-0"
+                      >
+                        <FiExternalLink className="text-[11px]" /> View
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : worker.id_proof_url ? (
+              <div className="pt-2 border-t border-gray-200">
+                <a
+                  href={worker.id_proof_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-yellow-700 hover:text-yellow-800 font-medium underline"
+                >
+                  <FiExternalLink /> View Uploaded ID Document
+                </a>
+              </div>
+            ) : null}
           </div>
 
           {/* Emergency Contact */}

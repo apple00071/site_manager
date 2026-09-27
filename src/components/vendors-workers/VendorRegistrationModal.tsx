@@ -1,9 +1,14 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Modal } from '@/components/ui/Modal';
-import { FiBriefcase, FiUser, FiPhone, FiMail, FiMapPin, FiCreditCard, FiCheck, FiLoader, FiTag, FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiBriefcase, FiUser, FiPhone, FiMail, FiMapPin, FiCreditCard, FiCheck, FiLoader, FiTag, FiPlus, FiTrash2, FiUpload, FiFileText, FiX } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
+
+export interface VendorDocument {
+  name: string;
+  url: string;
+}
 
 export interface Vendor {
   id?: string;
@@ -19,6 +24,8 @@ export interface Vendor {
   rating?: number | null;
   gst_number?: string | null;
   pan_number?: string | null;
+  id_proof_url?: string | null;
+  documents?: VendorDocument[] | null;
   address?: string | null;
   city?: string | null;
   state?: string | null;
@@ -97,6 +104,7 @@ export function VendorRegistrationModal({
     upi_id: '',
     gst_number: '',
     pan_number: '',
+    id_proof_url: '',
     address: '',
     city: '',
     state: '',
@@ -111,8 +119,61 @@ export function VendorRegistrationModal({
     { type: '', rate: '' },
   ]);
 
+  const [documents, setDocuments] = useState<VendorDocument[]>([]);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const docInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFilesSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadingDoc(true);
+    setError(null);
+
+    const newDocs: VendorDocument[] = [];
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const data = new FormData();
+        data.append('file', file);
+        data.append('bucket', 'project-update-photos');
+
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: data,
+        });
+
+        const json = await res.json();
+        if (!res.ok || !json.url) {
+          throw new Error(json.error || `Failed to upload ${file.name}`);
+        }
+
+        newDocs.push({
+          name: file.name.replace(/\.[^/.]+$/, ''),
+          url: json.url,
+        });
+      }
+
+      setDocuments(prev => [...prev, ...newDocs]);
+    } catch (err: any) {
+      console.error('Document upload error:', err);
+      setError(err.message || 'Document upload failed');
+    } finally {
+      setUploadingDoc(false);
+      if (docInputRef.current) docInputRef.current.value = '';
+    }
+  };
+
+  const removeDoc = (idx: number) => {
+    setDocuments(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateDocName = (idx: number, name: string) => {
+    setDocuments(prev => prev.map((d, i) => (i === idx ? { ...d, name } : d)));
+  };
 
   useEffect(() => {
     if (initialData) {
@@ -124,15 +185,24 @@ export function VendorRegistrationModal({
           ? [{ type: initialData.wage_type, rate: String(initialData.daily_wage || '') }]
           : [{ type: '', rate: '' }]
       );
+      if (initialData.documents && Array.isArray(initialData.documents) && initialData.documents.length > 0) {
+        setDocuments(initialData.documents);
+      } else if (initialData.id_proof_url) {
+        setDocuments([{ name: 'Document / ID Proof', url: initialData.id_proof_url }]);
+      } else {
+        setDocuments([]);
+      }
       setFormData({
         ...initialData,
         vendor_type: initialData.vendor_type || 'subcontractor',
         trade_category: initialData.trade_category || 'Carpentry & Woodwork',
+        id_proof_url: initialData.id_proof_url || '',
         is_active: initialData.is_active !== undefined ? initialData.is_active : true,
         notes: userNotes,
       });
     } else {
       setWageEntries([{ type: '', rate: '' }]);
+      setDocuments([]);
       setFormData({
         name: '',
         contact_name: '',
@@ -143,6 +213,7 @@ export function VendorRegistrationModal({
         upi_id: '',
         gst_number: '',
         pan_number: '',
+        id_proof_url: '',
         address: '',
         city: '',
         state: '',
@@ -193,6 +264,8 @@ export function VendorRegistrationModal({
         wage_type: primary.type || null,
         daily_wage: Number(primary.rate) || 0,
         notes: notesStr,
+        id_proof_url: documents[0]?.url || null,
+        documents: documents,
       };
 
       const res = await fetch(url, {
@@ -446,6 +519,86 @@ export function VendorRegistrationModal({
                 className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
               />
             </div>
+
+            <div className="md:col-span-2 pt-2 border-t border-gray-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-gray-700">
+                  Documents & ID Proofs ({documents.length})
+                </label>
+                <button
+                  type="button"
+                  onClick={() => docInputRef.current?.click()}
+                  disabled={uploadingDoc}
+                  className="px-2.5 py-1 text-xs font-semibold text-yellow-800 bg-yellow-100 hover:bg-yellow-200 rounded-md flex items-center gap-1 cursor-pointer transition disabled:opacity-50"
+                >
+                  {uploadingDoc ? <FiLoader className="animate-spin text-yellow-700" /> : <FiPlus />}
+                  Add Document
+                </button>
+              </div>
+
+              <input
+                type="file"
+                ref={docInputRef}
+                multiple
+                accept="image/*,.pdf"
+                className="hidden"
+                onChange={handleFilesSelected}
+              />
+
+              {documents.length === 0 ? (
+                <div
+                  onClick={() => docInputRef.current?.click()}
+                  className="p-3.5 border border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:bg-gray-50 hover:border-yellow-400 transition"
+                >
+                  <FiUpload className="mx-auto text-gray-400 mb-1 text-base" />
+                  <span className="text-xs text-gray-500 block">
+                    Click to upload documents (GST, PAN, Trade License, Agreement, etc. - PDF or Images)
+                  </span>
+                  <span className="text-[11px] text-gray-400 block mt-0.5">
+                    You can select multiple files at once
+                  </span>
+                </div>
+              ) : (
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {documents.map((doc, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-2 bg-white border border-gray-200 rounded-lg text-xs hover:border-gray-300 transition"
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+                        <FiFileText className="text-yellow-600 flex-shrink-0" />
+                        <input
+                          type="text"
+                          value={doc.name}
+                          onChange={(e) => updateDocName(idx, e.target.value)}
+                          placeholder="Document title"
+                          className="font-medium text-gray-800 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-yellow-500 focus:outline-none flex-1 truncate py-0.5"
+                          title="Click to rename document"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <a
+                          href={doc.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-yellow-700 hover:text-yellow-800 underline flex items-center gap-1 font-medium"
+                        >
+                          View
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => removeDoc(idx)}
+                          className="p-1 text-gray-400 hover:text-red-500 rounded transition cursor-pointer"
+                          title="Remove document"
+                        >
+                          <FiX className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -529,7 +682,7 @@ export function VendorRegistrationModal({
           </button>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || uploadingDoc}
             className="px-5 py-2 text-sm font-semibold text-white bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700 rounded-lg shadow-sm flex items-center gap-2 disabled:opacity-50"
           >
             {loading && <FiLoader className="animate-spin h-4 w-4" />}

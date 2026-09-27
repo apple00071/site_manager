@@ -19,6 +19,11 @@ import {
 } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
 
+export interface WorkerDocument {
+  name: string;
+  url: string;
+}
+
 export interface ContractWorker {
   id?: string;
   vendor_id?: string | null;
@@ -31,6 +36,7 @@ export interface ContractWorker {
   daily_wage: number;
   aadhaar_number?: string | null;
   id_proof_url?: string | null;
+  documents?: WorkerDocument[] | null;
   photo_url?: string | null;
   emergency_contact_name?: string | null;
   emergency_contact_phone?: string | null;
@@ -122,6 +128,7 @@ export function WorkerRegistrationModal({
 
   // Multiple wage rates state
   const [wageEntries, setWageEntries] = useState<{ type: string; rate: string }[]>([{ type: 'Daily Basis', rate: '' }]);
+  const [documents, setDocuments] = useState<WorkerDocument[]>([]);
 
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
@@ -150,6 +157,13 @@ export function WorkerRegistrationModal({
           ? parsedEntries
           : [{ type: initialData.wage_type || 'Daily Basis', rate: String(initialData.daily_wage || '') }]
       );
+      if (initialData.documents && Array.isArray(initialData.documents) && initialData.documents.length > 0) {
+        setDocuments(initialData.documents);
+      } else if (initialData.id_proof_url) {
+        setDocuments([{ name: 'ID Proof Document', url: initialData.id_proof_url }]);
+      } else {
+        setDocuments([]);
+      }
       setFormData({
         ...initialData,
         vendor_id: initialData.vendor_id || null,
@@ -162,6 +176,7 @@ export function WorkerRegistrationModal({
       });
     } else {
       setWageEntries([{ type: 'Daily Basis', rate: '' }]);
+      setDocuments([]);
       setFormData({
         vendor_id: null,
         full_name: '',
@@ -227,6 +242,54 @@ export function WorkerRegistrationModal({
     }
   };
 
+  const handleDocFilesSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploadingDoc(true);
+    setError(null);
+
+    try {
+      const newDocs: WorkerDocument[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const data = new FormData();
+        data.append('file', file);
+        data.append('bucket', 'project-update-photos');
+
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: data,
+        });
+
+        const json = await res.json();
+        if (!res.ok || !json.url) {
+          throw new Error(json.error || `Failed to upload ${file.name}`);
+        }
+
+        newDocs.push({
+          name: file.name.replace(/\.[^/.]+$/, ''),
+          url: json.url,
+        });
+      }
+
+      setDocuments(prev => [...prev, ...newDocs]);
+    } catch (err: any) {
+      console.error('Worker document upload error:', err);
+      setError(err.message || 'Worker document upload failed');
+    } finally {
+      setUploadingDoc(false);
+      if (docInputRef.current) docInputRef.current.value = '';
+    }
+  };
+
+  const removeDoc = (idx: number) => {
+    setDocuments(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateDocName = (idx: number, name: string) => {
+    setDocuments(prev => prev.map((d, i) => (i === idx ? { ...d, name } : d)));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.full_name?.trim()) {
@@ -262,6 +325,8 @@ export function WorkerRegistrationModal({
         wage_type: primary.type,
         daily_wage: Number(primary.rate) || 0,
         notes: notesStr,
+        documents: documents.length > 0 ? documents : [],
+        id_proof_url: documents.length > 0 ? documents[0].url : formData.id_proof_url || null,
       };
 
       const res = await fetch(url, {
@@ -556,46 +621,6 @@ export function WorkerRegistrationModal({
 
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1">
-                ID Proof Document (Aadhaar / Voter ID)
-              </label>
-              <input
-                type="file"
-                ref={docInputRef}
-                accept="image/*,.pdf"
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files?.[0]) handleFileUpload(e.target.files[0], 'doc');
-                }}
-              />
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => docInputRef.current?.click()}
-                  disabled={uploadingDoc}
-                  className="px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-1.5 shadow-sm"
-                >
-                  {uploadingDoc ? (
-                    <FiLoader className="animate-spin text-yellow-600" />
-                  ) : (
-                    <FiUpload />
-                  )}
-                  {formData.id_proof_url ? 'Replace Document' : 'Upload ID Proof'}
-                </button>
-                {formData.id_proof_url && (
-                  <a
-                    href={formData.id_proof_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-yellow-700 hover:text-yellow-800 underline flex items-center gap-1"
-                  >
-                    <FiFileText /> View
-                  </a>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
                 Emergency Contact Name
               </label>
               <input
@@ -629,6 +654,91 @@ export function WorkerRegistrationModal({
                 placeholder="Address, village, city, state..."
                 className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
               />
+            </div>
+
+            {/* Verification Documents (Multiple Upload) */}
+            <div className="md:col-span-2 pt-2 border-t border-gray-200/80">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-gray-700">
+                  Verification Documents (Aadhaar, Voter ID, Trade Certificate, Police Verification, etc.)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => docInputRef.current?.click()}
+                  disabled={uploadingDoc}
+                  className="px-2.5 py-1 text-xs font-medium text-yellow-800 bg-yellow-100 hover:bg-yellow-200 rounded-md transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                >
+                  {uploadingDoc ? (
+                    <FiLoader className="animate-spin text-xs" />
+                  ) : (
+                    <FiUpload className="text-xs" />
+                  )}
+                  Add Document
+                </button>
+              </div>
+
+              <input
+                type="file"
+                ref={docInputRef}
+                multiple
+                accept="image/*,.pdf"
+                className="hidden"
+                onChange={handleDocFilesSelected}
+              />
+
+              {documents.length === 0 ? (
+                <div
+                  onClick={() => docInputRef.current?.click()}
+                  className="p-3.5 border border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:bg-gray-50 hover:border-yellow-400 transition"
+                >
+                  <FiUpload className="mx-auto text-gray-400 mb-1 text-base" />
+                  <span className="text-xs text-gray-500 block">
+                    Click to upload documents (Aadhaar, Voter ID, Driving License, Certifications - PDF or Images)
+                  </span>
+                  <span className="text-[11px] text-gray-400 block mt-0.5">
+                    You can select multiple files at once
+                  </span>
+                </div>
+              ) : (
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {documents.map((doc, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-2 bg-white border border-gray-200 rounded-lg text-xs hover:border-gray-300 transition"
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+                        <FiFileText className="text-yellow-600 flex-shrink-0" />
+                        <input
+                          type="text"
+                          value={doc.name}
+                          onChange={(e) => updateDocName(idx, e.target.value)}
+                          placeholder="Document title"
+                          className="font-medium text-gray-800 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-yellow-500 focus:outline-none flex-1 truncate py-0.5"
+                          title="Click to rename document"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <a
+                          href={doc.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-yellow-700 hover:text-yellow-800 underline flex items-center gap-1 font-medium"
+                        >
+                          View
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => removeDoc(idx)}
+                          className="p-1 text-gray-400 hover:text-red-500 rounded transition cursor-pointer"
+                          title="Remove document"
+                        >
+                          <FiX className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
