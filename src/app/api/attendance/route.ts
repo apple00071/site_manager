@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
                 let responseData = openData;
                 if (!canViewAppeals && openData) {
                     responseData = openData.map((row: any) => {
-                        if (row.user_id !== userResult.user.id) {
+                        if (row.user_id !== userResult.user!.id) {
                             const { user_comments, admin_comments, ...rest } = row;
                             return rest;
                         }
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
         // If user lacks view_appeals permission, sensitive fields are removed for other users' records
         if (!canViewAppeals && data) {
             responseData = data.map((row: any) => {
-                if (row.user_id !== userResult.user.id) {
+                if (row.user_id !== userResult.user!.id) {
                     const { user_comments, admin_comments, ...rest } = row;
                     return rest;
                 }

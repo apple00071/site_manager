@@ -6,7 +6,7 @@ import { supabaseAdmin, getAuthUser } from '@/lib/supabase-server';
 import { createNoCacheResponse } from '@/lib/apiHelpers';
 import { verifyPermission } from '@/lib/rbac';
 import { PERMISSION_NODES } from '@/lib/rbac-constants';
-import { attachProjectCodes } from '@/lib/projectUtils';
+import { attachProjectCodes, invalidateProjectCodeCache } from '@/lib/projectUtils';
 
 // Optimize caching for projects API
 export const dynamic = 'force-dynamic';
@@ -420,6 +420,9 @@ export async function POST(req: Request) {
         { status: 500 }
       );
     }
+
+    // New project created — bust the code map cache so next request reflects it
+    invalidateProjectCodeCache();
 
     // Add the current user as a project member with admin role
     const { error: memberError } = await supabaseAdmin

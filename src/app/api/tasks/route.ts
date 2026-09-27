@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
     if (authError || !user) {
       console.error('❌ Authentication failed:', authError);
       return NextResponse.json(
-        { error: 'Unauthorized', details: authError?.message || 'No user found' },
+        { error: 'Unauthorized', details: authError || 'No user found' },
         { status: 401 }
       );
     }

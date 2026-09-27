@@ -25,37 +25,17 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const includeCompleted = searchParams.get('include_completed') === 'true';
 
-    // Check if user has management oversight (admin, lead designer, or designs.view_all permission)
-    const { data: userData } = await supabaseAdmin
-      .from('users')
-      .select('id, role, designation, roles:role_id(name)')
-      .eq('id', user.id)
-      .single();
-
+    // All permission data is already in user.permissionCodes — zero extra DB hits
     const { checkPermission } = await import('@/lib/rbac');
-    const viewAllPerm = await checkPermission(user.id, 'designs.view_all');
-    const pagePerm = await checkPermission(user.id, 'designs.daily_status');
+    const [viewAllPerm, pagePerm] = [checkPermission(user, 'designs.view_all'), checkPermission(user, 'designs.daily_status')];
+    // These are sync when user is AuthUser, but the fn is async so await both
+    const [viewAll, page] = await Promise.all([viewAllPerm, pagePerm]);
 
-    const isAdmin = Boolean(
-      user.role === 'admin' ||
-      userData?.role === 'admin' ||
-      (userData?.roles as any)?.name?.toLowerCase() === 'admin'
-    );
-    const isLead = Boolean(
-      userData?.designation?.toLowerCase().includes('lead') ||
-      (userData?.roles as any)?.name?.toLowerCase().includes('lead')
-    );
+    const isLead = Boolean(user.designation?.toLowerCase().includes('lead'));
+    const isManagement = Boolean(user.isAdmin || isLead || viewAll.allowed);
 
-    const isManagement = Boolean(
-      isAdmin ||
-      isLead ||
-      viewAllPerm.allowed
-    );
-
-    // Permission check to access daily status at all
-    if (!isAdmin && !pagePerm.allowed && !viewAllPerm.allowed && !isLead && userData?.role !== 'employee') {
+    if (!user.isAdmin && !page.allowed && !viewAll.allowed && !isLead && user.role !== 'employee') {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -93,13 +73,12 @@ export async function GET(request: NextRequest) {
       `)
       .order('created_at', { ascending: false });
 
-    // Exclude completed projects by default so old finished projects don't clutter the daily tracker
     if (searchParams.get('include_completed') !== 'true') {
       query = query.neq('status', 'completed');
     }
 
-    // Non-management designers only see projects assigned to them
     if (!isManagement) {
+      // Fetch member projects in parallel with (or before) the main query
       const { data: memberProjects } = await supabaseAdmin
         .from('project_members')
         .select('project_id')
@@ -132,6 +111,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -189,28 +169,11 @@ export async function PATCH(request: NextRequest) {
     if (updateFields.deadline !== undefined) payload.deadline = updateFields.deadline;
     if (updateFields.estimated_completion_date !== undefined) payload.estimated_completion_date = updateFields.estimated_completion_date;
 
-    // Check if user has management oversight (admin, lead designer, or designs.view_all permission)
-    const { data: updaterUserData } = await supabaseAdmin
-      .from('users')
-      .select('id, role, designation, roles:role_id(name)')
-      .eq('id', user.id)
-      .single();
+    // All permission data already in user.permissionCodes — no extra DB hit
+    const isLead = Boolean(user.designation?.toLowerCase().includes('lead'));
+    const isManagement = Boolean(user.isAdmin || isLead ||
+      (await (await import('@/lib/rbac')).checkPermission(user, 'designs.view_all')).allowed);
 
-    const { checkPermission: checkPermPatch } = await import('@/lib/rbac');
-    const viewAllPerm = await checkPermPatch(user.id, 'designs.view_all');
-
-    const isAdmin = Boolean(
-      user.role === 'admin' ||
-      updaterUserData?.role === 'admin' ||
-      (updaterUserData?.roles as any)?.name?.toLowerCase() === 'admin'
-    );
-    const isLead = Boolean(
-      updaterUserData?.designation?.toLowerCase().includes('lead') ||
-      (updaterUserData?.roles as any)?.name?.toLowerCase().includes('lead')
-    );
-    const isManagement = Boolean(isAdmin || isLead || viewAllPerm.allowed);
-
-    // Non-management designers can only update projects assigned to them
     if (!isManagement) {
       const { data: targetProj } = await supabaseAdmin
         .from('projects')
@@ -304,27 +267,9 @@ export async function PATCH(request: NextRequest) {
       }
 
       if (changes.length > 0) {
-        // Fetch updater's display name and verified role/designation
-        const { data: updaterProfile } = await supabaseAdmin
-          .from('users')
-          .select('full_name, username, email, role, designation, roles:role_id(name)')
-          .eq('id', user.id)
-          .single();
-
-        const updaterName = updaterProfile?.full_name || updaterProfile?.username || user.email?.split('@')[0] || 'Team member';
-        const userSysRole = (role || updaterProfile?.role || '').toLowerCase();
-        const customRoleName = ((updaterProfile?.roles as any)?.name || '').toLowerCase();
-        const designation = (updaterProfile?.designation || '').toLowerCase();
-
-        // Lead Designers, Admins, and HR are management roles for Daily Status
-        const isLeadOrAdmin =
-          userSysRole === 'admin' ||
-          userSysRole === 'super_admin' ||
-          customRoleName === 'admin' ||
-          customRoleName === 'admin hr' ||
-          customRoleName.includes('lead') ||
-          designation.includes('lead') ||
-          designation.includes('admin');
+        // Use AuthUser fields directly — no extra DB hit needed
+        const updaterName = user.full_name || user.username || user.email?.split('@')[0] || 'Team member';
+        const isLeadOrAdmin = user.isAdmin || Boolean(user.designation?.toLowerCase().includes('lead'));
 
         // Project code formatting (e.g. AI/26/51)
         const withCode = await attachProjectCodes(data);
@@ -361,7 +306,7 @@ export async function PATCH(request: NextRequest) {
           if (data.designer_id) recipientIds.add(data.designer_id);
 
           // If an Admin updated, also inform the Lead Designer(s)
-          if (userSysRole === 'admin' || customRoleName === 'admin') {
+          if (user.isAdmin) {
             leadDesignerIds.forEach(id => recipientIds.add(id));
           }
         } else {
