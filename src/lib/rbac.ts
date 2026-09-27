@@ -1,5 +1,3 @@
-'use server';
-
 /**
  * RBAC — zero extra DB hits when called with an AuthUser.
  *
@@ -71,7 +69,7 @@ interface CachedLegacyPerm {
 const legacyPermCache = new Map<string, CachedLegacyPerm>();
 const LEGACY_CACHE_TTL = 60_000;
 
-export function invalidateLegacyPermCache(userId?: string) {
+export async function invalidateLegacyPermCache(userId?: string) {
   if (userId) {
     legacyPermCache.delete(userId);
   } else {
