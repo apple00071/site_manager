@@ -1766,12 +1766,9 @@ export default function DailyStatusPage() {
     return (
       <div
         key={p.id}
-        className={`compact-card bg-white rounded-xl p-2 sm:p-2.5 shadow-2xs hover:shadow-xs transition-all flex flex-col gap-1 sm:gap-1.5 ${
-          timelineInfo.isOverdue
-            ? 'border-2 border-rose-300 bg-rose-50/15'
-            : timelineInfo.type === 'today'
-            ? 'border-2 border-blue-300 bg-blue-50/15'
-            : 'border border-gray-200 hover:border-gray-300'
+        className={`compact-card bg-white rounded-xl p-3 sm:p-4 shadow-2xs hover:shadow-xs transition-all flex flex-col gap-2.5 border border-gray-200 hover:border-gray-300 ${
+          timelineInfo.isOverdue ? 'border-l-2 border-l-rose-400' :
+          timelineInfo.type === 'today' ? 'border-l-2 border-l-blue-400' : ''
         }`}
       >
         {/* Card Header: Project ID, Phase & Timeline Indicator */}
@@ -1786,21 +1783,21 @@ export default function DailyStatusPage() {
               <FiExternalLink className="w-2.5 h-2.5 text-gray-400 shrink-0" />
             </Link>
 
-            <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider shrink-0 ${
-              phase === 'Designing' ? 'bg-amber-100 text-amber-800' :
-              phase === 'Execution' ? 'bg-blue-100 text-blue-800' :
-              phase === 'Handover' ? 'bg-purple-100 text-purple-800' :
-              'bg-emerald-100 text-emerald-800'
-            }`}>
+            <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider shrink-0">
               {phase}
             </span>
           </div>
 
           {/* Timeline Badge */}
-          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0 ${timelineInfo.badgeClass}`}>
-            {timelineInfo.isOverdue && <FiAlertTriangle className="w-2.5 h-2.5 text-rose-600 shrink-0" />}
-            {timelineInfo.type === 'today' && <FiClock className="w-2.5 h-2.5 text-blue-600 shrink-0" />}
-            {timelineInfo.type === 'completed' && <FiCheck className="w-2.5 h-2.5 text-emerald-600 flex-shrink-0" />}
+          <span className={`inline-flex items-center gap-1 text-[10px] font-medium shrink-0 ${
+            timelineInfo.isOverdue ? 'text-rose-500' :
+            timelineInfo.type === 'today' ? 'text-blue-500' :
+            timelineInfo.type === 'completed' ? 'text-emerald-600' :
+            'text-gray-400'
+          }`}>
+            {timelineInfo.isOverdue && <FiAlertTriangle className="w-2.5 h-2.5 shrink-0" />}
+            {timelineInfo.type === 'today' && <FiClock className="w-2.5 h-2.5 shrink-0" />}
+            {timelineInfo.type === 'completed' && <FiCheck className="w-2.5 h-2.5 flex-shrink-0" />}
             <span>{timelineInfo.label}</span>
           </span>
         </div>
@@ -1829,7 +1826,7 @@ export default function DailyStatusPage() {
         </div>
 
         {/* Multi-Task Section: Active Tasks List + Add Task Button */}
-        <div className="space-y-1 pt-1 border-t border-gray-100 text-xs">
+        <div className="space-y-2 pt-2 border-t border-gray-100 text-xs">
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-1 text-[10px] font-bold text-gray-600 uppercase tracking-wider">
               <span>Active Tasks</span>
@@ -1849,20 +1846,19 @@ export default function DailyStatusPage() {
           </div>
 
           {activeTasks.length > 0 ? (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               {activeTasks.map((t, idx) => {
                 const taskTimeline = getTaskTimelineInfo({ ...p, deadline: t.deadline, unified_status: t.status }, todayStr);
                 const taskStatusStyle = getStatusStyle(t.status_color, t.status);
                 return (
                   <div
                     key={t.id || idx}
-                    className="p-1 px-1.5 rounded-lg bg-gray-50/90 border border-gray-200/90 hover:bg-white hover:border-gray-300 transition-all text-xs flex flex-col gap-0.5"
+                    className="p-2 px-2.5 rounded-lg bg-gray-50/50 border border-gray-100 hover:bg-white hover:border-gray-200 transition-all text-xs flex flex-col gap-1"
                   >
                     <div className="flex items-center justify-between gap-1.5">
                       <div className="flex items-center gap-1.5 min-w-0 flex-1">
                         <span
-                          style={taskStatusStyle}
-                          className="px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 shadow-2xs"
+                          className="text-[10px] font-semibold shrink-0 text-gray-600"
                         >
                           {t.status}
                         </span>
@@ -1882,7 +1878,7 @@ export default function DailyStatusPage() {
                         <button
                           type="button"
                           onClick={() => handleCompleteSpecificTask(p, t.id)}
-                          className="no-touch-target min-w-0 px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded font-bold text-[10px] flex items-center gap-0.5 cursor-pointer transition shrink-0"
+                          className="no-touch-target min-w-0 px-1.5 py-0.5 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-800 border border-gray-200 rounded font-semibold text-[10px] flex items-center gap-0.5 cursor-pointer transition shrink-0"
                           title="Mark task done (archives to history)"
                         >
                           <FiCheck className="w-2.5 h-2.5 shrink-0" />
@@ -1925,12 +1921,12 @@ export default function DailyStatusPage() {
               })}
             </div>
           ) : (
-            <div className="p-2 rounded-lg bg-emerald-50/60 border border-emerald-200/60 text-center">
-              <p className="text-[11px] text-emerald-800 font-medium">All active tasks completed!</p>
+            <div className="p-2 rounded-lg bg-gray-50 border border-gray-100 text-center">
+              <p className="text-[11px] text-gray-500 font-medium">All active tasks completed</p>
               <button
                 type="button"
                 onClick={() => openAddTaskModal(p)}
-                className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold text-[10px] rounded-md shadow-2xs cursor-pointer transition"
+                className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-[10px] rounded-md cursor-pointer transition"
               >
                 <FiPlus className="w-2.5 h-2.5 shrink-0" />
                 <span>Add Next Task</span>
@@ -1995,7 +1991,7 @@ export default function DailyStatusPage() {
         </div>
 
         {/* Card Footer: Interactive Status Pill Button + Quick Actions (Single Sleek Row, Identical Height) */}
-        <div className="pt-1 border-t border-gray-100 flex items-center gap-1.5">
+        <div className="pt-2.5 border-t border-gray-100 flex items-center gap-2">
           {/* If the project is Design Completed or closed, show direct Re-open button */}
           {(p.unified_status?.toLowerCase().trim() === 'design completed' || p.status?.toLowerCase() === 'completed') ? (
             <button

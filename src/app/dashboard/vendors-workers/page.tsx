@@ -1012,18 +1012,31 @@ export default function VendorsWorkersPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
               {filteredVendors.map((vendor) => {
                 const linkedWorkersCount = workers.filter((w) => w.vendor_id === vendor.id).length;
+                // Parse first wage rate for badge display
+                const vendorFirstRate = (() => {
+                  const raw = vendor.notes || '';
+                  const WAGE_TAG = '__wage_rates__:';
+                  const NOTES_TAG = '\n__notes__:';
+                  if (raw.startsWith(WAGE_TAG)) {
+                    try {
+                      const notesIdx = raw.indexOf(NOTES_TAG);
+                      const wagePart = notesIdx >= 0 ? raw.slice(WAGE_TAG.length, notesIdx) : raw.slice(WAGE_TAG.length);
+                      const entries = JSON.parse(wagePart);
+                      return entries[0] || null;
+                    } catch (_) {}
+                  }
+                  return vendor.daily_wage ? { type: vendor.wage_type || 'day', rate: String(vendor.daily_wage) } : null;
+                })();
                 return (
                   <div
                     key={vendor.id}
-                    className="bg-white rounded-xl border border-gray-200 shadow-sm hover:border-yellow-400 transition-all p-3 sm:p-3.5 space-y-2.5 flex flex-col justify-between"
+                    onClick={() => setSelectedVendorForDetails(vendor)}
+                    className="bg-white rounded-xl border border-gray-200 shadow-sm hover:border-yellow-400 hover:shadow-md transition-all p-3 sm:p-3.5 space-y-2.5 flex flex-col justify-between cursor-pointer"
                   >
                     <div>
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <h4
-                            onClick={() => setSelectedVendorForDetails(vendor)}
-                            className="text-xs sm:text-sm font-bold text-gray-900 hover:text-yellow-600 cursor-pointer transition"
-                          >
+                          <h4 className="text-xs sm:text-sm font-bold text-gray-900 group-hover:text-yellow-600 transition">
                             {vendor.name}
                           </h4>
                           <span className="text-[10px] text-gray-500 capitalize">
@@ -1047,9 +1060,9 @@ export default function VendorsWorkersPage() {
                         <span className="bg-yellow-50 text-yellow-800 border border-yellow-200 font-medium px-2 py-0.5 rounded text-[11px]">
                           {vendor.trade_category || 'General'}
                         </span>
-                        {!!vendor.daily_wage && (
+                        {vendorFirstRate && (
                           <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium px-2 py-0.5 rounded text-[11px]">
-                            ₹{vendor.daily_wage}/{vendor.wage_type?.toLowerCase() || 'day'}
+                            ₹{vendorFirstRate.rate}/{vendorFirstRate.type || 'rate'}
                           </span>
                         )}
                         <span className="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-[10px] flex items-center gap-1">
@@ -1083,6 +1096,7 @@ export default function VendorsWorkersPage() {
                       {vendor.contact_phone ? (
                         <a
                           href={`tel:${getCleanPhone(vendor.contact_phone)}`}
+                          onClick={(e) => e.stopPropagation()}
                           className="inline-flex items-center gap-1 px-2.5 py-1 bg-yellow-50 text-yellow-800 hover:bg-yellow-100 rounded-md text-xs font-semibold transition"
                         >
                           <FiPhone className="text-xs" /> Call
@@ -1094,7 +1108,8 @@ export default function VendorsWorkersPage() {
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setEditingVendor(vendor);
                             setVendorModalOpen(true);
                           }}
@@ -1105,7 +1120,7 @@ export default function VendorsWorkersPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setSelectedVendorForDetails(vendor)}
+                          onClick={(e) => { e.stopPropagation(); setSelectedVendorForDetails(vendor); }}
                           className="px-2 py-1 text-xs font-medium text-yellow-800 bg-yellow-50 hover:bg-yellow-100 rounded-md transition"
                         >
                           View
