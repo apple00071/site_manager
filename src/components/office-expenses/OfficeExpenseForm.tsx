@@ -10,11 +10,13 @@ import { CustomDropdown, CustomDatePicker } from '@/components/ui/CustomControls
 
 interface OfficeExpenseFormProps {
     expense?: any;
+    defaultProjectId?: string;
+    projectsList?: Array<{ id: string; title: string; project_code?: string }>;
     onSuccess: () => void;
     onCancel: () => void;
 }
 
-const CATEGORIES = [
+const OFFICE_CATEGORIES = [
     'Office Supplies',
     'Utilities',
     'Rent',
@@ -27,19 +29,71 @@ const CATEGORIES = [
     'Other'
 ];
 
-export default function OfficeExpenseForm({ expense, onSuccess, onCancel }: OfficeExpenseFormProps) {
+const PROJECT_CATEGORIES = [
+    'Material Purchase',
+    'Site Transport / Conveyance',
+    'Labour / Work Charges',
+    'Tools & Equipment',
+    'Site Refreshments / Snacks',
+    'Client Site Visit',
+    'Site Miscellaneous',
+    'Other'
+];
+
+export default function OfficeExpenseForm({
+    expense,
+    defaultProjectId,
+    projectsList,
+    onSuccess,
+    onCancel
+}: OfficeExpenseFormProps) {
     const { user } = useAuth();
     const { showToast } = useToast();
 
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [projects, setProjects] = useState<Array<{ id: string; title: string; project_code?: string }>>(
+        projectsList || []
+    );
+
+    const initialProjectId = expense?.project_id 
+        ? expense.project_id 
+        : (expense?.source === 'office' ? 'office' : (defaultProjectId && defaultProjectId !== 'all' ? defaultProjectId : 'office'));
+
+    const [selectedProjectId, setSelectedProjectId] = useState<string>(initialProjectId);
+
     const [formData, setFormData] = useState({
         amount: expense?.amount?.toString() || '',
         description: expense?.description || '',
-        category: expense?.category || 'Office Supplies',
+        category: expense?.category || '',
         expense_date: expense?.expense_date || new Date().toISOString().split('T')[0],
         bill_urls: expense?.bill_urls || [],
     });
+
+    // Fetch projects if not provided
+    useEffect(() => {
+        if (!projectsList || projectsList.length === 0) {
+            fetch('/api/admin/projects')
+                .then(r => r.ok ? r.json() : null)
+                .then(data => {
+                    const list = Array.isArray(data) ? data : data?.projects || [];
+                    setProjects(list.map((p: any) => {
+                        const code = (p.project_code || p.ref_no || `AI-${p.id?.slice(0, 4) || ''}`)
+                            .replace('AI/PRJ/', 'AI/')
+                            .replace('PRJ/', '');
+                        return {
+                            id: p.id,
+                            title: p.title,
+                            project_code: code
+                        };
+                    }));
+                })
+                .catch(err => console.error('Failed to load projects in expense form:', err));
+        }
+    }, [projectsList]);
+
+    const isProjectExpense = selectedProjectId !== 'office';
+    const categories = isProjectExpense ? PROJECT_CATEGORIES : OFFICE_CATEGORIES;
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
@@ -77,8 +131,8 @@ export default function OfficeExpenseForm({ expense, onSuccess, onCancel }: Offi
         e.preventDefault();
         if (!user) return;
 
-        if (!formData.amount || !formData.description) {
-            showToast('error', 'Please fill in all required fields');
+        if (!formData.amount) {
+            showToast('error', 'Please enter an amount');
             return;
         }
 
@@ -97,6 +151,7 @@ export default function OfficeExpenseForm({ expense, onSuccess, onCancel }: Offi
                 category: formData.category,
                 expense_date: formData.expense_date,
                 bill_urls: formData.bill_urls,
+                project_id: selectedProjectId === 'office' ? null : selectedProjectId,
             };
 
             const url = expense ? `/api/office-expenses?id=${expense.id}` : '/api/office-expenses';
@@ -113,26 +168,54 @@ export default function OfficeExpenseForm({ expense, onSuccess, onCancel }: Offi
                 throw new Error(errorData.error || 'Failed to save expense');
             }
 
-            showToast('success', `Office expense ${expense ? 'updated' : 'added'} successfully`);
+            const label = isProjectExpense ? 'Project expense' : 'Office expense';
+            showToast('success', `${label} ${expense ? 'updated' : 'recorded'} successfully`);
             onSuccess();
         } catch (error: any) {
-            console.error('Detailed error saving office expense:', {
+            console.error('Detailed error saving expense:', {
                 message: error.message,
                 details: error.details,
                 hint: error.hint,
                 code: error.code,
                 error
             });
-            showToast('error', error.message || 'Failed to save office expense');
+            showToast('error', error.message || 'Failed to save expense');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Project Selection Dropdown */}
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Expense For (Project / Office) *
+                </label>
+                <CustomDropdown
+                    value={selectedProjectId}
+                    onChange={(val) => {
+                        setSelectedProjectId(val);
+                        if (val === 'office') {
+                            setFormData(prev => ({ ...prev, category: 'Office Supplies' }));
+                        } else if (val !== 'office' && !PROJECT_CATEGORIES.includes(formData.category)) {
+                            setFormData(prev => ({ ...prev, category: 'Material Purchase' }));
+                        }
+                    }}
+                    options={[
+                        { id: 'office', title: 'Office / Non-Project Expense' },
+                        ...projects.map(p => ({
+                            id: p.id,
+                            title: p.title
+                        }))
+                    ]}
+                    searchable={true}
+                    placeholder="Select Project or Office"
+                />
+            </div>
+
+            <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Amount (₹) *
                 </label>
                 <div className="relative">
@@ -150,18 +233,22 @@ export default function OfficeExpenseForm({ expense, onSuccess, onCancel }: Offi
             </div>
 
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Category *
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Category
                 </label>
                 <CustomDropdown
                     value={formData.category}
                     onChange={(val) => setFormData(prev => ({ ...prev, category: val }))}
-                    options={CATEGORIES.map(cat => ({ id: cat, title: cat }))}
+                    options={[
+                        { id: '', title: 'None' },
+                        ...categories.map(cat => ({ id: cat, title: cat }))
+                    ]}
+                    placeholder="Select Category"
                 />
             </div>
 
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Date *
                 </label>
                 <CustomDatePicker
@@ -171,22 +258,21 @@ export default function OfficeExpenseForm({ expense, onSuccess, onCancel }: Offi
             </div>
 
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description *
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Description / Purpose
                 </label>
                 <textarea
                     value={formData.description}
                     onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                     rows={3}
                     className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm"
-                    placeholder="What was this expense for?"
-                    required
+                    placeholder={isProjectExpense ? 'e.g. Site transport, Local hardware purchase, Tea for carpenter...' : 'What was this expense for?'}
                 />
             </div>
 
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Bill/Receipt
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Bill / Receipts
                 </label>
                 {/* Multi-file selection */}
                 <div className="space-y-3">
@@ -195,7 +281,7 @@ export default function OfficeExpenseForm({ expense, onSuccess, onCancel }: Offi
                             {formData.bill_urls.map((url: string, idx: number) => (
                                 <div key={idx} className="relative group">
                                     {url.toLowerCase().endsWith('.pdf') ? (
-                                        <div className="w-full h-32 flex flex-col items-center justify-center bg-gray-50 border border-gray-200 rounded-lg p-2 text-center">
+                                        <div className="w-full h-28 flex flex-col items-center justify-center bg-gray-50 border border-gray-200 rounded-lg p-2 text-center">
                                             <FiUpload className="w-6 h-6 text-red-500 mb-1" />
                                             <span className="text-[10px] text-gray-500 truncate w-full">PDF Document</span>
                                         </div>
@@ -203,7 +289,7 @@ export default function OfficeExpenseForm({ expense, onSuccess, onCancel }: Offi
                                         <img
                                             src={url}
                                             alt={`Bill ${idx + 1}`}
-                                            className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                                            className="w-full h-28 object-cover rounded-lg border border-gray-200"
                                         />
                                     )}
                                     <button
@@ -231,20 +317,20 @@ export default function OfficeExpenseForm({ expense, onSuccess, onCancel }: Offi
                         <label
                             htmlFor="bill-upload"
                             className={`
-                                flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50 transition-all
+                                flex flex-col items-center justify-center w-full h-20 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50 transition-all
                                 ${uploading ? 'opacity-50 cursor-not-allowed' : ''}
                             `}
                         >
-                            <FiUpload className="w-6 h-6 text-gray-400 mb-2" />
+                            <FiUpload className="w-5 h-5 text-gray-400 mb-1" />
                             <span className="text-xs text-gray-500">
-                                {uploading ? 'Uploading...' : 'Add more bills (Image/PDF)'}
+                                {uploading ? 'Uploading...' : 'Attach bill receipts (Image or PDF)'}
                             </span>
                         </label>
                     </div>
                 </div>
             </div>
 
-            <div className="flex gap-3 pt-4 border-t border-gray-100">
+            <div className="flex gap-3 pt-3 border-t border-gray-100">
                 <button
                     type="button"
                     onClick={onCancel}
@@ -255,16 +341,17 @@ export default function OfficeExpenseForm({ expense, onSuccess, onCancel }: Offi
                 <button
                     type="submit"
                     disabled={loading || uploading}
-                    className="flex-1 px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg text-sm font-medium hover:bg-yellow-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="flex-1 px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg text-sm font-semibold hover:bg-yellow-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                     {loading ? (
-                        <div className="w-5 h-5 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
+                        <div className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
                     ) : (
-                        <FiCheck className="w-5 h-5" />
+                        <FiCheck className="w-4 h-4" />
                     )}
-                    {expense ? 'Update Expense' : 'Submit Expense'}
+                    {expense ? 'Update Expense' : 'Record Expense'}
                 </button>
             </div>
         </form>
     );
 }
+

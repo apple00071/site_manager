@@ -20,6 +20,10 @@ import { CustomDropdown } from '@/components/ui/CustomControls';
 
 interface OfficeExpense {
     id: string;
+    source?: 'office' | 'project';
+    project_id?: string | null;
+    project_name?: string;
+    project_code?: string | null;
     description: string;
     amount: number;
     expense_date: string;
@@ -53,15 +57,15 @@ export default function OfficeExpensesPage() {
 
     // Set header title
     useEffect(() => {
-        setTitle('Office Expenses');
-        setSubtitle(null);
+        setTitle('Expenses');
+        setSubtitle('Unified view of office & project expenses');
     }, [setTitle, setSubtitle]);
 
     // Permissions
-    const canView = hasPermission('office_expenses.view');
-    const canCreate = hasPermission('office_expenses.create');
-    const canApprove = hasPermission('office_expenses.approve');
-    const canDelete = hasPermission('office_expenses.delete');
+    const canView = hasPermission('office_expenses.view') || hasPermission('inventory.view');
+    const canCreate = hasPermission('office_expenses.create') || hasPermission('inventory.add');
+    const canApprove = hasPermission('office_expenses.approve') || hasPermission('inventory.approve');
+    const canDelete = hasPermission('office_expenses.delete') || hasPermission('inventory.delete');
 
     // State
     const [expenses, setExpenses] = useState<OfficeExpense[]>([]);
@@ -70,6 +74,8 @@ export default function OfficeExpensesPage() {
     const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
     const [selectedMonth, setSelectedMonth] = useState<number | 'all'>(new Date().getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+    const [selectedProject, setSelectedProject] = useState<string>('all');
+    const [projectsList, setProjectsList] = useState<Array<{ id: string; title: string; project_code?: string }>>([]);
 
     // Modal States
     const [showForm, setShowForm] = useState(false);
@@ -114,9 +120,29 @@ export default function OfficeExpensesPage() {
         }
     }, [expenseIdParam, expenses, canApprove]);
 
+    // Load projects list for dropdown
+    useEffect(() => {
+        fetch('/api/admin/projects')
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+                const list = Array.isArray(data) ? data : data?.projects || [];
+                setProjectsList(list.map((p: any) => {
+                    const code = (p.project_code || p.ref_no || `AI-${p.id?.slice(0, 4) || ''}`)
+                        .replace('AI/PRJ/', 'AI/')
+                        .replace('PRJ/', '');
+                    return {
+                        id: p.id,
+                        title: p.title,
+                        project_code: code
+                    };
+                }));
+            })
+            .catch(err => console.error('Failed to load projects list in expenses page:', err));
+    }, []);
+
     useEffect(() => {
         fetchExpenses();
-    }, [selectedMonth, selectedYear]);
+    }, [selectedMonth, selectedYear, selectedProject]);
 
     // Close menu on scroll or click outside
     useEffect(() => {
@@ -146,10 +172,14 @@ export default function OfficeExpensesPage() {
     const fetchExpenses = async () => {
         try {
             setLoading(true);
-            const res = await fetch(`/api/office-expenses?month=${selectedMonth}&year=${selectedYear}`);
+            let url = `/api/office-expenses?month=${selectedMonth}&year=${selectedYear}`;
+            if (selectedProject && selectedProject !== 'all') {
+                url += `&project_id=${selectedProject}`;
+            }
+            const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
-                setExpenses(data.expenses);
+                setExpenses(data.expenses || []);
             }
         } catch (error) {
             console.error('Error fetching expenses:', error);
@@ -224,8 +254,10 @@ export default function OfficeExpensesPage() {
     const filteredExpenses = expenses.filter(expense => {
         const matchesSearch =
             expense.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            expense.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            expense.user?.full_name.toLowerCase().includes(searchQuery.toLowerCase());
+            (expense.category ? expense.category.toLowerCase().includes(searchQuery.toLowerCase()) : false) ||
+            (expense.project_name && expense.project_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (expense.project_code && expense.project_code.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (expense.user?.full_name && expense.user.full_name.toLowerCase().includes(searchQuery.toLowerCase()));
         const matchesStatus = statusFilter === 'all' || expense.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
@@ -244,8 +276,28 @@ export default function OfficeExpensesPage() {
         {
             key: 'date',
             label: 'Date',
-            width: 'w-32',
+            width: 'w-28',
             render: (_, row) => <span className="text-gray-600">{formatDateIST(row.expense_date)}</span>
+        },
+        {
+            key: 'project',
+            label: 'Scope / Project',
+            width: 'w-44',
+            render: (_, row) => {
+                const isOffice = row.source === 'office' || row.project_name === 'Office' || !row.project_id;
+                return isOffice ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                        Office
+                    </span>
+                ) : (
+                    <span
+                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 max-w-[170px] truncate"
+                        title={row.project_name}
+                    >
+                        <span className="truncate">{row.project_name}</span>
+                    </span>
+                );
+            }
         },
         {
             key: 'description',
@@ -264,8 +316,8 @@ export default function OfficeExpensesPage() {
             label: 'Category',
             width: 'w-32',
             render: (_, row) => (
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 uppercase tracking-wide">
-                    {row.category}
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 uppercase tracking-wide truncate max-w-[130px]">
+                    {row.category || 'General'}
                 </span>
             )
         },
@@ -386,7 +438,24 @@ export default function OfficeExpensesPage() {
 
                     {/* Actions */}
                     <div className="flex flex-wrap items-center gap-3">
-                        <div className="min-w-[140px]">
+                        <div className="min-w-[170px] max-w-[230px]">
+                            <CustomDropdown
+                                value={selectedProject}
+                                onChange={(val) => setSelectedProject(val)}
+                                options={[
+                                    { id: 'all', title: 'All Scope (Office & Projects)' },
+                                    { id: 'office', title: 'Office Only' },
+                                    ...projectsList.map(p => ({
+                                        id: p.id,
+                                        title: p.title
+                                    }))
+                                ]}
+                                searchable={true}
+                                placeholder="Filter Scope"
+                            />
+                        </div>
+
+                        <div className="min-w-[130px]">
                             <CustomDropdown
                                 value={selectedMonth.toString()}
                                 onChange={(val) => setSelectedMonth(val === 'all' ? 'all' : parseInt(val))}
@@ -456,10 +525,21 @@ export default function OfficeExpensesPage() {
                                     <div key={expense.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
                                         {/* Card Header */}
                                         <div className="px-4 py-3 border-b border-gray-50 flex justify-between items-center">
-                                            <div className="flex flex-col gap-0.5">
-                                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                                                    {expense.category || 'Office Expense'}
-                                                </span>
+                                            <div className="flex flex-col gap-1">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    {expense.project_name && expense.project_name !== 'Office' ? (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 truncate max-w-[170px]">
+                                                            {expense.project_name}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                                            Office
+                                                        </span>
+                                                    )}
+                                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                                                        {expense.category || 'Expense'}
+                                                    </span>
+                                                </div>
                                                 <div className="flex items-center gap-2">
                                                     <StatusBadge
                                                         status={expense.status.toUpperCase()}
@@ -749,6 +829,8 @@ export default function OfficeExpensesPage() {
                                 setEditingExpense(null);
                             }}
                             expense={editingExpense || undefined}
+                            defaultProjectId={selectedProject !== 'all' ? selectedProject : ''}
+                            projectsList={projectsList}
                         />
                     </div>
                 </BottomSheet>
@@ -776,6 +858,8 @@ export default function OfficeExpensesPage() {
                             setEditingExpense(null);
                         }}
                         expense={editingExpense || undefined}
+                        defaultProjectId={selectedProject !== 'all' ? selectedProject : ''}
+                        projectsList={projectsList}
                     />
                 </SidePanel>
             )}

@@ -33,4 +33,8 @@ BEGIN
 
     CREATE INDEX IF NOT EXISTS idx_boq_bills_project_id ON boq_bills(project_id);
     CREATE INDEX IF NOT EXISTS idx_boq_items_bill_number ON boq_items(bill_number);
+
+    -- Enable Row Level Security (RLS)
+    ALTER TABLE boq_bills ENABLE ROW LEVEL SECURITY;
 END $$;
+

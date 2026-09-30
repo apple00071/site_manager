@@ -359,6 +359,7 @@ export async function POST(req: Request) {
       estimated_completion_date: parsed.data.estimated_completion_date,
       assigned_employee_id: parsed.data.assigned_employee_id,
       designer_id: parsed.data.assigned_employee_id,
+      designer_assigned_at: parsed.data.assigned_employee_id ? new Date().toISOString() : null,
       carpenter_name: parsed.data.carpenter_name || null,
       carpenter_phone: parsed.data.carpenter_phone || null,
       electrician_name: parsed.data.electrician_name || null,
@@ -396,46 +397,42 @@ export async function POST(req: Request) {
     // New project created — bust the code map cache so next request reflects it
     invalidateProjectCodeCache();
 
-    // Add the current user as a project member with admin role
+    // Add the current user as a project member with full permissions
     const { error: memberError } = await supabaseAdmin
       .from('project_members')
-      .insert([
+      .upsert(
         {
           project_id: project.id,
           user_id: userId,
-          role: 'admin',
-          created_by: userId,
+          permissions: { view: true, edit: true, upload: true, mark_done: true },
         },
-      ]);
+        { onConflict: 'project_id,user_id' }
+      );
 
     if (memberError) {
-      console.error('Error adding project member:', memberError);
-      // Don't fail the request if we can't add the member
-      // Just log it and continue
+      console.error('Error adding creator as project member:', memberError);
     }
 
-    // Add the assigned employee as a project member if they're not the current user
-    if (parsed.data.assigned_employee_id !== user.id) {
+    // Add the assigned employee / designer as a project member with full permissions
+    if (parsed.data.assigned_employee_id) {
       const { error: assigneeError } = await supabaseAdmin
         .from('project_members')
-        .insert([
+        .upsert(
           {
             project_id: project.id,
             user_id: parsed.data.assigned_employee_id,
-            role: 'member',
-            created_by: user.id,
+            permissions: { view: true, edit: true, upload: true, mark_done: true },
           },
-        ]);
+          { onConflict: 'project_id,user_id' }
+        );
 
       if (assigneeError) {
         console.error('Error adding assigned employee to project:', assigneeError);
-        // Don't fail the request if we can't add the assignee
-        // Just log it and continue
       }
     }
 
-    // Send notification to assigned employee
-    if (parsed.data.assigned_employee_id !== user.id) {
+    // Send in-app and WhatsApp notification to assigned employee/designer
+    if (parsed.data.assigned_employee_id) {
       try {
         await NotificationService.createNotification({
           userId: parsed.data.assigned_employee_id,
@@ -443,7 +440,7 @@ export async function POST(req: Request) {
           message: `You have been assigned to project "${parsed.data.title}" for customer ${parsed.data.customer_name}`,
           type: 'task_assigned',
           relatedId: project.id,
-          relatedType: 'project'
+          relatedType: 'project',
         });
         console.log('Assignment notification sent to employee:', parsed.data.assigned_employee_id);
 
@@ -464,7 +461,6 @@ export async function POST(req: Request) {
         } catch (_) { }
       } catch (notificationError) {
         console.error('Failed to send assignment notification:', notificationError);
-        // Don't fail the main operation if notification fails
       }
     }
 

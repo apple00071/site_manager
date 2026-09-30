@@ -127,7 +127,8 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
 
   // Quotation is approved when the lead status is 'Approved'
   const isApproved = lead.status === 'Approved';
-  const isApprovedLocked = isApproved && !canEditApproved;
+  // Admin-only edit lock removed per requirement: authorized users can edit approved quotes
+  const isApprovedLocked = false;
 
   const [tab, setTab] = useState<'sections' | 'items' | 'specs' | 'summary'>('sections');
   const [rateCard, setRateCard] = useState<RateCardItem[]>([]);
@@ -586,24 +587,24 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
           <button onClick={onClose} style={styles.closeBtn}><FiX size={20} /></button>
         </div>
 
-        {/* Approved quotation lock notice */}
-        {isApprovedLocked && (
+        {/* Approved quotation notice */}
+        {isApproved && (
           <div style={{
-            background: '#78350f',
-            color: '#fef3c7',
-            padding: '10px 18px',
+            background: '#1e3a8a',
+            color: '#bfdbfe',
+            padding: '8px 18px',
             fontSize: '12px',
             fontWeight: 600,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            borderBottom: '1px solid #92400e',
+            borderBottom: '1px solid #1d4ed8',
             gap: '12px'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '16px' }}>🔒</span>
+              <span style={{ fontSize: '14px' }}>🛡️</span>
               <span>
-                <strong>Quotation Approved (Locked):</strong> Only administrators can modify approved quotations. This quotation is in read-only mode.
+                <strong>Approved Quotation:</strong> Changes saved here will update this quotation and the lead quote value.
               </span>
             </div>
             {existingQuotation && (
@@ -615,23 +616,6 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                 <FiPrinter size={12} /> Print PDF
               </button>
             )}
-          </div>
-        )}
-        {isApproved && isAdmin && (
-          <div style={{
-            background: '#1e3a8a',
-            color: '#bfdbfe',
-            padding: '8px 18px',
-            fontSize: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            borderBottom: '1px solid #1d4ed8',
-          }}>
-            <span style={{ fontSize: '14px' }}>🛡️</span>
-            <span>
-              <strong>Approved Quotation:</strong> Editing with Administrator privileges.
-            </span>
           </div>
         )}
 

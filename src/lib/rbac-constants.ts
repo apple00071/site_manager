@@ -15,6 +15,11 @@ export const PERMISSION_NODES = {
     PROJECTS_ASSIGN: 'projects.assign',
     PROJECTS_VIEW_BUDGET: 'projects.view_budget',
 
+    // Requirement & Checklist Permissions
+    REQUIREMENTS_VIEW: 'requirements.view',
+    REQUIREMENTS_EDIT: 'requirements.edit',
+    REQUIREMENTS_DELETE: 'requirements.delete',
+
     // Design Permissions
     DESIGNS_VIEW: 'designs.view',
     DESIGNS_VIEW_ALL: 'designs.view_all',

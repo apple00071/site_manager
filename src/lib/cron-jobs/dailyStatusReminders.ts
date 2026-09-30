@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { NotificationService } from '@/lib/notificationService';
-import { fetchUsersWithRoles, isAdminOrHR } from '@/lib/cron-jobs/cronUtils';
+import { fetchUsersWithRoles, isAdminOrHR, fetchDesignerDesignStatusMap } from '@/lib/cron-jobs/cronUtils';
 
 /**
  * Admin Assign Reminder (10:30 AM IST)
@@ -34,7 +34,7 @@ export async function runAdminAssignReminder() {
 
 /**
  * Member Checkup Reminder (1:00 PM IST)
- * Notifies members to check on their assigned projects/tasks
+ * Notifies members & designers to check on their assigned projects/tasks
  */
 export async function runMemberCheckupReminder() {
     console.log('👥 Starting Member Checkup Reminder Logic');
@@ -42,7 +42,7 @@ export async function runMemberCheckupReminder() {
     // Fetch users who have assigned tasks or project steps
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Get unique user IDs of people assigned to active/todo tasks today
+    // 1. Get unique user IDs of people assigned to active/todo tasks today
     const { data: tasks } = await supabaseAdmin
         .from('tasks')
         .select('assigned_to')
@@ -55,17 +55,31 @@ export async function runMemberCheckupReminder() {
             .filter(Boolean)
     );
 
+    // 2. Also include designers who have active design projects/tasks
+    const designerDesignMap = await fetchDesignerDesignStatusMap();
+    Object.keys(designerDesignMap).forEach(dId => {
+        if (designerDesignMap[dId].items.length > 0) {
+            userIds.add(dId);
+        }
+    });
+
     if (userIds.size === 0) {
         return { success: true, message: 'No members with active tasks found' };
     }
 
     const updates = [];
     for (const userId of userIds) {
+        const dData = designerDesignMap[userId as string];
+        let extra = '';
+        if (dData && dData.items.length > 0) {
+            extra = ` You have ${dData.activeTasksCount} active design task(s) across ${dData.projectCount} project(s).`;
+        }
+
         updates.push(
             NotificationService.createNotification({
                 userId: userId as string,
                 title: 'How is your day going?',
-                message: `Please take a quick moment to update the status of your active projects and tasks if you have any progress to share.`,
+                message: `Please take a quick moment to update the status of your active projects and tasks if you have any progress to share.${extra}`,
                 type: 'general',
                 skipInApp: true
             })
@@ -78,7 +92,8 @@ export async function runMemberCheckupReminder() {
 
 /**
  * Admin Task Verification Reminder (5:30 PM IST)
- * Notifies Admin to check the team's progress + snag summary
+ * Notifies Admin to check the team's progress + snag summary + design summary,
+ * and notifies Members & Designers of their end of day status.
  */
 export async function runAdminTaskCheckReminder() {
     console.log('🏁 Starting Admin Task Check Reminder Logic');
@@ -91,7 +106,7 @@ export async function runAdminTaskCheckReminder() {
         return { success: true, message: 'No active users found' };
     }
 
-    // Fetch snag summary for end-of-day report
+    // 1. Fetch snag summary for end-of-day report
     const { data: openSnags } = await supabaseAdmin
         .from('snags')
         .select('id, status, assigned_to_user_id')
@@ -125,22 +140,33 @@ export async function runAdminTaskCheckReminder() {
         taskSummary = `\n\n📋 Task Summary:\n- Completed: ${totalTasksCompleted}\n- In Progress: ${totalTasksInProgress}\n- Overdue / Remaining: ${totalTasksTodo}`;
     }
 
+    // 3. Fetch active design tasks per designer
+    const designerDesignMap = await fetchDesignerDesignStatusMap();
+    const totalDesignProjects = Object.values(designerDesignMap).reduce((s, d) => s + d.projectCount, 0);
+    const totalActiveDesignTasks = Object.values(designerDesignMap).reduce((s, d) => s + d.activeTasksCount, 0);
+    const totalOverdueDesignTasks = Object.values(designerDesignMap).reduce((s, d) => s + d.overdueTasksCount, 0);
+
+    let adminDesignSummary = '';
+    if (totalActiveDesignTasks > 0) {
+        adminDesignSummary = `\n\n🎨 Design Pipeline:\n- Active Tasks: ${totalActiveDesignTasks} across ${totalDesignProjects} projects${totalOverdueDesignTasks > 0 ? ` (⚠️ ${totalOverdueDesignTasks} Overdue)` : ''}`;
+    }
+
     const updates = [];
 
-    // 1. Send EOD Reviews to Admins
+    // Send EOD Reviews to Admins
     for (const admin of admins) {
         updates.push(
             NotificationService.createNotification({
                 userId: admin.id,
                 title: 'End of Day Review',
-                message: `Hi ${admin.full_name}, please take a moment to review the team's task updates and completions as we wrap up today's work.${taskSummary}${snagSummary}`,
+                message: `Hi ${admin.full_name}, please take a moment to review the team's task updates, design pipeline, and completions as we wrap up today's work.${taskSummary}${snagSummary}${adminDesignSummary}`,
                 type: 'general',
                 skipInApp: true
             })
         );
     }
 
-    // 3. Map Pending Tasks for Members
+    // 4. Map Pending Tasks for Members
     const pendingTasksMap: Record<string, number> = {};
     const addPending = (userId: string) => {
         pendingTasksMap[userId] = (pendingTasksMap[userId] || 0) + 1;
@@ -171,17 +197,25 @@ export async function runAdminTaskCheckReminder() {
         }
     });
 
-    // Send EOD Reviews to Members who have pending tasks/snags
+    // Send EOD Reviews to Members / Designers who have pending tasks, snags, or active design tasks
     for (const member of members) {
         const pendingTasks = pendingTasksMap[member.id] || 0;
         const assignedSnags = userSnagStats[member.id]?.assigned || 0;
         const resolvedSnags = userSnagStats[member.id]?.resolved || 0;
+        const designData = designerDesignMap[member.id];
 
-        if (pendingTasks > 0 || assignedSnags > 0 || resolvedSnags > 0) {
+        const hasPendingItems = pendingTasks > 0 || assignedSnags > 0 || resolvedSnags > 0 || (designData && designData.items.length > 0);
+
+        if (hasPendingItems) {
             const parts = [];
             if (pendingTasks > 0) parts.push(`Pending Tasks: ${pendingTasks}`);
             if (assignedSnags > 0) parts.push(`Pending Snags: ${assignedSnags} Assigned to You`);
             if (resolvedSnags > 0) parts.push(`Resolved Snags: ${resolvedSnags} (Pending Verification)`);
+            if (designData && designData.items.length > 0) {
+                parts.push(`Design Tasks: ${designData.activeTasksCount} active across ${designData.projectCount} project(s)${designData.overdueTasksCount > 0 ? ` (⚠️ ${designData.overdueTasksCount} overdue)` : ''}`);
+                const topItems = designData.items.slice(0, 3).map(i => `  • [${i.projectCode}] ${i.taskTitle}: ${i.status}`);
+                parts.push(...topItems);
+            }
 
             const message = `Hi ${member.full_name}, as we wrap up today's work, here is a quick review of your items:\n- ${parts.join('\n- ')}\n\nPlease ensure your progress is fully updated in the app. Thank you!`;
 
@@ -203,5 +237,4 @@ export async function runAdminTaskCheckReminder() {
         message: `Sent review reminders to ${admins.length} admins and ${updates.length - admins.length} members`,
         snagSummary: { totalOpen, totalAssigned, totalResolved }
     };
-
 }

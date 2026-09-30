@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { NotificationService } from '@/lib/notificationService';
-import { fetchUsersWithRoles, isAdminOrHR } from '@/lib/cron-jobs/cronUtils';
+import { fetchUsersWithRoles, isAdminOrHR, fetchDesignerDesignStatusMap } from '@/lib/cron-jobs/cronUtils';
 
 export async function runDailyBriefing() {
     console.log('🌅 Starting Daily Briefing Logic');
@@ -75,7 +75,13 @@ export async function runDailyBriefing() {
         }
     });
 
-    // 4. Send Briefings to ALL active users (with roles joined)
+    // 4. Fetch Designer active design tasks & status
+    const designerDesignMap = await fetchDesignerDesignStatusMap();
+    const totalDesignProjects = Object.values(designerDesignMap).reduce((s, d) => s + d.projectCount, 0);
+    const totalActiveDesignTasks = Object.values(designerDesignMap).reduce((s, d) => s + d.activeTasksCount, 0);
+    const totalOverdueDesignTasks = Object.values(designerDesignMap).reduce((s, d) => s + d.overdueTasksCount, 0);
+
+    // 5. Send Briefings to ALL active users (with roles joined)
     const allUsers = await fetchUsersWithRoles();
 
     const updates = [];
@@ -83,6 +89,7 @@ export async function runDailyBriefing() {
         const stats = userStats[user.id] || { today: 0, overdue: 0 };
         const snags = snagStats[user.id] || { assigned: 0, open: 0 };
         const isAdmin = isAdminOrHR(user);
+        const designData = designerDesignMap[user.id];
 
         // Build snag section only if there's something to report
         let snagSection = '';
@@ -99,12 +106,26 @@ export async function runDailyBriefing() {
             }
         }
 
+        // Build design status section for designers
+        let designSection = '';
+        if (designData && designData.items.length > 0) {
+            const lines = designData.items.slice(0, 5).map(item => {
+                const dueStr = item.deadline ? ` (Due: ${item.deadline})` : '';
+                const overdueTag = item.isOverdue ? ' ⚠️ OVERDUE' : '';
+                return `• [${item.projectCode}] ${item.taskTitle}: ${item.status}${dueStr}${overdueTag}`;
+            });
+            const extra = designData.items.length > 5 ? `\n...and ${designData.items.length - 5} more design task(s)` : '';
+            designSection = `\n\n🎨 Design Tasks (${designData.projectCount} Project${designData.projectCount > 1 ? 's' : ''}, ${designData.activeTasksCount} Active${designData.overdueTasksCount > 0 ? `, ⚠️ ${designData.overdueTasksCount} Overdue` : ''}):\n${lines.join('\n')}${extra}`;
+        } else if (isAdmin && totalActiveDesignTasks > 0) {
+            designSection = `\n\n🎨 Design Pipeline:\n- Active Projects: ${totalDesignProjects}\n- Active Tasks: ${totalActiveDesignTasks}${totalOverdueDesignTasks > 0 ? ` (⚠️ ${totalOverdueDesignTasks} Overdue)` : ''}`;
+        }
+
         // Build task summary line
         const taskLine = `\n\n📋 Task Summary:\n- Due Today: ${stats.today}\n- Overdue: ${stats.overdue}`;
 
-        const message = `Good morning, ${user.full_name}! 🌅\n\nHere's your daily briefing for today:${taskLine}${snagSection}\n\nHave a productive day ahead!`;
+        const message = `Good morning, ${user.full_name}! 🌅\n\nHere's your daily briefing for today:${taskLine}${snagSection}${designSection}\n\nHave a productive day ahead!`;
 
-        console.log(`[DailyBriefing] Constructing message for ${user.full_name} (isAdmin: ${isAdmin}, hasSnagSection: ${!!snagSection})`);
+        console.log(`[DailyBriefing] Constructing message for ${user.full_name} (isAdmin: ${isAdmin}, hasSnags: ${!!snagSection}, hasDesign: ${!!designSection})`);
 
         console.log(`Sending briefing to ${user.full_name}`);
         updates.push(

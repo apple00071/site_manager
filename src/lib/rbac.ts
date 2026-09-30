@@ -34,6 +34,7 @@ const ALIAS_PREFIX_MAP: Record<string, string> = {
   holiday: 'holidays', holidays: 'holiday',
   leave: 'leaves', leaves: 'leave',
   popup: 'popups', popups: 'popup',
+  requirement: 'requirements', requirements: 'requirement',
 };
 
 function getCodeVariants(code: string): string[] {

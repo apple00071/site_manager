@@ -99,6 +99,7 @@ const DesignsTab = dynamic(() => import('@/components/projects/DesignsTab').then
 const BOQTab = dynamic(() => import('@/components/projects/BOQTab').then(m => m.BOQTab), { ssr: false, loading: () => <div className="p-6 space-y-2 animate-pulse"><div className="h-10 bg-gray-200 rounded w-full"></div>{[1, 2, 3, 4, 5].map(i => <div key={i} className="h-12 bg-gray-50 rounded w-full"></div>)}</div> });
 const SnagTab = dynamic(() => import('@/components/projects/SnagTab'), { ssr: false, loading: () => <div className="p-6 space-y-4 animate-pulse"><div className="h-10 bg-gray-200 rounded w-full"></div><div className="grid grid-cols-1 gap-3"><div className="h-20 bg-gray-50 rounded"></div><div className="h-20 bg-gray-50 rounded"></div></div></div> });
 const VisitTab = dynamic(() => import('@/components/projects/tabs/VisitTab').then(m => m.VisitTab), { ssr: false, loading: () => <TabSkeleton /> });
+const RequirementTab = dynamic(() => import('@/components/projects/tabs/RequirementTab').then(m => m.RequirementTab), { ssr: false, loading: () => <TabSkeleton /> });
 
 // Lazy load Modals
 const EditProjectModal = dynamic(() => import('@/components/projects/EditProjectModal').then(m => m.EditProjectModal), { ssr: false });
@@ -170,10 +171,11 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
     if (!project) return ['visit'];
     
     if (permIsAdmin) {
-      return ['visit', 'design', 'boq', 'work_progress', 'snag', 'finance'];
+      return ['visit', 'requirement', 'design', 'boq', 'work_progress', 'snag', 'finance'];
     }
 
     const stages: StageId[] = ['visit'];
+    if (hasPermission('requirements.view') || hasPermission('projects.view')) stages.push('requirement');
     if (hasPermission('designs.view')) stages.push('design');
     if (hasPermission('boq.view')) stages.push('boq');
     if (hasPermission('updates.view')) stages.push('work_progress');
@@ -290,6 +292,7 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
   const getStageStatus = (stage: StageId): StageStatus | undefined => {
     switch (stage) {
       case 'visit': return { label: 'Visit Status', value: 'Completed', color: 'green' };
+      case 'requirement': return { label: 'Requirement', value: 'In Progress', color: 'blue' };
       case 'design': return { label: 'Design Status', value: 'Design Review', color: 'orange' };
       case 'boq': return { label: 'BOQ Status', value: 'Draft', color: 'gray' };
       default: return undefined;
@@ -300,7 +303,7 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
     const stageParam = searchParams?.get('stage') as StageId;
     const tabParam = searchParams?.get('tab');
 
-    if (stageParam && ['visit', 'design', 'boq', 'work_progress', 'snag', 'finance'].includes(stageParam)) {
+    if (stageParam && ['visit', 'requirement', 'design', 'boq', 'work_progress', 'snag', 'finance'].includes(stageParam)) {
       if (stageParam !== activeStage) {
         setActiveStage(stageParam);
         setActiveSubTab(tabParam || getDefaultSubTab(stageParam));
@@ -424,6 +427,14 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
               onEditWorker={handleEditWorker}
               activeSubTab={activeSubTab}
               onProjectUpdated={() => fetchProject(true)}
+            />
+          )}
+
+          {activeStage === 'requirement' && (
+            <RequirementTab
+              projectId={project.id}
+              projectName={project.title}
+              activeSubTab={activeSubTab}
             />
           )}
 

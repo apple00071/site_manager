@@ -5,23 +5,8 @@ import { verifyPermission } from '@/lib/rbac';
 export const dynamic = 'force-dynamic';
 
 // Helper: Verify if user has permission to modify an approved lead's quotation
-async function checkAdminIfApproved(userId: string, leadId: string): Promise<{ allowed: boolean; error?: string }> {
-  const { data: leadRecord } = await supabaseAdmin
-    .from('quotation_leads')
-    .select('status')
-    .eq('id', leadId)
-    .single();
-
-  if (leadRecord?.status === 'Approved') {
-    const perm = await verifyPermission(userId, 'crm.edit_approved');
-    if (!perm.allowed) {
-      return {
-        allowed: false,
-        error: 'This quotation is approved. Only administrators or users with the "crm.edit_approved" permission can modify approved quotations.',
-      };
-    }
-  }
-
+// Note: Admin-only lock on approved quotations removed per requirements to allow authorized quotation users to edit/update approved quotes.
+async function checkAdminIfApproved(_userId: string, _leadId: string): Promise<{ allowed: boolean; error?: string }> {
   return { allowed: true };
 }
 

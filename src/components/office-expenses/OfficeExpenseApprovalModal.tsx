@@ -80,12 +80,12 @@ export default function OfficeExpenseApprovalModal({ expense, onSuccess, onClose
                 </div>
 
                 {/* Info Grid */}
-                <div className="py-6 grid grid-cols-2 gap-y-6 gap-x-4">
+                <div className="py-6 grid grid-cols-2 gap-y-4 gap-x-4">
                     <div className="space-y-1">
                         <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                             <FiTag className="w-3 h-3" /> Category
                         </div>
-                        <p className="font-medium text-gray-900">{expense.category}</p>
+                        <p className="font-medium text-gray-900">{expense.category || 'General'}</p>
                     </div>
 
                     <div className="text-right space-y-1">
@@ -93,6 +93,23 @@ export default function OfficeExpenseApprovalModal({ expense, onSuccess, onClose
                             Date <FiCalendar className="w-3 h-3" />
                         </div>
                         <p className="font-medium text-gray-900">{formatDateIST(expense.expense_date)}</p>
+                    </div>
+
+                    <div className="col-span-2 space-y-1 bg-amber-50/60 p-2.5 rounded-lg border border-amber-100">
+                        <div className="text-[10px] font-semibold text-amber-800 uppercase tracking-wider">
+                            Expense Scope / Project
+                        </div>
+                        <p className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
+                            {expense.project_name && expense.project_name !== 'Office' ? (
+                                <>
+                                    <span className="text-gray-500 font-medium">{expense.project_name}</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span className="text-gray-700">Office / General Company Expense</span>
+                                </>
+                            )}
+                        </p>
                     </div>
 
                     <div className="col-span-2 space-y-1 bg-gray-50 p-3 rounded-lg border border-gray-100">

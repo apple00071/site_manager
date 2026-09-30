@@ -38,7 +38,8 @@ export type NotificationType =
   | 'attendance_appealed'
   | 'attendance_approved'
   | 'attendance_rejected'
-  | 'material_delivered';
+  | 'material_delivered'
+  | 'checklist_pending';
 
 export interface CreateNotificationParams {
   userId: string;
@@ -58,6 +59,9 @@ export class NotificationService {
 
     switch (type) {
       case 'task_assigned':
+        if (relatedType === 'project' && relatedId) {
+          return `${baseUrl}/projects/${relatedId}`;
+        }
         return relatedId ? `${baseUrl}/tasks?taskId=${relatedId}` : `${baseUrl}/tasks`;
       case 'snag_created':
       case 'snag_assigned':
@@ -115,6 +119,8 @@ export class NotificationService {
         return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress` : undefined;
       case 'material_delivered':
         return relatedId ? `${baseUrl}/projects/${relatedId}?tab=boq` : `${baseUrl}/projects`;
+      case 'checklist_pending':
+        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=requirement&tab=checklist` : `${baseUrl}/projects`;
       default:
         return undefined;
     }

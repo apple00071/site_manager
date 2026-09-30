@@ -69,6 +69,10 @@ export const STAGE_SUB_TABS: Record<string, SubTab[]> = {
         { id: 'details', label: 'Project Details' },
         { id: 'workers', label: 'Vendor Details' },
     ],
+    requirement: [
+        { id: 'checklist', label: 'Checklist', permission: 'requirements.view' },
+        { id: 'notes', label: 'Site Notes', permission: 'requirements.view' },
+    ],
     design: [
         { id: 'files', label: 'Design Files' },
         { id: 'task_history', label: 'Design Task History' },

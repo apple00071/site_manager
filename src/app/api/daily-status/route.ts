@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 import { attachProjectCodes } from '@/lib/projectUtils';
 import { NotificationService } from '@/lib/notificationService';
+import { parseProjectTasks } from '@/lib/designTaskUtils';
 
 export const dynamic = 'force-dynamic';
 
@@ -240,33 +241,79 @@ export async function PATCH(request: NextRequest) {
 
     // Dispatch two-way push & in-app notifications
     try {
-      const changes: string[] = [];
-      if (updateFields.unified_status !== undefined) {
-        changes.push(`Status: ${updateFields.unified_status || 'Cleared'}`);
-      }
-      if (updateFields.status_color !== undefined) {
-        changes.push(updateFields.status_color ? `Color Tag: ${updateFields.status_color}` : 'Color Tag: Cleared');
-      }
-      if (updateFields.deadline !== undefined) {
-        const dStr = updateFields.deadline
-          ? new Date(updateFields.deadline).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-          : 'None';
-        changes.push(`Target Date: ${dStr}`);
-      }
+      const isTaskCompleted = 
+        (updateFields.unified_status || '').toLowerCase().trim() === 'done' ||
+        (updateFields.unified_status || '').toLowerCase().includes('complete') ||
+        (updateFields.workflow_stage || '').toLowerCase() === 'completed';
+
+      let taskTitle: string | null = null;
+      let humanNotes: string | null = null;
+
       if (updateFields.project_notes !== undefined) {
-        const noteText = (updateFields.project_notes || '').trim();
-        if (noteText) {
-          changes.push(`Notes: "${noteText.slice(0, 50)}${noteText.length > 50 ? '...' : ''}"`);
+        const rawNotes = (updateFields.project_notes || '').trim();
+        if (rawNotes.startsWith('{') && (rawNotes.includes('"tasks"') || rawNotes.includes('"history"'))) {
+          try {
+            const tasksData = parseProjectTasks(rawNotes, data);
+            if (isTaskCompleted && tasksData.history.length > 0) {
+              taskTitle = tasksData.history[0]?.title || null;
+            } else if (tasksData.tasks.length > 0) {
+              taskTitle = tasksData.tasks[0]?.title || null;
+            }
+          } catch (_) {}
+        } else if (rawNotes && !rawNotes.startsWith('{')) {
+          humanNotes = rawNotes;
         }
       }
+
+      const changes: string[] = [];
+
+      // Only show status change if not already expressed by "Task Marked Done"
+      if (updateFields.unified_status !== undefined && !isTaskCompleted) {
+        changes.push(`Status: ${updateFields.unified_status || 'In Progress'}`);
+      }
+
+      // Priority: NEVER show raw hex codes (#10B981, #FF3366, etc.)
+      if (updateFields.status_color !== undefined) {
+        const col = (updateFields.status_color || '').toUpperCase();
+        if (col === '#EF4444' || col === '#DC2626' || col === '#FF3366') {
+          changes.push('Priority: High');
+        } else if (col === '#F59E0B' || col === '#D97706') {
+          changes.push('Priority: Medium');
+        }
+      }
+
+      // Deadline: Only show if an actual date is set and task is not completed
+      if (updateFields.deadline !== undefined && !isTaskCompleted && updateFields.deadline) {
+        const dStr = new Date(updateFields.deadline).toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        });
+        changes.push(`Target: ${dStr}`);
+      }
+
+      // Human notes (NEVER raw JSON)
+      if (humanNotes) {
+        const snippet = humanNotes.slice(0, 60);
+        changes.push(`Note: "${snippet}${humanNotes.length > 60 ? '...' : ''}"`);
+      }
+
       if (updateFields.workflow_stage !== undefined) {
         changes.push(`Phase: ${updateFields.workflow_stage}`);
       }
-      if (updateFields.status !== undefined) {
+      if (updateFields.status !== undefined && updateFields.status !== updateFields.unified_status) {
         changes.push(`Project Status: ${updateFields.status}`);
       }
 
-      if (changes.length > 0) {
+      const hasMeaningfulChange =
+        updateFields.unified_status !== undefined ||
+        updateFields.workflow_stage !== undefined ||
+        updateFields.status !== undefined ||
+        Boolean(updateFields.deadline && !isTaskCompleted) ||
+        Boolean(humanNotes) ||
+        Boolean(taskTitle && isTaskCompleted);
+
+      if (hasMeaningfulChange) {
         // Use AuthUser fields directly — no extra DB hit needed
         const updaterName = user.full_name || user.username || user.email?.split('@')[0] || 'Team member';
         const isLeadOrAdmin = user.isAdmin || Boolean(user.designation?.toLowerCase().includes('lead'));
@@ -275,7 +322,10 @@ export async function PATCH(request: NextRequest) {
         const withCode = await attachProjectCodes(data);
         const rawCode = withCode?.project_code || withCode?.ref_no || `AI-${data.id.slice(0, 4)}`;
         const projectCode = rawCode.replace('AI/PRJ/', 'AI/').replace('PRJ/', '');
-        const projectTitle = data.title || 'Project';
+        const cleanProjectTitle = (data.title || 'Project')
+          .replace(/_/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
 
         // Fetch all Admins and Lead Designers
         const { data: managementUsers } = await supabaseAdmin
@@ -331,26 +381,32 @@ export async function PATCH(request: NextRequest) {
         }
 
         if (recipientIds.size > 0) {
-          const isTaskCompleted = 
-            (updateFields.unified_status || '').toLowerCase().trim() === 'done' ||
-            (updateFields.unified_status || '').toLowerCase().includes('complete') ||
-            (updateFields.workflow_stage || '').toLowerCase() === 'completed';
-
           let notifTitle = '';
           let notifMessage = '';
 
-          if (isLeadOrAdmin) {
-            notifTitle = isTaskCompleted 
+          const isRealTaskName = Boolean(
+            taskTitle &&
+            taskTitle !== 'Design Task' &&
+            taskTitle.toLowerCase() !== 'done' &&
+            taskTitle.toLowerCase() !== 'in progress'
+          );
+
+          if (isTaskCompleted) {
+            notifTitle = isLeadOrAdmin
               ? `Task Marked Done: ${projectCode}`
-              : `Design Update: ${projectCode}`;
-            notifMessage = `${updaterName} updated "${projectTitle}":\n${changes.join(' • ')}`;
+              : `Task Done: ${updaterName} (${projectCode})`;
+            const donePhrase = isRealTaskName ? `marked "${taskTitle}" as DONE` : 'marked task as DONE';
+            notifMessage = `${updaterName} ${donePhrase} for "${cleanProjectTitle}"`;
+            if (changes.length > 0) {
+              notifMessage += `\n${changes.join(' • ')}`;
+            }
           } else {
-            notifTitle = isTaskCompleted
-              ? `Task Done: ${updaterName} (${projectCode})`
-              : `Design Update: ${projectCode}`;
-            notifMessage = isTaskCompleted
-              ? `${updaterName} marked design task as DONE for "${projectTitle}"\n${changes.join(' • ')}`
-              : `${updaterName} updated "${projectTitle}":\n${changes.join(' • ')}`;
+            notifTitle = `Design Update: ${projectCode}`;
+            const prefix = isRealTaskName ? `Task: "${taskTitle}"` : '';
+            const detailParts = [prefix, ...changes].filter(Boolean);
+            notifMessage = detailParts.length > 0
+              ? `${updaterName} updated "${cleanProjectTitle}":\n${detailParts.join(' • ')}`
+              : `${updaterName} updated "${cleanProjectTitle}"`;
           }
 
           await Promise.allSettled(

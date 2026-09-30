@@ -191,6 +191,7 @@ export async function PATCH(
         const updatePayload: any = { ...parsed.data };
         if (updatePayload.assigned_employee_id) {
             updatePayload.designer_id = updatePayload.assigned_employee_id;
+            updatePayload.designer_assigned_at = new Date().toISOString();
         }
 
         // Keep workflow_stage and status synchronized

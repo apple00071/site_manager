@@ -1,10 +1,10 @@
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { NotificationService } from '@/lib/notificationService';
-import { isAdminOrHR } from '@/lib/cron-jobs/cronUtils';
+import { isAdminOrHR, fetchDesignerDesignStatusMap } from '@/lib/cron-jobs/cronUtils';
 
 /**
  * Afternoon Progress Reminder (3:00 PM IST)
- * Sends personalized mid-day reminders to users who have pending tasks/snags.
+ * Sends personalized mid-day reminders to users who have pending tasks/snags/design tasks.
  * Encourages them to update their progress before end of day.
  */
 export async function runAfternoonProgressReminder() {
@@ -25,7 +25,10 @@ export async function runAfternoonProgressReminder() {
         .select('id, assigned_to_user_id, status')
         .in('status', ['assigned']);
 
-    // 3. Build per-user stats
+    // 3. Fetch active design tasks per designer
+    const designerDesignMap = await fetchDesignerDesignStatusMap();
+
+    // 4. Build per-user stats
     const userTaskCount: Record<string, number> = {};
     const userOverdueCount: Record<string, number> = {};
     const userSnagCount: Record<string, number> = {};
@@ -51,12 +54,18 @@ export async function runAfternoonProgressReminder() {
         }
     });
 
-    // 5. Get all relevant user IDs
+    // 5. Get all relevant user IDs (including designers with active design tasks)
     const allUserIds = new Set([
         ...Object.keys(userTaskCount),
         ...Object.keys(userOverdueCount),
         ...Object.keys(userSnagCount),
     ]);
+
+    Object.keys(designerDesignMap).forEach(dId => {
+        if (designerDesignMap[dId].items.length > 0) {
+            allUserIds.add(dId);
+        }
+    });
 
     if (allUserIds.size === 0) {
         return { success: true, message: 'No users with pending items' };
@@ -76,16 +85,23 @@ export async function runAfternoonProgressReminder() {
         const tasks = userTaskCount[user.id] || 0;
         const overdue = userOverdueCount[user.id] || 0;
         const snags = userSnagCount[user.id] || 0;
+        const designData = designerDesignMap[user.id];
 
         // Skip if nothing pending
-        if (tasks === 0 && overdue === 0 && snags === 0) continue;
+        if (tasks === 0 && overdue === 0 && snags === 0 && (!designData || designData.items.length === 0)) continue;
 
         const parts: string[] = [];
         if (tasks > 0) parts.push(`- ${tasks} task${tasks > 1 ? 's' : ''} due today`);
         if (overdue > 0) parts.push(`- ${overdue} overdue task${overdue > 1 ? 's' : ''} still pending`);
         if (snags > 0) parts.push(`- ${snags} snag${snags > 1 ? 's' : ''} assigned to you`);
+        if (designData && designData.items.length > 0) {
+            parts.push(`- 🎨 Design: ${designData.activeTasksCount} active task${designData.activeTasksCount > 1 ? 's' : ''} across ${designData.projectCount} project${designData.projectCount > 1 ? 's' : ''}${designData.overdueTasksCount > 0 ? ` (⚠️ ${designData.overdueTasksCount} overdue)` : ''}`);
+            const topItems = designData.items.slice(0, 3).map(i => `  • [${i.projectCode}] ${i.taskTitle}: ${i.status}`);
+            parts.push(...topItems);
+        }
 
-        const urgencyNote = overdue > 0 ? ' Please prioritize overdue items.' : '';
+        const isAnyOverdue = overdue > 0 || (designData && designData.overdueTasksCount > 0);
+        const urgencyNote = isAnyOverdue ? ' Please prioritize overdue items.' : '';
 
         const message = `Hi ${user.full_name}! ☀️\n\nAfternoon check-in: Here's what's still pending:\n\n${parts.join('\n')}\n\nPlease update your progress now so the team stays in sync.${urgencyNote}`;
 

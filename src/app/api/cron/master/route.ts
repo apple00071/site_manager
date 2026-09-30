@@ -134,6 +134,14 @@ export async function GET(req: NextRequest) {
         await runJobSafely('afternoonReminder', runAfternoonProgressReminder);
     }
 
+    // D. Checklist Specs Reminder (25+ days assigned, until fully filled): 11:30 AM IST (6:00 AM UTC)
+    if (manualJob === 'checklist-reminders' || (!manualJob && utcHour === 6 && utcMin < 30)) {
+        await runJobSafely('checklistReminders', async () => {
+            const { runChecklistSpecsReminder } = await import('@/lib/cron-jobs/checklistReminders');
+            return runChecklistSpecsReminder();
+        });
+    }
+
     // E. Admin Task Review: 5:30 PM IST (12:00 PM UTC)
     if (manualJob === 'admin-check' || (!manualJob && utcHour === 12 && utcMin < 30)) {
         await runJobSafely('adminCheck', async () => {

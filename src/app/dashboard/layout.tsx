@@ -358,7 +358,7 @@ function DashboardLayoutContent({
                 <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Snags</span>
               </Link>
             )}
-            {hasPermission('office_expenses.view') && (
+            {(hasPermission('office_expenses.view') || hasPermission('inventory.view')) && (
               <Link
                 href="/dashboard/office-expenses"
                 className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
