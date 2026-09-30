@@ -240,7 +240,7 @@ export function DesignTaskHistory({
   const currentStatusStyle = getStatusStyle(project?.special_requirements, project?.unified_status);
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 w-full space-y-6">
       {/* Header Overview Card */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -312,7 +312,7 @@ export function DesignTaskHistory({
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
             {tasksData.tasks.map((task, idx) => {
               const taskStyle = getStatusStyle(task.status_color, task.status);
               const isOverdue = task.deadline && task.deadline.split('T')[0] < todayStr;
