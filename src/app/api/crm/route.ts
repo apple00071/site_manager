@@ -6,6 +6,22 @@ export const dynamic = 'force-dynamic';
 
 
 
+function parseLeadFloorPlan(lead: any) {
+  if (!lead) return lead;
+  if (!lead.floor_plan_url && lead.remarks) {
+    const match = lead.remarks.match(/\[FloorPlan:\s*(\{.*?\})\]/);
+    if (match) {
+      try {
+        const parsed = JSON.parse(match[1]);
+        lead.floor_plan_url = parsed.url;
+        lead.floor_plan_name = parsed.name || 'Floor Plan';
+        lead.remarks = lead.remarks.replace(/\[FloorPlan:\s*\{.*?\}\]\s*/g, '').trim();
+      } catch (_) {}
+    }
+  }
+  return lead;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { user, error: authError } = await getAuthUser();
@@ -23,7 +39,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Try fetching from the database (latest dates first)
-    const { data: leads, error } = await supabaseAdmin
+    const { data: rawLeads, error } = await supabaseAdmin
       .from('quotation_leads')
       .select('*')
       .order('created_date', { ascending: false })
@@ -33,6 +49,8 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching quotation_leads:', error.message);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    const leads = (rawLeads || []).map(parseLeadFloorPlan);
 
     // Reconcile latest_quotation_id, quote_version, and quote_value directly from quotations table
     if (leads && leads.length > 0) {
@@ -157,7 +175,7 @@ export async function POST(request: NextRequest) {
       ref_no = `${refPrefix}${String(nextSeq).padStart(3, '0')}`;
     }
 
-    const newLead = {
+    const newLead: any = {
       ref_no,
       created_date: body.created_date || new Date().toISOString().split('T')[0],
       client_name: body.client_name || 'New Client',
@@ -171,23 +189,40 @@ export async function POST(request: NextRequest) {
       follow_up_1: body.follow_up_1 || '',
       follow_up_2: body.follow_up_2 || '',
       follow_up_3: body.follow_up_3 || '',
-      remarks: body.remarks || ''
+      remarks: body.remarks || '',
+      floor_plan_url: body.floor_plan_url || null,
+      floor_plan_name: body.floor_plan_name || null,
     };
 
-    const { data, error } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from('quotation_leads')
       .insert(newLead)
       .select()
       .single();
+
+    // Fallback if floor_plan columns are not migrated yet
+    if (error && error.code === '42703' && (body.floor_plan_url || body.floor_plan_name)) {
+      delete newLead.floor_plan_url;
+      delete newLead.floor_plan_name;
+      if (body.floor_plan_url) {
+        const meta = JSON.stringify({ url: body.floor_plan_url, name: body.floor_plan_name || 'Floor Plan' });
+        newLead.remarks = `${newLead.remarks ? newLead.remarks + ' ' : ''}[FloorPlan: ${meta}]`.trim();
+      }
+      const retry = await supabaseAdmin
+        .from('quotation_leads')
+        .insert(newLead)
+        .select()
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       console.error('Error inserting quotation lead:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-
-
-    return NextResponse.json({ success: true, data });
+    return NextResponse.json({ success: true, data: parseLeadFloorPlan(data) });
   } catch (err: any) {
     console.error('CRM POST API Error:', err);
     return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
@@ -222,7 +257,7 @@ export async function PUT(request: NextRequest) {
     // Guard against modifying Approved leads without crm.edit_approved permission
     const { data: currentLeads } = await supabaseAdmin
       .from('quotation_leads')
-      .select('id, status')
+      .select('id, status, remarks')
       .in('id', ids);
 
     const hasApprovedLead = currentLeads?.some((l: any) => l.status === 'Approved');
@@ -244,16 +279,72 @@ export async function PUT(request: NextRequest) {
       .in('id', ids)
       .select();
 
-    const { data, error } = ids.length === 1 ? await query.single() : await query;
+    let { data, error } = ids.length === 1 ? await query.single() : await query;
+
+    // Fallback if floor_plan columns are not yet in the DB
+    if (error && error.code === '42703' && (updateFields.floor_plan_url !== undefined || updateFields.floor_plan_name !== undefined)) {
+      const safeFields = { ...updateFields };
+      delete safeFields.floor_plan_url;
+      delete safeFields.floor_plan_name;
+
+      const currentRemarks = safeFields.remarks !== undefined ? safeFields.remarks : (currentLeads?.[0]?.remarks || '');
+      let newRemarks = currentRemarks.replace(/\[FloorPlan:\s*\{.*?\}\]\s*/g, '').trim();
+
+      if (updateFields.floor_plan_url) {
+        const meta = JSON.stringify({ url: updateFields.floor_plan_url, name: updateFields.floor_plan_name || 'Floor Plan' });
+        newRemarks = `${newRemarks ? newRemarks + ' ' : ''}[FloorPlan: ${meta}]`.trim();
+      }
+      safeFields.remarks = newRemarks;
+
+      const retryQuery = supabaseAdmin
+        .from('quotation_leads')
+        .update({
+          ...safeFields,
+          updated_at: new Date().toISOString()
+        })
+        .in('id', ids)
+        .select();
+
+      const retryRes = ids.length === 1 ? await retryQuery.single() : await retryQuery;
+      data = retryRes.data;
+      error = retryRes.error;
+    }
 
     if (error) {
       console.error('Error updating quotation lead:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Auto-sync approved budget to matching project in Finance if budget is unassigned
+    try {
+      const updatedList = Array.isArray(data) ? data : [data];
+      for (const updatedLead of updatedList) {
+        const approvedVal = Number(updatedLead.approved_value) || Number(updatedLead.quote_value) || 0;
+        if (updatedLead.status === 'Approved' && approvedVal > 0 && updatedLead.client_name) {
+          const clientName = updatedLead.client_name.trim();
+          const { data: matchedProjs } = await supabaseAdmin
+            .from('projects')
+            .select('id, project_budget, customer_name, title')
+            .or(`customer_name.ilike.%${clientName}%,title.ilike.%${clientName}%`);
 
+          if (matchedProjs && matchedProjs.length > 0) {
+            for (const proj of matchedProjs) {
+              if (!proj.project_budget || proj.project_budget === 0) {
+                await supabaseAdmin
+                  .from('projects')
+                  .update({ project_budget: approvedVal, updated_at: new Date().toISOString() })
+                  .eq('id', proj.id);
+              }
+            }
+          }
+        }
+      }
+    } catch (syncErr) {
+      console.error('Error auto-syncing approved quote to project budget:', syncErr);
+    }
 
-    return NextResponse.json({ success: true, data });
+    const result = Array.isArray(data) ? data.map(parseLeadFloorPlan) : parseLeadFloorPlan(data);
+    return NextResponse.json({ success: true, data: result });
   } catch (err: any) {
     console.error('CRM PUT API Error:', err);
     return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });

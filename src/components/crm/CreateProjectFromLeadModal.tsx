@@ -27,6 +27,8 @@ interface Lead {
   approved_value?: number;
   status: string;
   remarks?: string;
+  floor_plan_url?: string | null;
+  floor_plan_name?: string | null;
 }
 
 interface CreateProjectFromLeadModalProps {
@@ -203,6 +205,7 @@ export default function CreateProjectFromLeadModal({
         estimated_completion_date: completionDate,
         assigned_employee_id: assignedEmployeeId,
         project_notes: `Created from CRM Quotation Ref #${lead.ref_no}`,
+        requirements_pdf_url: lead.floor_plan_url || null,
         status: 'pending',
       };
 
@@ -345,6 +348,27 @@ export default function CreateProjectFromLeadModal({
 
           {!successProject && (
             <form id="create-project-quote-form" onSubmit={handleCreateProject} className="space-y-3.5">
+              {/* Floor Plan Attachment Banner if present */}
+              {lead?.floor_plan_url && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between text-xs text-blue-900">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-base">📐</span>
+                    <div className="min-w-0">
+                      <span className="font-bold block truncate">Floor Plan Attached</span>
+                      <span className="text-[11px] text-blue-700 block truncate">{lead.floor_plan_name || 'Floor Plan'} will be linked to this project</span>
+                    </div>
+                  </div>
+                  <a
+                    href={lead.floor_plan_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-0.5 underline shrink-0 ml-2"
+                  >
+                    Preview
+                  </a>
+                </div>
+              )}
+
               {/* Row 1: Title */}
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">

@@ -36,6 +36,8 @@ interface Lead {
   follow_up_2: string;
   follow_up_3: string;
   remarks: string;
+  floor_plan_url?: string | null;
+  floor_plan_name?: string | null;
   latest_quotation_id?: string;
   quote_version?: number;
 }
@@ -281,6 +283,116 @@ export default function CRMPage() {
   const [isFloatingWhatsAppOpen, setIsFloatingWhatsAppOpen] = useState(false);
   const [isDataMenuOpen, setIsDataMenuOpen] = useState(false);
   const [mobileViewType, setMobileViewType] = useState<'cards' | 'table'>('cards');
+
+  // Floor Plan upload states
+  const [uploadingFloorPlanLeadId, setUploadingFloorPlanLeadId] = useState<string | null>(null);
+  const [isUploadingFormFloorPlan, setIsUploadingFormFloorPlan] = useState(false);
+  const floorPlanInputRef = useRef<HTMLInputElement>(null);
+  const [activeUploadTargetLeadId, setActiveUploadTargetLeadId] = useState<string | null>(null);
+
+  const handleTriggerUploadFloorPlan = (leadId: string) => {
+    setActiveUploadTargetLeadId(leadId);
+    if (floorPlanInputRef.current) {
+      floorPlanInputRef.current.value = '';
+      floorPlanInputRef.current.click();
+    }
+  };
+
+  const handleFloorPlanFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (activeUploadTargetLeadId) {
+      const targetId = activeUploadTargetLeadId;
+      setUploadingFloorPlanLeadId(targetId);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('lead_id', targetId);
+
+        const res = await fetch('/api/crm/upload-floor-plan', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setLeads(prev => prev.map(l => l.id === targetId ? {
+            ...l,
+            floor_plan_url: data.url,
+            floor_plan_name: data.name,
+          } : l));
+          setMobileEditForm(prev => prev && prev.id === targetId ? {
+            ...prev,
+            floor_plan_url: data.url,
+            floor_plan_name: data.name,
+          } : prev);
+        } else {
+          const err = await res.json().catch(() => ({}));
+          alert(`Failed to upload floor plan: ${err.error || 'Server error'}`);
+        }
+      } catch (err) {
+        console.error('Error uploading floor plan:', err);
+        alert('Failed to upload floor plan.');
+      } finally {
+        setUploadingFloorPlanLeadId(null);
+        setActiveUploadTargetLeadId(null);
+      }
+    } else if (isMobileEditOpen) {
+      setIsUploadingFormFloorPlan(true);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (mobileEditForm?.id) {
+          formData.append('lead_id', mobileEditForm.id);
+        }
+
+        const res = await fetch('/api/crm/upload-floor-plan', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setMobileEditForm(prev => prev ? {
+            ...prev,
+            floor_plan_url: data.url,
+            floor_plan_name: data.name,
+          } : null);
+          if (mobileEditForm?.id) {
+            setLeads(prev => prev.map(l => l.id === mobileEditForm.id ? {
+              ...l,
+              floor_plan_url: data.url,
+              floor_plan_name: data.name,
+            } : l));
+          }
+        } else {
+          const err = await res.json().catch(() => ({}));
+          alert(`Failed to upload floor plan: ${err.error || 'Server error'}`);
+        }
+      } catch (err) {
+        console.error('Error uploading floor plan in form:', err);
+        alert('Failed to upload floor plan.');
+      } finally {
+        setIsUploadingFormFloorPlan(false);
+      }
+    }
+  };
+
+  const handleRemoveFloorPlan = async (leadId?: string) => {
+    if (!confirm('Are you sure you want to remove this floor plan?')) return;
+
+    if (leadId) {
+      try {
+        await fetch(`/api/crm/upload-floor-plan?lead_id=${leadId}`, { method: 'DELETE' });
+        setLeads(prev => prev.map(l => l.id === leadId ? { ...l, floor_plan_url: null, floor_plan_name: null } : l));
+      } catch (err) {
+        console.error('Error removing floor plan:', err);
+      }
+    }
+
+    setMobileEditForm(prev => prev ? { ...prev, floor_plan_url: null, floor_plan_name: null } : null);
+  };
 
   const handleSendWhatsAppMessage = async (lead: Lead, actionType: 'quotation' | 'followup') => {
     if (!lead.phone) {
@@ -878,6 +990,8 @@ export default function CRMPage() {
             follow_up_2: mobileEditForm.follow_up_2 || '',
             follow_up_3: mobileEditForm.follow_up_3 || '',
             remarks: mobileEditForm.remarks || '',
+            floor_plan_url: mobileEditForm.floor_plan_url || null,
+            floor_plan_name: mobileEditForm.floor_plan_name || null,
             created_date: mobileEditForm.created_date || new Date().toISOString().split('T')[0]
           })
         });
@@ -926,7 +1040,9 @@ export default function CRMPage() {
       follow_up_1: '',
       follow_up_2: '',
       follow_up_3: '',
-      remarks: ''
+      remarks: '',
+      floor_plan_url: null,
+      floor_plan_name: null
     });
     setIsMobileEditOpen(true);
   };
@@ -1863,98 +1979,6 @@ export default function CRMPage() {
                     <FiPlus className="h-4 w-4" /> Add Lead
                   </button>
 
-                  <button
-                    onClick={() => {
-                      if (!selectedCell) return;
-                      const lead = filteredLeads[selectedCell.rowIndex];
-                      if (lead) setQuotationLead(lead);
-                    }}
-                    disabled={!selectedCell}
-                    className={`hidden md:flex px-3 py-1.5 font-bold rounded-lg text-xs items-center gap-1.5 border transition-all ${
-                      selectedCell 
-                        ? 'bg-yellow-50 hover:bg-yellow-100 border-yellow-200 text-yellow-700 cursor-pointer active:scale-95 shadow-sm font-black' 
-                        : 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed'
-                    }`}
-                  >
-                    {'📄 '} {(() => {
-                      if (!selectedCell) return 'Quotation';
-                      const lead = filteredLeads[selectedCell.rowIndex];
-                      return getQuotationButtonLabel(lead);
-                    })()}
-                  </button>
-
-                  <div className="hidden md:block relative text-left">
-                    <button
-                      onClick={() => setIsWhatsAppMenuOpen(prev => !prev)}
-                      disabled={!selectedCell || (selectedCell && !filteredLeads[selectedCell.rowIndex]?.phone) || sendingWhatsappLeadId !== null}
-                      title={selectedCell && !filteredLeads[selectedCell.rowIndex]?.phone ? 'Selected lead has no phone number' : 'Send WhatsApp message'}
-                      className={`px-3 py-1.5 font-bold rounded-lg text-xs flex items-center gap-1.5 border transition-all ${
-                        selectedCell && filteredLeads[selectedCell.rowIndex]?.phone
-                          ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-700 cursor-pointer active:scale-95 shadow-sm font-black' 
-                          : 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed'
-                      }`}
-                    >
-                      {sendingWhatsappLeadId && selectedCell && filteredLeads[selectedCell.rowIndex]?.id === sendingWhatsappLeadId ? (
-                        <FiRefreshCw className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <FaWhatsapp className="h-4 w-4 text-emerald-600" />
-                      )}
-                      Send WhatsApp ▾
-                    </button>
-
-                    {isWhatsAppMenuOpen && selectedCell && filteredLeads[selectedCell.rowIndex]?.phone && (
-                      <div 
-                        className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50 animate-in fade-in zoom-in-95 duration-100"
-                        onMouseLeave={() => setIsWhatsAppMenuOpen(false)}
-                      >
-                        <button
-                          onClick={() => {
-                            setIsWhatsAppMenuOpen(false);
-                            const lead = filteredLeads[selectedCell.rowIndex];
-                            if (lead) handleSendWhatsAppMessage(lead, 'quotation');
-                          }}
-                          className="w-full px-3 py-2 text-left text-xs font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2 cursor-pointer transition-colors"
-                        >
-                          {'📄 '} Send Quotation PDF
-                        </button>
-                        <button
-                          onClick={() => {
-                            setIsWhatsAppMenuOpen(false);
-                            const lead = filteredLeads[selectedCell.rowIndex];
-                            if (lead) handleSendWhatsAppMessage(lead, 'followup');
-                          }}
-                          className="w-full px-3 py-2 text-left text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 cursor-pointer transition-colors border-t border-gray-100"
-                        >
-                          {'💬 '} Send Follow-Up
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={handleOpenMobileEdit}
-                    disabled={!selectedCell}
-                    className={`hidden md:flex px-3 py-1.5 font-bold rounded-lg text-xs items-center gap-1.5 border transition-all ${
-                      selectedCell 
-                        ? 'bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-700 cursor-pointer active:scale-95' 
-                        : 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed'
-                    }`}
-                  >
-                    <FiEdit className="h-3.5 w-3.5" /> Edit Details
-                  </button>
-
-                  <button
-                    onClick={handleDeleteLead}
-                    disabled={!selectedCell}
-                    className={`hidden md:flex px-3 py-1.5 font-bold rounded-lg text-xs items-center gap-1.5 border transition-all ${
-                      selectedCell 
-                        ? 'bg-red-50 hover:bg-red-100 border-red-200 text-red-600 cursor-pointer active:scale-95' 
-                        : 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed'
-                    }`}
-                  >
-                    <FiTrash2 className="h-3.5 w-3.5" /> Delete Row
-                  </button>
-
                   {/* Excel Tools Dropdown */}
                   <input
                     type="file"
@@ -2531,6 +2555,50 @@ export default function CRMPage() {
                       </div>
                     )}
                   </div>
+                  {/* Floor Plan Button in Floating Bar */}
+                  {activeLead.floor_plan_url ? (
+                    <div className="flex items-center bg-blue-50 border border-blue-200 rounded-lg overflow-hidden shadow-xs">
+                      <a
+                        href={activeLead.floor_plan_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1.5 text-blue-700 hover:text-blue-900 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                        title={activeLead.floor_plan_name || 'View Floor Plan'}
+                      >
+                        <span className="text-sm leading-none">📐</span>
+                        <span>Floor Plan</span>
+                        <FiArrowUpRight className="w-3 h-3 text-blue-600" />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleTriggerUploadFloorPlan(activeLead.id)}
+                        disabled={uploadingFloorPlanLeadId === activeLead.id}
+                        className="px-2 py-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 border-l border-blue-200 transition-colors cursor-pointer"
+                        title="Replace Floor Plan"
+                      >
+                        {uploadingFloorPlanLeadId === activeLead.id ? (
+                          <FiRefreshCw className="w-3 h-3 animate-spin text-blue-600" />
+                        ) : (
+                          <FiUpload className="w-3 h-3" />
+                        )}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleTriggerUploadFloorPlan(activeLead.id)}
+                      disabled={uploadingFloorPlanLeadId === activeLead.id}
+                      className="px-3 py-1.5 bg-yellow-50 hover:bg-yellow-100 border border-yellow-200 text-yellow-800 font-bold rounded-lg text-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-xs"
+                      title="Upload Floor Plan for this lead"
+                    >
+                      {uploadingFloorPlanLeadId === activeLead.id ? (
+                        <FiRefreshCw className="h-3.5 w-3.5 animate-spin text-yellow-600" />
+                      ) : (
+                        <FiUpload className="h-3.5 w-3.5 text-yellow-600" />
+                      )}
+                      <span>📐 + Floor Plan</span>
+                    </button>
+                  )}
 
                   {/* Add to Projects Button if Approved */}
                   {activeLead.status === 'Approved' && (
@@ -2901,6 +2969,98 @@ export default function CRMPage() {
               </div>
             </div>
 
+            {/* Row: Floor Plan Upload */}
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] uppercase font-black text-gray-500 flex items-center gap-1.5">
+                  <span className="text-sm">📐</span>
+                  <span>Floor Plan Document</span>
+                </label>
+                {mobileEditForm.floor_plan_url && (
+                  <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    Attached
+                  </span>
+                )}
+              </div>
+
+              {mobileEditForm.floor_plan_url ? (
+                <div className="flex items-center justify-between gap-3 p-2.5 bg-white border border-gray-200 rounded-lg">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 font-bold text-xs border border-blue-100">
+                      📐
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-gray-900 truncate">
+                        {mobileEditForm.floor_plan_name || 'Floor_Plan'}
+                      </p>
+                      <a
+                        href={mobileEditForm.floor_plan_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-0.5"
+                      >
+                        <span>Preview / Download</span>
+                        <FiArrowUpRight className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <label className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-md cursor-pointer transition-colors">
+                      Replace
+                      <input
+                        type="file"
+                        accept=".pdf,image/*,.dwg,.dxf"
+                        className="hidden"
+                        onChange={handleFloorPlanFileChange}
+                        disabled={isUploadingFormFloorPlan}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFloorPlan(mobileEditForm.id || undefined)}
+                      className="p-1.5 text-gray-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors cursor-pointer"
+                      title="Remove Floor Plan"
+                    >
+                      <FiTrash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className={`w-full border-2 border-dashed border-gray-300 hover:border-yellow-500 rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 bg-white cursor-pointer transition-colors text-center ${isUploadingFormFloorPlan ? 'opacity-60 pointer-events-none' : ''}`}>
+                    {isUploadingFormFloorPlan ? (
+                      <>
+                        <FiRefreshCw className="w-5 h-5 text-yellow-500 animate-spin" />
+                        <span className="text-xs font-bold text-gray-600">Uploading floor plan...</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-9 h-9 rounded-full bg-yellow-50 text-yellow-600 flex items-center justify-center">
+                          <FiUpload className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-gray-800">
+                            Click to upload Floor Plan
+                          </p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">
+                            PDF, PNG, JPG, or DWG (Up to 25MB)
+                          </p>
+                        </div>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept=".pdf,image/*,.dwg,.dxf"
+                      className="hidden"
+                      onChange={handleFloorPlanFileChange}
+                      disabled={isUploadingFormFloorPlan}
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+
             {/* Row 7: Remarks */}
             <div>
               <label className="block text-[10px] uppercase font-black text-gray-400 mb-1">Remarks</label>
@@ -2965,6 +3125,14 @@ export default function CRMPage() {
           <FiPlus className="w-7 h-7" />
         </button>
       )}
+      {/* Hidden Floor Plan file input for quick direct uploads */}
+      <input
+        type="file"
+        ref={floorPlanInputRef}
+        onChange={handleFloorPlanFileChange}
+        className="hidden"
+        accept=".pdf,image/*,.dwg,.dxf"
+      />
     </div>
   );
 }
