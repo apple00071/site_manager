@@ -741,7 +741,7 @@ export function DesignsTab({
   }
 
   return (
-    <div className="bg-white shadow sm:rounded-lg overflow-hidden max-w-full">
+    <div key={effectiveSubTab} className="bg-white shadow sm:rounded-lg overflow-hidden max-w-full animate-tab-enter">
       {effectiveSubTab === 'task_history' ? (
         <DesignTaskHistory
           projectId={projectId}

@@ -557,7 +557,7 @@ export function RequirementTab({ projectId, projectName, activeSubTab = 'checkli
   // ================= SUB-TAB 2: SITE NOTES =================
   if (activeSubTab === 'notes') {
     return (
-      <div className="w-full p-3 sm:p-6 space-y-4">
+      <div key="notes" className="w-full p-3 sm:p-6 space-y-4 animate-tab-enter">
         <div className="bg-white border border-gray-200 rounded-xl shadow-xs overflow-hidden">
           {/* Notes Toolbar */}
           <div className="px-4 py-3 bg-gray-50/70 border-b border-gray-200/80 flex items-center justify-between text-xs text-gray-500">
@@ -623,7 +623,7 @@ export function RequirementTab({ projectId, projectName, activeSubTab = 'checkli
 
   // ================= SUB-TAB 1: CHECKLIST =================
   return (
-    <div className="w-full p-3 sm:p-6 space-y-4">
+    <div key="checklist" className="w-full p-3 sm:p-6 space-y-4 animate-tab-enter">
       {/* 1. Sleek Action Bar (NO giant banner card!) */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Left: CRM Quotation Info or Sync */}

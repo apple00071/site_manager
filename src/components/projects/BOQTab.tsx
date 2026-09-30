@@ -1067,7 +1067,9 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                         Try Again
                     </button>
                 </div>
-            ) : currentSubTab === 'delivery_bills' ? (
+            ) : (
+                <div key={currentSubTab} className="animate-tab-enter">
+                    {currentSubTab === 'delivery_bills' ? (
                 /* ======================== CONSOLIDATED DELIVERY BILLS VIEW ======================== */
                 loadingBills ? (
                     <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
@@ -1737,6 +1739,8 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                         </div>
                     </div>
                 )
+            )}
+                </div>
             )}
 
             {/* ========================================================================= */}

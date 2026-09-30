@@ -65,7 +65,7 @@ export const VisitTab: React.FC<VisitTabProps> = ({
       <div className="flex flex-col lg:flex-row gap-4 md:gap-6 max-w-7xl mx-auto">
         <div className="flex-1 min-w-0 space-y-4 md:space-y-6">
           {activeSubTab === 'details' && (
-            <>
+            <div key="details" className="space-y-4 md:space-y-6 animate-tab-enter">
               {/* Project Information */}
               <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="flex items-center justify-between mb-4">
@@ -208,10 +208,10 @@ export const VisitTab: React.FC<VisitTabProps> = ({
                   )}
                 </div>
               </div>
-            </>
+            </div>
           )}
           {activeSubTab === 'workers' && (
-            <div className="space-y-4">
+            <div key="workers" className="space-y-4 animate-tab-enter">
               {assignedTrades.length === 0 ? (
                 <div className="bg-white p-8 sm:p-10 rounded-xl border border-gray-200 text-center">
                   <FiUsers className="w-8 h-8 text-gray-400 mx-auto mb-3" />

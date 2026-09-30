@@ -314,6 +314,22 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
     }
   }, [searchParams, activeStage, activeSubTab]);
 
+  useEffect(() => {
+    const handlePopState = () => {
+      const sp = new URLSearchParams(window.location.search);
+      const stageParam = sp.get('stage') as StageId;
+      const tabParam = sp.get('tab');
+      if (stageParam && ['visit', 'requirement', 'design', 'boq', 'work_progress', 'snag', 'finance'].includes(stageParam)) {
+        setActiveStage(stageParam);
+      }
+      if (tabParam) {
+        setActiveSubTab(tabParam);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   const handleStageChange = (stage: StageId) => {
     setActiveStage(stage);
     const allTabsForStage = STAGE_SUB_TABS[stage] || [];
@@ -321,15 +337,20 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
     let newTab = getDefaultSubTab(stage);
     if (permittedTabs.length > 0) newTab = permittedTabs[0].id;
     setActiveSubTab(newTab);
-    router.push(`/dashboard/projects/${id}?stage=${stage}&tab=${newTab}`, { scroll: false });
+    const params = new URLSearchParams(window.location.search);
+    params.set('stage', stage);
+    params.set('tab', newTab);
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.pushState(null, '', newUrl);
   };
 
   const handleTabChange = (tabId: string) => {
     setActiveSubTab(tabId);
-    const params = new URLSearchParams(searchParams?.toString());
+    const params = new URLSearchParams(window.location.search);
     params.set('tab', tabId);
     if (!params.has('stage')) params.set('stage', activeStage);
-    router.push(`/dashboard/projects/${id}?${params.toString()}`, { scroll: false });
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.pushState(null, '', newUrl);
   };
 
   const fetchProject = async (silent = false) => {
@@ -418,66 +439,68 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
 
       <div className="flex-1 flex flex-col relative px-4 pb-20 sm:pb-0 overflow-x-hidden">
         <div className="flex-1 overflow-y-auto bg-gray-50/50">
-          {activeStage === 'visit' && (
-            <VisitTab 
-              project={project}
-              canEditProject={canEditProject}
-              isAdmin={isAdmin}
-              onEdit={setEditSection}
-              onEditWorker={handleEditWorker}
-              activeSubTab={activeSubTab}
-              onProjectUpdated={() => fetchProject(true)}
-            />
-          )}
+          <div key={activeStage} className="animate-tab-enter">
+            {activeStage === 'visit' && (
+              <VisitTab 
+                project={project}
+                canEditProject={canEditProject}
+                isAdmin={isAdmin}
+                onEdit={setEditSection}
+                onEditWorker={handleEditWorker}
+                activeSubTab={activeSubTab}
+                onProjectUpdated={() => fetchProject(true)}
+              />
+            )}
 
-          {activeStage === 'requirement' && (
-            <RequirementTab
-              projectId={project.id}
-              projectName={project.title}
-              activeSubTab={activeSubTab}
-            />
-          )}
+            {activeStage === 'requirement' && (
+              <RequirementTab
+                projectId={project.id}
+                projectName={project.title}
+                activeSubTab={activeSubTab}
+              />
+            )}
 
-          {activeStage === 'design' && (
-            <DesignsTab 
-              projectId={project.id} 
-              project={project} 
-              activeSubTab={activeSubTab} 
-              onSubTabChange={handleTabChange} 
-              onProjectUpdated={() => fetchProject(true)} 
-            />
-          )}
-          {activeStage === 'boq' && (
-            <BOQTab 
-              projectId={project.id} 
-              project={project} 
-              ref={boqRef} 
-              activeSubTab={activeSubTab} 
-              onSubTabChange={handleTabChange} 
-            />
-          )}
-          {activeStage === 'work_progress' && (
-            <UpdatesTab
-              projectId={project.id}
-              projectTitle={project.title || undefined}
-              projectAddress={project.address || project.apartment_name || undefined}
-            />
-          )}
-          {activeStage === 'snag' && <SnagTab projectId={project.id} userId={user?.id || ''} userRole={isAdmin ? 'admin' : 'user'} ref={snagRef} />}
-          {activeStage === 'finance' && (
-            <>
-              {activeSubTab !== 'expenses' && (isAdmin || hasPermission('finance.view')) && (
-                <ProjectFinanceTab
-                  projectId={project.id}
-                  projectBudget={project.project_budget}
-                  projectTitle={project.title}
-                  customerName={project.customer_name}
-                  onBudgetUpdated={(newBudget) => setProject((prev: any) => ({ ...prev, project_budget: newBudget }))}
-                />
-              )}
-              {activeSubTab === 'expenses' && (isAdmin || hasPermission('inventory.view')) && <ExpensesTab projectId={project.id} ref={expensesRef} />}
-            </>
-          )}
+            {activeStage === 'design' && (
+              <DesignsTab 
+                projectId={project.id} 
+                project={project} 
+                activeSubTab={activeSubTab} 
+                onSubTabChange={handleTabChange} 
+                onProjectUpdated={() => fetchProject(true)} 
+              />
+            )}
+            {activeStage === 'boq' && (
+              <BOQTab 
+                projectId={project.id} 
+                project={project} 
+                ref={boqRef} 
+                activeSubTab={activeSubTab} 
+                onSubTabChange={handleTabChange} 
+              />
+            )}
+            {activeStage === 'work_progress' && (
+              <UpdatesTab
+                projectId={project.id}
+                projectTitle={project.title || undefined}
+                projectAddress={project.address || project.apartment_name || undefined}
+              />
+            )}
+            {activeStage === 'snag' && <SnagTab projectId={project.id} userId={user?.id || ''} userRole={isAdmin ? 'admin' : 'user'} ref={snagRef} />}
+            {activeStage === 'finance' && (
+              <div key={activeSubTab} className="animate-tab-enter">
+                {activeSubTab !== 'expenses' && (isAdmin || hasPermission('finance.view')) && (
+                  <ProjectFinanceTab
+                    projectId={project.id}
+                    projectBudget={project.project_budget}
+                    projectTitle={project.title}
+                    customerName={project.customer_name}
+                    onBudgetUpdated={(newBudget) => setProject((prev: any) => ({ ...prev, project_budget: newBudget }))}
+                  />
+                )}
+                {activeSubTab === 'expenses' && (isAdmin || hasPermission('inventory.view')) && <ExpensesTab projectId={project.id} ref={expensesRef} />}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

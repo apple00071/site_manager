@@ -83,7 +83,7 @@ export function StageNavigator({ currentStage, onStageSelect, completedStages = 
     console.log('StageNavigator render:', { currentStage, actionsLength: actions.length, mounted });
 
     return (
-        <div className="bg-white border-b border-gray-200 w-full max-w-full sticky top-0 z-10 transition-all duration-200">
+        <div className="bg-white border-b border-gray-200 w-full max-w-full sticky top-0 z-10">
             {/* DESKTOP PIPELINE (md+) */}
             <div className="hidden md:flex items-center justify-between px-2 py-1.5">
                 <div className="flex-1 flex items-center">
