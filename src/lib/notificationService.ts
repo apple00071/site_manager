@@ -120,7 +120,7 @@ export class NotificationService {
       case 'material_delivered':
         return relatedId ? `${baseUrl}/projects/${relatedId}?tab=boq` : `${baseUrl}/projects`;
       case 'checklist_pending':
-        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=requirement&tab=checklist` : `${baseUrl}/projects`;
+        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=requirement` : `${baseUrl}/projects`;
       default:
         return undefined;
     }

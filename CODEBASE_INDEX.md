@@ -30,7 +30,7 @@ The workspace is organized into standard folders for database migrations, source
     *   📂 [`app/`](file:///d:/site_manager/src/app) — Next.js routing pages, layouts, and REST API routes.
     *   📂 [`components/`](file:///d:/site_manager/src/components) — Custom reusable React components.
         *   📂 [`ui/`](file:///d:/site_manager/src/components/ui) — Base UI elements (Modals, Panels, Tables, Bottom Sheets).
-        *   📂 [`attendance/`](file:///d:/site_manager/src/components/attendance), [`boq/`](file:///d:/site_manager/src/components/boq), [`chatbot/`](file:///d:/site_manager/src/components/chatbot), [`crm/`](file:///d:/site_manager/src/components/crm), [`leaves/`](file:///d:/site_manager/src/components/leaves), [`notepad/`](file:///d:/site_manager/src/components/notepad), [`office-expenses/`](file:///d:/site_manager/src/components/office-expenses), [`payroll/`](file:///d:/site_manager/src/components/payroll), [`projects/`](file:///d:/site_manager/src/components/projects), [`tasks/`](file:///d:/site_manager/src/components/tasks) — Feature-specific component libraries.
+        *   📂 [`attendance/`](file:///d:/site_manager/src/components/attendance), [`boq/`](file:///d:/site_manager/src/components/boq), [`chatbot/`](file:///d:/site_manager/src/components/chatbot), [`crm/`](file:///d:/site_manager/src/components/crm), [`finance/`](file:///d:/site_manager/src/components/finance), [`leaves/`](file:///d:/site_manager/src/components/leaves), [`notepad/`](file:///d:/site_manager/src/components/notepad), [`office-expenses/`](file:///d:/site_manager/src/components/office-expenses), [`payroll/`](file:///d:/site_manager/src/components/payroll), [`popups/`](file:///d:/site_manager/src/components/popups), [`projects/`](file:///d:/site_manager/src/components/projects), [`tasks/`](file:///d:/site_manager/src/components/tasks), [`vendors-workers/`](file:///d:/site_manager/src/components/vendors-workers) — Feature-specific component libraries.
     *   📂 [`contexts/`](file:///d:/site_manager/src/contexts) — React state providers for auth and title controls.
     *   📂 [`hooks/`](file:///d:/site_manager/src/hooks) — Custom React hooks (e.g., authorization checks).
     *   📂 [`lib/`](file:///d:/site_manager/src/lib) — Core service wrappers, helpers, notification services, and authorization constants.
@@ -56,6 +56,7 @@ Client routes are partitioned by permissions using Next.js route groups and dire
 ### Admin-Only Area (`/admin`)
 *   ` /admin/login ` — Admin authentication gateway.
 *   ` /admin/dashboard ` — Global telemetry, system audits, and company dashboard.
+*   ` /admin/telemetry ` — Real-time telemetry monitoring.
 *   ` /admin/users/new ` — User onboarding screen.
 
 ### Employee Dashboard (`/dashboard`)
@@ -66,6 +67,8 @@ Client routes are partitioned by permissions using Next.js route groups and dire
 *   ` /dashboard/projects/[id]/members ` — Control access permissions of assigned team members.
 *   ` /dashboard/crm ` — CRM leads pipeline and client onboarding stage tracker.
 *   ` /dashboard/attendance ` — Personal and team daily attendance check-ins.
+*   ` /dashboard/daily-status ` — Site daily status submissions and oversight.
+*   ` /dashboard/finance ` — Financial management, invoices, budgets, and cash flow.
 *   ` /dashboard/payroll ` — Monthly payslip calculations, allowances, and tracking.
 *   ` /dashboard/tasks ` — Interactive task calendars and scheduling tools.
 *   ` /dashboard/office-expenses ` — Office billing and expense reports.
@@ -73,6 +76,7 @@ Client routes are partitioned by permissions using Next.js route groups and dire
 *   ` /dashboard/settings ` — User settings.
 *   ` /dashboard/snags ` — Issue tracking list.
 *   ` /dashboard/telemetry ` — Analytics interface.
+*   ` /dashboard/vendors-workers ` — Subcontractor, vendor, and worker directory management.
 
 ### Client Portal (`/portal`)
 *   ` /portal/login ` — Direct login interface for design clients.
@@ -93,23 +97,25 @@ API handlers are grouped logically by functionality. Standard response/request v
 | `/api/project-members` | Project team assignments | Member role scoping and project-level permissions. |
 | `/api/project-steps` | Milestone workflow steps | Defining project execution steps and phase completions. |
 | `/api/project-updates` | Daily site/work updates | Logging site progress feeds and image attachments. |
+| `/api/daily-status` | Daily operational updates | Submitting & auditing employee daily site progress reports. |
 | `/api/tasks`, `/api/calendar-tasks` | Workspace assignments & scheduling | Standardizing checklist tasks & interactive calendar scheduling. |
 | `/api/attendance` | Attendance operations | Punch in/out actions, tracking geolocation, handling appeals. |
 | `/api/leaves` | Leave workflows | Custom request processing, administrative approvals/denials. |
 | `/api/payroll` | Financial payroll structures | Salary slips compilation, tracking deduction history. |
 | `/api/design-files`, `/api/design-comments` | Digital file versioning | Freezing files, client commenting flow, version validation. |
 | `/api/boq`, `/api/quotations`, `/api/rate-card` | Bills of Quantities & Commercial Pricing | Materials budgets, client quotation workflows, standardized rate cards. |
-| `/api/proposals`, `/api/invoices`, `/api/payments`, `/api/purchase-orders` | Financial transactions | Sales proposals, billing invoices, payment tracking, vendor POs. |
+| `/api/finance`, `/api/proposals` | Financial & budget transactions | Sales proposals, billing invoices, payment tracking, vendor POs, cashflow. |
 | `/api/suppliers`, `/api/inventory-items` | Procurement & Inventory | Supplier catalog management & stock inventory control. |
+| `/api/contract-workers`, `/api/vendors-workers` | Labor & Subcontractors | Managing contract workers, wage rates, attendance, and trades. |
 | `/api/snags`, `/api/site-logs` | Field Quality & Log Journals | Issue logs, resolving states, client sign-offs, site logs. |
 | `/api/office-expenses` | Petty cash records | Documenting and uploading expense receipts. |
 | `/api/crm` | Lead Management | Sales pipeline tracking, lead stages, communication history. |
 | `/api/notepad` | Quick Notes | Personal and project scratchpad notes. |
-| `/api/chat` | Chatbot & Messaging | Internal communication tools and AI chatbot support. |
+| `/api/popups` | Modal campaigns & broadcasts | Managing in-app notifications and event popups. |
 | `/api/org`, `/api/reports`, `/api/telemetry` | Organizational Telemetry | Team structures, analytical reporting exports, app usage metrics. |
 | `/api/upload` | File Storage | Supabase Storage file uploads and metadata creation. |
 | `/api/cron` | Vercel Cron-driven workflows | Running routine reminders and data cleanup loops. |
-| `/api/whatsapp`, `/api/onesignal`, `/api/push-subscription`, `/api/notifications` | Messaging & Notifications | WhatsApp messaging, OneSignal push notifications, web push & in-app alerts. |
+| `/api/whatsapp`, `/api/onesignal` | Messaging & Notifications | WhatsApp messaging, OneSignal push notifications, web push & in-app alerts. |
 | `/api/rbac` | Security policies | Reading/syncing dynamic permissions on roles. |
 
 ---
