@@ -552,6 +552,21 @@ export default function CRMPage() {
     return Array.from(set);
   }, [filteredLeads, monthsList]);
 
+  // Month-scoped serial numbers (restarts at 1 for every new month)
+  const monthSerialNumbers = useMemo(() => {
+    const monthCounts: Record<string, number> = {};
+    const serials: Record<string, number> = {};
+
+    filteredLeads.forEach((lead) => {
+      const d = parseLocalDate(lead.created_date);
+      const mName = !isNaN(d.getTime()) ? `${monthsList[d.getMonth()]} ${d.getFullYear()}` : 'Unscheduled';
+      monthCounts[mName] = (monthCounts[mName] || 0) + 1;
+      serials[lead.id] = monthCounts[mName];
+    });
+
+    return serials;
+  }, [filteredLeads, monthsList]);
+
   const areAllMonthsCollapsed = useMemo(() => {
     if (allMonthGroupNames.length === 0) return false;
     return allMonthGroupNames.every(name => Boolean(collapsedMonths[name]));
@@ -768,6 +783,7 @@ export default function CRMPage() {
   const exportToExcel = () => {
     try {
       const dataToExport = filteredLeads.map(lead => ({
+        'S.No': monthSerialNumbers[lead.id] || 1,
         'Ref No.': lead.ref_no || '',
         'Date': lead.created_date || '',
         'Client Name': lead.client_name || '',
@@ -1271,9 +1287,10 @@ export default function CRMPage() {
     if (!selectedCell) return '';
     const colIdx = selectedCell.colIndex ?? (selectedCell.colId ? columns.findIndex(c => c.id === selectedCell.colId) : 0);
     const colLetter = String.fromCharCode(65 + (colIdx >= 0 ? colIdx : 0)); // A, B, C...
-    const rowNum = selectedCell.rowIndex + 1;
+    const targetLead = filteredLeads[selectedCell.rowIndex];
+    const rowNum = targetLead ? (monthSerialNumbers[targetLead.id] ?? (selectedCell.rowIndex + 1)) : (selectedCell.rowIndex + 1);
     return `${colLetter}${rowNum}`;
-  }, [selectedCell, columns]);
+  }, [selectedCell, columns, filteredLeads, monthSerialNumbers]);
 
   const activeCellValue = useMemo(() => {
     if (!selectedCell) return '';
@@ -2296,6 +2313,8 @@ export default function CRMPage() {
                       ? `${monthsList[date.getMonth()]} ${date.getFullYear()}` 
                       : 'Unscheduled';
 
+                    const monthSNo = monthSerialNumbers[lead.id] ?? (rowIndex + 1);
+
                     return (
                       <Fragment key={lead.id}>
                         {/* Render Month Divider Row */}
@@ -2352,7 +2371,7 @@ export default function CRMPage() {
                                 }`}
                               />
                               <span className={selectedLeadIds.includes(lead.id) ? 'hidden' : 'block group-hover/select:hidden text-[10px]'}>
-                                {rowIndex + 1}
+                                {monthSNo}
                               </span>
                             </div>
                           </td>
