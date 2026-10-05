@@ -335,13 +335,29 @@ export function DesignsTab({
   // Close menu on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.('[data-menu-trigger]')) {
+        return;
+      }
+      if (menuRef.current && !menuRef.current.contains(target as Node)) {
         setOpenMenu(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Close menu on scroll or resize so it stays cleanly pinned
+  useEffect(() => {
+    if (!openMenu) return;
+    const handleClose = () => setOpenMenu(null);
+    window.addEventListener('scroll', handleClose, true);
+    window.addEventListener('resize', handleClose);
+    return () => {
+      window.removeEventListener('scroll', handleClose, true);
+      window.removeEventListener('resize', handleClose);
+    };
+  }, [openMenu]);
 
   useEffect(() => {
     fetchDesigns();
@@ -1073,7 +1089,11 @@ export function DesignsTab({
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredDesigns.map((design) => (
-                      <tr key={design.id} className="hover:bg-gray-50">
+                      <tr
+                        key={design.id}
+                        onClick={() => setViewerDesign(design)}
+                        className="hover:bg-yellow-50/40 cursor-pointer transition-colors"
+                      >
                         <td className="px-3 py-3 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             {/* Version badge */}
@@ -1094,7 +1114,11 @@ export function DesignsTab({
                               )}
                             </div>
                             <button
-                              onClick={() => setViewerDesign(design)}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewerDesign(design);
+                              }}
                               className="flex items-center gap-2 group text-left focus:outline-none"
                               title="Click to view design"
                             >
@@ -1111,7 +1135,7 @@ export function DesignsTab({
                                 </div>
                               )}
                               {/* File name */}
-                              <span className="text-sm font-medium text-gray-900 truncate max-w-[200px] group-hover:text-yellow-600 transition-colors">
+                              <span className="text-sm font-medium text-gray-900 truncate max-w-[200px] group-hover:text-yellow-600 hover:underline transition-colors">
                                 {design.file_name}
                               </span>
                             </button>
@@ -1119,9 +1143,12 @@ export function DesignsTab({
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap">
                           <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-semibold tracking-wider px-2 py-0.5 bg-gray-100 text-gray-700 rounded uppercase">
+                              {design.file_type || design.file_name.split('.').pop() || 'PDF'}
+                            </span>
                             {/* Comment count */}
                             {design.comments && design.comments.length > 0 && (
-                              <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+                              <span className="inline-flex items-center gap-1 text-xs text-gray-500" title={`${design.comments.length} comments`}>
                                 <FiMessageCircle className="w-3.5 h-3.5" />
                                 {design.comments.length}
                               </span>
@@ -1146,6 +1173,7 @@ export function DesignsTab({
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap text-right relative">
                           <button
+                            data-menu-trigger="true"
                             onClick={(e) => {
                               e.stopPropagation();
                               const rect = e.currentTarget.getBoundingClientRect();
@@ -1153,19 +1181,28 @@ export function DesignsTab({
                               if (openMenu?.design.id === design.id) {
                                 setOpenMenu(null);
                               } else {
+                                const menuWidth = 192;
+                                let left = rect.right - menuWidth;
+                                if (left < 10) left = 10;
+                                if (typeof window !== 'undefined' && left + menuWidth > window.innerWidth - 10) {
+                                  left = window.innerWidth - menuWidth - 10;
+                                }
+                                let top = rect.bottom + 4;
+                                if (typeof window !== 'undefined' && top + 260 > window.innerHeight && rect.top > 260) {
+                                  top = rect.top - 260;
+                                }
                                 setOpenMenu({
                                   design,
-                                  top: rect.bottom + 5,
-                                  left: rect.right - 192, // 192px = w-48
+                                  top,
+                                  left,
                                 });
                               }
                             }}
-                            className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                            className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded focus:outline-none"
+                            title="Actions"
                           >
-                            <FiMoreVertical className="w-5 h-5" />
+                            <FiMoreVertical className="w-5 h-5 pointer-events-none" />
                           </button>
-
-
                         </td>
                       </tr>
                     ))}
@@ -1345,12 +1382,13 @@ export function DesignsTab({
         )
       }
 
-      {/* Desktop Dropdown Menu (Fixed) */}
-      {openMenu && (
+      {/* Desktop Dropdown Menu (Fixed with Portal to escape transform clipping) */}
+      {openMenu && typeof document !== 'undefined' && createPortal(
         <div
           ref={menuRef}
           style={{ top: openMenu.top, left: openMenu.left }}
-          className="fixed z-50 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
+          className="fixed z-[9999] w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1"
+          onClick={(e) => e.stopPropagation()}
         >
           {(() => {
             const design = openMenu.design;
@@ -1464,7 +1502,8 @@ export function DesignsTab({
               </>
             );
           })()}
-        </div>
+        </div>,
+        document.body
       )}
         </>
       )}

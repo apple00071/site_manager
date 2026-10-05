@@ -2,12 +2,12 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
-import { FiChevronLeft, FiChevronRight, FiZoomIn, FiZoomOut, FiMaximize2, FiFileText } from 'react-icons/fi';
+import { FiChevronLeft, FiChevronRight, FiZoomIn, FiZoomOut, FiMaximize2, FiFileText, FiExternalLink } from 'react-icons/fi';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
-// Configure worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// Configure worker with explicit HTTPS protocol
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 type PinComment = {
     id: string;
@@ -233,11 +233,20 @@ export function PdfViewer({
                     </div>
                 )}
                 {error && !loading && (
-                    <div className="flex flex-col items-center justify-center h-full text-center max-w-md mx-auto">
-                        <div className="bg-red-50 text-red-600 p-6 rounded-lg shadow-sm border border-red-100">
-                            <FiFileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                            <h3 className="text-lg font-semibold mb-2">PDF Error</h3>
-                            <p className="text-sm">{error}</p>
+                    <div className="flex flex-col items-center justify-center h-full text-center max-w-md mx-auto p-4">
+                        <div className="bg-white text-gray-800 p-6 rounded-xl shadow-lg border border-gray-200">
+                            <FiFileText className="w-12 h-12 mx-auto mb-3 text-red-500 opacity-80" />
+                            <h3 className="text-base font-semibold mb-1 text-gray-900">PDF Preview Error</h3>
+                            <p className="text-xs text-gray-500 mb-4">{error}</p>
+                            <a
+                                href={fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium rounded-lg text-sm transition-colors shadow-sm"
+                            >
+                                <FiExternalLink className="w-4 h-4" />
+                                Open / Download PDF
+                            </a>
                         </div>
                     </div>
                 )}
