@@ -120,7 +120,10 @@ function parseTiff(view: DataView, tiffStart: number): ExifData | null {
       if (latRef === 'S' || latRef === 's') lat = -lat;
       if (lonRef === 'W' || lonRef === 'w') lon = -lon;
       if (!isNaN(lat) && !isNaN(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
-        coords = { latitude: lat, longitude: lon };
+        // Discard dummy (0,0) / uninitialised camera GPS tags
+        if (Math.abs(lat) > 0.0001 || Math.abs(lon) > 0.0001) {
+          coords = { latitude: lat, longitude: lon };
+        }
       }
     }
   }

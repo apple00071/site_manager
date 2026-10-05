@@ -128,6 +128,9 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const action = body.action; // 'punch_in' or 'punch_out'
         const { latitude, longitude, date, check_out_time } = body;
+        if (typeof latitude === 'number' && typeof longitude === 'number' && Math.abs(latitude) < 0.0001 && Math.abs(longitude) < 0.0001) {
+            return NextResponse.json({ error: 'Invalid GPS coordinates (0, 0) detected. Please provide valid location.' }, { status: 400 });
+        }
         const today = getTodayDateString();
 
         // Permission check

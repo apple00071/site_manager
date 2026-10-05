@@ -86,6 +86,8 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
                     msg = 'Device location (GPS) is turned off. Please turn ON Location in your device settings to punch in.';
                 } else if (posError?.message === 'INSECURE_CONTEXT') {
                     msg = 'Location tracking requires a secure (HTTPS) connection or localhost.';
+                } else if (posError?.message === 'MOCK_LOCATION_DETECTED') {
+                    msg = '⚠️ Fake GPS Detected: Mock location or location spoofing is not permitted. Please disable Fake GPS / Mock Location in your device settings to punch in.';
                 }
                 showToast('error', msg);
                 setPunching(false);

@@ -35,20 +35,33 @@ export async function watermarkPhotoWithLocation(
     return file;
   }
 
+function isValidCoords(coords?: { latitude: number; longitude: number } | null): coords is { latitude: number; longitude: number } {
+  if (!coords) return false;
+  const { latitude, longitude } = coords;
+  if (typeof latitude !== 'number' || typeof longitude !== 'number') return false;
+  if (isNaN(latitude) || isNaN(longitude)) return false;
+  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return false;
+  // Discard dummy (0, 0) / Null Island coordinates
+  if (Math.abs(latitude) < 0.0001 && Math.abs(longitude) < 0.0001) return false;
+  return true;
+}
+
   // 1. Check if the photo itself has embedded EXIF GPS / timestamp (e.g. photo taken with phone camera and uploaded from gallery)
-  let photoCoords: { latitude: number; longitude: number } | undefined = options.coords;
+  let photoCoords: { latitude: number; longitude: number } | undefined = isValidCoords(options.coords) ? options.coords : undefined;
   let photoLocationName: string | undefined = options.locationName;
   let photoTimestamp: Date | undefined = options.timestamp;
 
   try {
     const { extractExifData } = await import('./exifUtils');
     const exif = await extractExifData(file);
-    if (exif?.coords) {
-      photoCoords = exif.coords;
+    if (isValidCoords(exif?.coords)) {
+      photoCoords = exif!.coords;
       try {
         const { reverseGeocode } = await import('./locationUtils');
-        const resolvedAddress = await reverseGeocode(exif.coords.latitude, exif.coords.longitude);
-        if (resolvedAddress) photoLocationName = resolvedAddress;
+        const resolvedAddress = await reverseGeocode(exif!.coords!.latitude, exif!.coords!.longitude);
+        if (resolvedAddress && !resolvedAddress.toLowerCase().includes('atlantic ocean')) {
+          photoLocationName = resolvedAddress;
+        }
       } catch {
         // Fallback to coordinates
       }
@@ -61,12 +74,14 @@ export async function watermarkPhotoWithLocation(
   }
 
   // 2. Reliable location fallback hierarchy:
-  // If photoLocationName looks like raw coordinates "17.3830, 78.4669", prefer projectTitle / projectAddress if available
+  // If photoLocationName looks like raw coordinates or "Atlantic Ocean", prefer projectTitle / projectAddress if available
   const isRawCoordsName = photoLocationName && /^-?\d+(\.\d+)?[,\s]+-?\d+(\.\d+)?$/.test(photoLocationName.trim());
-  const effectiveLocation = (!isRawCoordsName && photoLocationName)
+  const isAtlanticOcean = photoLocationName && photoLocationName.toLowerCase().includes('atlantic ocean');
+  const validLocationName = (!isRawCoordsName && !isAtlanticOcean && photoLocationName) ? photoLocationName : undefined;
+
+  const effectiveLocation = validLocationName
     || options.projectAddress
     || options.projectTitle
-    || photoLocationName
     || 'Site Location';
 
   return new Promise((resolve) => {
@@ -136,7 +151,7 @@ export async function watermarkPhotoWithLocation(
         });
 
         // Line 2: GPS Coordinates (Bold Vivid Gold, crisp sans-serif for crystal clarity)
-        if (photoCoords) {
+        if (isValidCoords(photoCoords)) {
           const lat = photoCoords.latitude;
           const lon = photoCoords.longitude;
           const latStr = `${Math.abs(lat).toFixed(6)}° ${lat >= 0 ? 'N' : 'S'}`;

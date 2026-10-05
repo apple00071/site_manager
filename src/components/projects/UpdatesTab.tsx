@@ -431,6 +431,8 @@ export function UpdatesTab({
           msg = '📍 Device Location (GPS) is turned OFF: You must turn ON Location in your device settings to upload site progress photos.';
         } else if (locErr?.message === 'INSECURE_CONTEXT') {
           msg = '📍 Location tracking requires a secure (HTTPS) connection.';
+        } else if (locErr?.message === 'MOCK_LOCATION_DETECTED') {
+          msg = '⚠️ Fake GPS Detected: Mock location or location spoofing application detected. Please disable Fake GPS / Mock Location in your device settings to upload site photos.';
         } else if (locErr?.message === 'LOCATION_UNAVAILABLE') {
           msg = '📍 Location Unavailable: Could not detect your GPS coordinates. Please ensure you have GPS signal and device location turned ON.';
         }
@@ -586,6 +588,8 @@ export function UpdatesTab({
           msg = '📍 Device Location (GPS) is turned OFF: You must turn ON Location in your device settings to upload site progress photos.';
         } else if (locErr?.message === 'INSECURE_CONTEXT') {
           msg = '📍 Location tracking requires a secure (HTTPS) connection.';
+        } else if (locErr?.message === 'MOCK_LOCATION_DETECTED') {
+          msg = '⚠️ Fake GPS Detected: Mock location or location spoofing application detected. Please disable Fake GPS / Mock Location in your device settings to upload site photos.';
         } else if (locErr?.message === 'LOCATION_UNAVAILABLE') {
           msg = '📍 Location Unavailable: Could not detect your GPS coordinates. Please ensure you have GPS signal and device location turned ON.';
         }

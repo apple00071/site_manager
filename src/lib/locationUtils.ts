@@ -12,6 +12,28 @@ let activeLocationPromise: Promise<CachedPosition | null> | null = null;
 const addressCache = new Map<string, string>();
 
 /**
+ * Detects mock locations / Fake GPS apps on Android (Capacitor) or browser.
+ * Real GPS sensor fixes always have positive variance (accuracy > 0) and lack mock provider flags.
+ */
+export function isMockLocation(pos: any): boolean {
+  if (!pos) return false;
+  // Android Capacitor / Native mock location flags
+  if (
+    pos.isMock === true ||
+    pos.coords?.isMock === true ||
+    pos.coords?.mocked === true ||
+    pos.coords?.isFromMockProvider === true
+  ) {
+    return true;
+  }
+  // Artificial 0 accuracy reported by mock providers (real satellite/cell fix has > 0m uncertainty)
+  if (pos.coords && typeof pos.coords.accuracy === 'number' && pos.coords.accuracy === 0) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Acquire GPS location using Capacitor Geolocation on native devices
  * or navigator.geolocation in browser/PWA.
  */
@@ -55,6 +77,10 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
             timeout: 3000,
             maximumAge: options.forceFresh ? 0 : 180000
           });
+          if (isMockLocation(coarse)) {
+            sessionLocationCache = null;
+            throw new Error('MOCK_LOCATION_DETECTED');
+          }
           sessionLocationCache = {
             latitude: coarse.coords.latitude,
             longitude: coarse.coords.longitude,
@@ -63,6 +89,7 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
           // Try high accuracy in background
           Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 5000, maximumAge: options.forceFresh ? 0 : 60000 })
             .then(pos => {
+              if (isMockLocation(pos)) return;
               sessionLocationCache = {
                 latitude: pos.coords.latitude,
                 longitude: pos.coords.longitude,
@@ -72,13 +99,18 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
             .catch(() => {});
 
           return sessionLocationCache;
-        } catch (_) {
+        } catch (coarseErr: any) {
+          if (coarseErr?.message === 'MOCK_LOCATION_DETECTED') throw coarseErr;
           // If coarse failed, try high accuracy directly
           const pos = await Geolocation.getCurrentPosition({
             enableHighAccuracy: true,
             timeout: timeoutMs,
             maximumAge: options.forceFresh ? 0 : 60000
           });
+          if (isMockLocation(pos)) {
+            sessionLocationCache = null;
+            throw new Error('MOCK_LOCATION_DETECTED');
+          }
           sessionLocationCache = {
             latitude: pos.coords.latitude,
             longitude: pos.coords.longitude,
@@ -87,6 +119,7 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
           return sessionLocationCache;
         }
       } catch (err: any) {
+        if (err?.message === 'MOCK_LOCATION_DETECTED') throw err;
         const msg = (err?.message || '').toLowerCase();
         if (msg.includes('disabled') || msg.includes('unavailable') || msg.includes('location services')) {
           throw new Error('GPS_DISABLED');
@@ -116,6 +149,11 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
           maximumAge: options.forceFresh ? 0 : 180000
         });
 
+        if (isMockLocation(coarse)) {
+          sessionLocationCache = null;
+          throw new Error('MOCK_LOCATION_DETECTED');
+        }
+
         sessionLocationCache = {
           latitude: coarse.coords.latitude,
           longitude: coarse.coords.longitude,
@@ -125,6 +163,7 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
         // In background, upgrade to high-accuracy GPS if satellite fix is available
         getWebPos({ enableHighAccuracy: true, timeout: 6000, maximumAge: options.forceFresh ? 0 : 60000 })
           .then(high => {
+            if (isMockLocation(high)) return;
             sessionLocationCache = {
               latitude: high.coords.latitude,
               longitude: high.coords.longitude,
@@ -135,6 +174,7 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
 
         return sessionLocationCache;
       } catch (coarseErr: any) {
+        if (coarseErr?.message === 'MOCK_LOCATION_DETECTED') throw coarseErr;
         if (coarseErr?.code === 1) throw new Error('PERMISSION_DENIED');
 
         // 2. If coarse failed, try high-accuracy GPS
@@ -144,6 +184,10 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
             timeout: timeoutMs,
             maximumAge: options.forceFresh ? 0 : 60000
           });
+          if (isMockLocation(highPos)) {
+            sessionLocationCache = null;
+            throw new Error('MOCK_LOCATION_DETECTED');
+          }
           sessionLocationCache = {
             latitude: highPos.coords.latitude,
             longitude: highPos.coords.longitude,
@@ -151,6 +195,7 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
           };
           return sessionLocationCache;
         } catch (highErr: any) {
+          if (highErr?.message === 'MOCK_LOCATION_DETECTED') throw highErr;
           if (highErr?.code === 1) throw new Error('PERMISSION_DENIED');
           if (highErr?.code === 2) throw new Error('GPS_DISABLED');
           throw highErr;
@@ -172,6 +217,11 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
  * Uses BigDataCloud reverse geocode client API with 2.5s timeout and memory cache.
  */
 export async function reverseGeocode(latitude: number, longitude: number): Promise<string> {
+  // Reject Null Island / dummy (0,0) coordinates
+  if (Math.abs(latitude) < 0.0001 && Math.abs(longitude) < 0.0001) {
+    return '';
+  }
+
   const cacheKey = `${latitude.toFixed(3)},${longitude.toFixed(3)}`;
   if (addressCache.has(cacheKey)) {
     return addressCache.get(cacheKey)!;
@@ -195,6 +245,7 @@ export async function reverseGeocode(latitude: number, longitude: number): Promi
       if (data.principalSubdivision) parts.push(data.principalSubdivision);
 
       const address = parts.length > 0 ? parts.join(', ') : `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+      if (address.toLowerCase().includes('atlantic ocean')) return '';
       addressCache.set(cacheKey, address);
       return address;
     }
@@ -218,7 +269,7 @@ export interface LocationDetails {
 export async function getLocationDetails(options: { timeout?: number; forceFresh?: boolean; throwOnError?: boolean } = {}): Promise<LocationDetails | null> {
   try {
     const coords = await acquireLocation(options);
-    if (!coords || !coords.latitude || !coords.longitude) {
+    if (!coords || !coords.latitude || !coords.longitude || (Math.abs(coords.latitude) < 0.0001 && Math.abs(coords.longitude) < 0.0001)) {
       if (options.throwOnError) throw new Error('LOCATION_UNAVAILABLE');
       return null;
     }
