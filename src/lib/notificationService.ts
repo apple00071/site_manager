@@ -39,6 +39,8 @@ export type NotificationType =
   | 'attendance_approved'
   | 'attendance_rejected'
   | 'material_delivered'
+  | 'boq_created'
+  | 'material_ordered'
   | 'checklist_pending';
 
 export interface CreateNotificationParams {
@@ -118,6 +120,8 @@ export class NotificationService {
       case 'report_generated':
         return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress` : undefined;
       case 'material_delivered':
+      case 'boq_created':
+      case 'material_ordered':
         return relatedId ? `${baseUrl}/projects/${relatedId}?tab=boq` : `${baseUrl}/projects`;
       case 'checklist_pending':
         return relatedId ? `${baseUrl}/projects/${relatedId}?stage=requirement` : `${baseUrl}/projects`;

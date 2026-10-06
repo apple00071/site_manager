@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { NotificationService } from '@/lib/notificationService';
 
 export const dynamic = 'force-dynamic';
 
@@ -251,6 +252,47 @@ export async function POST(request: NextRequest) {
         if (error) {
             console.error('Error creating BOQ item:', error);
             return NextResponse.json({ error: 'Failed to create BOQ item' }, { status: 500 });
+        }
+
+        // Notify Site Engineer / Supervisor & Leads if created by someone else
+        try {
+            const { data: project } = await supabaseAdmin
+                .from('projects')
+                .select('id, title, site_supervisor_id, assigned_employee_id')
+                .eq('id', project_id)
+                .single();
+
+            if (project) {
+                const recipientIds = new Set<string>();
+                if (project.site_supervisor_id) recipientIds.add(project.site_supervisor_id);
+                if (project.assigned_employee_id) recipientIds.add(project.assigned_employee_id);
+                recipientIds.delete(user.id);
+
+                const { data: creatorData } = await supabaseAdmin
+                    .from('users')
+                    .select('full_name')
+                    .eq('id', user.id)
+                    .single();
+                const creatorName = creatorData?.full_name || 'Admin';
+
+                for (const recipientId of recipientIds) {
+                    await NotificationService.createNotification({
+                        userId: recipientId,
+                        title: `BOQ Item Added: ${project.title}`,
+                        message: `${data.item_name} (${data.quantity} ${data.unit}) added to BOQ by ${creatorName}.`,
+                        type: 'boq_created',
+                        relatedId: project.id,
+                        relatedType: 'project',
+                        metadata: {
+                            project_id: project.id,
+                            boq_item_id: data.id,
+                            item_name: data.item_name
+                        }
+                    });
+                }
+            }
+        } catch (notifErr) {
+            console.error('Error sending BOQ item notification:', notifErr);
         }
 
         return NextResponse.json({ item: data }, { status: 201 });

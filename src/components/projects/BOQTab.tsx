@@ -11,6 +11,8 @@ import { compressImage, uploadFile } from '@/lib/uploadUtils';
 import { generateBoqPDF, BoqPdfItem, generateLaminatePDF, LaminatePdfItem } from '@/lib/reports/boqPdfGenerator';
 import type { Project } from '@/components/projects/ProjectDetailsClient';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { SidePanel } from '@/components/ui/SidePanel';
 
 export interface BOQItem {
     id: string;
@@ -248,6 +250,15 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
     const [deliveryPhotoPreview, setDeliveryPhotoPreview] = useState<string | null>(null);
     const [submittingDelivery, setSubmittingDelivery] = useState(false);
 
+    // Responsive screen detection: mobile uses BottomSheet, desktop uses SidePanel
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
     // Challan Lightbox Preview State
     const [previewChallan, setPreviewChallan] = useState<{
         url: string;
@@ -295,8 +306,8 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
         setDeliveryPhotoPreview(objectUrl);
     };
 
-    const handleConfirmDeliverySubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleConfirmDeliverySubmit = async (e?: React.FormEvent | React.MouseEvent) => {
+        if (e) e.preventDefault();
         if (deliveryTargetItems.length === 0) return;
 
         setSubmittingDelivery(true);
@@ -394,15 +405,61 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
 
     const renderDeliveryStatusBadge = (item: BOQItem) => {
         const isDelivered = item.order_status === 'delivered';
+        const isPartial = item.order_status === 'partial' || (
+            item.delivered_quantity !== null &&
+            item.delivered_quantity !== undefined &&
+            item.delivered_quantity > 0 &&
+            item.delivered_quantity < item.quantity
+        );
         const isOrdered = item.order_status === 'ordered';
         const billLabel = item.bill_number || (item.delivery_notes?.match(/(?:\[)?(Bill\s*#?\d+)/i)?.[1]) || null;
 
-        if (isDelivered) {
+        if (isPartial) {
             return (
                 <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100/80 text-emerald-800 border border-emerald-200">
-                        <FiCheck className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>{billLabel ? `${billLabel} • Delivered` : 'Bill #1 • Delivered'}</span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                        <FiAlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Partial ({item.delivered_quantity}/{item.quantity} {item.unit || ''})</span>
+                    </span>
+                    {item.delivery_challan_url && (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setPreviewChallan({
+                                    url: item.delivery_challan_url!,
+                                    title: `${item.item_name} - Delivery Challan`,
+                                    notes: item.delivery_notes || undefined,
+                                    date: item.delivered_at
+                                        ? new Date(item.delivered_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                                        : undefined
+                                });
+                            }}
+                            className="p-1 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 transition-colors"
+                            title="View Challan Photo"
+                        >
+                            <FiImage className="w-3.5 h-3.5" />
+                        </button>
+                    )}
+                </div>
+            );
+        }
+
+        if (isDelivered) {
+            const hasExcess = item.delivered_quantity !== null && item.delivered_quantity !== undefined && item.delivered_quantity > item.quantity;
+            return (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                        hasExcess 
+                            ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                            : 'bg-emerald-100/80 text-emerald-800 border border-emerald-200'
+                    }`}>
+                        <FiCheck className={`w-3.5 h-3.5 ${hasExcess ? 'text-blue-600' : 'text-emerald-600'}`} />
+                        <span>
+                            {hasExcess 
+                                ? `${billLabel ? `${billLabel} • ` : ''}${item.delivered_quantity}/${item.quantity} (+${((item.delivered_quantity || 0) - item.quantity).toFixed(1).replace(/\.0$/, '')} Excess)`
+                                : (billLabel ? `${billLabel} • Delivered` : 'Delivered')}
+                        </span>
                     </span>
                     {item.delivery_challan_url && (
                         <button
@@ -650,8 +707,8 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
     };
 
     // Save Item (Create or Update)
-    const handleSaveItem = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSaveItem = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
         if (editingItem && !canEdit) {
             alert('Permission denied: You do not have permission to edit BOQ items.');
             return;
@@ -870,8 +927,8 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
     };
 
     // Save Laminate Item
-    const handleSaveLaminate = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSaveLaminate = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
         if (editingLaminate && !canEdit) {
             alert('Permission denied: You do not have permission to edit BOQ items.');
             return;
@@ -1096,14 +1153,14 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                 ) : (
                     <div className="space-y-4">
                         {/* Filter Bar */}
-                        <div className="flex flex-wrap items-center justify-between gap-3 bg-gray-50/80 p-3 rounded-xl border border-gray-200">
-                            <div className="flex items-center gap-1.5 flex-wrap">
+                        <div className="flex items-center justify-between gap-2.5 bg-gray-50/80 p-2 sm:p-2.5 rounded-xl border border-gray-200 overflow-x-auto no-scrollbar scroll-smooth">
+                            <div className="flex items-center gap-1.5 shrink-0">
                                 {(['all', 'ordered', 'delivered'] as const).map(f => (
                                     <button
                                         key={f}
                                         type="button"
                                         onClick={() => setBillStatusFilter(f)}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all cursor-pointer ${
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                                             billStatusFilter === f
                                                 ? 'bg-emerald-600 text-white shadow-xs'
                                                 : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
@@ -1120,7 +1177,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                             <button
                                 type="button"
                                 onClick={fetchBills}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 hover:bg-white rounded-lg border border-transparent hover:border-gray-200 transition-colors cursor-pointer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 hover:bg-white rounded-lg border border-transparent hover:border-gray-200 transition-colors cursor-pointer shrink-0 whitespace-nowrap ml-auto"
                             >
                                 <FiRefreshCw className="w-3.5 h-3.5" />
                                 <span>Refresh</span>
@@ -1744,286 +1801,325 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
             )}
 
             {/* ========================================================================= */}
-            {/* ADD / EDIT BOQ ITEM MODAL */}
+            {/* ADD / EDIT BOQ ITEM (Mobile: BottomSheet, Desktop: SidePanel) */}
             {/* ========================================================================= */}
-            {showItemModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg border border-gray-100 overflow-hidden">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-                            <h3 className="text-lg font-bold text-gray-900">
-                                {editingItem ? 'Edit BOQ Item' : 'Add BOQ Item'}
-                            </h3>
-                            <button
-                                onClick={() => setShowItemModal(false)}
-                                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
-                            >
-                                <FiX className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleSaveItem} className="p-6 space-y-4">
-                            {/* Particular (Item) */}
-                            <div>
-                                <div className="flex items-center justify-between mb-2">
-                                    <label className="text-xs font-bold uppercase tracking-wider text-gray-700">
-                                        Particular (Item) <span className="text-red-500">*</span>
-                                    </label>
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsCustomItem(!isCustomItem)}
-                                        className="text-xs font-semibold text-amber-600 hover:text-amber-700 hover:underline"
-                                    >
-                                        {isCustomItem ? '← Select from Standard Catalog' : '+ Add Custom Item Instead'}
-                                    </button>
-                                </div>
-
-                                {!isCustomItem ? (
-                                    <select
-                                        value={selectedCatalogItem}
-                                        onChange={e => handleCatalogSelect(e.target.value)}
-                                        className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-                                    >
-                                        {['Plywood & Boards', 'Adhesives', 'PTA Screws', 'Nails', 'Consumables & Tools', 'Custom Items'].map(cat => {
-                                            const catItems = combinedCatalog.filter(c => c.category === cat);
-                                            if (catItems.length === 0) return null;
-                                            return (
-                                                <optgroup key={cat} label={`── ${cat} ──`}>
-                                                    {catItems.map(c => (
-                                                        <option key={c.name} value={c.name}>
-                                                            {c.name}
-                                                        </option>
-                                                    ))}
-                                                </optgroup>
-                                            );
-                                        })}
-                                    </select>
-                                ) : (
-                                    <input
-                                        type="text"
-                                        placeholder="e.g. 18mm Marine Ply, SS Hinges 4-inch..."
-                                        value={customItemName}
-                                        onChange={e => setCustomItemName(e.target.value)}
-                                        required
-                                        className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-                                    />
-                                )}
-                            </div>
-
-                            {/* Supplier / Category (Optional - for grouping & dividing items) */}
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
-                                    Supplier / Category <span className="text-gray-400 font-normal lowercase">(optional - for grouping & dividing)</span>
+            {(() => {
+                const boqFormContent = (
+                    <form
+                        id="boq-item-form"
+                        onSubmit={handleSaveItem}
+                        className="space-y-4"
+                    >
+                        {/* Particular (Item) */}
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="text-xs font-bold uppercase tracking-wider text-gray-700">
+                                    Particular (Item) <span className="text-red-500">*</span>
                                 </label>
-                                <input
-                                    type="text"
-                                    placeholder="e.g. Hardware Supplier, Plywood Depot, Asian Paints..."
-                                    value={itemSupplier}
-                                    onChange={e => setItemSupplier(e.target.value)}
-                                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-                                />
-                                {availableSuppliers.length > 0 && (
-                                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                        {availableSuppliers.slice(0, 5).map(sup => (
-                                            <button
-                                                key={sup}
-                                                type="button"
-                                                onClick={() => setItemSupplier(sup)}
-                                                className={`text-[11px] px-2 py-0.5 rounded border transition-colors ${
-                                                    itemSupplier === sup
-                                                        ? 'bg-amber-100 border-amber-300 text-amber-800 font-semibold'
-                                                        : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                                                }`}
-                                            >
-                                                {sup}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Quantity and Unit */}
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                                    Quantity & Unit <span className="text-red-500">*</span>
-                                </label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <input
-                                            type="number"
-                                            step="any"
-                                            min="0.1"
-                                            placeholder="Quantity"
-                                            value={quantity}
-                                            onChange={e => setQuantity(e.target.value)}
-                                            required
-                                            className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-semibold text-gray-900"
-                                        />
-                                    </div>
-                                    <div>
-                                        <select
-                                            value={unit}
-                                            onChange={e => setUnit(e.target.value)}
-                                            className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-                                        >
-                                            {STANDARD_UNITS.map(u => (
-                                                <option key={u} value={u}>
-                                                    {u}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-3">
                                 <button
                                     type="button"
-                                    onClick={() => setShowItemModal(false)}
-                                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                                    onClick={() => setIsCustomItem(!isCustomItem)}
+                                    className="text-xs font-semibold text-amber-600 hover:text-amber-700 hover:underline cursor-pointer"
                                 >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={saving}
-                                    className="px-5 py-2 text-sm font-semibold bg-[#f0b100] hover:bg-[#d49b00] text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
-                                >
-                                    {saving ? 'Saving...' : editingItem ? 'Update Item' : 'Add Item'}
+                                    {isCustomItem ? '← Select from Standard Catalog' : '+ Add Custom Item Instead'}
                                 </button>
                             </div>
-                        </form>
-                    </div>
-                </div>
-            )}
 
-            {/* ========================================================================= */}
-            {/* ADD / EDIT LAMINATE MODAL */}
-            {/* ========================================================================= */}
-            {showLaminateModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md border border-gray-100 overflow-hidden">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-amber-50/40">
-                            <div className="flex items-center gap-2.5">
-                                <div className="p-1.5 bg-[#f0b100] text-white rounded-lg">
-                                    <FiLayers className="w-4 h-4" />
-                                </div>
-                                <h3 className="text-lg font-bold text-gray-900">
-                                    {editingLaminate ? 'Edit Laminate Sheet' : 'Add Laminate Sheet'}
-                                </h3>
-                            </div>
-                            <button
-                                onClick={() => setShowLaminateModal(false)}
-                                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
-                            >
-                                <FiX className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleSaveLaminate} className="p-6 space-y-4">
-                            {/* Laminate Code */}
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
-                                    Laminate Code <span className="text-red-500">*</span>
-                                </label>
+                            {!isCustomItem ? (
+                                <select
+                                    value={selectedCatalogItem}
+                                    onChange={e => handleCatalogSelect(e.target.value)}
+                                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                                >
+                                    {['Plywood & Boards', 'Adhesives', 'PTA Screws', 'Nails', 'Consumables & Tools', 'Custom Items'].map(cat => {
+                                        const catItems = combinedCatalog.filter(c => c.category === cat);
+                                        if (catItems.length === 0) return null;
+                                        return (
+                                            <optgroup key={cat} label={`── ${cat} ──`}>
+                                                {catItems.map(c => (
+                                                    <option key={c.name} value={c.name}>
+                                                        {c.name}
+                                                    </option>
+                                                ))}
+                                            </optgroup>
+                                        );
+                                    })}
+                                </select>
+                            ) : (
                                 <input
                                     type="text"
-                                    placeholder="e.g. 1024 SF, 217 SF, 1.0mm Matt..."
-                                    value={laminateCode}
-                                    onChange={e => setLaminateCode(e.target.value)}
+                                    placeholder="e.g. 18mm Marine Ply, SS Hinges 4-inch..."
+                                    value={customItemName}
+                                    onChange={e => setCustomItemName(e.target.value)}
                                     required
-                                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-medium"
+                                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
                                 />
+                            )}
+                        </div>
+
+                        {/* Supplier / Category (Optional - for grouping & dividing items) */}
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
+                                Supplier / Category <span className="text-gray-400 font-normal lowercase">(optional - for grouping & dividing)</span>
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="e.g. Hardware Supplier, Plywood Depot, Asian Paints..."
+                                value={itemSupplier}
+                                onChange={e => setItemSupplier(e.target.value)}
+                                className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                            />
+                            {availableSuppliers.length > 0 && (
                                 <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                    {LAMINATE_CODE_SUGGESTIONS.map(sugg => (
+                                    {availableSuppliers.slice(0, 5).map(sup => (
                                         <button
-                                            key={sugg}
+                                            key={sup}
                                             type="button"
-                                            onClick={() => setLaminateCode(sugg)}
-                                            className={`text-[11px] px-2 py-0.5 rounded border transition-colors ${
-                                                laminateCode === sugg
+                                            onClick={() => setItemSupplier(sup)}
+                                            className={`text-[11px] px-2 py-0.5 rounded-lg border transition-colors cursor-pointer ${
+                                                itemSupplier === sup
                                                     ? 'bg-amber-100 border-amber-300 text-amber-800 font-semibold'
                                                     : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
                                             }`}
                                         >
-                                            {sugg}
+                                            {sup}
                                         </button>
                                     ))}
                                 </div>
-                            </div>
+                            )}
+                        </div>
 
-                            {/* Company */}
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
-                                    Company <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    placeholder="e.g. Royal Touch, Merino, Greenlam, Century..."
-                                    value={laminateCompany}
-                                    onChange={e => setLaminateCompany(e.target.value)}
-                                    required
-                                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-medium"
-                                />
-                                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                    {LAMINATE_COMPANIES.map(comp => (
-                                        <button
-                                            key={comp}
-                                            type="button"
-                                            onClick={() => setLaminateCompany(comp)}
-                                            className={`text-[11px] px-2.5 py-1 rounded-md border font-medium transition-colors ${
-                                                laminateCompany === comp
-                                                    ? 'bg-[#f0b100] text-white border-[#f0b100] shadow-sm'
-                                                    : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                                            }`}
-                                        >
-                                            {comp}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Quantity */}
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
-                                    Quantity (Sheets) <span className="text-red-500">*</span>
-                                </label>
-                                <div className="flex items-center gap-2">
+                        {/* Quantity and Unit */}
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                                Quantity & Unit <span className="text-red-500">*</span>
+                            </label>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
                                     <input
                                         type="number"
                                         step="any"
                                         min="0.1"
-                                        placeholder="Number of sheets"
-                                        value={laminateQuantity}
-                                        onChange={e => setLaminateQuantity(e.target.value)}
+                                        placeholder="Quantity"
+                                        value={quantity}
+                                        onChange={e => setQuantity(e.target.value)}
                                         required
-                                        className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-bold text-gray-900"
+                                        className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-semibold text-gray-900"
                                     />
-                                    <span className="px-4 py-2.5 bg-gray-100 text-gray-600 rounded-lg text-sm font-semibold border border-gray-200">
-                                        Sheets
-                                    </span>
+                                </div>
+                                <div>
+                                    <select
+                                        value={unit}
+                                        onChange={e => setUnit(e.target.value)}
+                                        className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                                    >
+                                        {STANDARD_UNITS.map(u => (
+                                            <option key={u} value={u}>
+                                                {u}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
+                        </div>
+                    </form>
+                );
 
-                            <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowLaminateModal(false)}
-                                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={saving}
-                                    className="px-5 py-2 text-sm font-semibold bg-[#f0b100] hover:bg-[#d49b00] text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
-                                >
-                                    {saving ? 'Saving...' : editingLaminate ? 'Update Laminate' : 'Add Laminate'}
-                                </button>
-                            </div>
-                        </form>
+                const boqFormFooter = (
+                    <div className="flex items-center justify-end gap-3 w-full">
+                        <button
+                            type="button"
+                            onClick={() => setShowItemModal(false)}
+                            className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            form="boq-item-form"
+                            disabled={saving}
+                            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold bg-[#f0b100] hover:bg-[#d49b00] text-white rounded-xl shadow-sm transition-colors disabled:opacity-50 cursor-pointer flex-1 sm:flex-initial"
+                        >
+                            {saving ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    <span>Saving...</span>
+                                </>
+                            ) : (
+                                <span>{editingItem ? 'Update Item' : 'Add Item'}</span>
+                            )}
+                        </button>
                     </div>
-                </div>
-            )}
+                );
+
+                return isMobile ? (
+                    <BottomSheet
+                        isOpen={showItemModal}
+                        onClose={() => setShowItemModal(false)}
+                        title={editingItem ? 'Edit BOQ Item' : 'Add BOQ Item'}
+                        footer={boqFormFooter}
+                        maxHeight="92vh"
+                    >
+                        {boqFormContent}
+                    </BottomSheet>
+                ) : (
+                    <SidePanel
+                        isOpen={showItemModal}
+                        onClose={() => setShowItemModal(false)}
+                        title={editingItem ? 'Edit BOQ Item' : 'Add BOQ Item'}
+                        width="md"
+                        footer={boqFormFooter}
+                    >
+                        {boqFormContent}
+                    </SidePanel>
+                );
+            })()}
+
+            {/* ========================================================================= */}
+            {/* ADD / EDIT LAMINATE (Mobile: BottomSheet, Desktop: SidePanel) */}
+            {/* ========================================================================= */}
+            {(() => {
+                const laminateFormContent = (
+                    <form
+                        id="laminate-sheet-form"
+                        onSubmit={handleSaveLaminate}
+                        className="space-y-4"
+                    >
+                        {/* Laminate Code */}
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
+                                Laminate Code <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="e.g. 1024 SF, 217 SF, 1.0mm Matt..."
+                                value={laminateCode}
+                                onChange={e => setLaminateCode(e.target.value)}
+                                required
+                                className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-medium"
+                            />
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                {LAMINATE_CODE_SUGGESTIONS.map(sugg => (
+                                    <button
+                                        key={sugg}
+                                        type="button"
+                                        onClick={() => setLaminateCode(sugg)}
+                                        className={`text-[11px] px-2 py-0.5 rounded-lg border transition-colors cursor-pointer ${
+                                            laminateCode === sugg
+                                                ? 'bg-amber-100 border-amber-300 text-amber-800 font-semibold'
+                                                : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                                        }`}
+                                    >
+                                        {sugg}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Company */}
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
+                                Company <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="e.g. Royal Touch, Merino, Greenlam, Century..."
+                                value={laminateCompany}
+                                onChange={e => setLaminateCompany(e.target.value)}
+                                required
+                                className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-medium"
+                            />
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                {LAMINATE_COMPANIES.map(comp => (
+                                    <button
+                                        key={comp}
+                                        type="button"
+                                        onClick={() => setLaminateCompany(comp)}
+                                        className={`text-[11px] px-2.5 py-1 rounded-lg border font-medium transition-colors cursor-pointer ${
+                                            laminateCompany === comp
+                                                ? 'bg-[#f0b100] text-white border-[#f0b100] shadow-sm'
+                                                : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                                        }`}
+                                    >
+                                        {comp}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Quantity */}
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
+                                Quantity (Sheets) <span className="text-red-500">*</span>
+                            </label>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="number"
+                                    step="any"
+                                    min="0.1"
+                                    placeholder="Number of sheets"
+                                    value={laminateQuantity}
+                                    onChange={e => setLaminateQuantity(e.target.value)}
+                                    required
+                                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-bold text-gray-900"
+                                />
+                                <span className="px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold border border-gray-200">
+                                    Sheets
+                                </span>
+                            </div>
+                        </div>
+                    </form>
+                );
+
+                const laminateFormFooter = (
+                    <div className="flex items-center justify-end gap-3 w-full">
+                        <button
+                            type="button"
+                            onClick={() => setShowLaminateModal(false)}
+                            className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            form="laminate-sheet-form"
+                            disabled={saving}
+                            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold bg-[#f0b100] hover:bg-[#d49b00] text-white rounded-xl shadow-sm transition-colors disabled:opacity-50 cursor-pointer flex-1 sm:flex-initial"
+                        >
+                            {saving ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    <span>Saving...</span>
+                                </>
+                            ) : (
+                                <span>{editingLaminate ? 'Update Laminate' : 'Add Laminate'}</span>
+                            )}
+                        </button>
+                    </div>
+                );
+
+                return isMobile ? (
+                    <BottomSheet
+                        isOpen={showLaminateModal}
+                        onClose={() => setShowLaminateModal(false)}
+                        title={editingLaminate ? 'Edit Laminate Sheet' : 'Add Laminate Sheet'}
+                        footer={laminateFormFooter}
+                        maxHeight="92vh"
+                    >
+                        {laminateFormContent}
+                    </BottomSheet>
+                ) : (
+                    <SidePanel
+                        isOpen={showLaminateModal}
+                        onClose={() => setShowLaminateModal(false)}
+                        title={editingLaminate ? 'Edit Laminate Sheet' : 'Add Laminate Sheet'}
+                        width="md"
+                        footer={laminateFormFooter}
+                    >
+                        {laminateFormContent}
+                    </SidePanel>
+                );
+            })()}
 
             {/* ========================================================================= */}
             {/* EXPORT BOQ TO PDF MODAL */}
@@ -2446,53 +2542,114 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
             )}
 
             {/* ========================================================================= */}
-            {/* CONFIRM MATERIAL DELIVERY MODAL */}
+            {/* CONFIRM MATERIAL DELIVERY (Mobile: BottomSheet, Desktop: SidePanel) */}
             {/* ========================================================================= */}
-            {showDeliveryModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl border border-gray-100 overflow-hidden flex flex-col max-h-[90vh]">
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-emerald-50/50 shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-emerald-600 text-white rounded-lg">
-                                    <FiTruck className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-bold text-gray-900">Confirm Material Delivery</h3>
-                                    <p className="text-xs text-gray-500">Record received materials and notify the Admin</p>
-                                </div>
-                            </div>
+            {isMobile ? (
+                <BottomSheet
+                    isOpen={showDeliveryModal}
+                    onClose={() => setShowDeliveryModal(false)}
+                    title="Confirm Material Delivery"
+                    footer={
+                        <div className="flex items-center justify-end gap-3 w-full">
                             <button
                                 type="button"
                                 onClick={() => setShowDeliveryModal(false)}
-                                className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+                                className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
                             >
-                                <FiX className="w-5 h-5" />
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmDeliverySubmit}
+                                disabled={submittingDelivery}
+                                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm transition-colors disabled:opacity-50 cursor-pointer flex-1"
+                            >
+                                {submittingDelivery ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        <span>Submitting...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <FiCheck className="w-4 h-4" />
+                                        <span>Confirm & Notify Admin</span>
+                                    </>
+                                )}
                             </button>
                         </div>
+                    }
+                    maxHeight="92vh"
+                >
+                    <div className="space-y-5 pb-2">
+                        {/* Header info badge */}
+                        <div className="flex items-center gap-3 p-3 bg-emerald-50/70 border border-emerald-100 rounded-xl">
+                            <div className="p-2 bg-emerald-600 text-white rounded-lg shrink-0">
+                                <FiTruck className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0">
+                                <h4 className="text-sm font-bold text-emerald-950 truncate">
+                                    {selectedBillForDelivery ? `Bill: ${selectedBillForDelivery.bill_number}` : 'Record Received Materials'}
+                                </h4>
+                                <p className="text-xs text-emerald-700 truncate">
+                                    Verify delivered quantities against ordered requirements
+                                </p>
+                            </div>
+                        </div>
 
-                        {/* Modal Body */}
-                        <form onSubmit={handleConfirmDeliverySubmit} className="flex flex-col flex-1 overflow-hidden">
-                            <div className="p-6 space-y-4 overflow-y-auto flex-1">
-                                {/* Items Verification */}
-                                <div>
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                                        Delivered Items & Quantities ({deliveryTargetItems.length})
-                                    </label>
-                                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                                        {deliveryTargetItems.map((item) => (
-                                            <div
-                                                key={item.id}
-                                                className="flex items-center justify-between p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-xs"
-                                            >
-                                                <div className="flex-1 min-w-0 pr-3">
-                                                    <p className="font-semibold text-gray-900 truncate">{item.item_name}</p>
-                                                    <p className="text-[11px] text-gray-500">
-                                                        Ordered / Required: {item.quantity} {item.unit || 'Units'}
-                                                    </p>
-                                                </div>
-                                                <div className="flex items-center gap-1.5 shrink-0">
-                                                    <span className="text-[11px] text-gray-500 font-medium">Received:</span>
+                        {/* Delivered Items & Quantities */}
+                        <div>
+                            <div className="flex items-center justify-between gap-2 mb-2.5">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">
+                                    Delivered Items ({deliveryTargetItems.length})
+                                </label>
+                                {deliveryTargetItems.length > 1 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const all: Record<string, number> = {};
+                                            deliveryTargetItems.forEach(it => {
+                                                all[it.id] = it.quantity || 1;
+                                            });
+                                            setDeliveryQuantities(all);
+                                        }}
+                                        className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-100/70 hover:bg-emerald-200/70 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                                    >
+                                        Match All Ordered
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="space-y-2.5">
+                                {deliveryTargetItems.map((item) => (
+                                    <div
+                                        key={item.id}
+                                        className="p-3 bg-gray-50/90 hover:bg-gray-50 border border-gray-200/90 rounded-xl transition-colors space-y-2.5"
+                                    >
+                                        {/* Top row: Item Name & Ordered Quantity Pill */}
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="min-w-0 flex-1">
+                                                <p className="font-semibold text-gray-900 text-sm leading-snug break-words">
+                                                    {item.item_name}
+                                                </p>
+                                                {item.category && (
+                                                    <span className="text-[11px] text-gray-400 font-medium">
+                                                        {item.category}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="shrink-0 flex items-center gap-1.5 bg-white border border-gray-200 px-2.5 py-1 rounded-lg text-xs text-gray-600 shadow-2xs">
+                                                <span className="text-gray-400">Ordered:</span>
+                                                <span className="font-bold text-gray-900">{item.quantity} {item.unit || 'Units'}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Bottom row: Received Quantity input */}
+                                        <div className="space-y-1.5 pt-2 border-t border-gray-200/60">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs font-medium text-gray-600">
+                                                    Received Quantity:
+                                                </span>
+                                                <div className="flex items-center">
                                                     <input
                                                         type="number"
                                                         step="any"
@@ -2502,129 +2659,355 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                                             const val = parseFloat(e.target.value) || 0;
                                                             setDeliveryQuantities(prev => ({ ...prev, [item.id]: val }));
                                                         }}
-                                                        className="w-20 px-2 py-1 bg-white border border-gray-300 rounded font-bold text-gray-900 text-right outline-none focus:ring-1 focus:ring-emerald-500"
+                                                        className="w-24 px-3 py-1.5 bg-white border border-gray-300 rounded-l-lg font-bold text-gray-900 text-right outline-none focus:ring-1 focus:ring-emerald-500 text-sm focus:border-emerald-500"
                                                     />
-                                                    <span className="text-gray-600 font-medium w-12 truncate">{item.unit || 'Units'}</span>
+                                                    <span className="px-3 py-1.5 bg-gray-100 border border-l-0 border-gray-300 rounded-r-lg text-xs font-semibold text-gray-600 min-w-[55px] text-center truncate">
+                                                        {item.unit || 'Units'}
+                                                    </span>
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Delivery Date */}
-                                <div>
-                                    <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase mb-1">
-                                        <FiCalendar className="w-3.5 h-3.5 text-gray-400" />
-                                        <span>Delivery Date</span> <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={deliveryDate}
-                                        onChange={e => setDeliveryDate(e.target.value)}
-                                        required
-                                        className="w-full px-3.5 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-semibold text-gray-900"
-                                    />
-                                </div>
-
-                                {/* Delivery Challan Photo Upload */}
-                                <div>
-                                    <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase mb-1">
-                                        <FiCamera className="w-3.5 h-3.5 text-emerald-600" />
-                                        <span>Delivery Challan / Material Photo</span>
-                                        <span className="text-gray-400 font-normal lowercase">(proof for Admin)</span>
-                                    </label>
-                                    
-                                    {deliveryPhotoPreview ? (
-                                        <div className="relative rounded-xl border border-emerald-200 bg-emerald-50/50 p-2 flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <img
-                                                    src={deliveryPhotoPreview}
-                                                    alt="Challan preview"
-                                                    className="w-14 h-14 object-cover rounded-lg border border-emerald-200"
-                                                />
-                                                <div className="text-xs">
-                                                    <p className="font-semibold text-emerald-950 truncate max-w-xs">
-                                                        {deliveryPhotoFile?.name || 'Challan Photo'}
-                                                    </p>
-                                                    <p className="text-[11px] text-emerald-700">Ready to upload</p>
-                                                </div>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setDeliveryPhotoFile(null);
-                                                    setDeliveryPhotoPreview(null);
-                                                }}
-                                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                                                title="Remove photo"
-                                            >
-                                                <FiTrash2 className="w-4 h-4" />
-                                            </button>
+                                            {(() => {
+                                                const rec = deliveryQuantities[item.id] !== undefined ? deliveryQuantities[item.id] : item.quantity;
+                                                const diff = rec - item.quantity;
+                                                if (diff < 0) {
+                                                    return (
+                                                        <div className="flex items-center justify-end text-[11px] text-amber-700 font-semibold gap-1">
+                                                            <span>⚠️ Shortfall:</span>
+                                                            <span>{Math.abs(diff).toFixed(1).replace(/\.0$/, '')} {item.unit || 'Units'} pending</span>
+                                                        </div>
+                                                    );
+                                                }
+                                                if (diff > 0) {
+                                                    return (
+                                                        <div className="flex items-center justify-end text-[11px] text-blue-700 font-semibold gap-1">
+                                                            <span>ℹ️ Excess:</span>
+                                                            <span>+{diff.toFixed(1).replace(/\.0$/, '')} {item.unit || 'Units'} extra</span>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
                                         </div>
-                                    ) : (
-                                        <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-emerald-500 hover:bg-emerald-50/30 cursor-pointer transition-colors">
-                                            <FiCamera className="w-6 h-6 text-gray-400 mb-1" />
-                                            <span className="text-xs font-semibold text-emerald-800">
-                                                Take photo or upload delivery challan copy
-                                            </span>
-                                            <span className="text-[11px] text-gray-400 mt-0.5">JPEG, PNG, HEIC from camera or gallery</span>
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                capture="environment"
-                                                onChange={handlePhotoChange}
-                                                className="hidden"
-                                            />
-                                        </label>
-                                    )}
-                                </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
 
-                                {/* Delivery Notes / Remarks */}
-                                <div>
-                                    <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase mb-1">
-                                        <FiFileText className="w-3.5 h-3.5 text-gray-400" />
-                                        <span>Remarks / Challan Number</span>
-                                    </label>
+                        {/* Delivery Date */}
+                        <div>
+                            <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase mb-1.5">
+                                <FiCalendar className="w-3.5 h-3.5 text-gray-400" />
+                                <span>Delivery Date</span> <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="date"
+                                value={deliveryDate}
+                                onChange={e => setDeliveryDate(e.target.value)}
+                                required
+                                className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-semibold text-gray-900"
+                            />
+                        </div>
+
+                        {/* Delivery Challan Photo Upload */}
+                        <div>
+                            <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase mb-1.5">
+                                <FiCamera className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Delivery Challan / Material Photo</span>
+                            </label>
+                            
+                            {deliveryPhotoPreview ? (
+                                <div className="relative rounded-xl border border-emerald-200 bg-emerald-50/50 p-2.5 flex items-center justify-between">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <img
+                                            src={deliveryPhotoPreview}
+                                            alt="Challan preview"
+                                            className="w-16 h-16 object-cover rounded-lg border border-emerald-200 shrink-0"
+                                        />
+                                        <div className="text-xs min-w-0">
+                                            <p className="font-semibold text-emerald-950 truncate max-w-xs">
+                                                {deliveryPhotoFile?.name || 'Challan Photo'}
+                                            </p>
+                                            <p className="text-[11px] text-emerald-700">Ready to upload</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setDeliveryPhotoFile(null);
+                                            setDeliveryPhotoPreview(null);
+                                        }}
+                                        className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors shrink-0 cursor-pointer"
+                                        title="Remove photo"
+                                    >
+                                        <FiTrash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <label className="flex flex-col items-center justify-center p-5 border-2 border-dashed border-gray-300 rounded-xl hover:border-emerald-500 hover:bg-emerald-50/30 cursor-pointer transition-colors text-center">
+                                    <FiCamera className="w-7 h-7 text-emerald-600 mb-1.5" />
+                                    <span className="text-xs font-semibold text-emerald-900">
+                                        Take photo or upload delivery challan copy
+                                    </span>
+                                    <span className="text-[11px] text-gray-400 mt-0.5">JPEG, PNG, HEIC from camera or gallery</span>
                                     <input
-                                        type="text"
-                                        placeholder="e.g. Challan #1042, All sheets checked in good condition..."
-                                        value={deliveryNotes}
-                                        onChange={e => setDeliveryNotes(e.target.value)}
-                                        className="w-full px-3.5 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900"
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        onChange={handlePhotoChange}
+                                        className="hidden"
                                     />
-                                </div>
+                                </label>
+                            )}
+                        </div>
+
+                        {/* Delivery Notes / Remarks */}
+                        <div>
+                            <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase mb-1.5">
+                                <FiFileText className="w-3.5 h-3.5 text-gray-400" />
+                                <span>Remarks / Challan Number</span>
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="e.g. Challan #1042, All sheets checked in good condition..."
+                                value={deliveryNotes}
+                                onChange={e => setDeliveryNotes(e.target.value)}
+                                className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900"
+                            />
+                        </div>
+                    </div>
+                </BottomSheet>
+            ) : (
+                <SidePanel
+                    isOpen={showDeliveryModal}
+                    onClose={() => setShowDeliveryModal(false)}
+                    title="Confirm Material Delivery"
+                    width="lg"
+                    footer={
+                        <div className="flex items-center justify-end gap-3 w-full">
+                            <button
+                                type="button"
+                                onClick={() => setShowDeliveryModal(false)}
+                                className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmDeliverySubmit}
+                                disabled={submittingDelivery}
+                                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm transition-colors disabled:opacity-50 cursor-pointer"
+                            >
+                                {submittingDelivery ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        <span>Submitting...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <FiCheck className="w-4 h-4" />
+                                        <span>Confirm & Notify Admin</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    }
+                >
+                    <div className="space-y-5 pb-2">
+                        {/* Header info badge */}
+                        <div className="flex items-center gap-3 p-3 bg-emerald-50/70 border border-emerald-100 rounded-xl">
+                            <div className="p-2 bg-emerald-600 text-white rounded-lg shrink-0">
+                                <FiTruck className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0">
+                                <h4 className="text-sm font-bold text-emerald-950 truncate">
+                                    {selectedBillForDelivery ? `Bill: ${selectedBillForDelivery.bill_number}` : 'Record Received Materials'}
+                                </h4>
+                                <p className="text-xs text-emerald-700 truncate">
+                                    Verify delivered quantities against ordered requirements
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Delivered Items & Quantities */}
+                        <div>
+                            <div className="flex items-center justify-between gap-2 mb-2.5">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">
+                                    Delivered Items ({deliveryTargetItems.length})
+                                </label>
+                                {deliveryTargetItems.length > 1 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const all: Record<string, number> = {};
+                                            deliveryTargetItems.forEach(it => {
+                                                all[it.id] = it.quantity || 1;
+                                            });
+                                            setDeliveryQuantities(all);
+                                        }}
+                                        className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-100/70 hover:bg-emerald-200/70 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                                    >
+                                        Match All Ordered
+                                    </button>
+                                )}
                             </div>
 
-                            {/* Modal Footer */}
-                            <div className="px-6 py-3.5 border-t border-gray-100 bg-gray-50/70 flex items-center justify-end gap-3 shrink-0">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowDeliveryModal(false)}
-                                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/70 rounded-lg transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={submittingDelivery}
-                                    className="inline-flex items-center gap-2 px-5 py-2 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
-                                >
-                                    {submittingDelivery ? (
-                                        <>
-                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                            <span>Submitting...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <FiCheck className="w-4 h-4" />
-                                            <span>Confirm & Notify Admin</span>
-                                        </>
-                                    )}
-                                </button>
+                            <div className="space-y-2.5">
+                                {deliveryTargetItems.map((item) => (
+                                    <div
+                                        key={item.id}
+                                        className="p-3 bg-gray-50/90 hover:bg-gray-50 border border-gray-200/90 rounded-xl transition-colors space-y-2.5"
+                                    >
+                                        {/* Top row: Item Name & Ordered Quantity Pill */}
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="min-w-0 flex-1">
+                                                <p className="font-semibold text-gray-900 text-sm leading-snug break-words">
+                                                    {item.item_name}
+                                                </p>
+                                                {item.category && (
+                                                    <span className="text-[11px] text-gray-400 font-medium">
+                                                        {item.category}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="shrink-0 flex items-center gap-1.5 bg-white border border-gray-200 px-2.5 py-1 rounded-lg text-xs text-gray-600 shadow-2xs">
+                                                <span className="text-gray-400">Ordered:</span>
+                                                <span className="font-bold text-gray-900">{item.quantity} {item.unit || 'Units'}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Bottom row: Received Quantity input */}
+                                        <div className="space-y-1.5 pt-2 border-t border-gray-200/60">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs font-medium text-gray-600">
+                                                    Received Quantity:
+                                                </span>
+                                                <div className="flex items-center">
+                                                    <input
+                                                        type="number"
+                                                        step="any"
+                                                        min="0"
+                                                        value={deliveryQuantities[item.id] ?? item.quantity}
+                                                        onChange={(e) => {
+                                                            const val = parseFloat(e.target.value) || 0;
+                                                            setDeliveryQuantities(prev => ({ ...prev, [item.id]: val }));
+                                                        }}
+                                                        className="w-24 px-3 py-1.5 bg-white border border-gray-300 rounded-l-lg font-bold text-gray-900 text-right outline-none focus:ring-1 focus:ring-emerald-500 text-sm focus:border-emerald-500"
+                                                    />
+                                                    <span className="px-3 py-1.5 bg-gray-100 border border-l-0 border-gray-300 rounded-r-lg text-xs font-semibold text-gray-600 min-w-[55px] text-center truncate">
+                                                        {item.unit || 'Units'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            {(() => {
+                                                const rec = deliveryQuantities[item.id] !== undefined ? deliveryQuantities[item.id] : item.quantity;
+                                                const diff = rec - item.quantity;
+                                                if (diff < 0) {
+                                                    return (
+                                                        <div className="flex items-center justify-end text-[11px] text-amber-700 font-semibold gap-1">
+                                                            <span>⚠️ Shortfall:</span>
+                                                            <span>{Math.abs(diff).toFixed(1).replace(/\.0$/, '')} {item.unit || 'Units'} pending</span>
+                                                        </div>
+                                                    );
+                                                }
+                                                if (diff > 0) {
+                                                    return (
+                                                        <div className="flex items-center justify-end text-[11px] text-blue-700 font-semibold gap-1">
+                                                            <span>ℹ️ Excess:</span>
+                                                            <span>+{diff.toFixed(1).replace(/\.0$/, '')} {item.unit || 'Units'} extra</span>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        </form>
+                        </div>
+
+                        {/* Delivery Date */}
+                        <div>
+                            <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase mb-1.5">
+                                <FiCalendar className="w-3.5 h-3.5 text-gray-400" />
+                                <span>Delivery Date</span> <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="date"
+                                value={deliveryDate}
+                                onChange={e => setDeliveryDate(e.target.value)}
+                                required
+                                className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-semibold text-gray-900"
+                            />
+                        </div>
+
+                        {/* Delivery Challan Photo Upload */}
+                        <div>
+                            <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase mb-1.5">
+                                <FiCamera className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Delivery Challan / Material Photo</span>
+                            </label>
+                            
+                            {deliveryPhotoPreview ? (
+                                <div className="relative rounded-xl border border-emerald-200 bg-emerald-50/50 p-2.5 flex items-center justify-between">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <img
+                                            src={deliveryPhotoPreview}
+                                            alt="Challan preview"
+                                            className="w-16 h-16 object-cover rounded-lg border border-emerald-200 shrink-0"
+                                        />
+                                        <div className="text-xs min-w-0">
+                                            <p className="font-semibold text-emerald-950 truncate max-w-xs">
+                                                {deliveryPhotoFile?.name || 'Challan Photo'}
+                                            </p>
+                                            <p className="text-[11px] text-emerald-700">Ready to upload</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setDeliveryPhotoFile(null);
+                                            setDeliveryPhotoPreview(null);
+                                        }}
+                                        className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors shrink-0 cursor-pointer"
+                                        title="Remove photo"
+                                    >
+                                        <FiTrash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <label className="flex flex-col items-center justify-center p-5 border-2 border-dashed border-gray-300 rounded-xl hover:border-emerald-500 hover:bg-emerald-50/30 cursor-pointer transition-colors text-center">
+                                    <FiCamera className="w-7 h-7 text-emerald-600 mb-1.5" />
+                                    <span className="text-xs font-semibold text-emerald-900">
+                                        Take photo or upload delivery challan copy
+                                    </span>
+                                    <span className="text-[11px] text-gray-400 mt-0.5">JPEG, PNG, HEIC from camera or gallery</span>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        onChange={handlePhotoChange}
+                                        className="hidden"
+                                    />
+                                </label>
+                            )}
+                        </div>
+
+                        {/* Delivery Notes / Remarks */}
+                        <div>
+                            <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase mb-1.5">
+                                <FiFileText className="w-3.5 h-3.5 text-gray-400" />
+                                <span>Remarks / Challan Number</span>
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="e.g. Challan #1042, All sheets checked in good condition..."
+                                value={deliveryNotes}
+                                onChange={e => setDeliveryNotes(e.target.value)}
+                                className="w-full px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900"
+                            />
+                        </div>
                     </div>
-                </div>
+                </SidePanel>
             )}
 
             {/* ========================================================================= */}

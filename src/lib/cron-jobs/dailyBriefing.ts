@@ -81,6 +81,58 @@ export async function runDailyBriefing() {
     const totalActiveDesignTasks = Object.values(designerDesignMap).reduce((s, d) => s + d.activeTasksCount, 0);
     const totalOverdueDesignTasks = Object.values(designerDesignMap).reduce((s, d) => s + d.overdueTasksCount, 0);
 
+    // 4b. Fetch pending site delivery items (ordered or partially delivered)
+    const { data: pendingDeliveries } = await supabaseAdmin
+        .from('boq_items')
+        .select(`
+            id,
+            item_name,
+            quantity,
+            unit,
+            bill_number,
+            order_status,
+            project_id,
+            projects!inner(id, title, site_supervisor_id, assigned_employee_id)
+        `)
+        .in('order_status', ['ordered', 'partial']);
+
+    // Group pending deliveries by Site Engineer / Supervisor
+    const engineerDeliveryMap: Record<string, Array<{ projectId: string; projectTitle: string; billNumber: string; itemCount: number }>> = {};
+    const projectDeliveryMap = new Map<string, { projectId: string; projectTitle: string; billNumber: string; itemCount: number; supervisors: Set<string> }>();
+
+    (pendingDeliveries || []).forEach((item: any) => {
+        const proj = item.projects;
+        if (!proj) return;
+        const billKey = `${item.project_id}_${item.bill_number || 'Bill #1'}`;
+        if (!projectDeliveryMap.has(billKey)) {
+            const supSet = new Set<string>();
+            if (proj.site_supervisor_id) supSet.add(proj.site_supervisor_id);
+            if (proj.assigned_employee_id) supSet.add(proj.assigned_employee_id);
+            projectDeliveryMap.set(billKey, {
+                projectId: proj.id,
+                projectTitle: proj.title,
+                billNumber: item.bill_number || 'Delivery Bill',
+                itemCount: 0,
+                supervisors: supSet
+            });
+        }
+        projectDeliveryMap.get(billKey)!.itemCount++;
+    });
+
+    projectDeliveryMap.forEach((entry) => {
+        entry.supervisors.forEach(supId => {
+            if (!engineerDeliveryMap[supId]) engineerDeliveryMap[supId] = [];
+            engineerDeliveryMap[supId].push({
+                projectId: entry.projectId,
+                projectTitle: entry.projectTitle,
+                billNumber: entry.billNumber,
+                itemCount: entry.itemCount
+            });
+        });
+    });
+
+    const totalPendingDeliveriesAcrossProjects = projectDeliveryMap.size;
+
     // 5. Send Briefings to ALL active users (with roles joined)
     const allUsers = await fetchUsersWithRoles();
 
@@ -90,6 +142,7 @@ export async function runDailyBriefing() {
         const snags = snagStats[user.id] || { assigned: 0, open: 0 };
         const isAdmin = isAdminOrHR(user);
         const designData = designerDesignMap[user.id];
+        const pendingDeliveriesForUser = engineerDeliveryMap[user.id] || [];
 
         // Build snag section only if there's something to report
         let snagSection = '';
@@ -120,12 +173,22 @@ export async function runDailyBriefing() {
             designSection = `\n\n🎨 Design Pipeline:\n- Active Projects: ${totalDesignProjects}\n- Active Tasks: ${totalActiveDesignTasks}${totalOverdueDesignTasks > 0 ? ` (⚠️ ${totalOverdueDesignTasks} Overdue)` : ''}`;
         }
 
+        // Build pending site deliveries section for site engineers & admins
+        let deliverySection = '';
+        if (pendingDeliveriesForUser.length > 0) {
+            const dLines = pendingDeliveriesForUser.slice(0, 3).map(d => `• [${d.projectTitle}] ${d.billNumber} (${d.itemCount} items)`);
+            const extra = pendingDeliveriesForUser.length > 3 ? `\n...and ${pendingDeliveriesForUser.length - 3} more` : '';
+            deliverySection = `\n\n📦 Pending Site Deliveries (${pendingDeliveriesForUser.length} awaiting verification):\n${dLines.join('\n')}${extra}\nPlease inspect on site & upload delivery challan copy.`;
+        } else if (isAdmin && totalPendingDeliveriesAcrossProjects > 0) {
+            deliverySection = `\n\n📦 Site Deliveries Pending:\n- ${totalPendingDeliveriesAcrossProjects} material order(s) awaiting site verification.`;
+        }
+
         // Build task summary line
         const taskLine = `\n\n📋 Task Summary:\n- Due Today: ${stats.today}\n- Overdue: ${stats.overdue}`;
 
-        const message = `Good morning, ${user.full_name}! 🌅\n\nHere's your daily briefing for today:${taskLine}${snagSection}${designSection}\n\nHave a productive day ahead!`;
+        const message = `Good morning, ${user.full_name}! 🌅\n\nHere's your daily briefing for today:${taskLine}${snagSection}${designSection}${deliverySection}\n\nHave a productive day ahead!`;
 
-        console.log(`[DailyBriefing] Constructing message for ${user.full_name} (isAdmin: ${isAdmin}, hasSnags: ${!!snagSection}, hasDesign: ${!!designSection})`);
+        console.log(`[DailyBriefing] Constructing message for ${user.full_name} (isAdmin: ${isAdmin}, hasSnags: ${!!snagSection}, hasDesign: ${!!designSection}, hasDeliveries: ${pendingDeliveriesForUser.length > 0})`);
 
         console.log(`Sending briefing to ${user.full_name}`);
         updates.push(
@@ -139,6 +202,24 @@ export async function runDailyBriefing() {
                 skipInApp: true
             })
         );
+
+        // Send individual in-app & push delivery verification reminders to Site Engineers
+        for (const pd of pendingDeliveriesForUser) {
+            updates.push(
+                NotificationService.createNotification({
+                    userId: user.id,
+                    title: `Delivery Reminder: ${pd.projectTitle}`,
+                    message: `${pd.billNumber} (${pd.itemCount} items) is awaiting delivery confirmation on site. Please verify and upload challan.`,
+                    type: 'material_ordered',
+                    relatedId: pd.projectId,
+                    relatedType: 'project',
+                    metadata: {
+                        project_id: pd.projectId,
+                        bill_number: pd.billNumber
+                    }
+                })
+            );
+        }
     }
 
 

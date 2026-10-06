@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { NotificationService } from '@/lib/notificationService';
 
 export const dynamic = 'force-dynamic';
 
@@ -261,6 +262,54 @@ export async function POST(request: NextRequest) {
             });
         } catch (_) {
             // Ignore if table not created yet
+        }
+
+        // 3. Notify Site Engineer / Supervisor & Admins
+        try {
+            const { data: project } = await supabaseAdmin
+                .from('projects')
+                .select('id, title, site_supervisor_id, assigned_employee_id, created_by')
+                .eq('id', project_id)
+                .single();
+
+            if (project) {
+                const recipientIds = new Set<string>();
+                if (project.site_supervisor_id) recipientIds.add(project.site_supervisor_id);
+                if (project.assigned_employee_id) recipientIds.add(project.assigned_employee_id);
+                if (project.created_by) recipientIds.add(project.created_by);
+
+                // Also notify admins
+                const { data: admins } = await supabaseAdmin
+                    .from('users')
+                    .select('id')
+                    .eq('role', 'admin');
+
+                ((admins || []) as Array<{ id: string }>).forEach((a) => recipientIds.add(a.id));
+
+                recipientIds.delete(user.id);
+
+                const billLabel = newBillNumber;
+                const typeLabel = bill_type === 'laminate' ? 'Laminate Sheets' : 'BOQ Materials';
+
+                for (const recipientId of recipientIds) {
+                    await NotificationService.createNotification({
+                        userId: recipientId,
+                        title: `Order Placed (${billLabel}): ${project.title}`,
+                        message: `${item_ids.length} ${typeLabel} marked ordered for delivery to site. Please verify on arrival.`,
+                        type: 'material_ordered',
+                        relatedId: project.id,
+                        relatedType: 'project',
+                        metadata: {
+                            project_id: project.id,
+                            bill_number: newBillNumber,
+                            item_count: item_ids.length,
+                            bill_type
+                        }
+                    });
+                }
+            }
+        } catch (notifErr) {
+            console.error('Error sending material ordered notification:', notifErr);
         }
 
         return NextResponse.json({

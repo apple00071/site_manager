@@ -90,14 +90,34 @@ export async function POST(request: NextRequest) {
             ? new Date(delivery_date).toISOString()
             : new Date().toISOString();
 
+        // Track shortfalls and excesses across items
+        const shortfalls: string[] = [];
+        const excesses: string[] = [];
+
         // Update each item
         for (const item of existingItems) {
             const deliveredQty = delivered_quantities[item.id] !== undefined
                 ? delivered_quantities[item.id]
                 : (status === 'delivered' ? item.quantity : 0);
 
+            let itemStatus: string = status;
+            if (status === 'delivered') {
+                if (deliveredQty < item.quantity && deliveredQty > 0) {
+                    itemStatus = 'partial';
+                    shortfalls.push(`${item.item_name} (${deliveredQty}/${item.quantity} ${item.unit || ''})`);
+                } else if (deliveredQty === 0) {
+                    itemStatus = 'ordered';
+                    shortfalls.push(`${item.item_name} (0/${item.quantity} ${item.unit || ''})`);
+                } else {
+                    itemStatus = 'delivered';
+                    if (deliveredQty > item.quantity) {
+                        excesses.push(`${item.item_name} (+${deliveredQty - item.quantity} ${item.unit || ''})`);
+                    }
+                }
+            }
+
             const updatePayload: Record<string, any> = {
-                order_status: status,
+                order_status: itemStatus,
                 updated_at: new Date().toISOString()
             };
 
@@ -125,13 +145,15 @@ export async function POST(request: NextRequest) {
                 .eq('id', item.id);
         }
 
+        const billFinalStatus = shortfalls.length > 0 ? 'partial' : status;
+
         // Also update boq_bills if bill_number is provided
         if (bill_number) {
             try {
                 await supabaseAdmin
                     .from('boq_bills')
                     .update({
-                        status,
+                        status: billFinalStatus,
                         delivery_date: deliveredTimestamp,
                         delivered_at: status === 'delivered' ? deliveredTimestamp : null,
                         delivered_by: status === 'delivered' ? user.id : null,
@@ -173,10 +195,23 @@ export async function POST(request: NextRequest) {
 
             const extraCount = existingItems.length > 3 ? ` and ${existingItems.length - 3} more` : '';
             const billLabel = bill_number ? `[${bill_number}] ` : '';
-            const notificationTitle = bill_number
+
+            let notificationTitle = bill_number
                 ? `${bill_number} Delivered: ${project.title}`
                 : `Material Delivered: ${project.title}`;
-            const notificationMsg = `${billLabel}${itemsSummary}${extraCount} marked DELIVERED on site by ${userFullName}.${delivery_notes ? ` Notes: ${delivery_notes}` : ''}`;
+
+            let varianceDetails = '';
+            if (shortfalls.length > 0) {
+                notificationTitle = bill_number
+                    ? `⚠️ Shortfall in ${bill_number}: ${project.title}`
+                    : `⚠️ Partial Delivery: ${project.title}`;
+                varianceDetails += ` ⚠️ Shortfall: ${shortfalls.join(', ')}.`;
+            }
+            if (excesses.length > 0) {
+                varianceDetails += ` ℹ️ Excess: ${excesses.join(', ')}.`;
+            }
+
+            const notificationMsg = `${billLabel}${itemsSummary}${extraCount} verified on site by ${userFullName}.${varianceDetails}${delivery_notes ? ` Notes: ${delivery_notes}` : ''}`;
 
             for (const recipientId of recipientUserIds) {
                 try {

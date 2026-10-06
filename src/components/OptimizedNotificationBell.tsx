@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { FiBell, FiCheckCircle, FiClipboard, FiFolder, FiInfo, FiMessageSquare, FiPackage, FiXCircle } from 'react-icons/fi';
+import { FiBell, FiCheckCircle, FiClipboard, FiFolder, FiInfo, FiMessageSquare, FiPackage, FiTruck, FiXCircle } from 'react-icons/fi';
 import { useAuth } from '@/contexts/AuthContext';
 import { getRelativeTime } from '@/lib/dateUtils';
 import { cacheInvalidation, notificationCache } from '@/lib/cache';
@@ -67,6 +67,10 @@ const getNotificationUrl = (type: string, relatedId?: string | null, relatedType
       return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=dlogs` : undefined;
     case 'report_generated':
       return relatedId ? `${baseUrl}/projects/${relatedId}?stage=reports` : undefined;
+    case 'boq_created':
+    case 'material_ordered':
+    case 'material_delivered':
+      return relatedId ? `${baseUrl}/projects/${relatedId}?tab=boq` : `${baseUrl}/projects`;
     default:
       return undefined;
   }
@@ -86,6 +90,11 @@ const getNotificationIcon = (type: string) => {
       return <FiInfo className="w-6 h-6 text-indigo-500" />;
     case 'inventory_added':
       return <FiPackage className="w-6 h-6 text-purple-500" />;
+    case 'boq_created':
+      return <FiPackage className="w-6 h-6 text-amber-500" />;
+    case 'material_ordered':
+    case 'material_delivered':
+      return <FiTruck className="w-6 h-6 text-emerald-500" />;
     case 'comment_added':
       return <FiMessageSquare className="w-6 h-6 text-gray-500" />;
     default:
