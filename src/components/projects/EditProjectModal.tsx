@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { FiX, FiSave, FiUpload, FiFile, FiAlertCircle, FiCheck, FiTrash2, FiUser, FiPhone, FiBriefcase, FiPlus } from 'react-icons/fi';
 import { CustomDropdown, CustomDatePicker } from '@/components/ui/CustomControls';
 import { supabase } from '@/lib/supabase';
+import { cleanTaskNotes } from '@/lib/designTaskUtils';
 
 const TRADES = [
     { id: 'carpenter', title: 'Carpenter', keywords: ['carpent', 'wood', 'plywood'] },
@@ -87,7 +88,10 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
 
     useEffect(() => {
         if (isOpen && initialData) {
-            setFormData(initialData);
+            setFormData({
+                ...initialData,
+                project_notes: cleanTaskNotes(initialData.project_notes),
+            });
             setPdfFile(null);
             setLocalError(null);
         }
@@ -171,6 +175,16 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
         setLocalError(null);
 
         let finalData = { ...formData };
+
+        if (initialData?.project_notes && typeof initialData.project_notes === 'string' && initialData.project_notes.trim().startsWith('{')) {
+            try {
+                const parsed = JSON.parse(initialData.project_notes.trim());
+                if (parsed && (Array.isArray(parsed.tasks) || Array.isArray(parsed.history))) {
+                    parsed.general_notes = formData.project_notes || '';
+                    finalData.project_notes = JSON.stringify(parsed);
+                }
+            } catch (_) {}
+        }
 
         if (pdfFile) {
             try {
@@ -346,6 +360,7 @@ export function EditProjectModal({ isOpen, onClose, onSave, section, initialData
                                         value={formData.project_notes || ''}
                                         onChange={(e) => handleChange('project_notes', e.target.value)}
                                         rows={3}
+                                        placeholder="Add project remarks, special instructions, or site notes..."
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all text-sm font-light text-gray-600"
                                     />
                                 </div>

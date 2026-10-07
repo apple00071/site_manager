@@ -1,9 +1,10 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { cleanTaskNotes } from '@/lib/designTaskUtils';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -87,6 +88,7 @@ export default function EditProjectPage() {
   const [requirementsFile, setRequirementsFile] = useState<File | null>(null);
   const [uploadingRequirements, setUploadingRequirements] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const existingNotesRef = useRef<string | null>(null);
 
   const {
     register,
@@ -163,8 +165,9 @@ export default function EditProjectPage() {
           glass_worker_name: projectData.glass_worker_name || '',
           glass_worker_phone: projectData.glass_worker_phone || '',
           project_budget: projectData.project_budget ? projectData.project_budget.toString() : '',
-          project_notes: projectData.project_notes || '',
+          project_notes: cleanTaskNotes(projectData.project_notes),
         });
+        existingNotesRef.current = projectData.project_notes || null;
 
       } catch (error: any) {
         const errorMsg = error?.message || error?.code || JSON.stringify(error) || 'Unknown error';
@@ -282,7 +285,19 @@ export default function EditProjectPage() {
           glass_worker_name: data.glass_worker_name || null,
           glass_worker_phone: data.glass_worker_phone || null,
           project_budget: data.project_budget ? parseFloat(data.project_budget) : null,
-          project_notes: data.project_notes || null,
+          project_notes: (() => {
+            let finalNotes: string | null = data.project_notes || null;
+            if (existingNotesRef.current && typeof existingNotesRef.current === 'string' && existingNotesRef.current.trim().startsWith('{')) {
+              try {
+                const parsed = JSON.parse(existingNotesRef.current.trim());
+                if (parsed && (Array.isArray(parsed.tasks) || Array.isArray(parsed.history))) {
+                  parsed.general_notes = data.project_notes || '';
+                  finalNotes = JSON.stringify(parsed);
+                }
+              } catch (_) {}
+            }
+            return finalNotes;
+          })(),
           requirements_pdf_url: requirementsUrl,
         }),
       });

@@ -43,6 +43,7 @@ import {
   parseProjectTasks,
   serializeProjectTasks,
   getReadableProjectNotes,
+  cleanTaskNotes,
   addTaskToProject,
   updateTaskInProject
 } from '@/lib/designTaskUtils';
@@ -295,6 +296,7 @@ function StatusUpdaterModal({
   const [colorHex, setColorHex] = useState<string>('#FF3366');
   const [deadline, setDeadline] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(taskId);
 
   useEffect(() => {
     if (!project) return;
@@ -307,24 +309,31 @@ function StatusUpdaterModal({
       setColorHex('#FF3366');
       setDeadline(getTodayDateString());
       setNotes('');
+      setCurrentTaskId(null);
       return;
     }
 
-    // Update mode: check taskId or first task
+    // Update mode: check taskId or first active task or most recent completed task
     let targetTask: DailyTaskItem | undefined;
     if (taskId) {
-      targetTask = tasksData.tasks.find(t => t.id === taskId);
+      targetTask = tasksData.tasks.find(t => t.id === taskId) || tasksData.history?.find(t => t.id === taskId);
     }
-    if (!targetTask && tasksData.tasks.length > 0) {
-      targetTask = tasksData.tasks[0];
+    if (!targetTask) {
+      if (tasksData.tasks.length > 0) {
+        targetTask = tasksData.tasks[0];
+      } else if (tasksData.history && tasksData.history.length > 0) {
+        targetTask = tasksData.history[0];
+      }
     }
 
     if (targetTask) {
+      setCurrentTaskId(targetTask.id);
       setStatusName(targetTask.status);
       setColorHex(targetTask.status_color || '#FF3366');
       setDeadline(targetTask.deadline ? targetTask.deadline.split('T')[0] : '');
-      setNotes(targetTask.title);
+      setNotes(cleanTaskNotes(targetTask.title));
     } else {
+      setCurrentTaskId(null);
       const rawStatus = project.unified_status || 'In Progress';
       let matched = PREPOPULATED_STATUSES.find(
         (s) => s.name.toLowerCase() === rawStatus.toLowerCase()
@@ -332,7 +341,7 @@ function StatusUpdaterModal({
       setStatusName(matched ? matched.name : rawStatus);
       setColorHex(project.status_color || matched?.color || '#FF3366');
       setDeadline(project.deadline ? project.deadline.split('T')[0] : '');
-      setNotes(project.project_notes || '');
+      setNotes(cleanTaskNotes(project.project_notes));
     }
   }, [project, initialMode, taskId]);
 
@@ -364,14 +373,20 @@ function StatusUpdaterModal({
       setColorHex('#FF3366');
       setDeadline(getTodayDateString());
       setNotes('');
+      setCurrentTaskId(null);
     } else {
       const tasksData = parseProjectTasks(project.project_notes, project);
-      const targetTask = taskId ? tasksData.tasks.find(t => t.id === taskId) : tasksData.tasks[0];
+      const targetTask = currentTaskId 
+        ? (tasksData.tasks.find(t => t.id === currentTaskId) || tasksData.history?.find(t => t.id === currentTaskId))
+        : (tasksData.tasks[0] || tasksData.history?.[0]);
       if (targetTask) {
+        setCurrentTaskId(targetTask.id);
         setStatusName(targetTask.status);
         setColorHex(targetTask.status_color || '#FF3366');
         setDeadline(targetTask.deadline ? targetTask.deadline.split('T')[0] : '');
-        setNotes(targetTask.title);
+        setNotes(cleanTaskNotes(targetTask.title));
+      } else {
+        setNotes(cleanTaskNotes(project.project_notes));
       }
     }
   };
@@ -383,7 +398,7 @@ function StatusUpdaterModal({
       deadline,
       notes: notes.trim(),
       mode,
-      taskId: mode === 'update' ? taskId : null,
+      taskId: mode === 'update' ? currentTaskId : null,
     });
   };
 
@@ -2003,7 +2018,7 @@ export default function DailyStatusPage() {
             <>
               <button
                 type="button"
-                onClick={() => openUpdateModal(p, activeTasks[0]?.id)}
+                onClick={() => openUpdateModal(p, activeTasks[0]?.id || historyTasks[0]?.id)}
                 className="no-touch-target min-w-0 flex-1 h-8 px-2.5 rounded-lg text-xs font-bold transition-all shadow-2xs flex items-center justify-between cursor-pointer border border-black/5 hover:opacity-90"
                 style={{
                   backgroundColor: statusStyle.backgroundColor,
@@ -2872,14 +2887,14 @@ export default function DailyStatusPage() {
                                     <div className="flex items-center justify-between gap-1 w-full">
                                       <button
                                         type="button"
-                                        onClick={() => openUpdateModal(p, tData.tasks[0]?.id)}
+                                        onClick={() => openUpdateModal(p, tData.tasks[0]?.id || tData.history[0]?.id)}
                                         className="text-left text-xs text-gray-800 hover:text-blue-600 truncate flex-1 flex items-center gap-1 cursor-pointer"
                                         title={getReadableProjectNotes(p.project_notes, p)}
                                       >
                                         <span className="px-1.5 py-0.2 bg-yellow-100 text-yellow-900 font-bold rounded text-[10px] shrink-0">
                                           {tData.tasks.length} tasks
                                         </span>
-                                        <span className="truncate">{tData.tasks[0]?.title || 'Tasks'}</span>
+                                        <span className="truncate">{tData.tasks[0]?.title || (tData.history[0] ? `✓ ${tData.history[0].title}` : 'Tasks')}</span>
                                       </button>
                                       <button
                                         type="button"
@@ -2896,7 +2911,7 @@ export default function DailyStatusPage() {
                                   <div className="flex items-center gap-1 w-full">
                                     <input
                                       type="text"
-                                      defaultValue={tData.tasks[0]?.title || p.project_notes || ''}
+                                      defaultValue={tData.tasks[0]?.title || cleanTaskNotes(p.project_notes) || ''}
                                       onBlur={(e) => {
                                         const val = e.target.value.trim();
                                         if (val !== (tData.tasks[0]?.title || '')) {
@@ -2909,7 +2924,7 @@ export default function DailyStatusPage() {
                                         }
                                       }}
                                       placeholder="Add daily notes..."
-                                      title={tData.tasks[0]?.title || p.project_notes || 'Add daily notes...'}
+                                      title={tData.tasks[0]?.title || cleanTaskNotes(p.project_notes) || 'Add daily notes...'}
                                       className="w-full px-2 py-1 bg-gray-50/60 hover:bg-white focus:bg-white border border-transparent hover:border-gray-200 focus:border-yellow-400 rounded text-xs text-gray-800 placeholder-gray-400 focus:outline-none transition-all"
                                     />
                                     <button

@@ -205,7 +205,7 @@ export async function PATCH(
         // Query existing project to detect changes
         const { data: existingProject } = await supabaseAdmin
             .from('projects')
-            .select('assigned_employee_id, site_supervisor_id, status, workflow_stage, deadline, estimated_completion_date, title')
+            .select('assigned_employee_id, site_supervisor_id, status, workflow_stage, deadline, estimated_completion_date, title, project_notes')
             .eq('id', projectId)
             .single();
 
@@ -218,6 +218,22 @@ export async function PATCH(
         if (updatePayload.site_supervisor_id && existingProject && existingProject.site_supervisor_id !== updatePayload.site_supervisor_id) {
             newSupervisorAssigned = true;
             updatePayload.site_supervisor_assigned_at = new Date().toISOString();
+        }
+
+        // Preserve daily design tasks JSON when updating human project notes
+        if (updatePayload.project_notes !== undefined && updatePayload.project_notes !== null) {
+            const existingNotes = existingProject?.project_notes;
+            if (existingNotes && typeof existingNotes === 'string' && existingNotes.trim().startsWith('{')) {
+                try {
+                    const parsed = JSON.parse(existingNotes.trim());
+                    if (parsed && (Array.isArray(parsed.tasks) || Array.isArray(parsed.history))) {
+                        if (!updatePayload.project_notes.trim().startsWith('{')) {
+                            parsed.general_notes = updatePayload.project_notes;
+                            updatePayload.project_notes = JSON.stringify(parsed);
+                        }
+                    }
+                } catch (_) {}
+            }
         }
 
         const { data: updatedProject, error } = await supabaseAdmin
