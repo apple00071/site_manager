@@ -91,24 +91,18 @@ export async function runAfternoonProgressReminder() {
         if (tasks === 0 && overdue === 0 && snags === 0 && (!designData || designData.items.length === 0)) continue;
 
         const parts: string[] = [];
-        if (tasks > 0) parts.push(`- ${tasks} task${tasks > 1 ? 's' : ''} due today`);
-        if (overdue > 0) parts.push(`- ${overdue} overdue task${overdue > 1 ? 's' : ''} still pending`);
-        if (snags > 0) parts.push(`- ${snags} snag${snags > 1 ? 's' : ''} assigned to you`);
-        if (designData && designData.items.length > 0) {
-            parts.push(`- 🎨 Design: ${designData.activeTasksCount} active task${designData.activeTasksCount > 1 ? 's' : ''} across ${designData.projectCount} project${designData.projectCount > 1 ? 's' : ''}${designData.overdueTasksCount > 0 ? ` (⚠️ ${designData.overdueTasksCount} overdue)` : ''}`);
-            const topItems = designData.items.slice(0, 3).map(i => `  • [${i.projectCode}] ${i.taskTitle}: ${i.status}`);
-            parts.push(...topItems);
-        }
+        if (tasks > 0) parts.push(`• Tasks due today: ${tasks}`);
+        if (overdue > 0) parts.push(`• Overdue tasks: ${overdue}`);
+        if (snags > 0) parts.push(`• Assigned snags: ${snags}`);
+        if (designData && designData.items.length > 0)
+            parts.push(`• Design tasks: ${designData.activeTasksCount} active${designData.overdueTasksCount > 0 ? ` (${designData.overdueTasksCount} overdue)` : ''}`)
 
-        const isAnyOverdue = overdue > 0 || (designData && designData.overdueTasksCount > 0);
-        const urgencyNote = isAnyOverdue ? ' Please prioritize overdue items.' : '';
-
-        const message = `Hi ${user.full_name}! ☀️\n\nAfternoon check-in: Here's what's still pending:\n\n${parts.join('\n')}\n\nPlease update your progress now so the team stays in sync.${urgencyNote}`;
+        const message = `Afternoon check-in:\n${parts.join('\n')}\nPlease update your progress in the app.`;
 
         updates.push(
             NotificationService.createNotification({
                 userId: user.id,
-                title: 'Afternoon Progress Check-In',
+                title: 'Afternoon Check-in',
                 message,
                 type: 'general',
                 skipInApp: true

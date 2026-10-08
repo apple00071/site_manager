@@ -21,7 +21,7 @@ export async function runAdminAssignReminder() {
             NotificationService.createNotification({
                 userId: recipient.id,
                 title: 'Team Task Allocation',
-                message: `Hello ${recipient.full_name}, this is a reminder to review and finalize task assignments for the team to ensure everyone is set for the day.`,
+                message: `Hi ${recipient.full_name}, please review and assign today's tasks for the team.`,
                 type: 'general',
                 skipInApp: true
             })
@@ -70,16 +70,16 @@ export async function runMemberCheckupReminder() {
     const updates = [];
     for (const userId of userIds) {
         const dData = designerDesignMap[userId as string];
-        let extra = '';
-        if (dData && dData.items.length > 0) {
-            extra = ` You have ${dData.activeTasksCount} active design task(s) across ${dData.projectCount} project(s).`;
-        }
+
+        const designLine = dData && dData.items.length > 0
+            ? `\n• Design tasks active: ${dData.activeTasksCount} across ${dData.projectCount} project${dData.projectCount > 1 ? 's' : ''}${dData.overdueTasksCount > 0 ? ` (${dData.overdueTasksCount} overdue)` : ''}`
+            : '';
 
         updates.push(
             NotificationService.createNotification({
                 userId: userId as string,
-                title: 'How is your day going?',
-                message: `Please take a quick moment to update the status of your active projects and tasks if you have any progress to share.${extra}`,
+                title: 'Mid-Day Check-in',
+                message: `Mid-day reminder: please update progress on your active tasks and projects.${designLine}`,
                 type: 'general',
                 skipInApp: true
             })
@@ -154,12 +154,21 @@ export async function runAdminTaskCheckReminder() {
     const updates = [];
 
     // Send EOD Reviews to Admins
+    const adminParts: string[] = [];
+    if (allDueTasks && allDueTasks.length > 0)
+        adminParts.push(`• Tasks: ${totalTasksCompleted} done, ${totalTasksInProgress} in progress, ${totalTasksTodo} remaining`);
+    if (totalOpen + totalAssigned + totalResolved > 0)
+        adminParts.push(`• Snags: ${totalAssigned} in progress, ${totalOpen} unassigned, ${totalResolved} resolved`);
+    if (totalActiveDesignTasks > 0)
+        adminParts.push(`• Design: ${totalActiveDesignTasks} active across ${totalDesignProjects} project${totalDesignProjects > 1 ? 's' : ''}${totalOverdueDesignTasks > 0 ? ` (${totalOverdueDesignTasks} overdue)` : ''}`);
+
     for (const admin of admins) {
+        const adminBody = adminParts.length > 0 ? `\n${adminParts.join('\n')}` : ' All clear for today.';
         updates.push(
             NotificationService.createNotification({
                 userId: admin.id,
                 title: 'End of Day Review',
-                message: `Hi ${admin.full_name}, please take a moment to review the team's task updates, design pipeline, and completions as we wrap up today's work.${taskSummary}${snagSummary}${adminDesignSummary}`,
+                message: `End of day summary:${adminBody}`,
                 type: 'general',
                 skipInApp: true
             })
@@ -207,23 +216,18 @@ export async function runAdminTaskCheckReminder() {
         const hasPendingItems = pendingTasks > 0 || assignedSnags > 0 || resolvedSnags > 0 || (designData && designData.items.length > 0);
 
         if (hasPendingItems) {
-            const parts = [];
-            if (pendingTasks > 0) parts.push(`Pending Tasks: ${pendingTasks}`);
-            if (assignedSnags > 0) parts.push(`Pending Snags: ${assignedSnags} Assigned to You`);
-            if (resolvedSnags > 0) parts.push(`Resolved Snags: ${resolvedSnags} (Pending Verification)`);
-            if (designData && designData.items.length > 0) {
-                parts.push(`Design Tasks: ${designData.activeTasksCount} active across ${designData.projectCount} project(s)${designData.overdueTasksCount > 0 ? ` (⚠️ ${designData.overdueTasksCount} overdue)` : ''}`);
-                const topItems = designData.items.slice(0, 3).map(i => `  • [${i.projectCode}] ${i.taskTitle}: ${i.status}`);
-                parts.push(...topItems);
-            }
-
-            const message = `Hi ${member.full_name}, as we wrap up today's work, here is a quick review of your items:\n- ${parts.join('\n- ')}\n\nPlease ensure your progress is fully updated in the app. Thank you!`;
+            const parts: string[] = [];
+            if (pendingTasks > 0) parts.push(`• Pending tasks: ${pendingTasks}`);
+            if (assignedSnags > 0) parts.push(`• Assigned snags: ${assignedSnags}`);
+            if (resolvedSnags > 0) parts.push(`• Snags resolved (awaiting verification): ${resolvedSnags}`);
+            if (designData && designData.items.length > 0)
+                parts.push(`• Design tasks: ${designData.activeTasksCount} active${designData.overdueTasksCount > 0 ? ` (${designData.overdueTasksCount} overdue)` : ''}`);
 
             updates.push(
                 NotificationService.createNotification({
                     userId: member.id,
-                    title: 'End of Day Review',
-                    message,
+                    title: 'End of Day Wrap-up',
+                    message: `End of day wrap-up:\n${parts.join('\n')}\nPlease update your progress before signing off.`,
                     type: 'general',
                     skipInApp: true
                 })
