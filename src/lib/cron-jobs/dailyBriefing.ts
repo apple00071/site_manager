@@ -144,51 +144,53 @@ export async function runDailyBriefing() {
         const designData = designerDesignMap[user.id];
         const pendingDeliveriesForUser = engineerDeliveryMap[user.id] || [];
 
-        // Build snag section only if there's something to report
-        let snagSection = '';
+        // Build compact summary items (only include lines with non-zero activity)
+        const summaryItems: string[] = [];
+
+        // 1. Task Summary
+        if (stats.today > 0 || stats.overdue > 0) {
+            const taskParts = [];
+            if (stats.today > 0) taskParts.push(`${stats.today} due today`);
+            if (stats.overdue > 0) taskParts.push(`${stats.overdue} overdue`);
+            summaryItems.push(`• Tasks: ${taskParts.join(', ')}`);
+        }
+
+        // 2. Snags Summary
         if (isAdmin) {
-            if (totalOpen + totalAssigned + totalResolved > 0) {
-                snagSection = `\n\n🔧 Snag Summary:\n- Open (Unassigned): ${totalOpen}\n- Assigned (In Progress): ${totalAssigned}\n- Resolved (Pending Verification): ${totalResolved}`;
+            const totalPendingSnags = totalOpen + totalAssigned;
+            if (totalPendingSnags > 0) {
+                summaryItems.push(`• Snags: ${totalPendingSnags} pending${totalOpen > 0 ? ` (${totalOpen} unassigned)` : ''}`);
             }
         } else {
-            const parts = [];
-            if (snags.assigned > 0) parts.push(`- Assigned to You: ${snags.assigned}`);
-            if (snags.open > 0) parts.push(`- Open (Unassigned): ${snags.open}`);
-            if (parts.length > 0) {
-                snagSection = `\n\n🔧 Snag Summary:\n${parts.join('\n')}`;
+            const userSnags = snags.assigned + snags.open;
+            if (userSnags > 0) {
+                summaryItems.push(`• Snags: ${userSnags} pending`);
             }
         }
 
-        // Build design status section for designers
-        let designSection = '';
-        if (designData && designData.items.length > 0) {
-            const lines = designData.items.slice(0, 5).map(item => {
-                const dueStr = item.deadline ? ` (Due: ${item.deadline})` : '';
-                const overdueTag = item.isOverdue ? ' ⚠️ OVERDUE' : '';
-                return `• [${item.projectCode}] ${item.taskTitle}: ${item.status}${dueStr}${overdueTag}`;
-            });
-            const extra = designData.items.length > 5 ? `\n...and ${designData.items.length - 5} more design task(s)` : '';
-            designSection = `\n\n🎨 Design Tasks (${designData.projectCount} Project${designData.projectCount > 1 ? 's' : ''}, ${designData.activeTasksCount} Active${designData.overdueTasksCount > 0 ? `, ⚠️ ${designData.overdueTasksCount} Overdue` : ''}):\n${lines.join('\n')}${extra}`;
+        // 3. Design Tasks Summary
+        if (designData && designData.activeTasksCount > 0) {
+            const overdue = designData.overdueTasksCount > 0 ? ` (${designData.overdueTasksCount} overdue)` : '';
+            summaryItems.push(`• Design: ${designData.activeTasksCount} active task${designData.activeTasksCount > 1 ? 's' : ''}${overdue}`);
         } else if (isAdmin && totalActiveDesignTasks > 0) {
-            designSection = `\n\n🎨 Design Pipeline:\n- Active Projects: ${totalDesignProjects}\n- Active Tasks: ${totalActiveDesignTasks}${totalOverdueDesignTasks > 0 ? ` (⚠️ ${totalOverdueDesignTasks} Overdue)` : ''}`;
+            const overdue = totalOverdueDesignTasks > 0 ? ` (${totalOverdueDesignTasks} overdue)` : '';
+            summaryItems.push(`• Design: ${totalActiveDesignTasks} active across ${totalDesignProjects} projects${overdue}`);
         }
 
-        // Build pending site deliveries section for site engineers & admins
-        let deliverySection = '';
+        // 4. Site Deliveries Summary
         if (pendingDeliveriesForUser.length > 0) {
-            const dLines = pendingDeliveriesForUser.slice(0, 3).map(d => `• [${d.projectTitle}] ${d.billNumber} (${d.itemCount} items)`);
-            const extra = pendingDeliveriesForUser.length > 3 ? `\n...and ${pendingDeliveriesForUser.length - 3} more` : '';
-            deliverySection = `\n\n📦 Pending Site Deliveries (${pendingDeliveriesForUser.length} awaiting verification):\n${dLines.join('\n')}${extra}\nPlease inspect on site & upload delivery challan copy.`;
+            summaryItems.push(`• Deliveries: ${pendingDeliveriesForUser.length} order${pendingDeliveriesForUser.length > 1 ? 's' : ''} awaiting verification`);
         } else if (isAdmin && totalPendingDeliveriesAcrossProjects > 0) {
-            deliverySection = `\n\n📦 Site Deliveries Pending:\n- ${totalPendingDeliveriesAcrossProjects} material order(s) awaiting site verification.`;
+            summaryItems.push(`• Deliveries: ${totalPendingDeliveriesAcrossProjects} order${totalPendingDeliveriesAcrossProjects > 1 ? 's' : ''} awaiting verification`);
         }
 
-        // Build task summary line
-        const taskLine = `\n\n📋 Task Summary:\n- Due Today: ${stats.today}\n- Overdue: ${stats.overdue}`;
+        const body = summaryItems.length > 0
+            ? `Today's Overview:\n${summaryItems.join('\n')}`
+            : `All caught up! No pending tasks today.`;
 
-        const message = `Good morning, ${user.full_name}! 🌅\n\nHere's your daily briefing for today:${taskLine}${snagSection}${designSection}${deliverySection}\n\nHave a productive day ahead!`;
+        const message = `Good morning, ${user.full_name}! ☀️\n\n${body}\n\nHave a great day ahead!`;
 
-        console.log(`[DailyBriefing] Constructing message for ${user.full_name} (isAdmin: ${isAdmin}, hasSnags: ${!!snagSection}, hasDesign: ${!!designSection}, hasDeliveries: ${pendingDeliveriesForUser.length > 0})`);
+        console.log(`[DailyBriefing] Constructing message for ${user.full_name} (${summaryItems.length} items)`);
 
         console.log(`Sending briefing to ${user.full_name}`);
         updates.push(
