@@ -4,6 +4,7 @@ import './globals.css';
 import ClientLayout from './ClientLayout';
 import OneSignalInit from '@/components/OneSignalInit';
 import NativeVersionChecker from '@/components/NativeVersionChecker';
+import { Analytics } from '@vercel/analytics/next';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -82,6 +83,7 @@ export default function RootLayout({
         <OneSignalInit />
         <NativeVersionChecker />
         <ClientLayout>{children}</ClientLayout>
+        <Analytics />
       </body>
     </html>
   );
