@@ -5,7 +5,7 @@ import {
     FiPlus, FiDownload, FiEdit2, FiTrash2, FiSearch, FiPackage,
     FiCheck, FiX, FiLayers, FiMapPin, FiUser, FiPhone, FiHome, FiAlertCircle,
     FiCheckSquare, FiSquare, FiFilter, FiCalendar, FiTruck, FiCamera,
-    FiImage, FiFileText, FiEye, FiCheckCircle, FiClock, FiRefreshCw
+    FiImage, FiFileText, FiEye, FiCheckCircle, FiClock, FiRefreshCw, FiChevronDown, FiChevronUp
 } from 'react-icons/fi';
 import { compressImage, uploadFile } from '@/lib/uploadUtils';
 import { generateBoqPDF, BoqPdfItem, generateLaminatePDF, LaminatePdfItem } from '@/lib/reports/boqPdfGenerator';
@@ -218,6 +218,11 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
     // Table multi-selection state
     const [selectedBoqIds, setSelectedBoqIds] = useState<Set<string>>(new Set());
     const [selectedLaminateIds, setSelectedLaminateIds] = useState<Set<string>>(new Set());
+
+    // Bill group collapse state — stores bill keys that are collapsed
+    const [collapsedBills, setCollapsedBills] = useState<Set<string>>(new Set());
+    const toggleBillCollapse = (key: string) =>
+        setCollapsedBills(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
 
     // Export Modal item selection & supplier/company filters
     const [exportSelectedBoqIds, setExportSelectedBoqIds] = useState<Set<string>>(new Set());
@@ -1050,6 +1055,18 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
         return boqItems.filter(i => i.item_name.toLowerCase().includes(q));
     }, [boqItems, searchQuery]);
 
+    // Group BOQ items by bill number for collapsible rendering
+    // ponytail: simple ordered Map; null bill_number → key '__unordered__'
+    const boqGroupedByBill = useMemo(() => {
+        const map = new Map<string, BOQItem[]>();
+        for (const item of filteredBoqItems) {
+            const key = item.bill_number || '__unordered__';
+            if (!map.has(key)) map.set(key, []);
+            map.get(key)!.push(item);
+        }
+        return map;
+    }, [filteredBoqItems]);
+
     const filteredLaminateItems = useMemo(() => {
         if (!searchQuery.trim()) return laminateItems;
         const q = searchQuery.toLowerCase();
@@ -1436,49 +1453,157 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100 text-sm">
-                                        {filteredBoqItems.map((item, index) => {
+                                        {(() => {
+                                            let globalIdx = 0;
+                                            return Array.from(boqGroupedByBill.entries()).flatMap(([billKey, groupItems]) => {
+                                                const isUnordered = billKey === '__unordered__';
+                                                const isCollapsed = collapsedBills.has(billKey);
+                                                const groupSelected = groupItems.filter(i => selectedBoqIds.has(i.id)).length;
+                                                const colCount = (canEdit || canDelete) ? 6 : 5;
+
+                                                const headerRow = !isUnordered ? (
+                                                    <tr
+                                                        key={`header-${billKey}`}
+                                                        className="bg-blue-50/80 border-b border-blue-100 cursor-pointer select-none hover:bg-blue-100/60 transition-colors"
+                                                        onClick={() => toggleBillCollapse(billKey)}
+                                                    >
+                                                        <td colSpan={colCount} className="py-2 px-4">
+                                                            <div className="flex items-center gap-2 text-xs font-bold text-blue-800">
+                                                                {isCollapsed
+                                                                    ? <FiChevronDown className="w-3.5 h-3.5 shrink-0" />
+                                                                    : <FiChevronUp className="w-3.5 h-3.5 shrink-0" />}
+                                                                <FiTruck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                                                <span>{billKey}</span>
+                                                                <span className="font-normal text-blue-600">• {groupItems.length} item{groupItems.length > 1 ? 's' : ''}</span>
+                                                                {groupSelected > 0 && (
+                                                                    <span className="ml-1 px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-bold">{groupSelected} selected</span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ) : null;
+
+                                                const itemRows = isCollapsed ? [] : groupItems.map((item) => {
+                                                    const index = globalIdx++;
+                                                    const isSelected = selectedBoqIds.has(item.id);
+                                                    return (
+                                                        <tr
+                                                            key={item.id}
+                                                            className={`transition-colors ${isSelected ? 'bg-amber-50/70 hover:bg-amber-100/60' : 'hover:bg-amber-50/40'}`}
+                                                        >
+                                                            <td className="py-3.5 px-3 text-center">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={isSelected}
+                                                                    onChange={() => toggleSelectBoq(item.id)}
+                                                                    className="rounded border-gray-300 text-amber-600 focus:ring-amber-500 h-4 w-4 cursor-pointer"
+                                                                />
+                                                            </td>
+                                                            <td className="py-3.5 px-2 text-center text-gray-400 font-medium">
+                                                                {index + 1}
+                                                            </td>
+                                                            <td className="py-3.5 px-4">
+                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                    <span className="font-semibold text-gray-900">{item.item_name}</span>
+                                                                    {item.sub_category && (
+                                                                        <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-gray-100 text-gray-600 border border-gray-200">
+                                                                            {item.sub_category}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            <td className="py-3.5 px-4 text-right font-bold text-gray-900">
+                                                                <span>{item.quantity}</span>
+                                                                <span className="ml-1.5 text-xs font-normal text-gray-500">{item.unit}</span>
+                                                            </td>
+                                                            <td className="py-3.5 px-4">
+                                                                {renderDeliveryStatusBadge(item)}
+                                                            </td>
+                                                            {(canEdit || canDelete) && (
+                                                                <td className="py-3.5 px-4 text-center">
+                                                                    <div className="flex items-center justify-center gap-2">
+                                                                        {canEdit && (
+                                                                            <button
+                                                                                onClick={() => handleEditItem(item)}
+                                                                                title="Edit Item"
+                                                                                className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                                                            >
+                                                                                <FiEdit2 className="w-4 h-4" />
+                                                                            </button>
+                                                                        )}
+                                                                        {canDelete && (
+                                                                            <button
+                                                                                onClick={() => handleDeleteItem(item.id)}
+                                                                                title="Delete Item"
+                                                                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                                            >
+                                                                                <FiTrash2 className="w-4 h-4" />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                            )}
+                                                        </tr>
+                                                    );
+                                                });
+
+                                                // Increment counter for collapsed groups too
+                                                if (isCollapsed) globalIdx += groupItems.length;
+
+                                                return headerRow ? [headerRow, ...itemRows] : itemRows;
+                                            });
+                                        })()}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Mobile Cards */}
+                            <div className="md:hidden divide-y divide-gray-100">
+                                {(() => {
+                                    let mobileIdx = 0;
+                                    return Array.from(boqGroupedByBill.entries()).flatMap(([billKey, groupItems]) => {
+                                        const isUnordered = billKey === '__unordered__';
+                                        const isCollapsed = collapsedBills.has(billKey);
+
+                                        const header = !isUnordered ? (
+                                            <div
+                                                key={`mob-header-${billKey}`}
+                                                className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border-b border-blue-100 cursor-pointer select-none"
+                                                onClick={() => toggleBillCollapse(billKey)}
+                                            >
+                                                {isCollapsed
+                                                    ? <FiChevronDown className="w-3.5 h-3.5 text-blue-700 shrink-0" />
+                                                    : <FiChevronUp className="w-3.5 h-3.5 text-blue-700 shrink-0" />}
+                                                <FiTruck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                                <span className="text-xs font-bold text-blue-800">{billKey}</span>
+                                                <span className="text-xs font-normal text-blue-600">• {groupItems.length} item{groupItems.length > 1 ? 's' : ''}</span>
+                                            </div>
+                                        ) : null;
+
+                                        const cards = isCollapsed ? [] : groupItems.map((item) => {
+                                            const index = mobileIdx++;
                                             const isSelected = selectedBoqIds.has(item.id);
                                             return (
-                                                <tr
-                                                    key={item.id}
-                                                    className={`transition-colors ${isSelected ? 'bg-amber-50/70 hover:bg-amber-100/60' : 'hover:bg-amber-50/40'}`}
-                                                >
-                                                    <td className="py-3.5 px-3 text-center">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={isSelected}
-                                                            onChange={() => toggleSelectBoq(item.id)}
-                                                            className="rounded border-gray-300 text-amber-600 focus:ring-amber-500 h-4 w-4 cursor-pointer"
-                                                        />
-                                                    </td>
-                                                    <td className="py-3.5 px-2 text-center text-gray-400 font-medium">
-                                                        {index + 1}
-                                                    </td>
-                                                    <td className="py-3.5 px-4">
-                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                <div key={item.id} className={`p-4 space-y-2 ${isSelected ? 'bg-amber-50/60' : ''}`}>
+                                                    <div className="flex items-start justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isSelected}
+                                                                onChange={() => toggleSelectBoq(item.id)}
+                                                                className="rounded border-gray-300 text-amber-600 focus:ring-amber-500 h-4 w-4 cursor-pointer"
+                                                            />
+                                                            <span className="w-5 h-5 rounded-full bg-gray-100 text-gray-600 text-[11px] flex items-center justify-center font-bold">
+                                                                {index + 1}
+                                                            </span>
                                                             <span className="font-semibold text-gray-900">{item.item_name}</span>
-                                                            {item.sub_category && (
-                                                                <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-gray-100 text-gray-600 border border-gray-200">
-                                                                    {item.sub_category}
-                                                                </span>
-                                                            )}
                                                         </div>
-                                                    </td>
-                                                    <td className="py-3.5 px-4 text-right font-bold text-gray-900">
-                                                        <span>{item.quantity}</span>
-                                                        <span className="ml-1.5 text-xs font-normal text-gray-500">{item.unit}</span>
-                                                    </td>
-                                                    <td className="py-3.5 px-4">
-                                                        {renderDeliveryStatusBadge(item)}
-                                                    </td>
-                                                    {(canEdit || canDelete) && (
-                                                        <td className="py-3.5 px-4 text-center">
-                                                            <div className="flex items-center justify-center gap-2">
+                                                        {(canEdit || canDelete) && (
+                                                            <div className="flex items-center gap-1">
                                                                 {canEdit && (
                                                                     <button
                                                                         onClick={() => handleEditItem(item)}
-                                                                        title="Edit Item"
-                                                                        className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                                                        className="p-1.5 text-gray-500 hover:text-amber-600 rounded"
                                                                     >
                                                                         <FiEdit2 className="w-4 h-4" />
                                                                     </button>
@@ -1486,82 +1611,39 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                                                 {canDelete && (
                                                                     <button
                                                                         onClick={() => handleDeleteItem(item.id)}
-                                                                        title="Delete Item"
-                                                                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                                        className="p-1.5 text-gray-500 hover:text-red-600 rounded"
                                                                     >
                                                                         <FiTrash2 className="w-4 h-4" />
                                                                     </button>
                                                                 )}
                                                             </div>
-                                                        </td>
-                                                    )}
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {/* Mobile Cards */}
-                            <div className="md:hidden divide-y divide-gray-100">
-                                {filteredBoqItems.map((item, index) => {
-                                    const isSelected = selectedBoqIds.has(item.id);
-                                    return (
-                                        <div key={item.id} className={`p-4 space-y-2 ${isSelected ? 'bg-amber-50/60' : ''}`}>
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={isSelected}
-                                                        onChange={() => toggleSelectBoq(item.id)}
-                                                        className="rounded border-gray-300 text-amber-600 focus:ring-amber-500 h-4 w-4 cursor-pointer"
-                                                    />
-                                                    <span className="w-5 h-5 rounded-full bg-gray-100 text-gray-600 text-[11px] flex items-center justify-center font-bold">
-                                                        {index + 1}
-                                                    </span>
-                                                    <span className="font-semibold text-gray-900">{item.item_name}</span>
-                                                </div>
-                                                {(canEdit || canDelete) && (
-                                                    <div className="flex items-center gap-1">
-                                                        {canEdit && (
-                                                            <button
-                                                                onClick={() => handleEditItem(item)}
-                                                                className="p-1.5 text-gray-500 hover:text-amber-600 rounded"
-                                                            >
-                                                                <FiEdit2 className="w-4 h-4" />
-                                                            </button>
-                                                        )}
-                                                        {canDelete && (
-                                                            <button
-                                                                onClick={() => handleDeleteItem(item.id)}
-                                                                className="p-1.5 text-gray-500 hover:text-red-600 rounded"
-                                                            >
-                                                                <FiTrash2 className="w-4 h-4" />
-                                                            </button>
                                                         )}
                                                     </div>
-                                                )}
-                                            </div>
-                                            {item.sub_category && (
-                                                <div className="ml-6">
-                                                    <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-gray-100 text-gray-600 border border-gray-200">
-                                                        {item.sub_category}
-                                                    </span>
+                                                    {item.sub_category && (
+                                                        <div className="ml-6">
+                                                            <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-gray-100 text-gray-600 border border-gray-200">
+                                                                {item.sub_category}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    <div className="flex items-center justify-between text-xs pt-1 border-t border-gray-50">
+                                                        <span className="text-gray-500 font-medium">Quantity:</span>
+                                                        <span className="font-bold text-gray-900 text-sm">
+                                                            {item.quantity} {item.unit}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-xs pt-1 border-t border-gray-50">
+                                                        <span className="text-gray-500 font-medium">Delivery:</span>
+                                                        {renderDeliveryStatusBadge(item)}
+                                                    </div>
                                                 </div>
-                                            )}
-                                            <div className="flex items-center justify-between text-xs pt-1 border-t border-gray-50">
-                                                <span className="text-gray-500 font-medium">Quantity:</span>
-                                                <span className="font-bold text-gray-900 text-sm">
-                                                    {item.quantity} {item.unit}
-                                                </span>
-                                            </div>
-                                            <div className="flex items-center justify-between text-xs pt-1 border-t border-gray-50">
-                                                <span className="text-gray-500 font-medium">Delivery:</span>
-                                                {renderDeliveryStatusBadge(item)}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                                            );
+                                        });
+
+                                        if (isCollapsed) mobileIdx += groupItems.length;
+                                        return header ? [header, ...cards] : cards;
+                                    });
+                                })()}
                             </div>
                         </div>
                     </div>
