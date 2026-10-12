@@ -188,6 +188,10 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
     const [loadingBills, setLoadingBills] = useState(false);
     const [billStatusFilter, setBillStatusFilter] = useState<'all' | 'ordered' | 'delivered'>('all');
     const [selectedBillForDelivery, setSelectedBillForDelivery] = useState<DeliveryBill | null>(null);
+    // Collapsed delivery bill cards (keyed by bill_number)
+    const [collapsedDeliveryBills, setCollapsedDeliveryBills] = useState<Set<string>>(new Set());
+    const toggleDeliveryBillCollapse = (key: string) =>
+        setCollapsedDeliveryBills(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
 
     // Custom items stored per project in localStorage
     const [customCatalog, setCustomCatalog] = useState<CatalogItem[]>([]);
@@ -1205,6 +1209,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                         <div className="grid grid-cols-1 gap-4">
                             {filteredBills.map(bill => {
                                 const isDelivered = bill.status === 'delivered';
+                                const isCollapsedCard = collapsedDeliveryBills.has(bill.bill_number);
                                 return (
                                     <div
                                         key={bill.id || bill.bill_number}
@@ -1214,10 +1219,13 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                                 : 'border-amber-300 bg-linear-to-b from-amber-50/30 via-white to-white shadow-sm'
                                         }`}
                                     >
-                                        {/* Bill Card Header */}
-                                        <div className={`p-4 sm:p-5 border-b flex flex-wrap items-center justify-between gap-3 ${
-                                            isDelivered ? 'border-emerald-100 bg-emerald-50/30' : 'border-amber-100 bg-amber-50/50'
-                                        }`}>
+                                        {/* Bill Card Header — click to collapse */}
+                                        <div
+                                            className={`p-4 sm:p-5 border-b flex flex-wrap items-center justify-between gap-3 cursor-pointer select-none ${
+                                                isDelivered ? 'border-emerald-100 bg-emerald-50/30 hover:bg-emerald-50/60' : 'border-amber-100 bg-amber-50/50 hover:bg-amber-50/80'
+                                            } transition-colors`}
+                                            onClick={() => toggleDeliveryBillCollapse(bill.bill_number)}
+                                        >
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm ${
                                                     isDelivered ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
@@ -1253,10 +1261,14 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                                         <span>Awaiting Site Delivery</span>
                                                     </span>
                                                 )}
+                                                {isCollapsedCard
+                                                    ? <FiChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+                                                    : <FiChevronUp className="w-4 h-4 text-gray-400 shrink-0" />}
                                             </div>
                                         </div>
 
-                                        {/* Bill Items List */}
+                                        {/* Bill Items List + Actions (collapsible) */}
+                                        {!isCollapsedCard && (
                                         <div className="p-4 sm:p-5 space-y-3">
                                             <div className="rounded-xl border border-gray-100 overflow-hidden bg-gray-50/50">
                                                 <table className="w-full text-left text-xs">
@@ -1347,6 +1359,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                                 </div>
                                             )}
                                         </div>
+                                        )}
                                     </div>
                                 );
                             })}
