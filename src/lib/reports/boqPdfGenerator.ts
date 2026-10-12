@@ -17,6 +17,7 @@ export interface BoqPdfOptions {
     engineerMobile?: string | null;
     deliveryFloor?: string | null;
     date?: string | null;
+    vendorName?: string | null;
     items: BoqPdfItem[];
     fileName?: string;
 }
@@ -54,6 +55,7 @@ export function generateBoqPDF(options: BoqPdfOptions): void {
         engineerMobile = 'N/A',
         deliveryFloor = 'Ground Floor',
         date,
+        vendorName,
         items,
         fileName
     } = options;
@@ -130,7 +132,7 @@ export function generateBoqPDF(options: BoqPdfOptions): void {
 
     // 4. SITE & DELIVERY DETAILS CARD
     const cardY = 50;
-    const cardHeight = 29;
+    const cardHeight = vendorName ? 34 : 29;
     doc.setFillColor(248, 249, 250);
     doc.setDrawColor(229, 231, 235);
     doc.setLineWidth(0.3);
@@ -204,6 +206,18 @@ export function generateBoqPDF(options: BoqPdfOptions): void {
     doc.setTextColor(180, 83, 9);
     doc.text(deliveryFloor || 'Ground Floor', col2X + 26, cardY + 23.5);
 
+    // Row 5: Vendor / Supplier Name (if provided)
+    if (vendorName) {
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(180, 83, 9);
+        doc.text('VENDOR / SUPPLIER:', col1X, cardY + 29.5);
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(17, 24, 39);
+        doc.text(vendorName, col1X + 32, cardY + 29.5);
+    }
+
     // 5. MATERIAL ITEMS TABLE
     const tableBody = items.map((item, index) => [
         (index + 1).toString(),
@@ -271,7 +285,7 @@ export function generateBoqPDF(options: BoqPdfOptions): void {
     const signBoxes = [
         { label: 'Site Engineer Sign', sub: engineerName || 'Site In-Charge', x: margin },
         { label: 'Project Manager Sign', sub: 'Apple Interiors', x: margin + boxWidth + 5 },
-        { label: 'Receiver / Vendor Sign', sub: 'Material In-charge', x: margin + (boxWidth * 2) + 10 }
+        { label: 'Receiver / Vendor Sign', sub: vendorName || 'Material In-charge', x: margin + (boxWidth * 2) + 10 }
     ];
 
     signBoxes.forEach(box => {
@@ -309,6 +323,7 @@ export interface LaminatePdfOptions {
     engineerMobile?: string | null;
     deliveryFloor?: string | null;
     date?: string | null;
+    vendorName?: string | null;
     items: LaminatePdfItem[];
     fileName?: string;
 }
@@ -324,6 +339,7 @@ export function generateLaminatePDF(options: LaminatePdfOptions): void {
         engineerMobile = 'N/A',
         deliveryFloor = 'Ground Floor',
         date,
+        vendorName,
         items,
         fileName
     } = options;
@@ -399,7 +415,7 @@ export function generateLaminatePDF(options: LaminatePdfOptions): void {
 
     // 4. SITE & DELIVERY DETAILS CARD
     const cardY = 50;
-    const cardHeight = 29;
+    const cardHeight = vendorName ? 34 : 29;
     doc.setFillColor(248, 249, 250);
     doc.setDrawColor(229, 231, 235);
     doc.setLineWidth(0.3);
@@ -473,6 +489,18 @@ export function generateLaminatePDF(options: LaminatePdfOptions): void {
     doc.setTextColor(180, 83, 9);
     doc.text(deliveryFloor || 'Ground Floor', col2X + 26, cardY + 23.5);
 
+    // Row 5: Vendor / Supplier Name (if provided)
+    if (vendorName) {
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(180, 83, 9);
+        doc.text('VENDOR / SUPPLIER:', col1X, cardY + 29.5);
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(17, 24, 39);
+        doc.text(vendorName, col1X + 32, cardY + 29.5);
+    }
+
     // 5. LAMINATE ITEMS TABLE
     const tableBody = items.map((item, index) => [
         (index + 1).toString(),
@@ -540,7 +568,7 @@ export function generateLaminatePDF(options: LaminatePdfOptions): void {
     const signBoxes = [
         { label: 'Site Engineer Sign', sub: engineerName || 'Site In-Charge', x: margin },
         { label: 'Project Manager Sign', sub: 'Apple Interiors', x: margin + boxWidth + 5 },
-        { label: 'Receiver / Vendor Sign', sub: 'Laminate In-charge', x: margin + (boxWidth * 2) + 10 }
+        { label: 'Receiver / Vendor Sign', sub: vendorName || 'Laminate In-charge', x: margin + (boxWidth * 2) + 10 }
     ];
 
     signBoxes.forEach(box => {

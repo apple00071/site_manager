@@ -10,6 +10,7 @@ const createBillSchema = z.object({
     item_ids: z.array(z.string().uuid()).min(1, 'At least one item must be included in the bill'),
     bill_type: z.enum(['boq', 'laminate']).default('boq'),
     order_date: z.string().optional(),
+    vendor_name: z.string().optional().nullable(),
     notes: z.string().optional().nullable()
 });
 
@@ -72,6 +73,7 @@ export async function GET(request: NextRequest) {
         const billMap = new Map<string, {
             id: string;
             bill_number: string;
+            vendor_name?: string | null;
             bill_type: 'boq' | 'laminate';
             order_date: string;
             status: 'ordered' | 'delivered';
@@ -86,9 +88,11 @@ export async function GET(request: NextRequest) {
 
         // Seed with existing dbBills
         dbBills.forEach((b: any) => {
+            const extractedVendor = (b.delivery_notes && b.delivery_notes.match(/Vendor:\s*([^|\]\n]+)/i)?.[1]?.trim()) || null;
             billMap.set(b.bill_number, {
                 id: b.id,
                 bill_number: b.bill_number,
+                vendor_name: b.vendor_name || extractedVendor || null,
                 bill_type: b.bill_type || 'boq',
                 order_date: b.order_date || (b.created_at ? b.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
                 status: b.status || 'ordered',
@@ -115,18 +119,16 @@ export async function GET(request: NextRequest) {
 
             // Fallback: If item is ordered/delivered, always group into a Delivery Bill
             if (!matchedBillNum && (item.order_status === 'ordered' || item.order_status === 'delivered')) {
-                const datePart = (item.delivery_notes && item.delivery_notes.match(/\d{4}-\d{2}-\d{2}/)?.[0])
-                    || (item.delivered_at ? item.delivered_at.split('T')[0] : null)
-                    || (item.updated_at ? item.updated_at.split('T')[0] : null)
-                    || new Date().toISOString().split('T')[0];
                 matchedBillNum = `Bill #1`;
             }
 
             if (matchedBillNum) {
+                const itemVendor = item.vendor_name || (item.delivery_notes && item.delivery_notes.match(/Vendor:\s*([^|\]\n]+)/i)?.[1]?.trim()) || null;
                 if (!billMap.has(matchedBillNum)) {
                     billMap.set(matchedBillNum, {
                         id: matchedBillNum,
                         bill_number: matchedBillNum,
+                        vendor_name: itemVendor,
                         bill_type: item.category === 'laminate' ? 'laminate' : 'boq',
                         order_date: (item.delivery_notes && item.delivery_notes.match(/\d{4}-\d{2}-\d{2}/)?.[0]) || new Date().toISOString().split('T')[0],
                         status: item.order_status === 'delivered' ? 'delivered' : 'ordered',
@@ -142,6 +144,9 @@ export async function GET(request: NextRequest) {
 
                 const b = billMap.get(matchedBillNum)!;
                 b.items.push(item);
+                if (itemVendor && !b.vendor_name) {
+                    b.vendor_name = itemVendor;
+                }
                 // If any item is ordered (not delivered), bill is still considered ordered / pending delivery
                 if (item.order_status === 'ordered') {
                     b.status = 'ordered';
@@ -195,7 +200,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const { project_id, item_ids, bill_type, order_date, notes } = parseResult.data;
+        const { project_id, item_ids, bill_type, order_date, notes, vendor_name } = parseResult.data;
         const formattedDate = order_date || new Date().toISOString().split('T')[0];
 
         // RBAC check: boq.delivery or boq.edit
@@ -224,7 +229,9 @@ export async function POST(request: NextRequest) {
         });
 
         const newBillNumber = `Bill #${maxBillNum + 1}`;
-        const structuredNote = `[${newBillNumber} | ${formattedDate}] ${notes || (bill_type === 'laminate' ? 'Laminate Export Order' : 'BOQ Material Order')}`;
+        const cleanVendor = vendor_name?.trim() || null;
+        const vendorTag = cleanVendor ? ` | Vendor: ${cleanVendor}` : '';
+        const structuredNote = `[${newBillNumber}${vendorTag} | ${formattedDate}] ${notes || (bill_type === 'laminate' ? 'Laminate Export Order' : 'BOQ Material Order')}`;
 
         // 1. Update the items in boq_items
         for (const itemId of item_ids) {
@@ -234,18 +241,25 @@ export async function POST(request: NextRequest) {
                 updated_at: new Date().toISOString()
             };
 
-            // Attempt to update bill_number if column exists
+            // Attempt to update bill_number and vendor_name if columns exist
             try {
                 await supabaseAdmin
                     .from('boq_items')
-                    .update({ ...updatePayload, bill_number: newBillNumber })
+                    .update({ ...updatePayload, bill_number: newBillNumber, vendor_name: cleanVendor })
                     .eq('id', itemId);
             } catch (_) {
-                // Fallback without bill_number column
-                await supabaseAdmin
-                    .from('boq_items')
-                    .update(updatePayload)
-                    .eq('id', itemId);
+                try {
+                    await supabaseAdmin
+                        .from('boq_items')
+                        .update({ ...updatePayload, bill_number: newBillNumber })
+                        .eq('id', itemId);
+                } catch (_) {
+                    // Fallback without bill_number column
+                    await supabaseAdmin
+                        .from('boq_items')
+                        .update(updatePayload)
+                        .eq('id', itemId);
+                }
             }
         }
 
@@ -258,10 +272,23 @@ export async function POST(request: NextRequest) {
                 order_date: formattedDate,
                 status: 'ordered',
                 item_count: item_ids.length,
+                vendor_name: cleanVendor,
                 delivery_notes: notes || undefined
             });
         } catch (_) {
-            // Ignore if table not created yet
+            try {
+                await supabaseAdmin.from('boq_bills').insert({
+                    project_id,
+                    bill_number: newBillNumber,
+                    bill_type,
+                    order_date: formattedDate,
+                    status: 'ordered',
+                    item_count: item_ids.length,
+                    delivery_notes: notes || undefined
+                });
+            } catch (_) {
+                // Ignore if table not created yet
+            }
         }
 
         // 3. Notify Site Engineer / Supervisor & Admins

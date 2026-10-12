@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
+import { createPortal } from 'react-dom';
 import {
     FiPlus, FiDownload, FiEdit2, FiTrash2, FiSearch, FiPackage,
     FiCheck, FiX, FiLayers, FiMapPin, FiUser, FiPhone, FiHome, FiAlertCircle,
@@ -33,11 +34,13 @@ export interface BOQItem {
     delivery_challan_url?: string | null;
     delivery_notes?: string | null;
     bill_number?: string | null;
+    vendor_name?: string | null;
 }
 
 export interface DeliveryBill {
     id: string;
     bill_number: string;
+    vendor_name?: string | null;
     bill_type: 'boq' | 'laminate';
     order_date: string;
     status: 'ordered' | 'delivered';
@@ -248,6 +251,9 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
     );
     const [exportDate, setExportDate] = useState(() => new Date().toISOString().split('T')[0]);
     const [exportMarkOrdered, setExportMarkOrdered] = useState(true);
+    const [exportVendorName, setExportVendorName] = useState('');
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => { setMounted(true); }, []);
 
     // Delivery Confirmation State
     const [showDeliveryModal, setShowDeliveryModal] = useState(false);
@@ -421,7 +427,9 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
             item.delivered_quantity < item.quantity
         );
         const isOrdered = item.order_status === 'ordered';
+        const vendor = item.vendor_name || (item.delivery_notes?.match(/Vendor:\s*([^|\]\n]+)/i)?.[1]?.trim()) || null;
         const billLabel = item.bill_number || (item.delivery_notes?.match(/(?:\[)?(Bill\s*#?\d+)/i)?.[1]) || null;
+        const displayLabel = vendor || billLabel || 'Bill #1';
 
         if (isPartial) {
             return (
@@ -466,8 +474,8 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                         <FiCheck className={`w-3.5 h-3.5 ${hasExcess ? 'text-blue-600' : 'text-emerald-600'}`} />
                         <span>
                             {hasExcess 
-                                ? `${billLabel ? `${billLabel} • ` : ''}${item.delivered_quantity}/${item.quantity} (+${((item.delivered_quantity || 0) - item.quantity).toFixed(1).replace(/\.0$/, '')} Excess)`
-                                : (billLabel ? `${billLabel} • Delivered` : 'Delivered')}
+                                ? `${displayLabel ? `${displayLabel} • ` : ''}${item.delivered_quantity}/${item.quantity} (+${((item.delivered_quantity || 0) - item.quantity).toFixed(1).replace(/\.0$/, '')} Excess)`
+                                : (displayLabel ? `${displayLabel} • Delivered` : 'Delivered')}
                         </span>
                     </span>
                     {item.delivery_challan_url && (
@@ -500,10 +508,10 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                     type="button"
                     onClick={() => handleSwitchSubTab('delivery_bills')}
                     className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer"
-                    title="Click to view in Delivery Bills"
+                    title={vendor && billLabel ? `${billLabel} (${vendor}) • Click to view in Delivery Bills` : 'Click to view in Delivery Bills'}
                 >
                     <FiTruck className="w-3.5 h-3.5 text-blue-600" />
-                    <span>{billLabel ? `${billLabel} • Ordered` : 'Bill #1 • Ordered'}</span>
+                    <span>{`${displayLabel} • Ordered`}</span>
                 </button>
             );
         }
@@ -577,6 +585,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
             } else {
                 setExportSelectedBoqIds(new Set(items.filter(it => it.category !== 'laminate').map(i => i.id)));
             }
+            setExportVendorName('');
             setExportSupplierFilter('all');
             setShowExportModal(true);
         },
@@ -607,6 +616,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
             } else {
                 setExportSelectedLaminateIds(new Set(items.filter(it => it.category === 'laminate').map(i => i.id)));
             }
+            setExportVendorName('');
             setExportCompanyFilter('all');
             setShowExportLaminateModal(true);
         }
@@ -900,6 +910,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
             engineerMobile: exportEngineerMobile || 'N/A',
             deliveryFloor: exportDeliveryFloor || 'Ground Floor',
             date: exportDate,
+            vendorName: exportVendorName.trim() || null,
             items: pdfItems
         });
 
@@ -912,6 +923,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                     item_ids: itemsToExport.map(it => it.id),
                     bill_type: 'boq',
                     order_date: exportDate,
+                    vendor_name: exportVendorName.trim() || null,
                     notes: `BOQ Material Requirement Export on ${exportDate}`
                 })
             }).then(async () => {
@@ -1030,6 +1042,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
             engineerMobile: exportEngineerMobile || 'N/A',
             deliveryFloor: exportDeliveryFloor || 'Ground Floor',
             date: exportDate,
+            vendorName: exportVendorName.trim() || null,
             items: pdfItems
         });
 
@@ -1042,6 +1055,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                     item_ids: itemsToExport.map(it => it.id),
                     bill_type: 'laminate',
                     order_date: exportDate,
+                    vendor_name: exportVendorName.trim() || null,
                     notes: `Laminate Sheet Export on ${exportDate}`
                 })
             }).then(async () => {
@@ -1080,6 +1094,18 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
             (i.sub_category && i.sub_category.toLowerCase().includes(q))
         );
     }, [laminateItems, searchQuery]);
+
+    // Group Laminate items by bill number for collapsible rendering
+    // ponytail: simple ordered Map; null bill_number → key '__unordered__'
+    const laminateGroupedByBill = useMemo(() => {
+        const map = new Map<string, BOQItem[]>();
+        for (const item of filteredLaminateItems) {
+            const key = item.bill_number || '__unordered__';
+            if (!map.has(key)) map.set(key, []);
+            map.get(key)!.push(item);
+        }
+        return map;
+    }, [filteredLaminateItems]);
 
     const filteredBills = useMemo(() => {
         return bills.filter(b => {
@@ -1234,7 +1260,9 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                                 </div>
                                                 <div>
                                                     <div className="flex items-center gap-2">
-                                                        <h4 className="text-base font-bold text-gray-900">{bill.bill_number}</h4>
+                                                        <h4 className="text-base font-bold text-gray-900">
+                                                            {bill.vendor_name ? `${bill.bill_number} • ${bill.vendor_name}` : bill.bill_number}
+                                                        </h4>
                                                         <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border ${
                                                             bill.bill_type === 'laminate'
                                                                 ? 'bg-purple-50 text-purple-700 border-purple-200'
@@ -1244,6 +1272,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                                         </span>
                                                     </div>
                                                     <p className="text-xs text-gray-500 mt-0.5">
+                                                        {bill.vendor_name && <span className="font-semibold text-gray-800 mr-1.5">{bill.vendor_name} •</span>}
                                                         Exported on: <span className="font-medium text-gray-700">{bill.order_date}</span> • {bill.item_count} {bill.item_count === 1 ? 'item' : 'items'}
                                                     </p>
                                                 </div>
@@ -1424,6 +1453,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                         type="button"
                                         onClick={() => {
                                             setExportSelectedBoqIds(new Set(selectedBoqIds));
+                                            setExportVendorName('');
                                             setExportSupplierFilter('all');
                                             setShowExportModal(true);
                                         }}
@@ -1473,6 +1503,10 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                                 const isCollapsed = collapsedBills.has(billKey);
                                                 const groupSelected = groupItems.filter(i => selectedBoqIds.has(i.id)).length;
                                                 const colCount = (canEdit || canDelete) ? 6 : 5;
+                                                const groupVendor = groupItems.find(i => i.vendor_name || i.delivery_notes?.match(/Vendor:\s*([^|\]\n]+)/i))?.vendor_name 
+                                                    || groupItems.map(i => i.delivery_notes?.match(/Vendor:\s*([^|\]\n]+)/i)?.[1]?.trim()).find(Boolean) 
+                                                    || null;
+                                                const billTitle = groupVendor ? `${billKey} • ${groupVendor}` : billKey;
 
                                                 const headerRow = !isUnordered ? (
                                                     <tr
@@ -1486,7 +1520,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                                                     ? <FiChevronDown className="w-3.5 h-3.5 shrink-0" />
                                                                     : <FiChevronUp className="w-3.5 h-3.5 shrink-0" />}
                                                                 <FiTruck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                                                                <span>{billKey}</span>
+                                                                <span>{billTitle}</span>
                                                                 <span className="font-normal text-blue-600">• {groupItems.length} item{groupItems.length > 1 ? 's' : ''}</span>
                                                                 {groupSelected > 0 && (
                                                                     <span className="ml-1 px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-bold">{groupSelected} selected</span>
@@ -1577,6 +1611,10 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                     return Array.from(boqGroupedByBill.entries()).flatMap(([billKey, groupItems]) => {
                                         const isUnordered = billKey === '__unordered__';
                                         const isCollapsed = collapsedBills.has(billKey);
+                                        const groupVendor = groupItems.find(i => i.vendor_name || i.delivery_notes?.match(/Vendor:\s*([^|\]\n]+)/i))?.vendor_name 
+                                            || groupItems.map(i => i.delivery_notes?.match(/Vendor:\s*([^|\]\n]+)/i)?.[1]?.trim()).find(Boolean) 
+                                            || null;
+                                        const billTitle = groupVendor ? `${billKey} • ${groupVendor}` : billKey;
 
                                         const header = !isUnordered ? (
                                             <div
@@ -1588,7 +1626,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                                     ? <FiChevronDown className="w-3.5 h-3.5 text-blue-700 shrink-0" />
                                                     : <FiChevronUp className="w-3.5 h-3.5 text-blue-700 shrink-0" />}
                                                 <FiTruck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                                                <span className="text-xs font-bold text-blue-800">{billKey}</span>
+                                                <span className="text-xs font-bold text-blue-800">{billTitle}</span>
                                                 <span className="text-xs font-normal text-blue-600">• {groupItems.length} item{groupItems.length > 1 ? 's' : ''}</span>
                                             </div>
                                         ) : null;
@@ -1721,6 +1759,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                         type="button"
                                         onClick={() => {
                                             setExportSelectedLaminateIds(new Set(selectedLaminateIds));
+                                            setExportVendorName('');
                                             setExportCompanyFilter('all');
                                             setShowExportLaminateModal(true);
                                         }}
@@ -1764,47 +1803,162 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100 text-sm">
-                                        {filteredLaminateItems.map((item, index) => {
+                                        {(() => {
+                                            let globalIdx = 0;
+                                            return Array.from(laminateGroupedByBill.entries()).flatMap(([billKey, groupItems]) => {
+                                                const isUnordered = billKey === '__unordered__';
+                                                const isCollapsed = collapsedBills.has(billKey);
+                                                const groupSelected = groupItems.filter(i => selectedLaminateIds.has(i.id)).length;
+                                                const colCount = (canEdit || canDelete) ? 7 : 6;
+                                                const groupVendor = groupItems.find(i => i.vendor_name || i.delivery_notes?.match(/Vendor:\s*([^|\]\n]+)/i))?.vendor_name 
+                                                    || groupItems.map(i => i.delivery_notes?.match(/Vendor:\s*([^|\]\n]+)/i)?.[1]?.trim()).find(Boolean) 
+                                                    || null;
+                                                const billTitle = groupVendor ? `${billKey} • ${groupVendor}` : billKey;
+
+                                                const headerRow = !isUnordered ? (
+                                                    <tr
+                                                        key={`header-${billKey}`}
+                                                        className="bg-blue-50/80 border-b border-blue-100 cursor-pointer select-none hover:bg-blue-100/60 transition-colors"
+                                                        onClick={() => toggleBillCollapse(billKey)}
+                                                    >
+                                                        <td colSpan={colCount} className="py-2 px-4">
+                                                            <div className="flex items-center gap-2 text-xs font-bold text-blue-800">
+                                                                {isCollapsed
+                                                                    ? <FiChevronDown className="w-3.5 h-3.5 shrink-0" />
+                                                                    : <FiChevronUp className="w-3.5 h-3.5 shrink-0" />}
+                                                                <FiTruck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                                                <span>{billTitle}</span>
+                                                                <span className="font-normal text-blue-600">• {groupItems.length} item{groupItems.length > 1 ? 's' : ''}</span>
+                                                                {groupSelected > 0 && (
+                                                                    <span className="ml-1 px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-bold">{groupSelected} selected</span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ) : null;
+
+                                                const itemRows = isCollapsed ? [] : groupItems.map((item) => {
+                                                    const index = globalIdx++;
+                                                    const isSelected = selectedLaminateIds.has(item.id);
+                                                    return (
+                                                        <tr
+                                                            key={item.id}
+                                                            className={`transition-colors ${isSelected ? 'bg-amber-50/70 hover:bg-amber-100/60' : 'hover:bg-amber-50/40'}`}
+                                                        >
+                                                            <td className="py-3.5 px-3 text-center">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={isSelected}
+                                                                    onChange={() => toggleSelectLaminate(item.id)}
+                                                                    className="rounded border-gray-300 text-amber-600 focus:ring-amber-500 h-4 w-4 cursor-pointer"
+                                                                />
+                                                            </td>
+                                                            <td className="py-3.5 px-2 text-center text-gray-400 font-medium">
+                                                                {index + 1}
+                                                            </td>
+                                                            <td className="py-3.5 px-4 font-semibold text-gray-900">
+                                                                {item.item_name}
+                                                            </td>
+                                                            <td className="py-3.5 px-4 text-gray-700">
+                                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                                                                    {item.sub_category || item.material_company || 'Standard'}
+                                                                </span>
+                                                            </td>
+                                                            <td className="py-3.5 px-4 text-right font-bold text-gray-900">
+                                                                <span>{item.quantity}</span>
+                                                                <span className="ml-1.5 text-xs font-normal text-gray-500">{item.unit || 'Sheets'}</span>
+                                                            </td>
+                                                            <td className="py-3.5 px-4">
+                                                                {renderDeliveryStatusBadge(item)}
+                                                            </td>
+                                                            {(canEdit || canDelete) && (
+                                                                <td className="py-3.5 px-4 text-center">
+                                                                    <div className="flex items-center justify-center gap-2">
+                                                                        {canEdit && (
+                                                                            <button
+                                                                                onClick={() => handleEditLaminate(item)}
+                                                                                title="Edit Laminate"
+                                                                                className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                                                            >
+                                                                                <FiEdit2 className="w-4 h-4" />
+                                                                            </button>
+                                                                        )}
+                                                                        {canDelete && (
+                                                                            <button
+                                                                                onClick={() => handleDeleteItem(item.id)}
+                                                                                title="Delete Laminate"
+                                                                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                                            >
+                                                                                <FiTrash2 className="w-4 h-4" />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                            )}
+                                                        </tr>
+                                                    );
+                                                });
+
+                                                if (isCollapsed) globalIdx += groupItems.length;
+
+                                                return headerRow ? [headerRow, ...itemRows] : itemRows;
+                                            });
+                                        })()}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Mobile Cards */}
+                            <div className="md:hidden divide-y divide-gray-100">
+                                {(() => {
+                                    let mobileIdx = 0;
+                                    return Array.from(laminateGroupedByBill.entries()).flatMap(([billKey, groupItems]) => {
+                                        const isUnordered = billKey === '__unordered__';
+                                        const isCollapsed = collapsedBills.has(billKey);
+                                        const groupVendor = groupItems.find(i => i.vendor_name || i.delivery_notes?.match(/Vendor:\s*([^|\]\n]+)/i))?.vendor_name 
+                                            || groupItems.map(i => i.delivery_notes?.match(/Vendor:\s*([^|\]\n]+)/i)?.[1]?.trim()).find(Boolean) 
+                                            || null;
+                                        const billTitle = groupVendor ? `${billKey} • ${groupVendor}` : billKey;
+
+                                        const header = !isUnordered ? (
+                                            <div
+                                                key={`mob-header-${billKey}`}
+                                                className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border-b border-blue-100 cursor-pointer select-none"
+                                                onClick={() => toggleBillCollapse(billKey)}
+                                            >
+                                                {isCollapsed
+                                                    ? <FiChevronDown className="w-3.5 h-3.5 text-blue-700 shrink-0" />
+                                                    : <FiChevronUp className="w-3.5 h-3.5 text-blue-700 shrink-0" />}
+                                                <FiTruck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                                <span className="text-xs font-bold text-blue-800">{billTitle}</span>
+                                                <span className="text-xs font-normal text-blue-600">• {groupItems.length} item{groupItems.length > 1 ? 's' : ''}</span>
+                                            </div>
+                                        ) : null;
+
+                                        const cards = isCollapsed ? [] : groupItems.map((item) => {
+                                            const index = mobileIdx++;
                                             const isSelected = selectedLaminateIds.has(item.id);
                                             return (
-                                                <tr
-                                                    key={item.id}
-                                                    className={`transition-colors ${isSelected ? 'bg-amber-50/70 hover:bg-amber-100/60' : 'hover:bg-amber-50/40'}`}
-                                                >
-                                                    <td className="py-3.5 px-3 text-center">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={isSelected}
-                                                            onChange={() => toggleSelectLaminate(item.id)}
-                                                            className="rounded border-gray-300 text-amber-600 focus:ring-amber-500 h-4 w-4 cursor-pointer"
-                                                        />
-                                                    </td>
-                                                    <td className="py-3.5 px-2 text-center text-gray-400 font-medium">
-                                                        {index + 1}
-                                                    </td>
-                                                    <td className="py-3.5 px-4 font-semibold text-gray-900">
-                                                        {item.item_name}
-                                                    </td>
-                                                    <td className="py-3.5 px-4 text-gray-700">
-                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                                                            {item.sub_category || item.material_company || 'Standard'}
-                                                        </span>
-                                                    </td>
-                                                    <td className="py-3.5 px-4 text-right font-bold text-gray-900">
-                                                        <span>{item.quantity}</span>
-                                                        <span className="ml-1.5 text-xs font-normal text-gray-500">{item.unit || 'Sheets'}</span>
-                                                    </td>
-                                                    <td className="py-3.5 px-4">
-                                                        {renderDeliveryStatusBadge(item)}
-                                                    </td>
-                                                    {(canEdit || canDelete) && (
-                                                        <td className="py-3.5 px-4 text-center">
-                                                            <div className="flex items-center justify-center gap-2">
+                                                <div key={item.id} className={`p-4 space-y-2 ${isSelected ? 'bg-amber-50/60' : ''}`}>
+                                                    <div className="flex items-start justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isSelected}
+                                                                onChange={() => toggleSelectLaminate(item.id)}
+                                                                className="rounded border-gray-300 text-amber-600 focus:ring-amber-500 h-4 w-4 cursor-pointer"
+                                                            />
+                                                            <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 text-[11px] flex items-center justify-center font-bold">
+                                                                {index + 1}
+                                                            </span>
+                                                            <span className="font-semibold text-gray-900">{item.item_name}</span>
+                                                        </div>
+                                                        {(canEdit || canDelete) && (
+                                                            <div className="flex items-center gap-1">
                                                                 {canEdit && (
                                                                     <button
                                                                         onClick={() => handleEditLaminate(item)}
-                                                                        title="Edit Laminate"
-                                                                        className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                                                        className="p-1.5 text-gray-500 hover:text-amber-600 rounded"
                                                                     >
                                                                         <FiEdit2 className="w-4 h-4" />
                                                                     </button>
@@ -1812,81 +1966,38 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                                                 {canDelete && (
                                                                     <button
                                                                         onClick={() => handleDeleteItem(item.id)}
-                                                                        title="Delete Laminate"
-                                                                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                                        className="p-1.5 text-gray-500 hover:text-red-600 rounded"
                                                                     >
                                                                         <FiTrash2 className="w-4 h-4" />
                                                                     </button>
                                                                 )}
                                                             </div>
-                                                        </td>
-                                                    )}
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {/* Mobile Cards */}
-                            <div className="md:hidden divide-y divide-gray-100">
-                                {filteredLaminateItems.map((item, index) => {
-                                    const isSelected = selectedLaminateIds.has(item.id);
-                                    return (
-                                        <div key={item.id} className={`p-4 space-y-2 ${isSelected ? 'bg-amber-50/60' : ''}`}>
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={isSelected}
-                                                        onChange={() => toggleSelectLaminate(item.id)}
-                                                        className="rounded border-gray-300 text-amber-600 focus:ring-amber-500 h-4 w-4 cursor-pointer"
-                                                    />
-                                                    <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 text-[11px] flex items-center justify-center font-bold">
-                                                        {index + 1}
-                                                    </span>
-                                                    <span className="font-semibold text-gray-900">{item.item_name}</span>
-                                                </div>
-                                                {(canEdit || canDelete) && (
-                                                    <div className="flex items-center gap-1">
-                                                        {canEdit && (
-                                                            <button
-                                                                onClick={() => handleEditLaminate(item)}
-                                                                className="p-1.5 text-gray-500 hover:text-amber-600 rounded"
-                                                            >
-                                                                <FiEdit2 className="w-4 h-4" />
-                                                            </button>
-                                                        )}
-                                                        {canDelete && (
-                                                            <button
-                                                                onClick={() => handleDeleteItem(item.id)}
-                                                                className="p-1.5 text-gray-500 hover:text-red-600 rounded"
-                                                            >
-                                                                <FiTrash2 className="w-4 h-4" />
-                                                            </button>
                                                         )}
                                                     </div>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-2 text-xs ml-6">
-                                                <span className="text-gray-500">Company:</span>
-                                                <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-semibold border border-amber-200">
-                                                    {item.sub_category || item.material_company || 'Standard'}
-                                                </span>
-                                            </div>
-                                            <div className="flex items-center justify-between text-xs pt-1 border-t border-gray-50">
-                                                <span className="text-gray-500 font-medium">Quantity:</span>
-                                                <span className="font-bold text-gray-900 text-sm">
-                                                    {item.quantity} {item.unit || 'Sheets'}
-                                                </span>
-                                            </div>
-                                            <div className="flex items-center justify-between text-xs pt-1 border-t border-gray-50">
-                                                <span className="text-gray-500 font-medium">Delivery:</span>
-                                                {renderDeliveryStatusBadge(item)}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                                                    <div className="flex items-center gap-2 text-xs ml-6">
+                                                        <span className="text-gray-500">Company:</span>
+                                                        <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-semibold border border-amber-200">
+                                                            {item.sub_category || item.material_company || 'Standard'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-xs pt-1 border-t border-gray-50">
+                                                        <span className="text-gray-500 font-medium">Quantity:</span>
+                                                        <span className="font-bold text-gray-900 text-sm">
+                                                            {item.quantity} {item.unit || 'Sheets'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-xs pt-1 border-t border-gray-50">
+                                                        <span className="text-gray-500 font-medium">Delivery:</span>
+                                                        {renderDeliveryStatusBadge(item)}
+                                                    </div>
+                                                </div>
+                                            );
+                                        });
+
+                                        if (isCollapsed) mobileIdx += groupItems.length;
+                                        return header ? [header, ...cards] : cards;
+                                    });
+                                })()}
                             </div>
                         </div>
                     </div>
@@ -2219,10 +2330,10 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
             {/* ========================================================================= */}
             {/* EXPORT BOQ TO PDF MODAL */}
             {/* ========================================================================= */}
-            {showExportModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl border border-gray-100 overflow-hidden flex flex-col max-h-[90vh]">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50 shrink-0">
+            {mounted && showExportModal && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-gray-100 overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/70 shrink-0">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-amber-100 text-amber-700 rounded-lg">
                                     <FiDownload className="w-5 h-5" />
@@ -2234,7 +2345,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                             </div>
                             <button
                                 onClick={() => setShowExportModal(false)}
-                                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
+                                className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
                             >
                                 <FiX className="w-5 h-5" />
                             </button>
@@ -2252,7 +2363,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                     value={exportSiteName}
                                     onChange={e => setExportSiteName(e.target.value)}
                                     placeholder="Site Name"
-                                    className="w-full px-3.5 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                                    className="w-full px-3.5 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none font-medium text-gray-900"
                                 />
                             </div>
 
@@ -2267,7 +2378,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                     value={exportSiteAddress}
                                     onChange={e => setExportSiteAddress(e.target.value)}
                                     placeholder="Full delivery address"
-                                    className="w-full px-3.5 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                                    className="w-full px-3.5 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none font-medium text-gray-900"
                                 />
                             </div>
 
@@ -2325,7 +2436,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                                 key={floor}
                                                 type="button"
                                                 onClick={() => setExportDeliveryFloor(floor)}
-                                                className={`text-[11px] px-2.5 py-0.5 rounded-full border transition-colors ${
+                                                className={`text-[11px] px-2.5 py-0.5 rounded-full border transition-colors cursor-pointer ${
                                                     exportDeliveryFloor.toLowerCase().trim() === floor.toLowerCase().trim()
                                                         ? 'bg-amber-100 border-amber-300 text-amber-900 font-bold shadow-xs'
                                                         : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-100'
@@ -2353,6 +2464,43 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                         Printed on top header, details card and sign-off
                                     </p>
                                 </div>
+                            </div>
+
+                            {/* Vendor / Supplier Name */}
+                            <div>
+                                <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase mb-1">
+                                    <FiTruck className="w-3.5 h-3.5 text-amber-600" />
+                                    <span>Vendor / Supplier Name (Optional)</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Shree Balaji Ply, Royal Hardware, Decora..."
+                                    value={exportVendorName}
+                                    onChange={e => setExportVendorName(e.target.value)}
+                                    className="w-full px-3.5 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none font-semibold text-gray-900"
+                                />
+                                <p className="mt-1 text-[11px] text-gray-400">
+                                    Mentioned in PDF and displayed on delivery status (e.g. &quot;{exportVendorName.trim() || 'Bill #1'} • Ordered&quot;)
+                                </p>
+                                {availableSuppliers.length > 0 && (
+                                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                        <span className="text-[11px] text-gray-400 font-medium mr-0.5">Quick pick:</span>
+                                        {availableSuppliers.map(sup => (
+                                            <button
+                                                key={sup}
+                                                type="button"
+                                                onClick={() => setExportVendorName(sup)}
+                                                className={`text-[11px] px-2.5 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                                                    exportVendorName.toLowerCase().trim() === sup.toLowerCase().trim()
+                                                        ? 'bg-amber-100 border-amber-300 text-amber-900 font-bold shadow-xs'
+                                                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-100'
+                                                }`}
+                                            >
+                                                {sup}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Items Included for Export */}
@@ -2408,7 +2556,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                             <button
                                 type="button"
                                 onClick={() => setShowExportModal(false)}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/70 rounded-lg transition-colors"
+                                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/70 rounded-lg transition-colors cursor-pointer"
                             >
                                 Cancel
                             </button>
@@ -2416,20 +2564,21 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                 type="button"
                                 disabled={exportSelectedBoqIds.size === 0}
                                 onClick={handleDownloadPdf}
-                                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-bold bg-[#f0b100] hover:bg-[#d49b00] text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
+                                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-bold bg-[#f0b100] hover:bg-[#d49b00] text-white rounded-lg shadow-sm transition-colors disabled:opacity-50 cursor-pointer"
                             >
                                 <FiDownload className="w-4 h-4" />
                                 <span>Download PDF ({exportSelectedBoqIds.size})</span>
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* ========================================================================= */}
             {/* EXPORT LAMINATE TO PDF MODAL */}
             {/* ========================================================================= */}
-            {showExportLaminateModal && (
+            {mounted && showExportLaminateModal && typeof document !== 'undefined' && createPortal(
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl border border-gray-100 overflow-hidden flex flex-col max-h-[90vh]">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-amber-50/40 shrink-0">
@@ -2444,7 +2593,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                             </div>
                             <button
                                 onClick={() => setShowExportLaminateModal(false)}
-                                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
+                                className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
                             >
                                 <FiX className="w-5 h-5" />
                             </button>
@@ -2462,7 +2611,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                     value={exportSiteName}
                                     onChange={e => setExportSiteName(e.target.value)}
                                     placeholder="Site Name"
-                                    className="w-full px-3.5 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                                    className="w-full px-3.5 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none font-medium text-gray-900"
                                 />
                             </div>
 
@@ -2477,7 +2626,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                     value={exportSiteAddress}
                                     onChange={e => setExportSiteAddress(e.target.value)}
                                     placeholder="Full delivery address"
-                                    className="w-full px-3.5 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                                    className="w-full px-3.5 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none font-medium text-gray-900"
                                 />
                             </div>
 
@@ -2535,7 +2684,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                                 key={floor}
                                                 type="button"
                                                 onClick={() => setExportDeliveryFloor(floor)}
-                                                className={`text-[11px] px-2.5 py-0.5 rounded-full border transition-colors ${
+                                                className={`text-[11px] px-2.5 py-0.5 rounded-full border transition-colors cursor-pointer ${
                                                     exportDeliveryFloor.toLowerCase().trim() === floor.toLowerCase().trim()
                                                         ? 'bg-amber-100 border-amber-300 text-amber-900 font-bold shadow-xs'
                                                         : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-100'
@@ -2563,6 +2712,43 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                         Printed on top header, details card and sign-off
                                     </p>
                                 </div>
+                            </div>
+
+                            {/* Vendor / Supplier Name */}
+                            <div>
+                                <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase mb-1">
+                                    <FiTruck className="w-3.5 h-3.5 text-amber-600" />
+                                    <span>Vendor / Supplier Name (Optional)</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Royal Touch, Century, Greenlam, Decora..."
+                                    value={exportVendorName}
+                                    onChange={e => setExportVendorName(e.target.value)}
+                                    className="w-full px-3.5 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none font-semibold text-gray-900"
+                                />
+                                <p className="mt-1 text-[11px] text-gray-400">
+                                    Mentioned in PDF and displayed on delivery status (e.g. &quot;{exportVendorName.trim() || 'Bill #1'} • Ordered&quot;)
+                                </p>
+                                {availableLaminateCompanies.length > 0 && (
+                                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                        <span className="text-[11px] text-gray-400 font-medium mr-0.5">Quick pick:</span>
+                                        {availableLaminateCompanies.map(c => (
+                                            <button
+                                                key={c}
+                                                type="button"
+                                                onClick={() => setExportVendorName(c)}
+                                                className={`text-[11px] px-2.5 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                                                    exportVendorName.toLowerCase().trim() === c.toLowerCase().trim()
+                                                        ? 'bg-amber-100 border-amber-300 text-amber-900 font-bold shadow-xs'
+                                                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-100'
+                                                }`}
+                                            >
+                                                {c}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Laminate Items Included for Export */}
@@ -2618,7 +2804,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                             <button
                                 type="button"
                                 onClick={() => setShowExportLaminateModal(false)}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/70 rounded-lg transition-colors"
+                                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/70 rounded-lg transition-colors cursor-pointer"
                             >
                                 Cancel
                             </button>
@@ -2626,14 +2812,15 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                 type="button"
                                 disabled={exportSelectedLaminateIds.size === 0}
                                 onClick={handleDownloadLaminatePdf}
-                                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-bold bg-[#f0b100] hover:bg-[#d49b00] text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
+                                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-bold bg-[#f0b100] hover:bg-[#d49b00] text-white rounded-lg shadow-sm transition-colors disabled:opacity-50 cursor-pointer"
                             >
                                 <FiDownload className="w-4 h-4" />
                                 <span>Download Laminate PDF ({exportSelectedLaminateIds.size})</span>
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* ========================================================================= */}
@@ -3108,7 +3295,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
             {/* ========================================================================= */}
             {/* CHALLAN / DELIVERY PROOF LIGHTBOX MODAL */}
             {/* ========================================================================= */}
-            {previewChallan && (
+            {mounted && previewChallan && typeof document !== 'undefined' && createPortal(
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn"
                     onClick={() => setPreviewChallan(null)}
@@ -3160,7 +3347,8 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                             </div>
                         )}
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
