@@ -2480,7 +2480,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                     className="w-full px-3.5 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none font-semibold text-gray-900"
                                 />
                                 <p className="mt-1 text-[11px] text-gray-400">
-                                    Mentioned in PDF and displayed on delivery status (e.g. &quot;{exportVendorName.trim() || 'Bill #1'} • Ordered&quot;)
+                                    Displayed on table delivery status instead of &quot;Bill 1&quot; (e.g. &quot;{exportVendorName.trim() || 'Bill #1'} • Ordered&quot;)
                                 </p>
                                 {availableSuppliers.length > 0 && (
                                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -2728,7 +2728,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                     className="w-full px-3.5 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none font-semibold text-gray-900"
                                 />
                                 <p className="mt-1 text-[11px] text-gray-400">
-                                    Mentioned in PDF and displayed on delivery status (e.g. &quot;{exportVendorName.trim() || 'Bill #1'} • Ordered&quot;)
+                                    Displayed on table delivery status instead of &quot;Bill 1&quot; (e.g. &quot;{exportVendorName.trim() || 'Bill #1'} • Ordered&quot;)
                                 </p>
                                 {availableLaminateCompanies.length > 0 && (
                                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
