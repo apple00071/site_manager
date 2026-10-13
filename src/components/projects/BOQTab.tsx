@@ -2340,7 +2340,6 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                 </div>
                                 <div>
                                     <h3 className="text-lg font-bold text-gray-900">Export BOQ Requirement PDF</h3>
-                                    <p className="text-xs text-gray-500">Includes official Apple Interiors logo & site header</p>
                                 </div>
                             </div>
                             <button
@@ -2582,7 +2581,6 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                 </div>
                                 <div>
                                     <h3 className="text-lg font-bold text-gray-900">Export Laminate Requirement PDF</h3>
-                                    <p className="text-xs text-gray-500">Official sheet for laminate sheets delivery & approvals</p>
                                 </div>
                             </div>
                             <button
