@@ -88,9 +88,7 @@ export default function QuotationPrintPage() {
   // Dynamic Page Title & Mobile Viewport
   useEffect(() => {
     if (lead?.client_name) {
-      document.title = isDesignerMode
-        ? `Scope of Work (Designer Copy) — ${lead.client_name}`
-        : `Quotation — ${lead.client_name}`;
+      document.title = `Quotation — ${lead.client_name}`;
     }
     
     // Enable native mobile pinch-to-zoom for this document view.
@@ -146,7 +144,7 @@ export default function QuotationPrintPage() {
 
       const cleanClientName = (lead?.client_name || 'Client').trim().replace(/[^\w\s-]/g, '').replace(/\s+/g, '_');
       const filename = isDesignerMode
-        ? `Apple_Interior_Scope_Work_${cleanClientName}_Designer_v${quotation?.version || 1}.pdf`
+        ? `Apple_Interior_Quotation_${cleanClientName}_Designer_v${quotation?.version || 1}.pdf`
         : `Apple_Interior_Quotation_${cleanClientName}_v${quotation?.version || 1}.pdf`;
 
       const opt = {
@@ -532,7 +530,7 @@ export default function QuotationPrintPage() {
               }}
               title="Full quotation with rates, amounts, and payment schedule"
             >
-              Client View (Full Rates)
+              Client Copy (With Prices)
             </button>
             <button
               onClick={() => handleToggleDesignerMode(true)}
@@ -542,17 +540,14 @@ export default function QuotationPrintPage() {
                 fontWeight: 700,
                 borderRadius: '6px',
                 border: 'none',
-                background: isDesignerMode ? '#7c3aed' : 'transparent',
-                color: isDesignerMode ? '#ffffff' : '#4b5563',
+                background: isDesignerMode ? '#2b2b2b' : 'transparent',
+                color: isDesignerMode ? '#f5c518' : '#4b5563',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
+                transition: 'all 0.2s'
               }}
-              title="Scope of work and dimensions only, all pricing and rates hidden"
+              title="Quotation without rates or amounts"
             >
-              🎨 Designer View (Hide Pricing)
+              Designer Copy (No Prices)
             </button>
           </div>
 
@@ -606,13 +601,6 @@ export default function QuotationPrintPage() {
             </button>
           </div>
         </div>
-
-        {isDesignerMode && (
-          <div style={{ marginTop: '8px', padding: '6px 12px', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '6px', fontSize: '12px', color: '#6d28d9', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span>🎨</span>
-            <span><strong>Designer Mode Active:</strong> Rates, amounts, financial totals, and payment schedule are completely hidden. Scope of work, dimensions, and material specs are preserved. Share or download this copy safely with designers and vendors without zeroing out quotations.</span>
-          </div>
-        )}
       </div>
 
       <div className="page-scale-wrapper" style={{ width: '100%', display: 'flex', justifyContent: 'center', background: '#f5f5f5', padding: '20px 0' }}>
@@ -634,14 +622,7 @@ export default function QuotationPrintPage() {
           </div>
 
           <div className="client-section">
-            <div className="doc-title">
-              {isDesignerMode ? 'Interior Design Scope of Work' : 'Interior Design Quotation'}
-            </div>
-            {isDesignerMode && (
-              <div style={{ textAlign: 'center', fontSize: '8.5pt', color: '#7c3aed', fontWeight: 700, letterSpacing: '0.5px', marginTop: '-8px', marginBottom: '10px' }}>
-                DESIGNER &amp; EXECUTION COPY — SCOPE &amp; SPECIFICATIONS (RATES EXCLUDED)
-              </div>
-            )}
+            <div className="doc-title">Interior Design Quotation</div>
             <div className="client-grid">
               <div>
                 <div className="client-row"><span className="client-label">Client Name :</span><span>{lead?.client_name}</span></div>
@@ -695,16 +676,10 @@ export default function QuotationPrintPage() {
                         )}
                       </tr>
                     ))}
-                    {!isDesignerMode ? (
+                    {!isDesignerMode && (
                       <tr className="subtotal-row">
                         <td colSpan={6} style={{ textAlign: 'right', paddingRight: '8px' }}>Sub-Total — {section}</td>
                         <td className="col-amt">{fmt(sectionTotal)}</td>
-                      </tr>
-                    ) : (
-                      <tr className="subtotal-row">
-                        <td colSpan={5} style={{ textAlign: 'right', paddingRight: '12px', fontSize: '8pt', color: '#666', fontStyle: 'italic' }}>
-                          Section Total: {sItems.length} item{sItems.length > 1 ? 's' : ''}
-                        </td>
                       </tr>
                     )}
                   </Fragment>
@@ -823,19 +798,14 @@ export default function QuotationPrintPage() {
           </div>
 
           <div className="section-block" style={{ pageBreakInside: 'avoid', breakInside: 'avoid', marginTop: '14px' }}>
-            <div className="section-heading" style={{ marginTop: 0 }}>
-              {isDesignerMode ? 'DESIGN & SITE EXECUTION TERMS' : 'TERMS & CONDITIONS'}
-            </div>
+            <div className="section-heading" style={{ marginTop: 0 }}>TERMS &amp; CONDITIONS</div>
             <div style={{ padding: '8px 10px' }}>
               <ol className="terms-list">
-                {TERMS.filter((_, i) => !isDesignerMode || (i !== 4 && i !== 6 && i !== 7)).map((t, i) => (
+                {TERMS.map((t, i) => (
                   <li key={i}>
                     {i === 6 ? (hasGst ? `Quotation is inclusive of ${gstRate}% GST.` : t) : t}
                   </li>
                 ))}
-                {isDesignerMode && (
-                  <li>Confidential scope sheet: strictly for design layout, measurements, and site execution reference only.</li>
-                )}
               </ol>
             </div>
 
