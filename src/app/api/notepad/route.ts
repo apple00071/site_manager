@@ -38,8 +38,8 @@ export async function GET(request: NextRequest) {
     if (notes.length === 0) {
       const defaultNote = {
         user_id: user.id,
-        title: 'Quick Scratchpad',
-        content: 'Welcome to your cloud-synced Notepad!\n\nUse this space to note site details, material measurements, customer requests, or quick reminders without navigating away. Your changes will sync automatically across all your devices!',
+        title: 'Quick Note',
+        content: '',
       };
 
       const { data: inserted, error: insertError } = await supabaseAdmin

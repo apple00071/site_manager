@@ -110,8 +110,8 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
   const createDefaultNoteFallback = () => {
     const defaultNote: Note = {
       id: 'default-note-1',
-      title: 'Quick Scratchpad',
-      content: 'Welcome to your premium Notepad!\n\nUse this space to log site details, material measurements, customer requests, or quick reminders without navigating away.\n\n💡 Try using the formatting helper buttons below to add task checklists or timestamps instantly!',
+      title: 'Quick Note',
+      content: '',
       updatedAt: new Date().toISOString()
     };
     setNotes([defaultNote]);
@@ -255,7 +255,7 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
       // Re-create default if all deleted
       const defaultNote: Note = {
         id: `note-${Date.now()}`,
-        title: 'Quick Scratchpad',
+        title: 'Quick Note',
         content: '',
         updatedAt: new Date().toISOString()
       };
@@ -400,34 +400,24 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
       >
         {/* Header bar */}
         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-yellow-500 text-white flex items-center justify-center">
               <FiFileText className="w-4 h-4" />
             </div>
-            <div>
-              <h2 className="text-sm font-bold text-gray-900">Scratchpad Notepad</h2>
-              <p className="text-[10px] font-semibold text-gray-400">
-                {dbStatus === 'connected' ? 'Cloud database synced' : 'Local browser fallback'}
-              </p>
-            </div>
+            <h2 className="text-sm font-bold text-gray-900">Notepad</h2>
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Auto-save Badge */}
+            {/* Auto-save indicator - only shows during active saving */}
             {saveStatus === 'saving' && (
-              <span className="text-[10px] font-bold text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full animate-pulse border border-yellow-100">
+              <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full animate-pulse border border-amber-100">
                 Saving...
-              </span>
-            )}
-            {saveStatus === 'saved' && (
-              <span className="text-[10px] font-extrabold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100 flex items-center gap-0.5">
-                <FiCheck className="w-2.5 h-2.5" /> Synced
               </span>
             )}
 
             <button
               onClick={onClose}
-              className="no-touch-target min-w-0 flex items-center justify-center w-8 h-8 p-1.5 hover:bg-gray-200 rounded-lg text-gray-400 hover:text-gray-700 transition-colors"
+              className="no-touch-target min-w-0 flex items-center justify-center w-8 h-8 p-1.5 hover:bg-gray-200 rounded-lg text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
               aria-label="Close notepad"
             >
               <FiX className="w-5 h-5" />
