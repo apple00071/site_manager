@@ -104,6 +104,35 @@ export default function CRMPage() {
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [existingProjects, setExistingProjects] = useState<any[]>([]);
 
+  // Quotation Approval confirmation modal
+  interface ApprovalConfirmationData {
+    lead: Lead;
+    quotationValue: number;
+    approvedValue: number;
+    onConfirm: (confirmedVal: number) => Promise<void> | void;
+    onCancel?: () => void;
+  }
+  const [pendingApproval, setPendingApproval] = useState<ApprovalConfirmationData | null>(null);
+  const [approvalInputValue, setApprovalInputValue] = useState<string>('');
+
+  const openApprovalConfirmation = (
+    lead: Lead,
+    qVal: number,
+    aVal: number,
+    onConfirm: (confirmedVal: number) => Promise<void> | void,
+    onCancel?: () => void
+  ) => {
+    const finalVal = aVal > 0 ? aVal : qVal;
+    setApprovalInputValue(String(finalVal || ''));
+    setPendingApproval({
+      lead,
+      quotationValue: qVal,
+      approvedValue: finalVal,
+      onConfirm,
+      onCancel
+    });
+  };
+
   const fetchExistingProjects = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/projects');
@@ -221,18 +250,47 @@ export default function CRMPage() {
       status: targetStatus
     };
 
-    // Auto-fill approved value if approved, and prevent approving 0 value
+    // Intercept approval to require explicit confirmation popup with quote value
     if (targetStatus === 'Approved') {
       const qVal = Number(lead.quote_value || 0);
       const aVal = Number(lead.approved_value || 0);
-      if (qVal <= 0 && aVal <= 0) {
-        alert('Cannot approve quotation: Total quotation value must be greater than ₹0. Please build a valid quotation first.');
-        setSyncStatus('synced');
-        return;
-      }
-      if (!updatedLead.approved_value) {
-        updatedLead.approved_value = qVal || aVal;
-      }
+
+      openApprovalConfirmation(
+        lead,
+        qVal,
+        aVal,
+        async (confirmedValue: number) => {
+          setPendingApproval(null);
+          setSyncStatus('syncing');
+          const approvedLead = {
+            ...lead,
+            status: 'Approved' as const,
+            approved_value: confirmedValue
+          };
+
+          try {
+            const response = await fetch('/api/crm', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(approvedLead)
+            });
+            if (response.ok) {
+              setLeads(prev => prev.map(l => l.id === id ? approvedLead : l));
+              setSyncStatus('synced');
+              setProjectModalLead(approvedLead);
+              setIsProjectModalOpen(true);
+            } else {
+              const errData = await response.json().catch(() => ({}));
+              alert(`Failed to update status: ${errData.error || 'Server error'}`);
+              setSyncStatus('error');
+            }
+          } catch (err) {
+            console.error('Error changing status via Kanban:', err);
+            setSyncStatus('error');
+          }
+        }
+      );
+      return;
     }
 
     try {
@@ -244,10 +302,6 @@ export default function CRMPage() {
       if (response.ok) {
         setLeads(prev => prev.map(l => l.id === id ? updatedLead : l));
         setSyncStatus('synced');
-        if (targetStatus === 'Approved') {
-          setProjectModalLead(updatedLead);
-          setIsProjectModalOpen(true);
-        }
       } else {
         const errData = await response.json().catch(() => ({}));
         alert(`Failed to update status: ${errData.error || 'Server error'}`);
@@ -1012,16 +1066,30 @@ export default function CRMPage() {
       return;
     }
 
-    if (mobileEditForm.status === 'Approved') {
+    const existingLead = leads.find(l => l.id === mobileEditForm.id);
+    if (mobileEditForm.status === 'Approved' && existingLead?.status !== 'Approved') {
       const qVal = Number(mobileEditForm.quote_value || 0);
       const aVal = Number(mobileEditForm.approved_value || 0);
-      if (qVal <= 0 && aVal <= 0) {
-        alert('Cannot approve quotation: Total quotation value must be greater than ₹0. Please build a valid quotation first.');
-        return;
-      }
-      if (!mobileEditForm.approved_value) {
-        mobileEditForm.approved_value = qVal || aVal;
-      }
+
+      openApprovalConfirmation(
+        mobileEditForm,
+        qVal,
+        aVal,
+        async (confirmedValue: number) => {
+          setPendingApproval(null);
+          const approvedLead = {
+            ...mobileEditForm,
+            status: 'Approved' as const,
+            approved_value: confirmedValue
+          };
+          await syncLeadChange(approvedLead);
+          setIsMobileEditOpen(false);
+          setMobileEditForm(null);
+          setProjectModalLead(approvedLead);
+          setIsProjectModalOpen(true);
+        }
+      );
+      return;
     }
 
     setSyncStatus('syncing');
@@ -1246,16 +1314,26 @@ export default function CRMPage() {
         if (newValue === 'Approved') {
           const qVal = Number(lead.quote_value || 0);
           const aVal = Number(lead.approved_value || 0);
-          if (qVal <= 0 && aVal <= 0) {
-            alert('Cannot approve quotation: Total quotation value must be greater than ₹0. Please build a valid quotation first.');
-            setIsEditing(false);
-            return;
-          }
-          if (!updatedLead.approved_value) {
-            updatedLead.approved_value = qVal || aVal;
-          }
-          setProjectModalLead(updatedLead);
-          setIsProjectModalOpen(true);
+
+          openApprovalConfirmation(
+            lead,
+            qVal,
+            aVal,
+            async (confirmedValue: number) => {
+              setPendingApproval(null);
+              const approvedLead = {
+                ...lead,
+                status: 'Approved' as const,
+                approved_value: confirmedValue
+              };
+              setLeads(prev => prev.map(l => l.id === lead.id ? approvedLead : l));
+              await syncLeadChange(approvedLead);
+              setProjectModalLead(approvedLead);
+              setIsProjectModalOpen(true);
+            }
+          );
+          setIsEditing(false);
+          return;
         } else if (newValue === 'Follow-up') {
           const followUpCols = ['follow_up_1', 'follow_up_2', 'follow_up_3'];
           const colIdx = columns.findIndex(c => followUpCols.includes(c.id) && !lead[c.id as keyof Lead]);
@@ -2524,16 +2602,28 @@ export default function CRMPage() {
                                      <div className="flex items-center justify-between group/ref w-full px-1">
                                        <span className="text-gray-400 font-bold">{cellValue || '-'}</span>
                                        {lead.latest_quotation_id && (
-                                         <button
-                                           onClick={(e) => {
-                                             e.stopPropagation();
-                                             window.open(`/quotations/${lead.latest_quotation_id}/print`, '_blank');
-                                           }}
-                                           title={`Print/Preview Quotation (v${lead.quote_version || 1})`}
-                                           className="text-yellow-600 hover:text-yellow-700 p-0.5 rounded hover:bg-yellow-50 opacity-0 group-hover/ref:opacity-100 focus:opacity-100 transition-all shrink-0"
-                                         >
-                                           <FiPrinter size={12} />
-                                         </button>
+                                         <div className="flex items-center gap-1 opacity-0 group-hover/ref:opacity-100 focus-within:opacity-100 transition-all shrink-0">
+                                           <button
+                                             onClick={(e) => {
+                                               e.stopPropagation();
+                                               window.open(`/quotations/${lead.latest_quotation_id}/print`, '_blank');
+                                             }}
+                                             title={`Print Client Quotation (v${lead.quote_version || 1})`}
+                                             className="text-yellow-600 hover:text-yellow-700 p-0.5 rounded hover:bg-yellow-50"
+                                           >
+                                             <FiPrinter size={12} />
+                                           </button>
+                                           <button
+                                             onClick={(e) => {
+                                               e.stopPropagation();
+                                               window.open(`/quotations/${lead.latest_quotation_id}/print?designer=1`, '_blank');
+                                             }}
+                                             title="Print Designer Scope Copy (Rates Hidden)"
+                                             className="text-purple-600 hover:text-purple-700 p-0.5 rounded hover:bg-purple-50 text-[11px]"
+                                           >
+                                             🎨
+                                           </button>
+                                         </div>
                                        )}
                                      </div>
                                    ) : (
@@ -3173,6 +3263,149 @@ export default function CRMPage() {
           }}
         />
       )}
+
+      {/* Quotation Approval Confirmation Modal */}
+      {pendingApproval && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 animate-in fade-in zoom-in duration-200">
+            {/* Header with amber accent */}
+            <div className="bg-gradient-to-r from-amber-500 to-yellow-500 p-5 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center font-bold text-xl">
+                  ✓
+                </div>
+                <div>
+                  <h3 className="text-lg font-black tracking-tight">Confirm Quotation Approval</h3>
+                  <p className="text-xs text-amber-100 font-medium">Verify quotation value before approval</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  pendingApproval.onCancel?.();
+                  setPendingApproval(null);
+                }}
+                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <FiX size={20} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4">
+              {/* Lead Details */}
+              <div className="bg-gray-50 rounded-xl p-4 border border-gray-200/70 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Client &amp; Lead</span>
+                  <span className="text-xs font-bold text-gray-400">{pendingApproval.lead.ref_no || '-'}</span>
+                </div>
+                <div className="text-base font-black text-gray-900">{pendingApproval.lead.client_name}</div>
+                {pendingApproval.lead.site_project && (
+                  <div className="text-xs text-gray-600 flex items-center gap-1.5 font-medium">
+                    <span>📍</span>
+                    <span>{pendingApproval.lead.site_project}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Zero-value warning or Valid value highlight */}
+              {pendingApproval.quotationValue <= 0 && pendingApproval.approvedValue <= 0 ? (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex flex-col gap-2">
+                  <div className="font-bold flex items-center gap-1.5 text-sm">
+                    <span>⚠️</span> Cannot Approve: Quotation Value is ₹0
+                  </div>
+                  <p>
+                    This lead does not have a quotation amount. You must build a valid quotation before marking this lead as Approved.
+                  </p>
+                  <button
+                    onClick={() => {
+                      const leadToQuote = pendingApproval.lead;
+                      setPendingApproval(null);
+                      setQuotationLead(leadToQuote);
+                    }}
+                    className="mt-1 px-3 py-2 bg-red-600 text-white font-bold rounded-lg text-xs hover:bg-red-700 transition-colors text-center cursor-pointer"
+                  >
+                    Open Quotation Builder
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-4 text-center">
+                    <div className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider mb-1">
+                      Quotation Value
+                    </div>
+                    <div className="text-2xl font-black text-emerald-700">
+                      ₹{Math.round(pendingApproval.quotationValue || pendingApproval.approvedValue).toLocaleString('en-IN')}
+                    </div>
+                    {pendingApproval.lead.quote_version ? (
+                      <div className="text-[10px] text-emerald-600 font-semibold mt-1">
+                        Quotation Version v{pendingApproval.lead.quote_version}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      Approved Project Value (₹)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₹</span>
+                      <input
+                        type="number"
+                        value={approvalInputValue}
+                        onChange={(e) => setApprovalInputValue(e.target.value)}
+                        className="w-full pl-8 pr-3 py-2.5 bg-white border border-gray-300 rounded-xl font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 text-base"
+                        placeholder="Approved value"
+                      />
+                    </div>
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      Defaults to quotation total. Adjust if a final negotiated discount was agreed.
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px] leading-relaxed flex items-start gap-2">
+                    <span className="text-base leading-none">ℹ️</span>
+                    <span>
+                      Approving this lead will lock the approved quotation and initiate the project handover.
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Footer Actions */}
+            <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  pendingApproval.onCancel?.();
+                  setPendingApproval(null);
+                }}
+                className="px-4 py-2 text-xs font-bold text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              {!(pendingApproval.quotationValue <= 0 && pendingApproval.approvedValue <= 0) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const finalVal = parseFloat(approvalInputValue) || pendingApproval.approvedValue || pendingApproval.quotationValue;
+                    if (finalVal <= 0) {
+                      alert('Please specify an approved value greater than ₹0.');
+                      return;
+                    }
+                    pendingApproval.onConfirm(finalVal);
+                  }}
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white text-xs font-black rounded-xl shadow-md shadow-amber-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>✓ Confirm &amp; Approve</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* Add to Projects Modal for Approved Quotes */}
       {isProjectModalOpen && projectModalLead && (

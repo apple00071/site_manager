@@ -51,6 +51,9 @@ export default function QuotationPrintPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
+  const [isDesignerMode, setIsDesignerMode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
   const [pdfReadyFile, setPdfReadyFile] = useState<File | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
@@ -59,10 +62,35 @@ export default function QuotationPrintPage() {
 
   const pageRef = useRef<HTMLDivElement>(null);
 
+  // Initialize Designer Mode from URL query param (?designer=1 or ?mode=designer)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get('designer') === '1' || sp.get('designer') === 'true' || sp.get('mode') === 'designer' || sp.get('hide_pricing') === '1') {
+        setIsDesignerMode(true);
+      }
+    }
+  }, []);
+
+  const handleToggleDesignerMode = (enableDesigner: boolean) => {
+    setIsDesignerMode(enableDesigner);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (enableDesigner) {
+        url.searchParams.set('designer', '1');
+      } else {
+        url.searchParams.delete('designer');
+      }
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
+
   // Dynamic Page Title & Mobile Viewport
   useEffect(() => {
     if (lead?.client_name) {
-      document.title = `Quotation — ${lead.client_name}`;
+      document.title = isDesignerMode
+        ? `Scope of Work (Designer Copy) — ${lead.client_name}`
+        : `Quotation — ${lead.client_name}`;
     }
     
     // Enable native mobile pinch-to-zoom for this document view.
@@ -81,7 +109,7 @@ export default function QuotationPrintPage() {
         viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
       }
     };
-  }, [lead]);
+  }, [lead, isDesignerMode]);
 
   useEffect(() => {
     if (!id) return;
@@ -117,7 +145,9 @@ export default function QuotationPrintPage() {
       }
 
       const cleanClientName = (lead?.client_name || 'Client').trim().replace(/[^\w\s-]/g, '').replace(/\s+/g, '_');
-      const filename = `Apple_Interior_Quotation_${cleanClientName}_v${quotation?.version || 1}.pdf`;
+      const filename = isDesignerMode
+        ? `Apple_Interior_Scope_Work_${cleanClientName}_Designer_v${quotation?.version || 1}.pdf`
+        : `Apple_Interior_Quotation_${cleanClientName}_v${quotation?.version || 1}.pdf`;
 
       const opt = {
         margin: [8, 0, 8, 0],
@@ -127,7 +157,7 @@ export default function QuotationPrintPage() {
           scale: 2.5, 
           useCORS: true, 
           logging: false, 
-          letterRendering: true,
+          letterRendering: true, 
           allowTaint: true,
           scrollX: 0,
           scrollY: 0
@@ -483,41 +513,106 @@ export default function QuotationPrintPage() {
         strategy="lazyOnload" 
       />
 
-      <div className="no-print print-header-actions" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', padding: '10px 16px', background: '#fff', borderBottom: '1px solid #eee', maxWidth: '794px', margin: '0 auto' }}>
-        <button
-          onClick={handleSendWhatsApp}
-          disabled={isSendingWhatsApp}
-          style={{ background: '#25D366', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 16px', fontWeight: 700, cursor: isSendingWhatsApp ? 'not-allowed' : 'pointer', fontSize: '13px', opacity: isSendingWhatsApp ? 0.7 : 1 }}
-        >
-          {isSendingWhatsApp ? '⏳ Sending...' : '💬 Send WhatsApp PDF'}
-        </button>
-        <button
-          onClick={handleDownloadPDF}
-          disabled={isGeneratingPdf}
-          style={{ background: '#4caf50', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 16px', fontWeight: 700, cursor: isGeneratingPdf ? 'not-allowed' : 'pointer', fontSize: '13px', opacity: isGeneratingPdf ? 0.7 : 1 }}
-          title="Download identical PDF as seen on screen"
-        >
-          {isGeneratingPdf ? '⏳ Generating...' : '📥 Download PDF'}
-        </button>
-        <button
-          onClick={() => {
-            if (window.innerWidth < 800) {
-              // Android webviews don't support window.print(). Route them to the share/download flow instead.
-              handleDownloadPDF();
-            } else {
-              window.print();
-            }
-          }}
-          style={{ background: '#f5c518', border: 'none', borderRadius: '6px', padding: '8px 16px', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
-        >
-          🖨 Print / Save PDF
-        </button>
-        <button
-          onClick={() => window.close()}
-          style={{ background: '#eee', border: 'none', borderRadius: '6px', padding: '8px 14px', cursor: 'pointer', fontSize: '13px' }}
-        >
-          Close
-        </button>
+      <div className="no-print" style={{ maxWidth: '794px', margin: '0 auto', padding: '10px 16px', background: '#fff', borderBottom: '1px solid #eee' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+          {/* Segmented Mode Switcher */}
+          <div style={{ display: 'flex', alignItems: 'center', background: '#f3f4f6', padding: '3px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+            <button
+              onClick={() => handleToggleDesignerMode(false)}
+              style={{
+                padding: '6px 14px',
+                fontSize: '12px',
+                fontWeight: 700,
+                borderRadius: '6px',
+                border: 'none',
+                background: !isDesignerMode ? '#2b2b2b' : 'transparent',
+                color: !isDesignerMode ? '#f5c518' : '#4b5563',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              title="Full quotation with rates, amounts, and payment schedule"
+            >
+              Client View (Full Rates)
+            </button>
+            <button
+              onClick={() => handleToggleDesignerMode(true)}
+              style={{
+                padding: '6px 14px',
+                fontSize: '12px',
+                fontWeight: 700,
+                borderRadius: '6px',
+                border: 'none',
+                background: isDesignerMode ? '#7c3aed' : 'transparent',
+                color: isDesignerMode ? '#ffffff' : '#4b5563',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              title="Scope of work and dimensions only, all pricing and rates hidden"
+            >
+              🎨 Designer View (Hide Pricing)
+            </button>
+          </div>
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              onClick={() => {
+                const url = window.location.href;
+                navigator.clipboard.writeText(url);
+                setCopiedLink(true);
+                setTimeout(() => setCopiedLink(false), 2000);
+              }}
+              style={{ background: '#f8fafc', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontWeight: 600, cursor: 'pointer', fontSize: '12px' }}
+              title="Copy direct shareable link for this view"
+            >
+              {copiedLink ? '✓ Copied!' : '📋 Copy Link'}
+            </button>
+            <button
+              onClick={handleSendWhatsApp}
+              disabled={isSendingWhatsApp}
+              style={{ background: '#25D366', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 14px', fontWeight: 700, cursor: isSendingWhatsApp ? 'not-allowed' : 'pointer', fontSize: '12px', opacity: isSendingWhatsApp ? 0.7 : 1 }}
+            >
+              {isSendingWhatsApp ? '⏳ Sending...' : '💬 Send WhatsApp PDF'}
+            </button>
+            <button
+              onClick={handleDownloadPDF}
+              disabled={isGeneratingPdf}
+              style={{ background: '#4caf50', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 14px', fontWeight: 700, cursor: isGeneratingPdf ? 'not-allowed' : 'pointer', fontSize: '12px', opacity: isGeneratingPdf ? 0.7 : 1 }}
+              title="Download identical PDF as seen on screen"
+            >
+              {isGeneratingPdf ? '⏳ Generating...' : '📥 Download PDF'}
+            </button>
+            <button
+              onClick={() => {
+                if (window.innerWidth < 800) {
+                  // Android webviews don't support window.print(). Route them to the share/download flow instead.
+                  handleDownloadPDF();
+                } else {
+                  window.print();
+                }
+              }}
+              style={{ background: '#f5c518', border: 'none', borderRadius: '6px', padding: '8px 14px', fontWeight: 700, cursor: 'pointer', fontSize: '12px' }}
+            >
+              🖨 Print / Save PDF
+            </button>
+            <button
+              onClick={() => window.close()}
+              style={{ background: '#eee', border: 'none', borderRadius: '6px', padding: '8px 12px', cursor: 'pointer', fontSize: '12px' }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+
+        {isDesignerMode && (
+          <div style={{ marginTop: '8px', padding: '6px 12px', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '6px', fontSize: '12px', color: '#6d28d9', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>🎨</span>
+            <span><strong>Designer Mode Active:</strong> Rates, amounts, financial totals, and payment schedule are completely hidden. Scope of work, dimensions, and material specs are preserved. Share or download this copy safely with designers and vendors without zeroing out quotations.</span>
+          </div>
+        )}
       </div>
 
       <div className="page-scale-wrapper" style={{ width: '100%', display: 'flex', justifyContent: 'center', background: '#f5f5f5', padding: '20px 0' }}>
@@ -539,7 +634,14 @@ export default function QuotationPrintPage() {
           </div>
 
           <div className="client-section">
-            <div className="doc-title">Interior Design Quotation</div>
+            <div className="doc-title">
+              {isDesignerMode ? 'Interior Design Scope of Work' : 'Interior Design Quotation'}
+            </div>
+            {isDesignerMode && (
+              <div style={{ textAlign: 'center', fontSize: '8.5pt', color: '#7c3aed', fontWeight: 700, letterSpacing: '0.5px', marginTop: '-8px', marginBottom: '10px' }}>
+                DESIGNER &amp; EXECUTION COPY — SCOPE &amp; SPECIFICATIONS (RATES EXCLUDED)
+              </div>
+            )}
             <div className="client-grid">
               <div>
                 <div className="client-row"><span className="client-label">Client Name :</span><span>{lead?.client_name}</span></div>
@@ -558,12 +660,16 @@ export default function QuotationPrintPage() {
             <thead>
               <tr>
                 <th className="col-no">#</th>
-                <th className="col-desc">Description of Work</th>
-                <th className="col-l">L (ft)</th>
-                <th className="col-w">W (ft)</th>
-                <th className="col-area">Area (sq.ft)</th>
-                <th className="col-rate">Rate (₹)</th>
-                <th className="col-amt">Amount (₹)</th>
+                <th className="col-desc" style={isDesignerMode ? { width: '58%' } : {}}>Description of Work</th>
+                <th className="col-l" style={isDesignerMode ? { width: '12%' } : {}}>L (ft)</th>
+                <th className="col-w" style={isDesignerMode ? { width: '12%' } : {}}>W (ft)</th>
+                <th className="col-area" style={isDesignerMode ? { width: '13%' } : {}}>Area (sq.ft)</th>
+                {!isDesignerMode && (
+                  <>
+                    <th className="col-rate">Rate (₹)</th>
+                    <th className="col-amt">Amount (₹)</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -572,7 +678,7 @@ export default function QuotationPrintPage() {
                 return (
                   <Fragment key={section}>
                     <tr key={`h-${section}`} className="section-row">
-                      <td colSpan={7}>&nbsp;&nbsp;{section.toUpperCase()}</td>
+                      <td colSpan={isDesignerMode ? 5 : 7}>&nbsp;&nbsp;{section.toUpperCase()}</td>
                     </tr>
                     {sItems.map((item: any, idx: number) => (
                       <tr key={item.id} className={idx % 2 === 0 ? 'item-even' : 'item-odd'}>
@@ -581,101 +687,119 @@ export default function QuotationPrintPage() {
                         <td className="col-l">{item.is_lumpsum ? '—' : (item.length_ft ?? '—')}</td>
                         <td className="col-w">{item.is_lumpsum ? '—' : (item.width_ft ?? '—')}</td>
                         <td className="col-area">{item.is_lumpsum ? 1 : item.area_sqft}</td>
-                        <td className="col-rate">{fmt(item.rate)}</td>
-                        <td className="col-amt">{fmt(item.amount)}</td>
+                        {!isDesignerMode && (
+                          <>
+                            <td className="col-rate">{fmt(item.rate)}</td>
+                            <td className="col-amt">{fmt(item.amount)}</td>
+                          </>
+                        )}
                       </tr>
                     ))}
-                    <tr className="subtotal-row">
-                      <td colSpan={6} style={{ textAlign: 'right', paddingRight: '8px' }}>Sub-Total — {section}</td>
-                      <td className="col-amt">{fmt(sectionTotal)}</td>
-                    </tr>
+                    {!isDesignerMode ? (
+                      <tr className="subtotal-row">
+                        <td colSpan={6} style={{ textAlign: 'right', paddingRight: '8px' }}>Sub-Total — {section}</td>
+                        <td className="col-amt">{fmt(sectionTotal)}</td>
+                      </tr>
+                    ) : (
+                      <tr className="subtotal-row">
+                        <td colSpan={5} style={{ textAlign: 'right', paddingRight: '12px', fontSize: '8pt', color: '#666', fontStyle: 'italic' }}>
+                          Section Total: {sItems.length} item{sItems.length > 1 ? 's' : ''}
+                        </td>
+                      </tr>
+                    )}
                   </Fragment>
                 );
               })}
 
-              {(hasDiscount || hasGst) && (
-                <tr style={{ background: '#f8fafc' }}>
-                  <td colSpan={6} style={{ textAlign: 'right', padding: '5px 8px', fontWeight: 600 }}>
-                    Subtotal
-                  </td>
-                  <td style={{ textAlign: 'right', padding: '5px 6px', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                    {fmt(subtotal)}
-                  </td>
-                </tr>
-              )}
+              {!isDesignerMode && (
+                <>
+                  {(hasDiscount || hasGst) && (
+                    <tr style={{ background: '#f8fafc' }}>
+                      <td colSpan={6} style={{ textAlign: 'right', padding: '5px 8px', fontWeight: 600 }}>
+                        Subtotal
+                      </td>
+                      <td style={{ textAlign: 'right', padding: '5px 6px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        {fmt(subtotal)}
+                      </td>
+                    </tr>
+                  )}
 
-              {hasDiscount && (
-                <tr style={{ background: '#fff8e1' }}>
-                  <td colSpan={6} style={{ textAlign: 'right', padding: '5px 8px', fontStyle: 'italic', color: '#cc4444' }}>
-                    Discount {quotation.discount_type === 'percent' ? `(${quotation.discount_value}%)` : '(Flat)'}
-                  </td>
-                  <td style={{ textAlign: 'right', padding: '5px 6px', color: '#cc4444', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                    − {fmt(discountAmt)}
-                  </td>
-                </tr>
-              )}
+                  {hasDiscount && (
+                    <tr style={{ background: '#fff8e1' }}>
+                      <td colSpan={6} style={{ textAlign: 'right', padding: '5px 8px', fontStyle: 'italic', color: '#cc4444' }}>
+                        Discount {quotation.discount_type === 'percent' ? `(${quotation.discount_value}%)` : '(Flat)'}
+                      </td>
+                      <td style={{ textAlign: 'right', padding: '5px 6px', color: '#cc4444', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        − {fmt(discountAmt)}
+                      </td>
+                    </tr>
+                  )}
 
-              {hasDiscount && hasGst && (
-                <tr style={{ background: '#f8fafc' }}>
-                  <td colSpan={6} style={{ textAlign: 'right', padding: '5px 8px', fontWeight: 600, color: '#555' }}>
-                    Taxable Amount
-                  </td>
-                  <td style={{ textAlign: 'right', padding: '5px 6px', fontWeight: 600, color: '#555', whiteSpace: 'nowrap' }}>
-                    {fmt(taxableAmount)}
-                  </td>
-                </tr>
-              )}
+                  {hasDiscount && hasGst && (
+                    <tr style={{ background: '#f8fafc' }}>
+                      <td colSpan={6} style={{ textAlign: 'right', padding: '5px 8px', fontWeight: 600, color: '#555' }}>
+                        Taxable Amount
+                      </td>
+                      <td style={{ textAlign: 'right', padding: '5px 6px', fontWeight: 600, color: '#555', whiteSpace: 'nowrap' }}>
+                        {fmt(taxableAmount)}
+                      </td>
+                    </tr>
+                  )}
 
-              {hasGst && (
-                <tr style={{ background: '#f0fdf4' }}>
-                  <td colSpan={6} style={{ textAlign: 'right', padding: '5px 8px', fontWeight: 600, color: '#16a34a' }}>
-                    GST ({gstRate}%)
-                  </td>
-                  <td style={{ textAlign: 'right', padding: '5px 6px', color: '#16a34a', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                    + {fmt(gstAmount)}
-                  </td>
-                </tr>
-              )}
+                  {hasGst && (
+                    <tr style={{ background: '#f0fdf4' }}>
+                      <td colSpan={6} style={{ textAlign: 'right', padding: '5px 8px', fontWeight: 600, color: '#16a34a' }}>
+                        GST ({gstRate}%)
+                      </td>
+                      <td style={{ textAlign: 'right', padding: '5px 6px', color: '#16a34a', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        + {fmt(gstAmount)}
+                      </td>
+                    </tr>
+                  )}
 
-              <tr className="grand-total">
-                <td colSpan={6} className="lbl">
-                  GRAND TOTAL &nbsp;
-                  <span style={{ fontSize: '8pt', fontWeight: 400 }}>
-                    {hasGst ? `(Inclusive of ${gstRate}% GST)` : '(Exclusive of GST)'}
-                  </span>
-                </td>
-                <td className="val">{fmt(quotation.final_amount)}</td>
-              </tr>
+                  <tr className="grand-total">
+                    <td colSpan={6} className="lbl">
+                      GRAND TOTAL &nbsp;
+                      <span style={{ fontSize: '8pt', fontWeight: 400 }}>
+                        {hasGst ? `(Inclusive of ${gstRate}% GST)` : '(Exclusive of GST)'}
+                      </span>
+                    </td>
+                    <td className="val">{fmt(quotation.final_amount)}</td>
+                  </tr>
+                </>
+              )}
             </tbody>
           </table>
 
-          <div className="section-block" style={{ pageBreakInside: 'avoid', breakInside: 'avoid', marginTop: '14px' }}>
-            <div className="section-heading" style={{ marginTop: 0 }}>PAYMENT SCHEDULE</div>
-            <table className="payment-table">
-              <thead>
-                <tr>
-                  <th>Stage</th>
-                  <th>Milestone</th>
-                  <th style={{ textAlign: 'center' }}>Percentage</th>
-                  <th style={{ textAlign: 'right' }}>Amount (₹)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {PAYMENT_STAGES.map(({ stage, label, pct }, idx) => (
-                  <tr key={stage} className={idx % 2 === 0 ? 'pay-even' : 'pay-odd'}>
-                    <td style={{ fontWeight: 600 }}>{stage}</td>
-                    <td>{label}</td>
-                    <td style={{ textAlign: 'center' }}>{pct}%</td>
-                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt((quotation.final_amount * pct) / 100)}</td>
+          {!isDesignerMode && (
+            <div className="section-block" style={{ pageBreakInside: 'avoid', breakInside: 'avoid', marginTop: '14px' }}>
+              <div className="section-heading" style={{ marginTop: 0 }}>PAYMENT SCHEDULE</div>
+              <table className="payment-table">
+                <thead>
+                  <tr>
+                    <th>Stage</th>
+                    <th>Milestone</th>
+                    <th style={{ textAlign: 'center' }}>Percentage</th>
+                    <th style={{ textAlign: 'right' }}>Amount (₹)</th>
                   </tr>
-                ))}
-                <tr className="pay-total">
-                  <td colSpan={3} style={{ textAlign: 'right' }}>Total</td>
-                  <td style={{ textAlign: 'right' }}>{fmt(quotation.final_amount)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {PAYMENT_STAGES.map(({ stage, label, pct }, idx) => (
+                    <tr key={stage} className={idx % 2 === 0 ? 'pay-even' : 'pay-odd'}>
+                      <td style={{ fontWeight: 600 }}>{stage}</td>
+                      <td>{label}</td>
+                      <td style={{ textAlign: 'center' }}>{pct}%</td>
+                      <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt((quotation.final_amount * pct) / 100)}</td>
+                    </tr>
+                  ))}
+                  <tr className="pay-total">
+                    <td colSpan={3} style={{ textAlign: 'right' }}>Total</td>
+                    <td style={{ textAlign: 'right' }}>{fmt(quotation.final_amount)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
 
           <div className="section-block" style={{ pageBreakInside: 'avoid', breakInside: 'avoid', marginTop: '14px' }}>
             <div className="section-heading" style={{ marginTop: 0 }}>MATERIAL & HARDWARE SPECIFICATIONS</div>
@@ -699,14 +823,19 @@ export default function QuotationPrintPage() {
           </div>
 
           <div className="section-block" style={{ pageBreakInside: 'avoid', breakInside: 'avoid', marginTop: '14px' }}>
-            <div className="section-heading" style={{ marginTop: 0 }}>TERMS & CONDITIONS</div>
+            <div className="section-heading" style={{ marginTop: 0 }}>
+              {isDesignerMode ? 'DESIGN & SITE EXECUTION TERMS' : 'TERMS & CONDITIONS'}
+            </div>
             <div style={{ padding: '8px 10px' }}>
               <ol className="terms-list">
-                {TERMS.map((t, i) => (
+                {TERMS.filter((_, i) => !isDesignerMode || (i !== 4 && i !== 6 && i !== 7)).map((t, i) => (
                   <li key={i}>
                     {i === 6 ? (hasGst ? `Quotation is inclusive of ${gstRate}% GST.` : t) : t}
                   </li>
                 ))}
+                {isDesignerMode && (
+                  <li>Confidential scope sheet: strictly for design layout, measurements, and site execution reference only.</li>
+                )}
               </ol>
             </div>
 

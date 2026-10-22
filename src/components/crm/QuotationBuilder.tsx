@@ -605,13 +605,31 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             {existingQuotation && (
-              <button
-                type="button"
-                style={{ ...styles.printBtn, padding: '6px 12px', fontSize: '12px' }}
-                onClick={() => window.open(`/quotations/${existingQuotation.id}/print`, '_blank')}
-              >
-                <FiPrinter size={13} /> Print PDF
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button
+                  type="button"
+                  style={{ ...styles.printBtn, padding: '6px 12px', fontSize: '12px' }}
+                  onClick={() => window.open(`/quotations/${existingQuotation.id}/print`, '_blank')}
+                  title="Print full quotation with rates & totals for client"
+                >
+                  <FiPrinter size={13} /> Print Client PDF
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    ...styles.printBtn,
+                    background: '#4c1d95',
+                    borderColor: '#7c3aed',
+                    color: '#e9d5ff',
+                    padding: '6px 12px',
+                    fontSize: '12px'
+                  }}
+                  onClick={() => window.open(`/quotations/${existingQuotation.id}/print?designer=1`, '_blank')}
+                  title="Print scope & dimensions for designer (rates & amounts hidden)"
+                >
+                  🎨 Designer Copy (No Prices)
+                </button>
+              </div>
             )}
             <button onClick={onClose} style={styles.closeBtn}><FiX size={20} /></button>
           </div>
@@ -1166,13 +1184,29 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
           </div>
           <div className="qb-footer-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
             {existingQuotation && (
-              <button
-                type="button"
-                style={styles.printBtn}
-                onClick={() => window.open(`/quotations/${existingQuotation.id}/print`, '_blank')}
-              >
-                <FiPrinter size={14} /> Print v{existingQuotation.version}
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button
+                  type="button"
+                  style={styles.printBtn}
+                  onClick={() => window.open(`/quotations/${existingQuotation.id}/print`, '_blank')}
+                  title="Print full quotation with prices for client"
+                >
+                  <FiPrinter size={14} /> Client PDF (v{existingQuotation.version})
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    ...styles.printBtn,
+                    background: '#4c1d95',
+                    borderColor: '#7c3aed',
+                    color: '#e9d5ff'
+                  }}
+                  onClick={() => window.open(`/quotations/${existingQuotation.id}/print?designer=1`, '_blank')}
+                  title="Print scope of work for designer (rates & amounts hidden)"
+                >
+                  🎨 Designer Copy (No Prices)
+                </button>
+              </div>
             )}
 
             {isApprovedLocked ? (
