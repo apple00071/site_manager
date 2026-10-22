@@ -397,20 +397,24 @@ export async function POST(req: Request) {
     // New project created — bust the code map cache so next request reflects it
     invalidateProjectCodeCache();
 
-    // Add the current user as a project member with full permissions
-    const { error: memberError } = await supabaseAdmin
-      .from('project_members')
-      .upsert(
-        {
-          project_id: project.id,
-          user_id: userId,
-          permissions: { view: true, edit: true, upload: true, mark_done: true },
-        },
-        { onConflict: 'project_id,user_id' }
-      );
+    // Only add creator as a project member if they are a restricted user without global access
+    // Admin, HR, and Management already have global access to all projects and should not clutter the project execution team
+    const hasGlobalAccess = user.isAdmin || user.permissionCodes?.has(PERMISSION_NODES.PROJECTS_VIEW_ALL) || user.permissionCodes?.has('*');
+    if (!hasGlobalAccess && userId !== parsed.data.assigned_employee_id) {
+      const { error: memberError } = await supabaseAdmin
+        .from('project_members')
+        .upsert(
+          {
+            project_id: project.id,
+            user_id: userId,
+            permissions: { view: true, edit: true, upload: true, mark_done: true },
+          },
+          { onConflict: 'project_id,user_id' }
+        );
 
-    if (memberError) {
-      console.error('Error adding creator as project member:', memberError);
+      if (memberError) {
+        console.error('Error adding creator as project member:', memberError);
+      }
     }
 
     // Add the assigned employee / designer as a project member with full permissions
