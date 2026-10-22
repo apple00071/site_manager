@@ -8,7 +8,8 @@ import {
   FiAlertTriangle, FiCloud,
   FiDownload, FiUpload, FiEdit, FiPrinter, FiSend,
   FiTrendingUp, FiCheckCircle, FiClock, FiXCircle, FiFilter,
-  FiChevronRight, FiUsers, FiArrowUpRight, FiZap, FiTarget, FiLayers, FiX, FiFolderPlus
+  FiChevronRight, FiUsers, FiArrowUpRight, FiZap, FiTarget, FiLayers, FiX, FiFolderPlus,
+  FiMapPin, FiInfo, FiCheck
 } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
 import { TbCurrencyRupee } from 'react-icons/tb';
@@ -3266,104 +3267,124 @@ export default function CRMPage() {
 
       {/* Quotation Approval Confirmation Modal */}
       {pendingApproval && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 animate-in fade-in zoom-in duration-200">
-            {/* Header with amber accent */}
-            <div className="bg-gradient-to-r from-amber-500 to-yellow-500 p-5 text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div 
+            className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center font-bold text-xl">
-                  ✓
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100/80 flex items-center justify-center text-emerald-600 shrink-0 shadow-2xs">
+                  <FiCheckCircle className="w-5 h-5 text-emerald-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black tracking-tight">Confirm Quotation Approval</h3>
-                  <p className="text-xs text-amber-100 font-medium">Verify quotation value before approval</p>
+                  <h3 className="text-base font-semibold text-slate-900 tracking-tight">Confirm Quotation Approval</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Verify agreed value before locking quotation</p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   pendingApproval.onCancel?.();
                   setPendingApproval(null);
                 }}
-                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
               >
-                <FiX size={20} />
+                <FiX className="w-5 h-5" />
               </button>
             </div>
 
             {/* Body */}
             <div className="p-6 space-y-4">
               {/* Lead Details */}
-              <div className="bg-gray-50 rounded-xl p-4 border border-gray-200/70 space-y-1.5">
+              <div className="bg-slate-50/80 rounded-xl p-3.5 border border-slate-200/70 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Client &amp; Lead</span>
-                  <span className="text-xs font-bold text-gray-400">{pendingApproval.lead.ref_no || '-'}</span>
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Client &amp; Lead</span>
+                  {pendingApproval.lead.ref_no && (
+                    <span className="text-[11px] font-mono font-semibold text-slate-700 bg-white px-2 py-0.5 rounded-md border border-slate-200/80 shadow-2xs">
+                      {pendingApproval.lead.ref_no}
+                    </span>
+                  )}
                 </div>
-                <div className="text-base font-black text-gray-900">{pendingApproval.lead.client_name}</div>
+                <div className="text-sm font-bold text-slate-900">{pendingApproval.lead.client_name}</div>
                 {pendingApproval.lead.site_project && (
-                  <div className="text-xs text-gray-600 flex items-center gap-1.5 font-medium">
-                    <span>📍</span>
-                    <span>{pendingApproval.lead.site_project}</span>
+                  <div className="text-xs text-slate-600 flex items-center gap-1.5 font-medium truncate">
+                    <FiMapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span className="truncate">{pendingApproval.lead.site_project}</span>
                   </div>
                 )}
               </div>
 
               {/* Zero-value warning or Valid value highlight */}
               {pendingApproval.quotationValue <= 0 && pendingApproval.approvedValue <= 0 ? (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex flex-col gap-2">
-                  <div className="font-bold flex items-center gap-1.5 text-sm">
-                    <span>⚠️</span> Cannot Approve: Quotation Value is ₹0
+                <div className="p-4 bg-rose-50 border border-rose-200/80 rounded-xl text-rose-900 text-xs flex flex-col gap-2.5">
+                  <div className="font-semibold flex items-center gap-2 text-sm text-rose-900">
+                    <FiAlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>Cannot Approve: Quotation Value is ₹0</span>
                   </div>
-                  <p>
-                    This lead does not have a quotation amount. You must build a valid quotation before marking this lead as Approved.
+                  <p className="text-rose-700 leading-relaxed">
+                    This lead does not have a valid quotation amount. You must build or configure a quotation before marking this lead as Approved.
                   </p>
                   <button
+                    type="button"
                     onClick={() => {
                       const leadToQuote = pendingApproval.lead;
                       setPendingApproval(null);
                       setQuotationLead(leadToQuote);
                     }}
-                    className="mt-1 px-3 py-2 bg-red-600 text-white font-bold rounded-lg text-xs hover:bg-red-700 transition-colors text-center cursor-pointer"
+                    className="mt-1 px-4 py-2 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-semibold rounded-lg text-xs transition-colors text-center cursor-pointer shadow-xs inline-flex items-center justify-center gap-1.5"
                   >
                     Open Quotation Builder
                   </button>
                 </div>
               ) : (
                 <>
-                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-4 text-center">
-                    <div className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider mb-1">
+                  <div className="bg-gradient-to-b from-slate-50/90 to-white rounded-xl p-4 border border-slate-200/80 text-center relative shadow-2xs">
+                    <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                       Quotation Value
-                    </div>
-                    <div className="text-2xl font-black text-emerald-700">
+                    </span>
+                    <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 mt-1">
                       ₹{Math.round(pendingApproval.quotationValue || pendingApproval.approvedValue).toLocaleString('en-IN')}
                     </div>
                     {pendingApproval.lead.quote_version ? (
-                      <div className="text-[10px] text-emerald-600 font-semibold mt-1">
-                        Quotation Version v{pendingApproval.lead.quote_version}
+                      <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                        <span>Quotation Version v{pendingApproval.lead.quote_version}</span>
                       </div>
                     ) : null}
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">
-                      Approved Project Value (₹)
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-semibold text-slate-700">
+                        Approved Project Value (₹)
+                      </label>
+                      {approvalInputValue && Number(approvalInputValue) === Math.round(pendingApproval.quotationValue || pendingApproval.approvedValue) && (
+                        <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 flex items-center gap-1">
+                          <FiCheck className="w-3 h-3" /> Matches quote
+                        </span>
+                      )}
+                    </div>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₹</span>
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-semibold text-base">
+                        ₹
+                      </div>
                       <input
                         type="number"
                         value={approvalInputValue}
                         onChange={(e) => setApprovalInputValue(e.target.value)}
-                        className="w-full pl-8 pr-3 py-2.5 bg-white border border-gray-300 rounded-xl font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 text-base"
+                        className="w-full pl-8 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-base shadow-2xs transition-all"
                         placeholder="Approved value"
                       />
                     </div>
-                    <p className="text-[11px] text-gray-500 mt-1">
+                    <p className="text-[11px] text-slate-500 mt-1 leading-normal">
                       Defaults to quotation total. Adjust if a final negotiated discount was agreed.
                     </p>
                   </div>
 
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px] leading-relaxed flex items-start gap-2">
-                    <span className="text-base leading-none">ℹ️</span>
+                  <div className="p-3 bg-slate-50 border border-slate-200/70 rounded-xl text-slate-600 text-xs leading-relaxed flex items-start gap-2.5">
+                    <FiInfo className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
                     <span>
                       Approving this lead will lock the approved quotation and initiate the project handover.
                     </span>
@@ -3373,14 +3394,14 @@ export default function CRMPage() {
             </div>
 
             {/* Footer Actions */}
-            <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-3">
+            <div className="bg-slate-50/80 px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => {
                   pendingApproval.onCancel?.();
                   setPendingApproval(null);
                 }}
-                className="px-4 py-2 text-xs font-bold text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -3396,9 +3417,10 @@ export default function CRMPage() {
                     }
                     pendingApproval.onConfirm(finalVal);
                   }}
-                  className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white text-xs font-black rounded-xl shadow-md shadow-amber-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold rounded-xl shadow-sm hover:shadow transition-all flex items-center gap-2 cursor-pointer"
                 >
-                  <span>✓ Confirm &amp; Approve</span>
+                  <FiCheck className="w-4 h-4" />
+                  <span>Confirm &amp; Approve</span>
                 </button>
               )}
             </div>
