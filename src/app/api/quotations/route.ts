@@ -5,8 +5,22 @@ import { verifyPermission } from '@/lib/rbac';
 export const dynamic = 'force-dynamic';
 
 // Helper: Verify if user has permission to modify an approved lead's quotation
-// Note: Admin-only lock on approved quotations removed per requirements to allow authorized quotation users to edit/update approved quotes.
-async function checkAdminIfApproved(_userId: string, _leadId: string): Promise<{ allowed: boolean; error?: string }> {
+async function checkAdminIfApproved(userId: string, leadId: string): Promise<{ allowed: boolean; error?: string }> {
+  const { data: lead } = await supabaseAdmin
+    .from('quotation_leads')
+    .select('status')
+    .eq('id', leadId)
+    .single();
+
+  if (lead && lead.status === 'Approved') {
+    const permCheck = await verifyPermission(userId, 'crm.edit_approved');
+    if (!permCheck.allowed) {
+      return {
+        allowed: false,
+        error: 'This quotation is approved. Only administrators or users with "crm.edit_approved" permission can modify approved quotations.'
+      };
+    }
+  }
   return { allowed: true };
 }
 
@@ -40,7 +54,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'lead_id and items required' }, { status: 400 });
   }
 
-  // Once quotation is approved, only admin can create new versions or modify
+  if (items.length === 0) {
+    return NextResponse.json({ error: 'Quotation must include at least one item' }, { status: 400 });
+  }
+
+  // Once quotation is approved, only admin or users with crm.edit_approved can create new versions or modify
   const check = await checkAdminIfApproved(user.id, lead_id);
   if (!check.allowed) {
     return NextResponse.json({ error: check.error }, { status: 403 });
@@ -68,6 +86,10 @@ export async function POST(request: NextRequest) {
   const gstR = Number(gst_rate) || 0;
   const gstAmt = gst_amount !== undefined && gst_amount !== null ? Number(gst_amount) : (gstR > 0 ? Math.round((taxableAmount * gstR) / 100) : 0);
   const finalAmount = Math.max(0, taxableAmount + gstAmt);
+
+  if (finalAmount <= 0) {
+    return NextResponse.json({ error: 'Cannot save quotation: Total quotation amount must be greater than ₹0.' }, { status: 400 });
+  }
 
   // Insert quotation
   const { data: quotation, error: qErr } = await supabaseAdmin
@@ -108,15 +130,27 @@ export async function POST(request: NextRequest) {
   const { error: itemErr } = await supabaseAdmin.from('quotation_items').insert(itemRows);
   if (itemErr) return NextResponse.json({ error: itemErr.message }, { status: 500 });
 
-  // Update lead: quote_value, latest_quotation_id, quote_version, status → 'Sent'
+  // Check if lead is already approved to keep approved_value in sync
+  const { data: currentLead } = await supabaseAdmin
+    .from('quotation_leads')
+    .select('status')
+    .eq('id', lead_id)
+    .single();
+
+  const leadUpdates: any = {
+    quote_value: finalAmount,
+    latest_quotation_id: quotation.id,
+    quote_version: nextVersion,
+    updated_at: new Date().toISOString(),
+  };
+  if (currentLead?.status === 'Approved') {
+    leadUpdates.approved_value = finalAmount;
+  }
+
+  // Update lead
   await supabaseAdmin
     .from('quotation_leads')
-    .update({
-      quote_value: finalAmount,
-      latest_quotation_id: quotation.id,
-      quote_version: nextVersion,
-      updated_at: new Date().toISOString(),
-    })
+    .update(leadUpdates)
     .eq('id', lead_id);
 
   return NextResponse.json({ data: { ...quotation, quotation_items: itemRows } });
@@ -134,7 +168,11 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'id, lead_id and items required' }, { status: 400 });
   }
 
-  // Once quotation is approved, only admin can modify
+  if (items.length === 0) {
+    return NextResponse.json({ error: 'Quotation must include at least one item' }, { status: 400 });
+  }
+
+  // Once quotation is approved, only admin or users with crm.edit_approved can modify
   const check = await checkAdminIfApproved(user.id, lead_id);
   if (!check.allowed) {
     return NextResponse.json({ error: check.error }, { status: 403 });
@@ -152,6 +190,10 @@ export async function PUT(request: NextRequest) {
   const gstR = Number(gst_rate) || 0;
   const gstAmt = gst_amount !== undefined && gst_amount !== null ? Number(gst_amount) : (gstR > 0 ? Math.round((taxableAmount * gstR) / 100) : 0);
   const finalAmount = Math.max(0, taxableAmount + gstAmt);
+
+  if (finalAmount <= 0) {
+    return NextResponse.json({ error: 'Cannot save quotation: Total quotation amount must be greater than ₹0.' }, { status: 400 });
+  }
 
   // Update existing quotation
   const { data: quotation, error: qErr } = await supabaseAdmin
@@ -193,14 +235,26 @@ export async function PUT(request: NextRequest) {
   const { error: itemErr } = await supabaseAdmin.from('quotation_items').insert(itemRows);
   if (itemErr) return NextResponse.json({ error: itemErr.message }, { status: 500 });
 
+  // Check if lead is already approved to keep approved_value in sync
+  const { data: currentLead } = await supabaseAdmin
+    .from('quotation_leads')
+    .select('status')
+    .eq('id', lead_id)
+    .single();
+
+  const leadUpdates: any = {
+    quote_value: finalAmount,
+    latest_quotation_id: quotation.id,
+    updated_at: new Date().toISOString(),
+  };
+  if (currentLead?.status === 'Approved') {
+    leadUpdates.approved_value = finalAmount;
+  }
+
   // Update lead
   await supabaseAdmin
     .from('quotation_leads')
-    .update({
-      quote_value: finalAmount,
-      latest_quotation_id: quotation.id,
-      updated_at: new Date().toISOString(),
-    })
+    .update(leadUpdates)
     .eq('id', lead_id);
 
   return NextResponse.json({ data: { ...quotation, quotation_items: itemRows } });

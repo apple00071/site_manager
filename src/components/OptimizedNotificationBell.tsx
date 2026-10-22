@@ -18,6 +18,9 @@ const debugLog = (...args: unknown[]) => {
 
 const getNotificationUrl = (type: string, relatedId?: string | null, relatedType?: string | null) => {
   const baseUrl = '/dashboard';
+  if (relatedType === 'crm_quotation' || relatedType === 'crm' || relatedType === 'quotation_lead') {
+    return relatedId ? `${baseUrl}/crm?leadId=${relatedId}` : `${baseUrl}/crm`;
+  }
   switch (type) {
     case 'task_assigned':
       return relatedId ? `${baseUrl}/tasks?taskId=${relatedId}` : `${baseUrl}/tasks`;
@@ -577,9 +580,23 @@ export function OptimizedNotificationBell() {
                             </button>
                           </div>
                           <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">{notification.message}</p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            {getRelativeTime(notification.created_at)}
-                          </p>
+                          <div className="flex items-center justify-between gap-2 mt-2">
+                            <p className="text-xs text-gray-400">
+                              {getRelativeTime(notification.created_at)}
+                            </p>
+                            {getNotificationUrl(notification.type, notification.related_id, notification.related_type) && (
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void handleNotificationClick(notification);
+                                }}
+                                className="text-xs font-semibold text-yellow-800 bg-yellow-100 hover:bg-yellow-200 px-2 py-0.5 rounded transition-colors inline-flex items-center gap-1"
+                              >
+                                {notification.related_type === 'crm_quotation' || notification.related_type === 'crm' ? 'Open Quotation' : 'View Details'} →
+                              </button>
+                            )}
+                          </div>
                           {!notification.is_read && (
                             <button
                               onClick={(event) => {

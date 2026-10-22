@@ -194,6 +194,12 @@ export async function POST(request: NextRequest) {
       floor_plan_name: body.floor_plan_name || null,
     };
 
+    if (newLead.status === 'Approved' && newLead.quote_value <= 0 && newLead.approved_value <= 0) {
+      return NextResponse.json({
+        error: 'Cannot create an approved lead with total quotation value of ₹0. Please build a valid quotation first.'
+      }, { status: 400 });
+    }
+
     let { data, error } = await supabaseAdmin
       .from('quotation_leads')
       .insert(newLead)
@@ -257,7 +263,7 @@ export async function PUT(request: NextRequest) {
     // Guard against modifying Approved leads without crm.edit_approved permission
     const { data: currentLeads } = await supabaseAdmin
       .from('quotation_leads')
-      .select('id, status, remarks')
+      .select('id, status, remarks, quote_value, approved_value')
       .in('id', ids);
 
     const hasApprovedLead = currentLeads?.some((l: any) => l.status === 'Approved');
@@ -267,6 +273,19 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({
           error: 'This lead is approved. Only administrators or users with the "crm.edit_approved" permission can modify approved leads.'
         }, { status: 403 });
+      }
+    }
+
+    // Guard against approving a lead with zero total value
+    if (updateFields.status === 'Approved') {
+      const currentLead = currentLeads?.[0];
+      const targetQuoteVal = updateFields.quote_value !== undefined ? Number(updateFields.quote_value) : Number(currentLead?.quote_value || 0);
+      const targetApprovedVal = updateFields.approved_value !== undefined ? Number(updateFields.approved_value) : Number(currentLead?.approved_value || 0);
+
+      if (targetQuoteVal <= 0 && targetApprovedVal <= 0) {
+        return NextResponse.json({
+          error: 'Cannot approve quotation: Total quotation value must be greater than ₹0. Please build and save a valid quotation first.'
+        }, { status: 400 });
       }
     }
 

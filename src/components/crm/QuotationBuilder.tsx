@@ -127,8 +127,8 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
 
   // Quotation is approved when the lead status is 'Approved'
   const isApproved = lead.status === 'Approved';
-  // Admin-only edit lock removed per requirement: authorized users can edit approved quotes
-  const isApprovedLocked = false;
+  // Approved quotes are locked for editing unless the user is Admin or has crm.edit_approved permission
+  const isApprovedLocked = isApproved && !canEditApproved;
 
   const [tab, setTab] = useState<'sections' | 'items' | 'specs' | 'summary'>('sections');
   const [rateCard, setRateCard] = useState<RateCardItem[]>([]);
@@ -393,10 +393,14 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async (asNewVersion = false) => {
     if (isApprovedLocked) {
-      alert('This quotation is approved. Only administrators can modify approved quotations.');
+      alert('This quotation is approved. Only administrators or users with "crm.edit_approved" permission can modify approved quotations.');
       return;
     }
     if (items.length === 0) return alert('Add at least one item.');
+    if (finalAmount <= 0) {
+      alert('Cannot save quotation: Total quotation amount must be greater than ₹0. Please ensure items, dimensions, and rates are specified.');
+      return;
+    }
     setSaving(true);
     try {
       // Order items matching custom room section sequence
@@ -582,42 +586,36 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                   ))}
                 </select>
               )}
+              {isApproved && (
+                <span style={{
+                  background: isApprovedLocked ? '#78350f' : '#1e3a8a',
+                  color: isApprovedLocked ? '#fef3c7' : '#bfdbfe',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  {isApprovedLocked ? '🔒 Approved (Locked)' : '✓ Approved'}
+                </span>
+              )}
             </div>
           </div>
-          <button onClick={onClose} style={styles.closeBtn}><FiX size={20} /></button>
-        </div>
-
-        {/* Approved quotation notice */}
-        {isApproved && (
-          <div style={{
-            background: '#1e3a8a',
-            color: '#bfdbfe',
-            padding: '8px 18px',
-            fontSize: '12px',
-            fontWeight: 600,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderBottom: '1px solid #1d4ed8',
-            gap: '12px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '14px' }}>🛡️</span>
-              <span>
-                <strong>Approved Quotation:</strong> Changes saved here will update this quotation and the lead quote value.
-              </span>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             {existingQuotation && (
               <button
                 type="button"
-                style={{ ...styles.printBtn, padding: '4px 10px', fontSize: '11px' }}
+                style={{ ...styles.printBtn, padding: '6px 12px', fontSize: '12px' }}
                 onClick={() => window.open(`/quotations/${existingQuotation.id}/print`, '_blank')}
               >
-                <FiPrinter size={12} /> Print PDF
+                <FiPrinter size={13} /> Print PDF
               </button>
             )}
+            <button onClick={onClose} style={styles.closeBtn}><FiX size={20} /></button>
           </div>
-        )}
+        </div>
 
         {/* Tabs */}
         <div className="qb-tabs" style={styles.tabs}>

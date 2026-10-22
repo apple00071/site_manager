@@ -221,9 +221,18 @@ export default function CRMPage() {
       status: targetStatus
     };
 
-    // Auto-fill approved value if approved
-    if (targetStatus === 'Approved' && !updatedLead.approved_value) {
-      updatedLead.approved_value = lead.quote_value;
+    // Auto-fill approved value if approved, and prevent approving 0 value
+    if (targetStatus === 'Approved') {
+      const qVal = Number(lead.quote_value || 0);
+      const aVal = Number(lead.approved_value || 0);
+      if (qVal <= 0 && aVal <= 0) {
+        alert('Cannot approve quotation: Total quotation value must be greater than ₹0. Please build a valid quotation first.');
+        setSyncStatus('synced');
+        return;
+      }
+      if (!updatedLead.approved_value) {
+        updatedLead.approved_value = qVal || aVal;
+      }
     }
 
     try {
@@ -240,6 +249,8 @@ export default function CRMPage() {
           setIsProjectModalOpen(true);
         }
       } else {
+        const errData = await response.json().catch(() => ({}));
+        alert(`Failed to update status: ${errData.error || 'Server error'}`);
         setSyncStatus('error');
       }
     } catch (err) {
@@ -480,7 +491,23 @@ export default function CRMPage() {
       const response = await fetch('/api/crm');
       if (response.ok) {
         const result = await response.json();
-        setLeads(result.data || []);
+        const loadedLeads = result.data || [];
+        setLeads(loadedLeads);
+
+        if (typeof window !== 'undefined') {
+          const params = new URLSearchParams(window.location.search);
+          const urlLeadId = params.get('leadId');
+          const urlSearch = params.get('search');
+          if (urlLeadId) {
+            const target = loadedLeads.find((l: Lead) => l.id === urlLeadId);
+            if (target) {
+              setQuotationLead(target);
+            }
+          } else if (urlSearch) {
+            setSearchQuery(urlSearch);
+          }
+        }
+
         if (result.warning) {
           setDbWarning(result.warning);
         } else {
@@ -985,6 +1012,18 @@ export default function CRMPage() {
       return;
     }
 
+    if (mobileEditForm.status === 'Approved') {
+      const qVal = Number(mobileEditForm.quote_value || 0);
+      const aVal = Number(mobileEditForm.approved_value || 0);
+      if (qVal <= 0 && aVal <= 0) {
+        alert('Cannot approve quotation: Total quotation value must be greater than ₹0. Please build a valid quotation first.');
+        return;
+      }
+      if (!mobileEditForm.approved_value) {
+        mobileEditForm.approved_value = qVal || aVal;
+      }
+    }
+
     setSyncStatus('syncing');
 
     if (!mobileEditForm.id) {
@@ -1122,6 +1161,15 @@ export default function CRMPage() {
   // Bulk Status change API call
   const handleBulkStatusChange = async (newStatus: Lead['status']) => {
     if (selectedLeadIds.length === 0) return;
+
+    if (newStatus === 'Approved') {
+      const invalidLeads = leads.filter(l => selectedLeadIds.includes(l.id) && Number(l.quote_value || 0) <= 0 && Number(l.approved_value || 0) <= 0);
+      if (invalidLeads.length > 0) {
+        alert(`Cannot approve ${invalidLeads.length} selected lead(s) with total quotation value of ₹0. Please build valid quotations first.`);
+        return;
+      }
+    }
+
     setSyncStatus('syncing');
     try {
       const response = await fetch('/api/crm', {
@@ -1142,6 +1190,8 @@ export default function CRMPage() {
         setSelectedLeadIds([]);
         setSyncStatus('synced');
       } else {
+        const errData = await response.json().catch(() => ({}));
+        alert(`Failed to update status: ${errData.error || 'Server error'}`);
         setSyncStatus('error');
       }
     } catch (err) {
@@ -1194,8 +1244,15 @@ export default function CRMPage() {
       // Automations
       if (col.id === 'status') {
         if (newValue === 'Approved') {
+          const qVal = Number(lead.quote_value || 0);
+          const aVal = Number(lead.approved_value || 0);
+          if (qVal <= 0 && aVal <= 0) {
+            alert('Cannot approve quotation: Total quotation value must be greater than ₹0. Please build a valid quotation first.');
+            setIsEditing(false);
+            return;
+          }
           if (!updatedLead.approved_value) {
-            updatedLead.approved_value = lead.quote_value;
+            updatedLead.approved_value = qVal || aVal;
           }
           setProjectModalLead(updatedLead);
           setIsProjectModalOpen(true);

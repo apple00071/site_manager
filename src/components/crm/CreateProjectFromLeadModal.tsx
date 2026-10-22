@@ -189,6 +189,12 @@ export default function CreateProjectFromLeadModal({
       return;
     }
 
+    const numBudget = parseFloat(budget);
+    if (!budget || isNaN(numBudget) || numBudget <= 0) {
+      setError('A valid project contract budget greater than ₹0 is required.');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       setError(null);

@@ -125,6 +125,11 @@ export class NotificationService {
         return relatedId ? `${baseUrl}/projects/${relatedId}?tab=boq` : `${baseUrl}/projects`;
       case 'checklist_pending':
         return relatedId ? `${baseUrl}/projects/${relatedId}?stage=requirement` : `${baseUrl}/projects`;
+      case 'general':
+        if (relatedType === 'crm_quotation' || relatedType === 'crm') {
+          return relatedId ? `${baseUrl}/crm?leadId=${relatedId}` : `${baseUrl}/crm`;
+        }
+        return undefined;
       default:
         return undefined;
     }
