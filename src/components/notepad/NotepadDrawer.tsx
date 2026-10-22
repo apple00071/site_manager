@@ -292,6 +292,46 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
     }
   };
 
+  // Debounced auto-save title changes to database
+  const handleTitleChange = (title: string) => {
+    if (!activeNoteId) return;
+
+    // 1. Update local state instantly
+    const updated = notes.map(n => {
+      if (n.id === activeNoteId) {
+        return { ...n, title, updatedAt: new Date().toISOString() };
+      }
+      return n;
+    });
+    setNotes(updated);
+    localStorage.setItem('apple_site_notepad_notes', JSON.stringify(updated));
+
+    // 2. Debounce database cloud save
+    if (dbStatus === 'connected' && !activeNoteId.startsWith('temp-')) {
+      setSaveStatus('saving');
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      
+      saveTimeoutRef.current = setTimeout(async () => {
+        try {
+          const res = await fetch('/api/notepad', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: activeNoteId, title })
+          });
+          if (res.ok) {
+            setSaveStatus('saved');
+          } else {
+            setSaveStatus(null);
+          }
+        } catch {
+          setSaveStatus(null);
+        }
+      }, 600);
+    } else {
+      setSaveStatus('saved');
+    }
+  };
+
   // Delete note
   const handleDeleteNote = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -733,102 +773,69 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
             {activeNote ? (
               <div className="flex-1 flex flex-col overflow-hidden h-full">
                 
-                {/* Editor Header controls */}
-                <div className="px-3.5 py-2 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white select-none gap-2">
-                  {/* Left: Mobile Back to List Button OR desktop active note title */}
+                {/* Clean Editor Header: Back button (mobile) / Title on Left, Action buttons on Right */}
+                <div className="px-3.5 py-2.5 border-b border-gray-150 flex items-center justify-between shrink-0 bg-white select-none gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <button
                       onClick={() => setMobileView('list')}
-                      className="md:hidden flex items-center gap-1 text-xs font-bold text-yellow-600 hover:text-yellow-700 bg-yellow-50 hover:bg-yellow-100/80 px-2 py-1 rounded-lg transition-colors border border-yellow-200/50 shrink-0"
+                      className="md:hidden flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-lg transition-colors border border-amber-200/60 shrink-0 cursor-pointer shadow-2xs"
                     >
                       <FiChevronLeft className="w-4 h-4" />
-                      Notes
+                      <span>All Notes</span>
                     </button>
 
                     <div className="hidden md:flex items-center gap-1.5 text-xs text-gray-500 min-w-0">
-                      <FiFileText className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
-                      <span className="font-bold text-gray-800 truncate max-w-[120px]">{activeNote.title}</span>
-                    </div>
-
-                    {/* Mode Switcher: Notes vs To-Do List */}
-                    <div className="flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200/60 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setEditorMode('text')}
-                        className={`px-2 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
-                          editorMode === 'text'
-                            ? 'bg-white text-gray-900 shadow-2xs'
-                            : 'text-gray-500 hover:text-gray-800'
-                        }`}
-                      >
-                        <FiFileText className="w-3 h-3" />
-                        <span>Note</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditorMode('todo')}
-                        className={`px-2 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
-                          editorMode === 'todo'
-                            ? 'bg-white text-emerald-700 shadow-2xs'
-                            : 'text-gray-500 hover:text-gray-800'
-                        }`}
-                      >
-                        <FiCheckSquare className="w-3 h-3 text-emerald-600" />
-                        <span>To-Do</span>
-                        {todoStats.total > 0 && (
-                          <span className="ml-0.5 px-1 py-0.2 rounded-full text-[9px] bg-emerald-100 text-emerald-800 font-bold">
-                            {todoStats.completed}/{todoStats.total}
-                          </span>
-                        )}
-                      </button>
+                      <FiFileText className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <span className="font-semibold text-gray-700 truncate max-w-[200px]">
+                        {activeNote.title || 'Untitled Note'}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Right: Quick Editor Actions (WhatsApp, Share, Copy, Download, Delete) */}
-                  <div className="flex items-center gap-0.5 ml-auto shrink-0">
+                  {/* Clean, spacious Action Buttons */}
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       type="button"
                       onClick={handleShareWhatsApp}
-                      className="no-touch-target min-w-0 flex items-center justify-center w-7.5 h-7.5 hover:bg-emerald-50 rounded-lg text-emerald-600 hover:text-emerald-700 transition-colors cursor-pointer"
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95"
                       title="Share note via WhatsApp"
                     >
-                      <FaWhatsapp className="w-4 h-4" />
+                      <FaWhatsapp className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className="hidden sm:inline">WhatsApp</span>
                     </button>
+
                     <button
                       type="button"
                       onClick={handleShareNative}
-                      className="no-touch-target min-w-0 flex items-center justify-center w-7.5 h-7.5 hover:bg-blue-50 rounded-lg text-blue-600 hover:text-blue-700 transition-colors cursor-pointer"
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200/80 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95"
                       title="Share to other apps"
                     >
-                      <FiShare2 className="w-3.5 h-3.5" />
+                      <FiShare2 className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                      <span className="hidden sm:inline">Share</span>
                     </button>
+
                     <button
                       type="button"
                       onClick={handleCopyNote}
-                      className={`no-touch-target min-w-0 flex items-center justify-center w-7.5 h-7.5 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer ${
-                        copied ? 'text-green-600 bg-green-50' : 'text-gray-500 hover:text-gray-800'
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-all cursor-pointer shadow-2xs active:scale-95 ${
+                        copied
+                          ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                          : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-600 hover:text-gray-900'
                       }`}
                       title="Copy to clipboard"
                     >
-                      {copied ? <FiCheck className="w-3.5 h-3.5" /> : <FiCopy className="w-3.5 h-3.5" />}
+                      {copied ? <FiCheck className="w-4 h-4 text-emerald-600" /> : <FiCopy className="w-3.5 h-3.5" />}
                     </button>
-                    <button
-                      type="button"
-                      onClick={handleDownloadNote}
-                      className="no-touch-target min-w-0 flex items-center justify-center w-7.5 h-7.5 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
-                      title="Export as .txt"
-                    >
-                      <FiDownload className="w-3.5 h-3.5" />
-                    </button>
+
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (window.confirm(`Are you sure you want to delete this note ("${activeNote.title}")?`)) {
+                        if (window.confirm(`Delete note "${activeNote.title}"?`)) {
                           handleDeleteNote(activeNote.id, e);
                         }
                       }}
-                      className="no-touch-target min-w-0 flex items-center justify-center w-7.5 h-7.5 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600 transition-colors cursor-pointer"
+                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-rose-50 border border-gray-200 hover:border-rose-200 text-gray-400 hover:text-rose-600 transition-all cursor-pointer shadow-2xs active:scale-95"
                       title="Delete this note"
                     >
                       <FiTrash2 className="w-3.5 h-3.5" />
@@ -836,42 +843,100 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
                   </div>
                 </div>
 
-                {editorMode === 'text' ? (
-                  <>
-                    {/* Tactile Formatting Helper Toolbar */}
-                    <div className="px-3 py-1.5 bg-gray-50 border-b border-gray-150 flex gap-2 overflow-x-auto shrink-0 select-none no-scrollbar">
-                      <button
-                        onClick={() => insertTextAtCursor('- ')}
-                        className="shrink-0 px-2 py-1 bg-white hover:bg-gray-100 border border-gray-200 rounded text-[10px] font-bold text-gray-600 flex items-center gap-1 shadow-2xs hover:shadow-xs active:bg-gray-150 cursor-pointer"
-                      >
-                        • Bullet Point
-                      </button>
-                      <button
-                        onClick={() => setEditorMode('todo')}
-                        className="shrink-0 px-2 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded text-[10px] font-bold text-emerald-700 flex items-center gap-1 shadow-2xs hover:shadow-xs cursor-pointer"
-                      >
-                        <FiCheckSquare className="w-3 h-3 text-emerald-600" /> To-Do Mode
-                      </button>
-                      <button
-                        onClick={handleAddTimestamp}
-                        className="shrink-0 px-2 py-1 bg-white hover:bg-gray-100 border border-gray-200 rounded text-[10px] font-bold text-gray-600 flex items-center gap-1 shadow-2xs hover:shadow-xs cursor-pointer"
-                      >
-                        <FiCalendar className="w-3 h-3 text-yellow-500" /> Date Stamp
-                      </button>
-                    </div>
+                {/* Note Title Input (Editable right in the editor) */}
+                <div className="px-4 pt-3 pb-2 bg-white shrink-0 border-b border-gray-100/60">
+                  <input
+                    type="text"
+                    value={activeNote.title}
+                    onChange={(e) => handleTitleChange(e.target.value)}
+                    placeholder="Note Title..."
+                    className="w-full text-base font-bold text-gray-900 border-0 p-0 focus:outline-none focus:ring-0 placeholder-gray-300"
+                  />
+                </div>
 
-                    {/* Editor Text Area */}
-                    <div className="flex-1 p-4 overflow-hidden flex flex-col bg-white">
-                      <textarea
-                        ref={textareaRef}
-                        value={activeNote.content}
-                        onChange={(e) => handleContentChange(e.target.value)}
-                        placeholder="Start typing your details here..."
-                        className="w-full flex-1 resize-none border-0 p-0 focus:outline-none focus:ring-0 text-sm leading-relaxed text-gray-800 placeholder-gray-400 font-medium"
-                        style={{ minHeight: '0px' }}
-                      />
-                    </div>
-                  </>
+                {/* Unified Toolbar: Note vs To-Do Switcher + Contextual Helpers */}
+                <div className="px-3.5 py-2 bg-slate-50 border-b border-gray-200/80 flex items-center justify-between gap-2 shrink-0 select-none">
+                  {/* Single, clear Mode Switcher */}
+                  <div className="inline-flex p-0.5 rounded-lg bg-gray-200/80 text-xs font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => setEditorMode('text')}
+                      className={`px-3 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                        editorMode === 'text'
+                          ? 'bg-white text-gray-900 shadow-2xs font-bold'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <FiFileText className="w-3.5 h-3.5" />
+                      <span>Note</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditorMode('todo')}
+                      className={`px-3 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                        editorMode === 'todo'
+                          ? 'bg-white text-emerald-700 shadow-2xs font-bold'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <FiCheckSquare className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>To-Do List</span>
+                      {todoStats.total > 0 && (
+                        <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 text-emerald-800 font-bold">
+                          {todoStats.completed}/{todoStats.total}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Contextual Helpers */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {editorMode === 'text' ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => insertTextAtCursor('- ')}
+                          className="px-2.5 py-1 bg-white hover:bg-gray-100 border border-gray-200 rounded-md text-xs font-semibold text-gray-700 flex items-center gap-1 shadow-2xs cursor-pointer"
+                          title="Add bullet point"
+                        >
+                          <span>• Bullet</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAddTimestamp}
+                          className="px-2.5 py-1 bg-white hover:bg-gray-100 border border-gray-200 rounded-md text-xs font-semibold text-gray-700 flex items-center gap-1 shadow-2xs cursor-pointer"
+                          title="Insert timestamp"
+                        >
+                          <FiCalendar className="w-3 h-3 text-amber-500" />
+                          <span>Date</span>
+                        </button>
+                      </>
+                    ) : (
+                      todoStats.completed > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearCompleted}
+                          className="text-xs text-slate-500 hover:text-rose-600 font-semibold px-2 py-1 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                        >
+                          Clear done ({todoStats.completed})
+                        </button>
+                      )
+                    )}
+                  </div>
+                </div>
+
+                {editorMode === 'text' ? (
+                  /* Editor Text Area */
+                  <div className="flex-1 p-4 overflow-hidden flex flex-col bg-white">
+                    <textarea
+                      ref={textareaRef}
+                      value={activeNote.content}
+                      onChange={(e) => handleContentChange(e.target.value)}
+                      placeholder="Start typing your details here..."
+                      className="w-full flex-1 resize-none border-0 p-0 focus:outline-none focus:ring-0 text-sm leading-relaxed text-gray-800 placeholder-gray-400 font-medium"
+                      style={{ minHeight: '0px' }}
+                    />
+                  </div>
                 ) : (
                   /* Interactive To-Do List Mode */
                   <div className="flex-1 flex flex-col bg-white overflow-hidden">
@@ -965,7 +1030,7 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
                                 e.stopPropagation();
                                 handleDeleteTodo(idx);
                               }}
-                              className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-all cursor-pointer shrink-0"
+                              className="opacity-70 md:opacity-0 md:group-hover:opacity-100 p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-all cursor-pointer shrink-0"
                               title="Delete task"
                             >
                               <FiX className="w-3.5 h-3.5" />
