@@ -163,19 +163,56 @@ export class NotificationService {
       // 1. In-App Notification (Database Insertion)
       let savedNotification = null;
       if (!params.skipInApp) {
-        const { data, error } = await supabaseAdmin
+        // PostgreSQL constraint "notifications_type_check" allows:
+        // ('task_assigned', 'design_approved', 'design_rejected', 'design_uploaded', 'project_update', 'inventory_added', 'comment_added', 'bill_approved', 'bill_rejected', 'general')
+        const DB_ALLOWED_TYPES = new Set([
+          'task_assigned',
+          'design_approved',
+          'design_rejected',
+          'design_uploaded',
+          'project_update',
+          'inventory_added',
+          'comment_added',
+          'bill_approved',
+          'bill_rejected',
+          'general',
+        ]);
+
+        const dbType = DB_ALLOWED_TYPES.has(params.type) ? params.type : 'general';
+
+        let { data, error } = await supabaseAdmin
           .from('notifications')
           .insert({
             user_id: params.userId,
             title: params.title,
             message: params.message,
-            type: params.type,
+            type: dbType,
             related_id: params.relatedId || null,
             related_type: params.relatedType || null,
             is_read: false,
           })
           .select()
           .single();
+
+        // If insert failed due to check constraint or schema mismatch, retry with type 'general'
+        if (error && dbType !== 'general') {
+          console.warn('Retrying notification insert with type general due to error:', error.message);
+          const retryRes = await supabaseAdmin
+            .from('notifications')
+            .insert({
+              user_id: params.userId,
+              title: params.title,
+              message: params.message,
+              type: 'general',
+              related_id: params.relatedId || null,
+              related_type: params.relatedType || null,
+              is_read: false,
+            })
+            .select()
+            .single();
+          data = retryRes.data;
+          error = retryRes.error;
+        }
 
         if (error) {
           console.error('❌ Supabase insert failed:', error);

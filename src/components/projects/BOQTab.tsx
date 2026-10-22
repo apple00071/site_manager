@@ -329,20 +329,35 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
         try {
             let challanUrl: string | null = null;
             if (deliveryPhotoFile) {
-                const compressed = await compressImage(deliveryPhotoFile);
-                challanUrl = await uploadFile(
-                    compressed,
-                    'project-update-photos',
-                    `boq-delivery/${projectId}`
-                );
+                try {
+                    const compressed = await compressImage(deliveryPhotoFile);
+                    challanUrl = await uploadFile(
+                        compressed,
+                        'project-update-photos',
+                        `boq-delivery/${projectId}`
+                    );
+                } catch (photoErr: any) {
+                    console.error('Error uploading delivery challan photo:', photoErr);
+                    const proceed = confirm(`Photo upload failed (${photoErr.message || 'Storage error'}). Do you want to proceed confirming delivery without attaching the photo?`);
+                    if (!proceed) {
+                        setSubmittingDelivery(false);
+                        return;
+                    }
+                }
             }
+
+            // Derive bill number: selected bill or common bill_number from items
+            const derivedBillNumber = selectedBillForDelivery?.bill_number ||
+                (deliveryTargetItems.length > 0 && deliveryTargetItems.every(it => it.bill_number && it.bill_number === deliveryTargetItems[0].bill_number)
+                    ? deliveryTargetItems[0].bill_number
+                    : undefined);
 
             const res = await fetch('/api/boq/delivery', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     project_id: projectId,
-                    bill_number: selectedBillForDelivery?.bill_number,
+                    bill_number: derivedBillNumber,
                     item_ids: deliveryTargetItems.map(it => it.id),
                     delivered_quantities: deliveryQuantities,
                     delivery_date: deliveryDate,
@@ -452,12 +467,24 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                         : undefined
                                 });
                             }}
-                            className="p-1 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 transition-colors"
+                            className="p-1 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 transition-colors cursor-pointer"
                             title="View Challan Photo"
                         >
                             <FiImage className="w-3.5 h-3.5" />
                         </button>
                     )}
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            openDeliveryModalForItems([item]);
+                        }}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-amber-600 hover:bg-amber-700 text-white transition-colors cursor-pointer"
+                        title="Update delivered quantity"
+                    >
+                        <FiTruck className="w-3 h-3" />
+                        <span>Receive More</span>
+                    </button>
                 </div>
             );
         }
@@ -492,7 +519,7 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                         : undefined
                                 });
                             }}
-                            className="p-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors"
+                            className="p-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors cursor-pointer"
                             title="View Challan Photo"
                         >
                             <FiImage className="w-3.5 h-3.5" />
@@ -504,22 +531,50 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
 
         if (isOrdered) {
             return (
-                <button
-                    type="button"
-                    onClick={() => handleSwitchSubTab('delivery_bills')}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer"
-                    title={vendor && billLabel ? `${billLabel} (${vendor}) • Click to view in Delivery Bills` : 'Click to view in Delivery Bills'}
-                >
-                    <FiTruck className="w-3.5 h-3.5 text-blue-600" />
-                    <span>{`${displayLabel} • Ordered`}</span>
-                </button>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                        type="button"
+                        onClick={() => handleSwitchSubTab('delivery_bills')}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer"
+                        title={vendor && billLabel ? `${billLabel} (${vendor}) • Click to view in Delivery Bills` : 'Click to view in Delivery Bills'}
+                    >
+                        <FiTruck className="w-3.5 h-3.5 text-blue-600" />
+                        <span>{`${displayLabel} • Ordered`}</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            openDeliveryModalForItems([item]);
+                        }}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-2xs cursor-pointer"
+                        title="Confirm delivery for this item"
+                    >
+                        <FiCheck className="w-3 h-3" />
+                        <span>Receive</span>
+                    </button>
+                </div>
             );
         }
 
         return (
-            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
-                Not Ordered
-            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
+                    Not Ordered
+                </span>
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        openDeliveryModalForItems([item]);
+                    }}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors cursor-pointer"
+                    title="Mark received on site"
+                >
+                    <FiCheck className="w-3 h-3 text-emerald-600" />
+                    <span>Receive</span>
+                </button>
+            </div>
         );
     };
 
@@ -652,7 +707,9 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`/api/boq?project_id=${projectId}&limit=1000`);
+            const res = await fetch(`/api/boq?project_id=${projectId}&limit=1000&_t=${Date.now()}`, {
+                cache: 'no-store'
+            });
             if (!res.ok) throw new Error('Failed to fetch BOQ items');
             const data = await res.json();
             const rawItems: any[] = data.items || [];
@@ -673,7 +730,9 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
     const fetchBills = async () => {
         setLoadingBills(true);
         try {
-            const res = await fetch(`/api/boq/bills?project_id=${projectId}`);
+            const res = await fetch(`/api/boq/bills?project_id=${projectId}&_t=${Date.now()}`, {
+                cache: 'no-store'
+            });
             if (res.ok) {
                 const data = await res.json();
                 setBills(data.bills || []);

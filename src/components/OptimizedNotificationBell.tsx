@@ -74,12 +74,31 @@ const getNotificationUrl = (type: string, relatedId?: string | null, relatedType
     case 'material_ordered':
     case 'material_delivered':
       return relatedId ? `${baseUrl}/projects/${relatedId}?tab=boq` : `${baseUrl}/projects`;
+    case 'general':
+      if (relatedType === 'project' && relatedId) {
+        return `${baseUrl}/projects/${relatedId}?tab=boq`;
+      }
+      return undefined;
     default:
+      if (relatedType === 'project' && relatedId) {
+        return `${baseUrl}/projects/${relatedId}?tab=boq`;
+      }
       return undefined;
   }
 };
 
-const getNotificationIcon = (type: string) => {
+const getNotificationIcon = (type: string, title?: string) => {
+  const isDelivery = type === 'material_delivered' || type === 'material_ordered' || (
+    typeof title === 'string' && (
+      title.toLowerCase().includes('delivered') ||
+      title.toLowerCase().includes('material') ||
+      title.toLowerCase().includes('shortfall')
+    )
+  );
+  if (isDelivery) {
+    return <FiTruck className="w-6 h-6 text-emerald-500" />;
+  }
+
   switch (type) {
     case 'task_assigned':
       return <FiClipboard className="w-6 h-6 text-blue-500" />;
@@ -555,7 +574,7 @@ export function OptimizedNotificationBell() {
                     >
                       <div className="flex items-start gap-3">
                         <span className="text-2xl flex-shrink-0">
-                          {getNotificationIcon(notification.type)}
+                          {getNotificationIcon(notification.type, notification.title)}
                         </span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
