@@ -124,7 +124,7 @@ export default function CRMPage() {
     onCancel?: () => void
   ) => {
     const finalVal = aVal > 0 ? aVal : qVal;
-    setApprovalInputValue(String(finalVal || ''));
+    setApprovalInputValue(finalVal > 0 ? Math.round(finalVal).toLocaleString('en-IN') : '');
     setPendingApproval({
       lead,
       quotationValue: qVal,
@@ -3273,15 +3273,12 @@ export default function CRMPage() {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100/80 flex items-center justify-center text-emerald-600 shrink-0 shadow-2xs">
-                  <FiCheckCircle className="w-5 h-5 text-emerald-600" />
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100/80 flex items-center justify-center text-emerald-600 shrink-0">
+                  <FiCheckCircle className="w-4 h-4 text-emerald-600" />
                 </div>
-                <div>
-                  <h3 className="text-base font-semibold text-slate-900 tracking-tight">Confirm Quotation Approval</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">Verify agreed value before locking quotation</p>
-                </div>
+                <h3 className="text-base font-semibold text-slate-900 tracking-tight">Confirm Quotation Approval</h3>
               </div>
               <button
                 type="button"
@@ -3296,9 +3293,9 @@ export default function CRMPage() {
             </div>
 
             {/* Body */}
-            <div className="p-6 space-y-4">
+            <div className="p-5 space-y-3.5">
               {/* Lead Details */}
-              <div className="bg-slate-50/80 rounded-xl p-3.5 border border-slate-200/70 space-y-1.5">
+              <div className="bg-slate-50/80 rounded-xl p-3 border border-slate-200/70 space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Client &amp; Lead</span>
                   {pendingApproval.lead.ref_no && (
@@ -3318,13 +3315,13 @@ export default function CRMPage() {
 
               {/* Zero-value warning or Valid value highlight */}
               {pendingApproval.quotationValue <= 0 && pendingApproval.approvedValue <= 0 ? (
-                <div className="p-4 bg-rose-50 border border-rose-200/80 rounded-xl text-rose-900 text-xs flex flex-col gap-2.5">
+                <div className="p-4 bg-rose-50 border border-rose-200/80 rounded-xl text-rose-900 text-xs flex flex-col gap-2">
                   <div className="font-semibold flex items-center gap-2 text-sm text-rose-900">
                     <FiAlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
                     <span>Cannot Approve: Quotation Value is ₹0</span>
                   </div>
                   <p className="text-rose-700 leading-relaxed">
-                    This lead does not have a valid quotation amount. You must build or configure a quotation before marking this lead as Approved.
+                    This lead does not have a quotation amount. Please create a quotation first.
                   </p>
                   <button
                     type="button"
@@ -3340,15 +3337,15 @@ export default function CRMPage() {
                 </div>
               ) : (
                 <>
-                  <div className="bg-gradient-to-b from-slate-50/90 to-white rounded-xl p-4 border border-slate-200/80 text-center relative shadow-2xs">
+                  <div className="bg-gradient-to-b from-slate-50/90 to-white rounded-xl p-3.5 border border-slate-200/80 text-center relative shadow-2xs">
                     <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                       Quotation Value
                     </span>
-                    <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 mt-1">
+                    <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 mt-0.5">
                       ₹{Math.round(pendingApproval.quotationValue || pendingApproval.approvedValue).toLocaleString('en-IN')}
                     </div>
                     {pendingApproval.lead.quote_version ? (
-                      <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                      <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
                         <span>Quotation Version v{pendingApproval.lead.quote_version}</span>
                       </div>
@@ -3358,36 +3355,38 @@ export default function CRMPage() {
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-xs font-semibold text-slate-700">
-                        Approved Project Value (₹)
+                        Approved Value (₹)
                       </label>
-                      {approvalInputValue && Number(approvalInputValue) === Math.round(pendingApproval.quotationValue || pendingApproval.approvedValue) && (
-                        <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 flex items-center gap-1">
-                          <FiCheck className="w-3 h-3" /> Matches quote
-                        </span>
-                      )}
+                      {(() => {
+                        const enteredNum = parseFloat(approvalInputValue.replace(/,/g, ''));
+                        const quoteTotal = Math.round(pendingApproval.quotationValue || pendingApproval.approvedValue);
+                        return enteredNum > 0 && enteredNum === quoteTotal ? (
+                          <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 flex items-center gap-1">
+                            <FiCheck className="w-3 h-3" /> Matches quote
+                          </span>
+                        ) : null;
+                      })()}
                     </div>
                     <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-semibold text-base">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 font-semibold text-base">
                         ₹
                       </div>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         value={approvalInputValue}
-                        onChange={(e) => setApprovalInputValue(e.target.value)}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/[^0-9]/g, '');
+                          if (!digits) {
+                            setApprovalInputValue('');
+                          } else {
+                            setApprovalInputValue(Number(digits).toLocaleString('en-IN'));
+                          }
+                        }}
                         className="w-full pl-8 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-base shadow-2xs transition-all"
-                        placeholder="Approved value"
+                        placeholder="0"
                       />
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-1 leading-normal">
-                      Defaults to quotation total. Adjust if a final negotiated discount was agreed.
-                    </p>
-                  </div>
-
-                  <div className="p-3 bg-slate-50 border border-slate-200/70 rounded-xl text-slate-600 text-xs leading-relaxed flex items-start gap-2.5">
-                    <FiInfo className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
-                    <span>
-                      Approving this lead will lock the approved quotation and initiate the project handover.
-                    </span>
                   </div>
                 </>
               )}
@@ -3410,7 +3409,8 @@ export default function CRMPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    const finalVal = parseFloat(approvalInputValue) || pendingApproval.approvedValue || pendingApproval.quotationValue;
+                    const parsedVal = parseFloat(approvalInputValue.replace(/,/g, ''));
+                    const finalVal = parsedVal || pendingApproval.approvedValue || pendingApproval.quotationValue;
                     if (finalVal <= 0) {
                       alert('Please specify an approved value greater than ₹0.');
                       return;
