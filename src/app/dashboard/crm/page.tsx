@@ -1642,11 +1642,11 @@ export default function CRMPage() {
                 <span>🏷️</span> Rate Card
               </a>
 
-              {/* Export / Import Excel */}
+              {/* Export / Import Excel (Desktop Only) */}
               <button
                 onClick={exportToExcel}
                 title="Export Quotations to Excel"
-                className="p-1.5 bg-white border border-gray-200/80 hover:bg-gray-50 text-gray-600 rounded-xl text-xs transition-all cursor-pointer shadow-2xs"
+                className="hidden md:flex p-1.5 bg-white border border-gray-200/80 hover:bg-gray-50 text-gray-600 rounded-xl text-xs transition-all cursor-pointer shadow-2xs items-center justify-center"
               >
                 <FiDownload className="w-4 h-4 text-emerald-600" />
               </button>
@@ -1662,7 +1662,7 @@ export default function CRMPage() {
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   title="Import Quotations from Excel"
-                  className="p-1.5 bg-white border border-gray-200/80 hover:bg-gray-50 text-gray-600 rounded-xl text-xs transition-all cursor-pointer shadow-2xs"
+                  className="hidden md:flex p-1.5 bg-white border border-gray-200/80 hover:bg-gray-50 text-gray-600 rounded-xl text-xs transition-all cursor-pointer shadow-2xs items-center justify-center"
                 >
                   <FiUpload className="w-4 h-4 text-blue-600" />
                 </button>
@@ -2168,17 +2168,17 @@ export default function CRMPage() {
         <div className="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           
           {/* SHEET TOOLBAR */}
-          <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-gray-50 border-b border-gray-200">
-            <div className="flex items-center flex-wrap gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-gray-50 border-b border-gray-200">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               {/* Search */}
-              <div className="relative">
-                <FiSearch className="absolute left-2.5 top-2.5 text-gray-400 h-4.5 w-4.5" />
+              <div className="relative flex-1 sm:flex-initial">
+                <FiSearch className="absolute left-2.5 top-2.5 text-gray-400 h-4 w-4" />
                 <input
                   type="text"
                   placeholder="Search leads..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 w-44 sm:w-56 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:border-yellow-500 text-gray-700"
+                  className="pl-8 pr-3 py-1.5 w-full sm:w-56 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:border-yellow-500 text-gray-700"
                 />
               </div>
 
@@ -2186,7 +2186,7 @@ export default function CRMPage() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-gray-600 focus:outline-none focus:border-yellow-500"
+                className="px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-gray-600 focus:outline-none focus:border-yellow-500 shrink-0"
               >
                 <option value="all">All Statuses</option>
                 <option value="Draft">Draft</option>
@@ -2197,26 +2197,26 @@ export default function CRMPage() {
                 <option value="On Hold">On Hold</option>
               </select>
 
-              {/* Expand / Collapse All Months Toggle */}
+              {/* Expand / Collapse All Months Toggle - Desktop Only where month groups exist */}
               {allMonthGroupNames.length > 0 && (
                 <button
                   type="button"
                   onClick={toggleAllMonthCollapse}
-                  className="px-2.5 py-1.5 bg-white hover:bg-gray-100 border border-gray-200 rounded-lg text-xs font-bold text-gray-700 transition-colors flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95"
+                  className="hidden md:flex px-2.5 py-1.5 bg-white hover:bg-gray-100 border border-gray-200 rounded-lg text-xs font-bold text-gray-700 transition-colors items-center gap-1 shadow-2xs cursor-pointer active:scale-95 shrink-0"
                   title={areAllMonthsCollapsed ? "Expand all month groups" : "Collapse all month groups"}
                 >
                   <span className="text-[11px]">{areAllMonthsCollapsed ? '➕' : '➖'}</span>
-                  <span className="hidden sm:inline">{areAllMonthsCollapsed ? 'Expand All' : 'Collapse All'}</span>
+                  <span>{areAllMonthsCollapsed ? 'Expand All' : 'Collapse All'}</span>
                 </button>
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="hidden md:flex items-center gap-2">
               {hasPermission('crm.manage') && (
                 <>
                   <button
                     onClick={handleAddLead}
-                    className="hidden md:flex px-3.5 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg text-xs transition-colors items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+                    className="px-3.5 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg text-xs transition-colors flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
                   >
                     <FiPlus className="h-4 w-4" /> Add Lead
                   </button>
@@ -2235,11 +2235,11 @@ export default function CRMPage() {
                       className="px-3 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 font-bold rounded-lg text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
                       title="Export or Import Excel files"
                     >
-                      <FiDownload className="h-3.5 w-3.5 text-gray-600" /> <span className="hidden md:inline">Excel Tools</span> ▾
+                      <FiDownload className="h-3.5 w-3.5 text-gray-600" /> <span>Excel Tools</span> ▾
                     </button>
                     {isDataMenuOpen && (
                       <>
-                        {/* Backdrop to close on tap (mobile) */}
+                        {/* Backdrop to close on tap */}
                         <div 
                           className="fixed inset-0 z-40" 
                           onClick={() => setIsDataMenuOpen(false)} 
