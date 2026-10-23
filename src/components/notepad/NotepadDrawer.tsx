@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
-  FiFileText, FiPlus, FiTrash2, FiCopy, FiDownload,
+  FiFileText, FiPlus, FiTrash2, FiCopy,
   FiCheck, FiSearch, FiX, FiChevronLeft, FiEdit3,
-  FiCalendar, FiClock, FiAlertCircle, FiDatabase, FiCloudOff,
-  FiShare2, FiCheckSquare, FiSquare, FiList
+  FiCalendar, FiClock, FiAlertCircle, FiDatabase,
+  FiShare2, FiCheckSquare
 } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
 import { shareTextOrNote, shareToWhatsAppDirect } from '@/lib/shareUtils';
@@ -17,46 +17,7 @@ interface Note {
   updatedAt: string;
 }
 
-interface TodoItem {
-  id: string;
-  text: string;
-  completed: boolean;
-}
-
-const parseTodoItems = (content: string): TodoItem[] => {
-  if (!content) return [];
-  const lines = content.split('\n');
-  const items: TodoItem[] = [];
-
-  lines.forEach((line, idx) => {
-    const trimmed = line.trim();
-    if (!trimmed) return;
-
-    const isChecked = /^(\s*[-*]\s*)?\[[xX]\]/.test(line);
-    const isUnchecked = /^(\s*[-*]\s*)?\[\s*\]/.test(line);
-
-    let cleanText = line;
-    if (isChecked || isUnchecked) {
-      cleanText = line.replace(/^(\s*[-*]\s*)?\[([xX]|\s*)\]\s*/, '');
-    } else {
-      cleanText = line.replace(/^[-*•]\s*/, '');
-    }
-
-    if (cleanText.trim()) {
-      items.push({
-        id: `todo-${idx}-${cleanText.slice(0, 15)}`,
-        text: cleanText.trim(),
-        completed: isChecked
-      });
-    }
-  });
-
-  return items;
-};
-
-const serializeTodoItems = (items: TodoItem[]): string => {
-  return items.map(it => `[${it.completed ? 'x' : ' '}] ${it.text}`).join('\n');
-};
+// ponytail: unified note editor treats to-do items as inline markdown [ ] / [x]
 
 interface NotepadDrawerProps {
   isOpen: boolean;
@@ -72,8 +33,6 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | null>('saved');
   const [mobileView, setMobileView] = useState<'list' | 'editor'>('list');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-  const [editorMode, setEditorMode] = useState<'text' | 'todo'>('text');
-  const [newTodoInput, setNewTodoInput] = useState('');
 
   // Database Connection States
   const [dbStatus, setDbStatus] = useState<'loading' | 'connected' | 'table_missing' | 'offline'>('loading');
@@ -173,14 +132,7 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
     }
   }, [activeNoteId]);
 
-  // Auto-switch to todo mode if active note content contains checklist items
-  useEffect(() => {
-    if (activeNote) {
-      if (/\[([xX]|\s*)\]/.test(activeNote.content)) {
-        setEditorMode('todo');
-      }
-    }
-  }, [activeNoteId]);
+
 
   // Focus title input when editing
   useEffect(() => {
@@ -490,50 +442,175 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
     }
   };
 
-  // Todo Items & Stats
-  const currentTodos = useMemo(() => {
-    return activeNote ? parseTodoItems(activeNote.content) : [];
+  // Task Stats (Counted directly from markdown checkboxes)
+  const todoStats = useMemo(() => {
+    if (!activeNote?.content) return null;
+    const matches = activeNote.content.match(/^(\s*[-*]\s*)?\[([xX\s])\]/gm);
+    if (!matches || matches.length === 0) return null;
+    const completed = matches.filter(m => /\[[xX]\]/.test(m)).length;
+    return { total: matches.length, completed };
   }, [activeNote?.content]);
 
-  const todoStats = useMemo(() => {
-    const total = currentTodos.length;
-    const completed = currentTodos.filter(t => t.completed).length;
-    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-    return { total, completed, percentage };
-  }, [currentTodos]);
+  // Insert or toggle Bullet point on current line
+  const handleInsertBullet = () => {
+    if (!activeNote || !textareaRef.current) return;
+    const textarea = textareaRef.current;
+    const pos = textarea.selectionStart;
+    const content = activeNote.content;
+    const lineStart = content.lastIndexOf('\n', pos - 1) + 1;
+    const nextNewline = content.indexOf('\n', pos);
+    const lineEnd = nextNewline === -1 ? content.length : nextNewline;
+    const line = content.substring(lineStart, lineEnd);
 
-  const handleToggleTodo = (index: number) => {
-    if (!activeNote) return;
-    const items = parseTodoItems(activeNote.content);
-    if (items[index]) {
-      items[index].completed = !items[index].completed;
-      handleContentChange(serializeTodoItems(items));
+    let newLine: string;
+    let newCursorPos: number;
+
+    if (/^[-*•]\s?/.test(line)) {
+      newLine = line.replace(/^[-*•]\s?/, '');
+      newCursorPos = Math.max(lineStart, pos - (line.length - newLine.length));
+    } else if (/^\[([xX\s])\]\s?/.test(line)) {
+      newLine = line.replace(/^\[([xX\s])\]\s?/, '• ');
+      newCursorPos = pos + (newLine.length - line.length);
+    } else {
+      newLine = `• ${line}`;
+      newCursorPos = pos + 2;
+    }
+
+    const newContent = content.substring(0, lineStart) + newLine + content.substring(lineEnd);
+    handleContentChange(newContent);
+
+    setTimeout(() => {
+      textarea.focus();
+      const clamped = Math.max(0, Math.min(newContent.length, newCursorPos));
+      textarea.setSelectionRange(clamped, clamped);
+    }, 30);
+  };
+
+  // Insert or toggle To-Do Checkbox on current line: [ ] -> [x] -> None -> [ ]
+  const handleToggleOrInsertTodo = () => {
+    if (!activeNote || !textareaRef.current) return;
+    const textarea = textareaRef.current;
+    const pos = textarea.selectionStart;
+    const content = activeNote.content;
+    const lineStart = content.lastIndexOf('\n', pos - 1) + 1;
+    const nextNewline = content.indexOf('\n', pos);
+    const lineEnd = nextNewline === -1 ? content.length : nextNewline;
+    const line = content.substring(lineStart, lineEnd);
+
+    let newLine: string;
+    let newCursorPos: number;
+
+    if (/^\[\s\]\s?/.test(line)) {
+      // Unchecked -> Checked
+      newLine = line.replace(/^\[\s\]\s?/, '[x] ');
+      newCursorPos = pos + (newLine.length - line.length);
+    } else if (/^\[[xX]\]\s?/.test(line)) {
+      // Checked -> Remove checkbox back to normal line
+      newLine = line.replace(/^\[[xX]\]\s?/, '');
+      newCursorPos = Math.max(lineStart, pos - (line.length - newLine.length));
+    } else if (/^[-*•]\s?/.test(line)) {
+      // Bullet -> Checkbox
+      newLine = line.replace(/^[-*•]\s?/, '[ ] ');
+      newCursorPos = pos + (newLine.length - line.length);
+    } else {
+      // Normal line -> Checkbox
+      newLine = `[ ] ${line}`;
+      newCursorPos = pos + 4;
+    }
+
+    const newContent = content.substring(0, lineStart) + newLine + content.substring(lineEnd);
+    handleContentChange(newContent);
+
+    setTimeout(() => {
+      textarea.focus();
+      const clamped = Math.max(0, Math.min(newContent.length, newCursorPos));
+      textarea.setSelectionRange(clamped, clamped);
+    }, 30);
+  };
+
+  // Keyboard navigation: Enter auto-continues lists, and exits on empty item
+  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter') {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      const pos = textarea.selectionStart;
+      const content = textarea.value;
+      const lineStart = content.lastIndexOf('\n', pos - 1) + 1;
+      const line = content.substring(lineStart, pos);
+
+      // Exit empty todo line
+      if (/^\[([xX\s])\]\s*$/.test(line)) {
+        e.preventDefault();
+        const newContent = content.substring(0, lineStart) + content.substring(pos);
+        handleContentChange(newContent);
+        setTimeout(() => {
+          textarea.setSelectionRange(lineStart, lineStart);
+        }, 20);
+        return;
+      }
+
+      // Exit empty bullet line
+      if (/^([-*•])\s*$/.test(line)) {
+        e.preventDefault();
+        const newContent = content.substring(0, lineStart) + content.substring(pos);
+        handleContentChange(newContent);
+        setTimeout(() => {
+          textarea.setSelectionRange(lineStart, lineStart);
+        }, 20);
+        return;
+      }
+
+      // Continue todo item
+      if (/^\[([xX\s])\]\s+.+/.test(line)) {
+        e.preventDefault();
+        const insert = '\n[ ] ';
+        const newContent = content.substring(0, pos) + insert + content.substring(pos);
+        handleContentChange(newContent);
+        setTimeout(() => {
+          textarea.setSelectionRange(pos + insert.length, pos + insert.length);
+        }, 20);
+        return;
+      }
+
+      // Continue bullet item
+      const bulletMatch = line.match(/^([-*•])\s+.+/);
+      if (bulletMatch) {
+        e.preventDefault();
+        const prefix = bulletMatch[1];
+        const insert = `\n${prefix} `;
+        const newContent = content.substring(0, pos) + insert + content.substring(pos);
+        handleContentChange(newContent);
+        setTimeout(() => {
+          textarea.setSelectionRange(pos + insert.length, pos + insert.length);
+        }, 20);
+        return;
+      }
     }
   };
 
-  const handleAddTodo = () => {
-    if (!activeNote || !newTodoInput.trim()) return;
-    const items = parseTodoItems(activeNote.content);
-    items.push({
-      id: `todo-${Date.now()}`,
-      text: newTodoInput.trim(),
-      completed: false
-    });
-    handleContentChange(serializeTodoItems(items));
-    setNewTodoInput('');
-  };
+  // Direct checkbox clicking in textarea: Clicking [ ] or [x] flips state instantly
+  const handleTextareaClick = (e: React.MouseEvent<HTMLTextAreaElement>) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const pos = textarea.selectionStart;
+    const content = textarea.value;
+    const lineStart = content.lastIndexOf('\n', pos - 1) + 1;
+    const nextNewline = content.indexOf('\n', pos);
+    const lineEnd = nextNewline === -1 ? content.length : nextNewline;
+    const line = content.substring(lineStart, lineEnd);
 
-  const handleDeleteTodo = (index: number) => {
-    if (!activeNote) return;
-    const items = parseTodoItems(activeNote.content);
-    items.splice(index, 1);
-    handleContentChange(serializeTodoItems(items));
-  };
-
-  const handleClearCompleted = () => {
-    if (!activeNote) return;
-    const items = parseTodoItems(activeNote.content).filter(it => !it.completed);
-    handleContentChange(serializeTodoItems(items));
+    const offsetInLine = pos - lineStart;
+    if (offsetInLine >= 0 && offsetInLine <= 4) {
+      if (/^\[\s\]/.test(line)) {
+        const newLine = line.replace(/^\[\s\]/, '[x]');
+        const newContent = content.substring(0, lineStart) + newLine + content.substring(lineEnd);
+        handleContentChange(newContent);
+      } else if (/^\[[xX]\]/.test(line)) {
+        const newLine = line.replace(/^\[[xX]\]/, '[ ]');
+        const newContent = content.substring(0, lineStart) + newLine + content.substring(lineEnd);
+        handleContentChange(newContent);
+      }
+    }
   };
 
   // Search Filter
@@ -843,193 +920,62 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
                   />
                 </div>
 
-                {/* Unified Toolbar: Note vs To-Do Switcher + Contextual Helpers */}
-                <div className="px-3.5 py-2 bg-slate-50 border-b border-gray-200/80 flex items-center justify-between gap-2 shrink-0 select-none">
-                  {/* Single, clear Mode Switcher */}
-                  <div className="inline-flex p-0.5 rounded-lg bg-gray-200/80 text-xs font-semibold">
+                {/* Clean Toolbar: Standard, compact formatting buttons */}
+                <div className="px-3.5 py-1.5 bg-slate-50 border-b border-gray-200/80 flex items-center justify-between gap-2 shrink-0 select-none">
+                  <div className="flex items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => setEditorMode('text')}
-                      className={`px-3 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                        editorMode === 'text'
-                          ? 'bg-white text-gray-900 shadow-2xs font-bold'
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
+                      onClick={handleInsertBullet}
+                      className="no-touch-target min-w-0 px-2.5 py-1 bg-white hover:bg-gray-100 border border-gray-200 rounded-md text-xs font-semibold text-gray-700 flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95 transition-all"
+                      title="Add or remove bullet"
                     >
-                      <FiFileText className="w-3.5 h-3.5" />
-                      <span>Note</span>
+                      <span className="text-gray-400 font-bold">•</span>
+                      <span>Bullet</span>
                     </button>
+
                     <button
                       type="button"
-                      onClick={() => setEditorMode('todo')}
-                      className={`px-3 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                        editorMode === 'todo'
-                          ? 'bg-white text-emerald-700 shadow-2xs font-bold'
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
+                      onClick={handleToggleOrInsertTodo}
+                      className="no-touch-target min-w-0 px-2.5 py-1 bg-white hover:bg-emerald-50 border border-gray-200 hover:border-emerald-300 rounded-md text-xs font-semibold text-gray-700 hover:text-emerald-700 flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95 transition-all"
+                      title="Add or toggle to-do checkbox"
                     >
                       <FiCheckSquare className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>To-Do List</span>
-                      {todoStats.total > 0 && (
-                        <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 text-emerald-800 font-bold">
-                          {todoStats.completed}/{todoStats.total}
-                        </span>
-                      )}
+                      <span>To-Do</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleAddTimestamp}
+                      className="no-touch-target min-w-0 px-2.5 py-1 bg-white hover:bg-gray-100 border border-gray-200 rounded-md text-xs font-semibold text-gray-700 flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95 transition-all"
+                      title="Insert current date & time"
+                    >
+                      <FiCalendar className="w-3 h-3 text-amber-500" />
+                      <span>Date</span>
                     </button>
                   </div>
 
-                  {/* Contextual Helpers */}
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {editorMode === 'text' ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => insertTextAtCursor('- ')}
-                          className="px-2.5 py-1 bg-white hover:bg-gray-100 border border-gray-200 rounded-md text-xs font-semibold text-gray-700 flex items-center gap-1 shadow-2xs cursor-pointer"
-                          title="Add bullet point"
-                        >
-                          <span>• Bullet</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleAddTimestamp}
-                          className="px-2.5 py-1 bg-white hover:bg-gray-100 border border-gray-200 rounded-md text-xs font-semibold text-gray-700 flex items-center gap-1 shadow-2xs cursor-pointer"
-                          title="Insert timestamp"
-                        >
-                          <FiCalendar className="w-3 h-3 text-amber-500" />
-                          <span>Date</span>
-                        </button>
-                      </>
-                    ) : (
-                      todoStats.completed > 0 && (
-                        <button
-                          type="button"
-                          onClick={handleClearCompleted}
-                          className="text-xs text-slate-500 hover:text-rose-600 font-semibold px-2 py-1 rounded hover:bg-rose-50 transition-colors cursor-pointer"
-                        >
-                          Clear done ({todoStats.completed})
-                        </button>
-                      )
-                    )}
-                  </div>
+                  {/* Task counter indicator */}
+                  {todoStats && todoStats.total > 0 && (
+                    <div className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <FiCheck className="w-3 h-3 text-emerald-600" />
+                      <span>{todoStats.completed}/{todoStats.total} done</span>
+                    </div>
+                  )}
                 </div>
 
-                {editorMode === 'text' ? (
-                  /* Editor Text Area */
-                  <div className="flex-1 p-4 overflow-hidden flex flex-col bg-white">
-                    <textarea
-                      ref={textareaRef}
-                      value={activeNote.content}
-                      onChange={(e) => handleContentChange(e.target.value)}
-                      placeholder="Start typing your details here..."
-                      className="w-full flex-1 resize-none border-0 p-0 focus:outline-none focus:ring-0 text-sm leading-relaxed text-gray-800 placeholder-gray-400 font-medium"
-                      style={{ minHeight: '0px' }}
-                    />
-                  </div>
-                ) : (
-                  /* Interactive To-Do List Mode */
-                  <div className="flex-1 flex flex-col bg-white overflow-hidden">
-                    {/* Progress Bar & Stats */}
-                    {todoStats.total > 0 && (
-                      <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-xs text-slate-600 select-none">
-                        <div className="flex items-center gap-2 font-medium">
-                          <span>{todoStats.completed} of {todoStats.total} completed ({todoStats.percentage}%)</span>
-                        </div>
-                        {todoStats.completed > 0 && (
-                          <button
-                            type="button"
-                            onClick={handleClearCompleted}
-                            className="text-[11px] text-slate-500 hover:text-rose-600 font-semibold cursor-pointer transition-colors"
-                          >
-                            Clear completed
-                          </button>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Add Task Input Bar */}
-                    <div className="p-3 border-b border-slate-100 bg-white flex items-center gap-2 shrink-0">
-                      <input
-                        type="text"
-                        value={newTodoInput}
-                        onChange={(e) => setNewTodoInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddTodo();
-                          }
-                        }}
-                        placeholder="Add a new task (press Enter)..."
-                        className="flex-1 text-xs border border-slate-200 rounded-lg px-3 py-2 bg-slate-50/60 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 placeholder-slate-400 font-medium transition-all"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddTodo}
-                        disabled={!newTodoInput.trim()}
-                        className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-1 cursor-pointer shrink-0 shadow-2xs"
-                      >
-                        <FiPlus className="w-3.5 h-3.5" />
-                        <span>Add</span>
-                      </button>
-                    </div>
-
-                    {/* Task List */}
-                    <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
-                      {currentTodos.length === 0 ? (
-                        <div className="py-12 text-center text-slate-400 select-none">
-                          <FiCheckSquare className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-                          <p className="text-xs font-semibold text-slate-600">No tasks in this list yet.</p>
-                          <p className="text-[11px] text-slate-400 mt-1">Type your first task above and press Enter!</p>
-                        </div>
-                      ) : (
-                        currentTodos.map((todo, idx) => (
-                          <div
-                            key={todo.id || idx}
-                            onClick={() => handleToggleTodo(idx)}
-                            className={`group flex items-start gap-3 p-2.5 rounded-xl border transition-all cursor-pointer ${
-                              todo.completed
-                                ? 'bg-slate-50/70 border-slate-200/50 text-slate-400'
-                                : 'bg-white border-slate-200/80 hover:border-slate-300 hover:shadow-2xs text-slate-800'
-                            }`}
-                          >
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleToggleTodo(idx);
-                              }}
-                              className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 mt-0.5 transition-colors cursor-pointer ${
-                                todo.completed
-                                  ? 'bg-emerald-500 border-emerald-500 text-white shadow-2xs'
-                                  : 'border-slate-300 hover:border-emerald-500 bg-white'
-                              }`}
-                            >
-                              {todo.completed && <FiCheck className="w-3.5 h-3.5 stroke-[3]" />}
-                            </button>
-                            <span
-                              className={`flex-1 text-xs leading-relaxed select-none ${
-                                todo.completed ? 'line-through text-slate-400' : 'text-slate-800 font-medium'
-                              }`}
-                            >
-                              {todo.text}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteTodo(idx);
-                              }}
-                              className="opacity-70 md:opacity-0 md:group-hover:opacity-100 p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-all cursor-pointer shrink-0"
-                              title="Delete task"
-                            >
-                              <FiX className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
+                {/* Single, Unified Editor Text Area */}
+                <div className="flex-1 p-4 overflow-hidden flex flex-col bg-white">
+                  <textarea
+                    ref={textareaRef}
+                    value={activeNote.content}
+                    onChange={(e) => handleContentChange(e.target.value)}
+                    onKeyDown={handleTextareaKeyDown}
+                    onClick={handleTextareaClick}
+                    placeholder="Start typing notes or add to-do items..."
+                    className="w-full flex-1 resize-none border-0 p-0 focus:outline-none focus:ring-0 text-sm leading-relaxed text-gray-800 placeholder-gray-400 font-medium"
+                    style={{ minHeight: '0px' }}
+                  />
+                </div>
 
                 {/* Editor Footer Info Bar */}
                 <div className="px-4 py-2 border-t border-gray-100 bg-gray-50 flex items-center justify-between text-[9px] font-bold text-gray-400 shrink-0 select-none">
@@ -1042,10 +988,8 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
                     })}
                   </div>
                   <div>
-                    {editorMode === 'todo'
-                      ? `${todoStats.total} Tasks • ${todoStats.completed} Done`
-                      : `${activeNote.content.trim().split(/\s+/).filter(Boolean).length} Words • ${activeNote.content.length} Chars`
-                    }
+                    {todoStats && todoStats.total > 0 && `${todoStats.completed}/${todoStats.total} Tasks • `}
+                    {activeNote.content.trim().split(/\s+/).filter(Boolean).length} Words • {activeNote.content.length} Chars
                   </div>
                 </div>
 
