@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useRef, Fragment, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
@@ -107,11 +108,28 @@ export default function CRMPage() {
   const [existingProjects, setExistingProjects] = useState<any[]>([]);
 
   // Quotation Approval confirmation modal
+  // Quotation Approval confirmation modal
+  interface QuotationVersionOption {
+    id: string;
+    version: number;
+    final_amount: number;
+    subtotal: number;
+    discount_type: string;
+    discount_value: number;
+    gst_rate: number;
+    gst_amount: number;
+    created_at: string;
+  }
+
   interface ApprovalConfirmationData {
     lead: Lead;
     quotationValue: number;
     approvedValue: number;
-    onConfirm: (confirmedVal: number) => Promise<void> | void;
+    versions: QuotationVersionOption[];
+    selectedQuotationId?: string;
+    selectedVersion?: number;
+    isLoadingVersions?: boolean;
+    onConfirm: (confirmedVal: number, selectedQuotation?: QuotationVersionOption) => Promise<void> | void;
     onCancel?: () => void;
   }
   const [pendingApproval, setPendingApproval] = useState<ApprovalConfirmationData | null>(null);
@@ -121,18 +139,67 @@ export default function CRMPage() {
     lead: Lead,
     qVal: number,
     aVal: number,
-    onConfirm: (confirmedVal: number) => Promise<void> | void,
+    onConfirm: (confirmedVal: number, selectedQuotation?: QuotationVersionOption) => Promise<void> | void,
     onCancel?: () => void
   ) => {
     const finalVal = aVal > 0 ? aVal : qVal;
     setApprovalInputValue(finalVal > 0 ? Math.round(finalVal).toLocaleString('en-IN') : '');
+
+    // Set initial state
     setPendingApproval({
       lead,
       quotationValue: qVal,
       approvedValue: finalVal,
+      versions: [],
+      selectedQuotationId: lead.latest_quotation_id || undefined,
+      selectedVersion: lead.quote_version || undefined,
+      isLoadingVersions: true,
       onConfirm,
       onCancel
     });
+
+    // Fetch all quotation versions for this lead
+    if (lead.id) {
+      fetch(`/api/quotations?lead_id=${lead.id}`)
+        .then(res => res.json())
+        .then(json => {
+          const qList: any[] = json.data || [];
+          if (qList.length > 0) {
+            const sortedVersions: QuotationVersionOption[] = qList.map(q => ({
+              id: q.id,
+              version: q.version,
+              final_amount: Number(q.final_amount) || Number(q.subtotal) || 0,
+              subtotal: Number(q.subtotal) || 0,
+              discount_type: q.discount_type || 'none',
+              discount_value: Number(q.discount_value) || 0,
+              gst_rate: Number(q.gst_rate) || 0,
+              gst_amount: Number(q.gst_amount) || 0,
+              created_at: q.created_at
+            })).sort((a, b) => b.version - a.version);
+
+            const matching = sortedVersions.find(v => v.id === lead.latest_quotation_id || v.version === lead.quote_version) || sortedVersions[0];
+            const matchingVal = matching.final_amount > 0 ? matching.final_amount : finalVal;
+
+            setPendingApproval(prev => prev ? {
+              ...prev,
+              quotationValue: matchingVal,
+              approvedValue: aVal > 0 ? aVal : matchingVal,
+              versions: sortedVersions,
+              selectedQuotationId: matching.id,
+              selectedVersion: matching.version,
+              isLoadingVersions: false
+            } : null);
+
+            setApprovalInputValue(Math.round(aVal > 0 ? aVal : matchingVal).toLocaleString('en-IN'));
+          } else {
+            setPendingApproval(prev => prev ? { ...prev, isLoadingVersions: false } : null);
+          }
+        })
+        .catch(err => {
+          console.error('Failed to load quotation versions for approval:', err);
+          setPendingApproval(prev => prev ? { ...prev, isLoadingVersions: false } : null);
+        });
+    }
   };
 
   const fetchExistingProjects = useCallback(async () => {
@@ -261,13 +328,18 @@ export default function CRMPage() {
         lead,
         qVal,
         aVal,
-        async (confirmedValue: number) => {
+        async (confirmedValue: number, selectedQuotation?: QuotationVersionOption) => {
           setPendingApproval(null);
           setSyncStatus('syncing');
           const approvedLead = {
             ...lead,
             status: 'Approved' as const,
-            approved_value: confirmedValue
+            approved_value: confirmedValue,
+            ...(selectedQuotation ? {
+              quote_value: selectedQuotation.final_amount,
+              latest_quotation_id: selectedQuotation.id,
+              quote_version: selectedQuotation.version,
+            } : {})
           };
 
           try {
@@ -1073,22 +1145,33 @@ export default function CRMPage() {
       const qVal = Number(mobileEditForm.quote_value || 0);
       const aVal = Number(mobileEditForm.approved_value || 0);
 
+      // Close mobile edit sheet so confirmation modal takes center stage on mobile
+      setIsMobileEditOpen(false);
+
       openApprovalConfirmation(
         mobileEditForm,
         qVal,
         aVal,
-        async (confirmedValue: number) => {
+        async (confirmedValue: number, selectedQuotation?: QuotationVersionOption) => {
           setPendingApproval(null);
           const approvedLead = {
             ...mobileEditForm,
             status: 'Approved' as const,
-            approved_value: confirmedValue
+            approved_value: confirmedValue,
+            ...(selectedQuotation ? {
+              quote_value: selectedQuotation.final_amount,
+              latest_quotation_id: selectedQuotation.id,
+              quote_version: selectedQuotation.version,
+            } : {})
           };
           await syncLeadChange(approvedLead);
-          setIsMobileEditOpen(false);
           setMobileEditForm(null);
           setProjectModalLead(approvedLead);
           setIsProjectModalOpen(true);
+        },
+        () => {
+          // Re-open mobile edit sheet if approval was cancelled
+          setIsMobileEditOpen(true);
         }
       );
       return;
@@ -1321,12 +1404,17 @@ export default function CRMPage() {
             lead,
             qVal,
             aVal,
-            async (confirmedValue: number) => {
+            async (confirmedValue: number, selectedQuotation?: QuotationVersionOption) => {
               setPendingApproval(null);
               const approvedLead = {
                 ...lead,
                 status: 'Approved' as const,
-                approved_value: confirmedValue
+                approved_value: confirmedValue,
+                ...(selectedQuotation ? {
+                  quote_value: selectedQuotation.final_amount,
+                  latest_quotation_id: selectedQuotation.id,
+                  quote_version: selectedQuotation.version,
+                } : {})
               };
               setLeads(prev => prev.map(l => l.id === lead.id ? approvedLead : l));
               await syncLeadChange(approvedLead);
@@ -3266,14 +3354,14 @@ export default function CRMPage() {
       )}
 
       {/* Quotation Approval Confirmation Modal */}
-      {pendingApproval && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+      {pendingApproval && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-200" style={{ touchAction: 'auto' }}>
           <div 
-            className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-white">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100/80 flex items-center justify-center text-emerald-600 shrink-0">
                   <FiCheckCircle className="w-4 h-4 text-emerald-600" />
@@ -3293,7 +3381,7 @@ export default function CRMPage() {
             </div>
 
             {/* Body */}
-            <div className="p-5 space-y-3.5">
+            <div className="p-5 space-y-3.5 overflow-y-auto">
               {/* Lead Details */}
               <div className="bg-slate-50/80 rounded-xl p-3 border border-slate-200/70 space-y-1">
                 <div className="flex items-center justify-between">
@@ -3337,6 +3425,45 @@ export default function CRMPage() {
                 </div>
               ) : (
                 <>
+                  {/* Version Picker when multiple versions exist */}
+                  {pendingApproval.versions && pendingApproval.versions.length > 1 && (
+                    <div className="bg-amber-50/70 rounded-xl p-3 border border-amber-200/80 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <FiLayers className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Select Quotation Version</span>
+                        </label>
+                        <span className="text-[10px] text-amber-700 font-semibold bg-amber-100/80 px-2 py-0.5 rounded-full">
+                          {pendingApproval.versions.length} versions
+                        </span>
+                      </div>
+                      <select
+                        value={pendingApproval.selectedQuotationId || ''}
+                        onChange={(e) => {
+                          const selectedId = e.target.value;
+                          const selected = pendingApproval.versions.find(v => v.id === selectedId);
+                          if (selected) {
+                            const newQuoteVal = selected.final_amount;
+                            setPendingApproval(prev => prev ? {
+                              ...prev,
+                              quotationValue: newQuoteVal,
+                              selectedQuotationId: selected.id,
+                              selectedVersion: selected.version
+                            } : null);
+                            setApprovalInputValue(Math.round(newQuoteVal).toLocaleString('en-IN'));
+                          }
+                        }}
+                        className="w-full text-xs font-bold text-gray-800 bg-white border border-amber-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 shadow-2xs transition-all cursor-pointer"
+                      >
+                        {pendingApproval.versions.map(v => (
+                          <option key={v.id} value={v.id}>
+                            v{v.version} — ₹{Math.round(v.final_amount).toLocaleString('en-IN')} {v.created_at ? `(${new Date(v.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   <div className="bg-gradient-to-b from-slate-50/90 to-white rounded-xl p-3.5 border border-slate-200/80 text-center relative shadow-2xs">
                     <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                       Quotation Value
@@ -3344,12 +3471,17 @@ export default function CRMPage() {
                     <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 mt-0.5">
                       ₹{Math.round(pendingApproval.quotationValue || pendingApproval.approvedValue).toLocaleString('en-IN')}
                     </div>
-                    {pendingApproval.lead.quote_version ? (
-                      <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                        <span>Quotation Version v{pendingApproval.lead.quote_version}</span>
-                      </div>
-                    ) : null}
+                    <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                      <span>
+                        {pendingApproval.selectedVersion
+                          ? `Quotation Version v${pendingApproval.selectedVersion}`
+                          : pendingApproval.lead.quote_version
+                            ? `Quotation Version v${pendingApproval.lead.quote_version}`
+                            : 'Latest Quotation'
+                        }
+                      </span>
+                    </div>
                   </div>
 
                   <div>
@@ -3415,7 +3547,8 @@ export default function CRMPage() {
                       alert('Please specify an approved value greater than ₹0.');
                       return;
                     }
-                    pendingApproval.onConfirm(finalVal);
+                    const selectedQuote = pendingApproval.versions.find(v => v.id === pendingApproval.selectedQuotationId);
+                    pendingApproval.onConfirm(finalVal, selectedQuote);
                   }}
                   className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold rounded-xl shadow-sm hover:shadow transition-all flex items-center gap-2 cursor-pointer"
                 >
@@ -3425,7 +3558,8 @@ export default function CRMPage() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
 
