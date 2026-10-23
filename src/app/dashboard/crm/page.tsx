@@ -19,6 +19,7 @@ import dynamic from 'next/dynamic';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { buildQuotationHtmlString } from '@/lib/reports/quotationHtmlBuilder';
 import CreateProjectFromLeadModal from '@/components/crm/CreateProjectFromLeadModal';
+import { openQuotationPrint } from '@/lib/shareUtils';
 const QuotationBuilder = dynamic(() => import('@/components/crm/QuotationBuilder'), { ssr: false });
 
 interface Lead {
@@ -2288,18 +2289,17 @@ export default function CRMPage() {
                         </div>
                       </div>
 
-                      {/* Contact Bar */}
+                      {/* Contact Bar - Number directly dials client */}
                       {lead.phone && (
-                        <div className="flex items-center justify-between text-xs text-gray-600 mb-3 px-0.5">
-                          <span className="font-bold flex items-center gap-1.5 text-gray-700">
-                            {'📞 '} {lead.phone}
-                          </span>
+                        <div className="flex items-center mb-3 px-0.5">
                           <a 
                             href={`tel:${lead.phone}`}
-                            className="text-[11px] bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-2.5 py-1 rounded-md border border-blue-200 transition-colors"
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-800 hover:text-blue-700 transition-colors"
                             onClick={(e) => e.stopPropagation()}
+                            title={`Call ${lead.phone}`}
                           >
-                            Call Client
+                            <span>📞</span>
+                            <span className="hover:underline">{lead.phone}</span>
                           </a>
                         </div>
                       )}
@@ -2607,7 +2607,7 @@ export default function CRMPage() {
                                            <button
                                              onClick={(e) => {
                                                e.stopPropagation();
-                                               window.open(`/quotations/${lead.latest_quotation_id}/print`, '_blank');
+                                               openQuotationPrint(`/quotations/${lead.latest_quotation_id}/print`);
                                              }}
                                              title={`Print Client Quotation (v${lead.quote_version || 1})`}
                                              className="text-yellow-600 hover:text-yellow-700 p-0.5 rounded hover:bg-yellow-50"
@@ -2617,7 +2617,7 @@ export default function CRMPage() {
                                            <button
                                              onClick={(e) => {
                                                e.stopPropagation();
-                                               window.open(`/quotations/${lead.latest_quotation_id}/print?designer=1`, '_blank');
+                                               openQuotationPrint(`/quotations/${lead.latest_quotation_id}/print?designer=1`);
                                              }}
                                              title="Print Designer Scope Copy (Rates Hidden)"
                                              className="text-purple-600 hover:text-purple-700 p-0.5 rounded hover:bg-purple-50 text-[11px]"

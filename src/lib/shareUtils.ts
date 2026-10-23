@@ -315,3 +315,129 @@ export const shareToWhatsAppDirect = async (text: string, title?: string) => {
     }
   }
 };
+
+/**
+ * Safely opens a quotation print URL across mobile app webviews and desktop browsers.
+ * In Android/iOS apps or mobile browsers where window.open('_blank') is blocked,
+ * it navigates in the current window. On desktop, it opens in a new tab.
+ */
+export const openQuotationPrint = (url: string) => {
+  if (typeof window === 'undefined') return;
+  const isMobile =
+    Capacitor.isNativePlatform() ||
+    // @ts-ignore
+    Boolean((window as any).median || (window as any).gonative) ||
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    window.innerWidth < 768;
+
+  if (isMobile) {
+    window.location.href = url;
+  } else {
+    const win = window.open(url, '_blank');
+    if (!win) {
+      window.location.href = url;
+    }
+  }
+};
+
+/**
+ * Universal PDF downloader and native share trigger.
+ * Fixes the issue where blob downloads fail silently inside Android / iOS WebViews.
+ */
+export const shareOrDownloadPdfBlob = async (
+  blob: Blob,
+  filename: string,
+  title: string = 'Quotation PDF'
+): Promise<boolean> => {
+  const safeFilename = filename.replace(/[^\w.-]/g, '_');
+
+  // 1. Capacitor Native Platform (Android / iOS APK)
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const { Filesystem, Directory } = await import('@capacitor/filesystem');
+      const { Share } = await import('@capacitor/share');
+
+      const base64Data = await blobToBase64(blob);
+
+      // Save to Cache so Android system share sheet / print can read it
+      await Filesystem.writeFile({
+        path: safeFilename,
+        data: base64Data,
+        directory: Directory.Cache
+      });
+
+      const uriResult = await Filesystem.getUri({
+        directory: Directory.Cache,
+        path: safeFilename
+      });
+
+      if (uriResult?.uri) {
+        await Share.share({
+          title,
+          files: [uriResult.uri],
+          dialogTitle: `Share or Print ${title}`
+        });
+        return true;
+      }
+    } catch (nativeErr: any) {
+      if (nativeErr?.name === 'AbortError' || nativeErr?.message?.includes('canceled') || nativeErr?.message?.includes('cancelled')) {
+        return true;
+      }
+      console.warn('Capacitor native PDF share failed, trying fallbacks:', nativeErr);
+    }
+  }
+
+  // 2. Median / GoNative Android app wrapper
+  // @ts-ignore
+  if (typeof window !== 'undefined' && ((window as any).median?.share || (window as any).gonative?.share)) {
+    try {
+      const base64Data = await blobToBase64(blob);
+      const median = (window as any).median || (window as any).gonative;
+      if (median.share?.downloadFile) {
+        const dataUri = `data:application/pdf;base64,${base64Data}`;
+        await median.share.downloadFile({ url: dataUri, open: true });
+        return true;
+      }
+    } catch (medianErr) {
+      console.warn('Median downloadFile failed:', medianErr);
+    }
+  }
+
+  // 3. Web Share API with File (Mobile Chrome / Safari on iOS / Android)
+  if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare) {
+    try {
+      const file = new File([blob], safeFilename, { type: 'application/pdf' });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title,
+          text: `Here is your quotation: ${safeFilename}`
+        });
+        return true;
+      }
+    } catch (shareErr: any) {
+      if (shareErr?.name === 'AbortError') return true;
+      console.warn('Web Share failed, falling back to download:', shareErr);
+    }
+  }
+
+  // 4. Standard Browser Blob Download
+  try {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = safeFilename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 1000);
+    return true;
+  } catch (err) {
+    console.error('Browser download failed:', err);
+    return false;
+  }
+};
+

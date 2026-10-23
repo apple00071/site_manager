@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { FiX, FiPlus, FiTrash2, FiPrinter, FiSave, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { openQuotationPrint } from '@/lib/shareUtils';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -439,8 +440,8 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
       }
 
       onSaved(finalAmount, data.data ? { id: data.data.id, version: data.data.version || 1 } : undefined);
-      // Open print in new tab
-      window.open(`/quotations/${data.data.id}/print`, '_blank');
+      // Open print safely on mobile and desktop
+      openQuotationPrint(`/quotations/${data.data.id}/print`);
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -604,33 +605,6 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {existingQuotation && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <button
-                  type="button"
-                  style={{ ...styles.printBtn, padding: '6px 12px', fontSize: '12px' }}
-                  onClick={() => window.open(`/quotations/${existingQuotation.id}/print`, '_blank')}
-                  title="Print full quotation with rates & totals for client"
-                >
-                  <FiPrinter size={13} /> Print Client PDF
-                </button>
-                <button
-                  type="button"
-                  style={{
-                    ...styles.printBtn,
-                    background: '#4c1d95',
-                    borderColor: '#7c3aed',
-                    color: '#e9d5ff',
-                    padding: '6px 12px',
-                    fontSize: '12px'
-                  }}
-                  onClick={() => window.open(`/quotations/${existingQuotation.id}/print?designer=1`, '_blank')}
-                  title="Print scope & dimensions for designer (rates & amounts hidden)"
-                >
-                  🎨 Designer Copy (No Prices)
-                </button>
-              </div>
-            )}
             <button onClick={onClose} style={styles.closeBtn}><FiX size={20} /></button>
           </div>
         </div>
@@ -1188,7 +1162,7 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                 <button
                   type="button"
                   style={styles.printBtn}
-                  onClick={() => window.open(`/quotations/${existingQuotation.id}/print`, '_blank')}
+                  onClick={() => openQuotationPrint(`/quotations/${existingQuotation.id}/print`)}
                   title="Print full quotation with prices for client"
                 >
                   <FiPrinter size={14} /> Client PDF (v{existingQuotation.version})
@@ -1201,7 +1175,7 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                     borderColor: '#7c3aed',
                     color: '#e9d5ff'
                   }}
-                  onClick={() => window.open(`/quotations/${existingQuotation.id}/print?designer=1`, '_blank')}
+                  onClick={() => openQuotationPrint(`/quotations/${existingQuotation.id}/print?designer=1`)}
                   title="Print scope of work for designer (rates & amounts hidden)"
                 >
                   🎨 Designer Copy (No Prices)

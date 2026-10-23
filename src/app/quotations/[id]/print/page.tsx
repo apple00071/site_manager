@@ -4,6 +4,7 @@ import { useEffect, useState, Fragment, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Script from 'next/script';
 import { LOGO_BASE64 } from '@/lib/reports/logoBase64';
+import { shareOrDownloadPdfBlob } from '@/lib/shareUtils';
 
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
@@ -169,17 +170,10 @@ export default function QuotationPrintPage() {
 
       const file = new File([pdfBlob], filename, { type: 'application/pdf' });
 
-      if (window.innerWidth < 800) {
+      // Automatically trigger universal native share/download (works on Android APK, iOS, and browsers)
+      const shared = await shareOrDownloadPdfBlob(pdfBlob, filename, lead?.client_name ? `Quotation — ${lead.client_name}` : 'Quotation PDF');
+      if (!shared && window.innerWidth < 800) {
         setPdfReadyFile(file);
-      } else {
-        const url = URL.createObjectURL(pdfBlob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        URL.revokeObjectURL(url);
       }
     } catch (err) {
       console.error('PDF generation error:', err);
@@ -277,28 +271,7 @@ export default function QuotationPrintPage() {
 
   const executeNativeShare = async () => {
     if (!pdfReadyFile) return;
-    
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfReadyFile] })) {
-      try {
-        await navigator.share({
-          files: [pdfReadyFile],
-          title: pdfReadyFile.name,
-          text: 'Here is the interior quotation PDF.'
-        });
-      } catch (shareErr) {
-        console.log('Share cancelled or failed', shareErr);
-      }
-    } else {
-      // Fallback
-      const url = URL.createObjectURL(pdfReadyFile);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = pdfReadyFile.name;
-      document.body.appendChild(a);
-      a.click();
-      URL.revokeObjectURL(url);
-    }
+    await shareOrDownloadPdfBlob(pdfReadyFile, pdfReadyFile.name, pdfReadyFile.name);
     setPdfReadyFile(null); // Close modal
   };
 
@@ -508,7 +481,7 @@ export default function QuotationPrintPage() {
 
       <Script 
         src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" 
-        strategy="lazyOnload" 
+        strategy="afterInteractive" 
       />
 
       <div className="no-print" style={{ maxWidth: '794px', margin: '0 auto', padding: '10px 16px', background: '#fff', borderBottom: '1px solid #eee' }}>
@@ -594,10 +567,17 @@ export default function QuotationPrintPage() {
               🖨 Print / Save PDF
             </button>
             <button
-              onClick={() => window.close()}
-              style={{ background: '#eee', border: 'none', borderRadius: '6px', padding: '8px 12px', cursor: 'pointer', fontSize: '12px' }}
+              onClick={() => {
+                if (window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  window.location.href = '/dashboard/crm';
+                }
+              }}
+              style={{ background: '#eee', border: 'none', borderRadius: '6px', padding: '8px 14px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+              title="Return to CRM"
             >
-              Close
+              ← Back to CRM
             </button>
           </div>
         </div>
