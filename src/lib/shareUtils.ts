@@ -194,3 +194,124 @@ export const shareToWhatsAppUtil = async (
     }
   }
 };
+
+/**
+ * Universal text / note sharing function.
+ * Works seamlessly on Android / iOS Capacitor native apps, Median webviews, and mobile/desktop browsers.
+ */
+export const shareTextOrNote = async ({
+  title,
+  text,
+  dialogTitle = 'Share Note'
+}: {
+  title?: string;
+  text: string;
+  dialogTitle?: string;
+}): Promise<{ success: boolean; method: string }> => {
+  const cleanTitle = title ? title.trim() : '';
+  const cleanText = text ? text.trim() : '';
+  const fullMessage = cleanTitle ? `*${cleanTitle}*\n\n${cleanText}` : cleanText;
+
+  // 1. Capacitor Native Platform (Android / iOS APK)
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const { Share } = await import('@capacitor/share');
+      await Share.share({
+        title: cleanTitle || 'Note',
+        text: fullMessage,
+        dialogTitle
+      });
+      return { success: true, method: 'capacitor' };
+    } catch (err: any) {
+      if (err?.name === 'AbortError' || err?.message?.includes('canceled') || err?.message?.includes('cancelled')) {
+        return { success: true, method: 'cancelled' };
+      }
+      console.warn('Capacitor native share failed, falling back:', err);
+    }
+  }
+
+  // 2. Median / GoNative Android wrapper
+  // @ts-ignore
+  if (typeof window !== 'undefined' && ((window as any).median?.share || (window as any).gonative?.share)) {
+    try {
+      const medianShare = (window as any).median?.share || (window as any).gonative?.share;
+      if (typeof medianShare?.shareText === 'function') {
+        medianShare.shareText({ text: fullMessage });
+        return { success: true, method: 'median' };
+      }
+    } catch (medianErr) {
+      console.warn('Median shareText failed:', medianErr);
+    }
+  }
+
+  // 3. Web Share API (Mobile Chrome / Safari)
+  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    try {
+      await navigator.share({
+        title: cleanTitle || 'Note',
+        text: fullMessage
+      });
+      return { success: true, method: 'web-share' };
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        return { success: true, method: 'cancelled' };
+      }
+      console.warn('Web Share API failed, falling back:', err);
+    }
+  }
+
+  // 4. Clipboard fallback
+  if (typeof navigator !== 'undefined' && navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(fullMessage);
+      return { success: true, method: 'clipboard' };
+    } catch (e) {}
+  }
+
+  return { success: false, method: 'failed' };
+};
+
+/**
+ * Universal WhatsApp direct share.
+ * In Android / iOS native apps, triggers the native share dialog targeted for WhatsApp,
+ * or opens the whatsapp:// protocol or web link.
+ */
+export const shareToWhatsAppDirect = async (text: string, title?: string) => {
+  const cleanTitle = title ? title.trim() : '';
+  const cleanText = text ? text.trim() : '';
+  const fullMessage = cleanTitle ? `*${cleanTitle}*\n\n${cleanText}` : cleanText;
+  const encoded = encodeURIComponent(fullMessage);
+
+  // 1. Capacitor Native Platform (Android / iOS APK)
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const { Share } = await import('@capacitor/share');
+      await Share.share({
+        title: cleanTitle || 'Note',
+        text: fullMessage,
+        dialogTitle: 'Share via WhatsApp'
+      });
+      return;
+    } catch (err: any) {
+      if (err?.name === 'AbortError' || err?.message?.includes('canceled') || err?.message?.includes('cancelled')) {
+        return;
+      }
+    }
+  }
+
+  // 2. Direct WhatsApp intent / URL
+  const waScheme = `whatsapp://send?text=${encoded}`;
+  const waWeb = `https://api.whatsapp.com/send?text=${encoded}`;
+
+  if (typeof window !== 'undefined') {
+    try {
+      // In mobile browser, whatsapp:// launches native WhatsApp app directly
+      window.location.href = waScheme;
+      setTimeout(() => {
+        window.open(waWeb, '_blank');
+      }, 700);
+    } catch {
+      window.open(waWeb, '_blank');
+    }
+  }
+};

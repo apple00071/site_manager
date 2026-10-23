@@ -8,6 +8,7 @@ import {
   FiShare2, FiCheckSquare, FiSquare, FiList
 } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
+import { shareTextOrNote, shareToWhatsAppDirect } from '@/lib/shareUtils';
 
 interface Note {
   id: string;
@@ -468,36 +469,24 @@ export default function NotepadDrawer({ isOpen, onClose }: NotepadDrawerProps) {
     document.body.removeChild(element);
   };
 
-  // WhatsApp Share
-  const handleShareWhatsApp = () => {
+  // WhatsApp Share (Native Android / Scheme / Web fallback)
+  const handleShareWhatsApp = async () => {
     if (!activeNote) return;
-    const title = activeNote.title ? `*${activeNote.title.trim()}*\n\n` : '';
-    const text = `${title}${activeNote.content.trim()}`;
-    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
+    await shareToWhatsAppDirect(activeNote.content, activeNote.title);
   };
 
-  // Native Share to any app (Email, WhatsApp, Slack, etc.)
+  // Native Share to any app (Android Native Share Sheet / Web Share / Clipboard fallback)
   const handleShareNative = async () => {
     if (!activeNote) return;
-    const title = activeNote.title ? activeNote.title.trim() : 'Note';
-    const text = activeNote.content.trim();
-    const sharePayload = {
-      title,
-      text: `*${title}*\n\n${text}`
-    };
+    const res = await shareTextOrNote({
+      title: activeNote.title,
+      text: activeNote.content,
+      dialogTitle: `Share ${activeNote.title || 'Note'}`
+    });
 
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share(sharePayload);
-      } catch (err: any) {
-        if (err.name !== 'AbortError') {
-          handleCopyNote();
-        }
-      }
-    } else {
+    if (res.method === 'clipboard') {
       handleCopyNote();
-      alert('Note copied to clipboard! You can paste it into WhatsApp or any other app.');
+      alert('Note copied to clipboard! You can paste it into any app.');
     }
   };
 
