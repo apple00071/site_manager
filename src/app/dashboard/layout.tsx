@@ -336,6 +336,18 @@ function DashboardLayoutContent({
                 <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Design Status</span>
               </Link>
             )}
+            {hasAnyPermission(['projects.view', 'projects.view_all', 'designs.daily_status', 'updates.view']) && (
+              <Link
+                href="/dashboard/reports"
+                className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
+                onClick={() => setSidebarOpen(false)}
+                title="Reports"
+                id="sidebar-reports"
+              >
+                <FiFileText className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
+                <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Reports</span>
+              </Link>
+            )}
             {hasPermission('tasks.view') && (
               <Link
                 href="/dashboard/tasks"
