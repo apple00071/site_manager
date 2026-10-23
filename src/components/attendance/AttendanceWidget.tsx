@@ -74,7 +74,8 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
         try {
             let coords: { latitude: number; longitude: number } | null = null;
             try {
-                coords = await acquireLocation({ forceFresh: true });
+                // Instantly reuses warm GPS fix from app startup or fetches resiliently
+                coords = await acquireLocation({ timeout: 12000 });
                 if (!coords?.latitude || !coords?.longitude) {
                     throw new Error('LOCATION_UNAVAILABLE');
                 }

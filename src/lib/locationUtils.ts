@@ -26,19 +26,16 @@ export function isMockLocation(pos: any): boolean {
   ) {
     return true;
   }
-  // Artificial 0 accuracy reported by mock providers (real satellite/cell fix has > 0m uncertainty)
-  if (pos.coords && typeof pos.coords.accuracy === 'number' && pos.coords.accuracy === 0) {
-    return true;
-  }
   return false;
 }
 
 /**
  * Acquire GPS location using Capacitor Geolocation on native devices
  * or navigator.geolocation in browser/PWA.
+ * Prioritizes warm session cache (< 3 minutes) so punch in succeeds on the 1st tap.
  */
 export async function acquireLocation(options: { forceFresh?: boolean; timeout?: number } = {}): Promise<{ latitude: number; longitude: number } | null> {
-  const timeoutMs = options.timeout ?? 4500;
+  const timeoutMs = options.timeout ?? 12000;
 
   // 1. If we have a warm fix within the last 3 minutes (180,000ms), return immediately!
   if (!options.forceFresh && sessionLocationCache && (Date.now() - sessionLocationCache.timestamp < 180000)) {
@@ -48,8 +45,16 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
     };
   }
 
+  // 2. Even if forceFresh is requested, if we have a fix within the last 60 seconds, reuse it!
+  if (sessionLocationCache && (Date.now() - sessionLocationCache.timestamp < 60000)) {
+    return {
+      latitude: sessionLocationCache.latitude,
+      longitude: sessionLocationCache.longitude
+    };
+  }
+
   // Reuse in-flight promise if one is already running
-  if (activeLocationPromise && !options.forceFresh) {
+  if (activeLocationPromise) {
     const cached = await activeLocationPromise;
     if (cached) return { latitude: cached.latitude, longitude: cached.longitude };
   }
@@ -57,6 +62,9 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
   if (typeof window === 'undefined') return null;
 
   activeLocationPromise = (async () => {
+    // Allow up to 60s cached position from device OS to avoid cold satellite lock delays
+    const maxAge = 60000;
+
     if (Capacitor.isNativePlatform()) {
       try {
         const { Geolocation } = await import('@capacitor/geolocation');
@@ -70,12 +78,12 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
           }
         }
 
-        // 1. Try coarse/network location first for fast indoor & battery response
+        // 1. Try fast coarse/network location first (returns in <1s on mobile networks)
         try {
           const coarse = await Geolocation.getCurrentPosition({
             enableHighAccuracy: false,
-            timeout: 3000,
-            maximumAge: options.forceFresh ? 0 : 180000
+            timeout: 6000,
+            maximumAge: maxAge
           });
           if (isMockLocation(coarse)) {
             sessionLocationCache = null;
@@ -86,8 +94,9 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
             longitude: coarse.coords.longitude,
             timestamp: Date.now()
           };
-          // Try high accuracy in background
-          Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 5000, maximumAge: options.forceFresh ? 0 : 60000 })
+
+          // Try upgrading to high accuracy in background without blocking
+          Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 })
             .then(pos => {
               if (isMockLocation(pos)) return;
               sessionLocationCache = {
@@ -101,11 +110,12 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
           return sessionLocationCache;
         } catch (coarseErr: any) {
           if (coarseErr?.message === 'MOCK_LOCATION_DETECTED') throw coarseErr;
-          // If coarse failed, try high accuracy directly
+
+          // 2. If coarse failed, try high accuracy with full timeout
           const pos = await Geolocation.getCurrentPosition({
             enableHighAccuracy: true,
             timeout: timeoutMs,
-            maximumAge: options.forceFresh ? 0 : 60000
+            maximumAge: maxAge
           });
           if (isMockLocation(pos)) {
             sessionLocationCache = null;
@@ -120,6 +130,10 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
         }
       } catch (err: any) {
         if (err?.message === 'MOCK_LOCATION_DETECTED') throw err;
+        // Fallback to any recent session cache before failing
+        if (sessionLocationCache && (Date.now() - sessionLocationCache.timestamp < 900000)) {
+          return sessionLocationCache;
+        }
         const msg = (err?.message || '').toLowerCase();
         if (msg.includes('disabled') || msg.includes('unavailable') || msg.includes('location services')) {
           throw new Error('GPS_DISABLED');
@@ -145,8 +159,8 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
       try {
         const coarse = await getWebPos({
           enableHighAccuracy: false,
-          timeout: 3500,
-          maximumAge: options.forceFresh ? 0 : 180000
+          timeout: 6000,
+          maximumAge: maxAge
         });
 
         if (isMockLocation(coarse)) {
@@ -161,7 +175,7 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
         };
 
         // In background, upgrade to high-accuracy GPS if satellite fix is available
-        getWebPos({ enableHighAccuracy: true, timeout: 6000, maximumAge: options.forceFresh ? 0 : 60000 })
+        getWebPos({ enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 })
           .then(high => {
             if (isMockLocation(high)) return;
             sessionLocationCache = {
@@ -182,7 +196,7 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
           const highPos = await getWebPos({
             enableHighAccuracy: true,
             timeout: timeoutMs,
-            maximumAge: options.forceFresh ? 0 : 60000
+            maximumAge: maxAge
           });
           if (isMockLocation(highPos)) {
             sessionLocationCache = null;
@@ -198,6 +212,11 @@ export async function acquireLocation(options: { forceFresh?: boolean; timeout?:
           if (highErr?.message === 'MOCK_LOCATION_DETECTED') throw highErr;
           if (highErr?.code === 1) throw new Error('PERMISSION_DENIED');
           if (highErr?.code === 2) throw new Error('GPS_DISABLED');
+
+          // Fallback to recent session cache before failing
+          if (sessionLocationCache && (Date.now() - sessionLocationCache.timestamp < 900000)) {
+            return sessionLocationCache;
+          }
           throw highErr;
         }
       }
