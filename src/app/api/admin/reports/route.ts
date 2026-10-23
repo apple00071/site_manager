@@ -6,9 +6,13 @@ export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
   try {
-    const { user: authUser, error: authError } = await getAuthUser();
+    const { user: authUser, error: authError, role } = await getAuthUser();
     if (authError || !authUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!authUser.isAdmin && role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden. Admin access required.' }, { status: 403 });
     }
 
     if (!supabaseAdmin) {

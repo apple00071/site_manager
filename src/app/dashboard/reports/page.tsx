@@ -17,10 +17,10 @@ import {
   FiMapPin, 
   FiLayers, 
   FiFolder,
-  FiChevronRight,
-  FiCopy
+  FiChevronRight
 } from 'react-icons/fi';
 import { useToast } from '@/components/ui/Toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AvailableUser {
   id: string;
@@ -156,6 +156,7 @@ const getPresetDates = (preset: PresetType): { start: string; end: string } => {
 
 export default function ReportsPage() {
   const { showToast } = useToast();
+  const { isAdmin, isLoading: authLoading } = useAuth();
   const [roleFilter, setRoleFilter] = useState<'all' | 'site_engineer' | 'designer'>('all');
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
   const [datePreset, setDatePreset] = useState<PresetType>('last_7_days');
@@ -179,6 +180,7 @@ export default function ReportsPage() {
 
   // Fetch report data from API
   const fetchReport = useCallback(async () => {
+    if (!isAdmin) return;
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -201,11 +203,13 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [roleFilter, selectedUserId, startDate, endDate, showToast]);
+  }, [isAdmin, roleFilter, selectedUserId, startDate, endDate, showToast]);
 
   useEffect(() => {
-    fetchReport();
-  }, [fetchReport]);
+    if (!authLoading && isAdmin) {
+      fetchReport();
+    }
+  }, [authLoading, isAdmin, fetchReport]);
 
   // Copy Executive Summary for WhatsApp / Sharing
   const copyWhatsAppSummary = () => {
@@ -249,6 +253,37 @@ export default function ReportsPage() {
     if (roleFilter === 'all') return reportData.availableUsers;
     return reportData.availableUsers.filter(u => u.type === roleFilter);
   }, [reportData?.availableUsers, roleFilter]);
+
+  if (authLoading) {
+    return (
+      <div className="py-24 flex flex-col items-center justify-center space-y-3">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-yellow-500" />
+        <p className="text-xs font-bold text-gray-500">Checking credentials...</p>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="py-24 flex flex-col items-center justify-center text-center space-y-4">
+        <div className="w-14 h-14 rounded-2xl bg-rose-50 border border-rose-200/80 flex items-center justify-center text-rose-600 shadow-2xs">
+          <FiAlertTriangle className="w-7 h-7 text-rose-600" />
+        </div>
+        <div>
+          <h2 className="text-lg font-black text-gray-900">Admin Access Required</h2>
+          <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto font-medium">
+            This performance reporting dashboard is restricted to system administrators only.
+          </p>
+        </div>
+        <Link
+          href="/dashboard"
+          className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
+        >
+          Return to Dashboard
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-12 text-left">
