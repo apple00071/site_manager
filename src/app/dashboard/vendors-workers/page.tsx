@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useBranch } from '@/contexts/BranchContext';
 import {
   FiTruck,
   FiUsers,
@@ -59,6 +60,7 @@ const TRADE_FILTERS = [
 export default function VendorsWorkersPage() {
   const { setTitle, setSubtitle } = useHeaderTitle();
   const { user } = useAuth();
+  const { currentBranch } = useBranch();
   const { hasAnyPermission, isLoading: permLoading } = useUserPermissions();
   const router = useRouter();
   const canView = hasAnyPermission(['vendors.view', 'workers.view', 'suppliers.view', 'suppliers.create']);
@@ -104,22 +106,24 @@ export default function VendorsWorkersPage() {
     else setLoading(true);
 
     try {
+      const branchParam = currentBranch !== 'all' ? `?branch=${encodeURIComponent(currentBranch)}` : '';
+
       // 1. Fetch Workers
-      const workersRes = await fetch('/api/contract-workers');
+      const workersRes = await fetch(`/api/contract-workers${branchParam}`);
       const workersData = await workersRes.json();
       if (workersRes.ok && workersData.workers) {
         setWorkers(workersData.workers);
       }
 
       // 2. Fetch Vendors (Suppliers)
-      const vendorsRes = await fetch('/api/suppliers');
+      const vendorsRes = await fetch(`/api/suppliers${branchParam}`);
       const vendorsData = await vendorsRes.json();
       if (vendorsRes.ok && vendorsData.suppliers) {
         setVendors(vendorsData.suppliers);
       }
 
       // 3. Fetch Projects for allocation options
-      const projectsRes = await fetch('/api/admin/projects');
+      const projectsRes = await fetch(`/api/admin/projects${branchParam}`);
       if (projectsRes.ok) {
         const projData = await projectsRes.json();
         if (Array.isArray(projData)) {
@@ -132,7 +136,7 @@ export default function VendorsWorkersPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [currentBranch]);
 
   useEffect(() => {
     fetchData();

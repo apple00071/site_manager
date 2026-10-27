@@ -127,6 +127,7 @@ export const STAGE_SUB_TABS: Record<string, SubTab[]> = {
         { id: 'workers', label: 'Vendor Details' },
     ],
     requirement: [
+        { id: 'quotation', label: 'Quotation', permission: 'requirements.view' },
         { id: 'notes', label: 'Site Notes', permission: 'requirements.view' },
     ],
     design: [

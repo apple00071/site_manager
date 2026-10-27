@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { useToast } from '@/components/ui/Toast';
+import { useBranch } from '@/contexts/BranchContext';
 import { formatDateIST } from '@/lib/dateUtils';
 import RecordPaymentModal from '@/components/finance/RecordPaymentModal';
 import RecordExpenseModal from '@/components/finance/RecordExpenseModal';
@@ -44,6 +45,7 @@ const getProjectStatusConfig = (status?: string | null) => {
 
 export default function FinanceOverviewPage() {
   const { user } = useAuth();
+  const { currentBranch } = useBranch();
   const { hasPermission, isAdmin, isLoading: permLoading } = useUserPermissions();
   const { setTitle, setSubtitle } = useHeaderTitle();
   const { showToast } = useToast();
@@ -96,9 +98,10 @@ export default function FinanceOverviewPage() {
   const loadData = async () => {
     try {
       setLoading(true);
+      const branchParam = currentBranch !== 'all' ? `?branch=${encodeURIComponent(currentBranch)}` : '';
       const [overviewRes, paymentsRes] = await Promise.all([
-        fetch('/api/finance/overview'),
-        fetch('/api/finance/payments'),
+        fetch(`/api/finance/overview${branchParam}`),
+        fetch(`/api/finance/payments${branchParam}`),
       ]);
 
       if (overviewRes.ok) {
@@ -137,7 +140,7 @@ export default function FinanceOverviewPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [currentBranch]);
 
   const handleDeletePayment = async (paymentId: string) => {
     if (!window.confirm('Are you sure you want to delete this payment record? This cannot be undone.')) {

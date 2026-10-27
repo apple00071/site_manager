@@ -4,6 +4,7 @@ import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
 import { attachProjectCodes } from '@/lib/projectUtils';
 import { NotificationService } from '@/lib/notificationService';
 import { parseProjectTasks } from '@/lib/designTaskUtils';
+import { getActiveBranch } from '@/lib/branch-helper';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,18 +59,26 @@ export async function GET(request: NextRequest) {
         created_at,
         assigned_employee_id,
         designer_id,
+        branch,
+        creator:created_by(
+          id,
+          full_name,
+          branch
+        ),
         assigned_employee:assigned_employee_id(
           id,
           email,
           name:username,
           full_name,
-          designation
+          designation,
+          branch
         ),
         designer:designer_id(
           id,
           email,
           username,
-          full_name
+          full_name,
+          branch
         )
       `)
       .order('created_at', { ascending: false });
@@ -106,7 +115,24 @@ export async function GET(request: NextRequest) {
     }));
     const projects = await attachProjectCodes(rawWithColor);
 
-    return NextResponse.json({ projects, isManagement });
+    const activeBranch = getActiveBranch(request, user);
+    let filteredProjects = projects;
+    if (activeBranch !== 'all') {
+      filteredProjects = projects.filter((p: any) => {
+        if (p.branch) return p.branch === activeBranch;
+        if (p.creator?.branch) return p.creator.branch === activeBranch;
+        if (p.assigned_employee?.branch) return p.assigned_employee.branch === activeBranch;
+        if (p.designer?.branch) return p.designer.branch === activeBranch;
+        const text = `${p.title || ''} ${p.customer_name || ''} ${p.project_notes || ''}`.toLowerCase();
+        if (text.includes(activeBranch.toLowerCase())) return true;
+        if (activeBranch === 'Kukatpally') {
+          return !text.includes('as rao nagar');
+        }
+        return false;
+      });
+    }
+
+    return NextResponse.json({ projects: filteredProjects, isManagement });
   } catch (err: any) {
     console.error('Unexpected error in GET /api/daily-status:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

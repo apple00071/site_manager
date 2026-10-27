@@ -1,11 +1,8 @@
 'use client';
 
-import { Inter } from 'next/font/google';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading: loading } = useAuth();
@@ -21,7 +18,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   }, [user, loading, pathname, router]);
 
   return (
-    <div className={`min-h-screen bg-[#fafaf8] ${inter.className}`}>
+    <div className="min-h-screen bg-[#fafaf8] font-sans">
       {children}
     </div>
   );

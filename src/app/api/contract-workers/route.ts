@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { getActiveBranch } from '@/lib/branch-helper';
 
 export const dynamic = 'force-dynamic';
 
@@ -91,7 +92,8 @@ export async function GET(request: NextRequest) {
       .select(`
         *,
         vendor:suppliers(id, name, contact_phone, trade_category, vendor_type),
-        assigned_project:projects(id, title, status)
+        assigned_project:projects(id, title, status, branch, creator:created_by(id, full_name, branch)),
+        creator:created_by(id, full_name, branch)
       `)
       .order('created_at', { ascending: false });
 
@@ -128,7 +130,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch contract workers', details: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ workers: (data || []).map(parseWorkerMeta) });
+    const activeBranch = getActiveBranch(request, user);
+    let workers = (data || []).map(parseWorkerMeta);
+    if (activeBranch !== 'all') {
+      workers = workers.filter((w: any) => {
+        if (w.assigned_project?.branch) return w.assigned_project.branch === activeBranch;
+        if (w.assigned_project?.creator?.branch) return w.assigned_project.creator.branch === activeBranch;
+        if (w.creator?.branch) return w.creator.branch === activeBranch;
+        const text = `${w.city || ''} ${w.address || ''} ${w.assigned_project?.title || ''}`.toLowerCase();
+        if (text.includes(activeBranch.toLowerCase())) return true;
+        if (activeBranch === 'Kukatpally') return !text.includes('as rao nagar');
+        return false;
+      });
+    }
+
+    return NextResponse.json({ workers });
   } catch (error: any) {
     console.error('Unexpected error in contract-workers GET:', error);
     return NextResponse.json({ error: 'Internal server error', details: error?.message }, { status: 500 });

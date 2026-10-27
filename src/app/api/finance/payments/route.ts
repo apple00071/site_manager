@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, getAuthUser } from '@/lib/supabase-server';
 import { verifyPermission } from '@/lib/rbac';
 import { PERMISSION_NODES } from '@/lib/rbac-constants';
+import { getActiveBranch } from '@/lib/branch-helper';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -67,6 +68,12 @@ export async function GET(request: NextRequest) {
           title,
           project_budget,
           customer_name,
+          branch,
+          creator:created_by (
+            id,
+            full_name,
+            branch
+          ),
           client:client_id (
             id,
             name,
@@ -110,6 +117,23 @@ export async function GET(request: NextRequest) {
         const ref = p.reference_number?.toLowerCase() || '';
         const inv = p.invoice_number?.toLowerCase() || '';
         return projectTitle.includes(q) || customerName.includes(q) || milestone.includes(q) || ref.includes(q) || inv.includes(q);
+      });
+    }
+
+    // Branch filter
+    const activeBranch = getActiveBranch(request, user);
+    if (activeBranch !== 'all') {
+      filtered = filtered.filter((p: any) => {
+        const proj = p.project;
+        if (!proj) return false;
+        if (proj.branch) return proj.branch === activeBranch;
+        if (proj.creator?.branch) return proj.creator.branch === activeBranch;
+        const text = `${proj.title || ''} ${proj.customer_name || ''}`.toLowerCase();
+        if (text.includes(activeBranch.toLowerCase())) return true;
+        if (activeBranch === 'Kukatpally') {
+          return !text.includes('as rao nagar');
+        }
+        return false;
       });
     }
 

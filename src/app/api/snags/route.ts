@@ -5,6 +5,7 @@ import { verifyPermission, hasAnyPermission } from '@/lib/rbac';
 import { PERMISSION_NODES } from '../../../lib/rbac-constants';
 import { NotificationService } from '@/lib/notificationService';
 import { sendSnagWhatsAppNotification } from '@/lib/whatsapp';
+import { getActiveBranch } from '@/lib/branch-helper';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,9 +69,9 @@ export async function GET(request: NextRequest) {
             .from('snags')
             .select(`
                 *,
-                created_by_user:users!snags_created_by_fkey(id, full_name),
-                assigned_to_user:users!snags_assigned_to_user_id_fkey(id, full_name),
-                project:projects(id, title)
+                created_by_user:users!snags_created_by_fkey(id, full_name, branch),
+                assigned_to_user:users!snags_assigned_to_user_id_fkey(id, full_name, branch),
+                project:projects(id, title, branch, creator:created_by(id, full_name, branch))
             `)
             .order('created_at', { ascending: false });
 
@@ -108,7 +109,26 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to fetch snags' }, { status: 500 });
         }
 
-        return NextResponse.json({ snags: data });
+        const activeBranch = getActiveBranch(request, user);
+        let filteredSnags = data || [];
+        if (activeBranch !== 'all' && !projectId) {
+            filteredSnags = filteredSnags.filter((s: any) => {
+                if (s.branch) return s.branch === activeBranch;
+                if (s.project?.branch) return s.project.branch === activeBranch;
+                if (s.project?.creator?.branch) return s.project.creator.branch === activeBranch;
+                // Prioritize assigned user: if admin created it, it belongs to the assigned employee's branch
+                if (s.assigned_to_user?.branch) return s.assigned_to_user.branch === activeBranch;
+                if (s.created_by_user?.branch) return s.created_by_user.branch === activeBranch;
+                const text = `${s.site_name || ''} ${s.location || ''} ${s.description || ''} ${s.project?.title || ''}`.toLowerCase();
+                if (text.includes(activeBranch.toLowerCase())) return true;
+                if (activeBranch === 'Kukatpally') {
+                    return !text.includes('as rao nagar');
+                }
+                return false;
+            });
+        }
+
+        return NextResponse.json({ snags: filteredSnags });
     } catch (error) {
         console.error('Unexpected error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -146,20 +166,37 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: permResult.message }, { status: 403 });
         }
 
+        const activeBranch = getActiveBranch(request, user);
+        const branchToSave = (body as any).branch || (activeBranch !== 'all' ? activeBranch : (user.branch || 'Kukatpally'));
+
+        const snagPayload: any = {
+            ...snagData,
+            project_id: project_id || null,
+            site_name: site_name || null,
+            customer_phone: customer_phone || null,
+            created_by: user.id,
+            assigned_to_user_id: assigned_to_user_id || null,
+            status: assigned_to_user_id ? 'assigned' : 'open',
+            branch: branchToSave,
+        };
+
         // Create Snag
-        const { data, error } = await supabaseAdmin
+        let { data, error } = await supabaseAdmin
             .from('snags')
-            .insert({
-                ...snagData,
-                project_id: project_id || null,
-                site_name: site_name || null,
-                customer_phone: customer_phone || null,
-                created_by: user.id,
-                assigned_to_user_id: assigned_to_user_id || null,
-                status: assigned_to_user_id ? 'assigned' : 'open',
-            })
+            .insert(snagPayload)
             .select()
             .single();
+
+        if (error && error.code === '42703') {
+            delete snagPayload.branch;
+            const retry = await supabaseAdmin
+                .from('snags')
+                .insert(snagPayload)
+                .select()
+                .single();
+            data = retry.data;
+            error = retry.error;
+        }
 
         if (error) {
             console.error('Error creating snag:', error);

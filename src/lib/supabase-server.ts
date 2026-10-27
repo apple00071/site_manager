@@ -46,6 +46,7 @@ export interface AuthUser {
   designation: string | null;
   full_name: string | null;
   username: string | null;
+  branch: string | null;
   /** All permission codes granted to this user's role (flat set for O(1) lookup). */
   permissionCodes: Set<string>;
   isAdmin: boolean;
@@ -90,6 +91,7 @@ export async function getAuthUser(): Promise<{
         designation,
         full_name,
         username,
+        branch,
         roles:role_id (
           name,
           role_permissions (
@@ -126,6 +128,7 @@ export async function getAuthUser(): Promise<{
       designation: userData?.designation || null,
       full_name: userData?.full_name || null,
       username: userData?.username || null,
+      branch: (userData as any)?.branch || authUser.user_metadata?.branch || 'Kukatpally',
       permissionCodes,
       isAdmin,
       user_metadata: authUser.user_metadata || {},

@@ -20,6 +20,7 @@ const createUserSchema = z.object({
   role_id: z.string().uuid('Invalid role ID').optional(), // New role system
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
+  branch: z.enum(['Kukatpally', 'AS Rao Nagar']).optional().default('Kukatpally'),
 });
 
 function generateTemporaryPassword(): string {
@@ -37,6 +38,7 @@ const updateUserSchema = z.object({
   role_id: z.string().uuid('Invalid role ID').optional(), // New role system
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
+  branch: z.enum(['Kukatpally', 'AS Rao Nagar']).optional(),
 });
 
 // GET handler for fetching users
@@ -108,7 +110,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
     }
 
-    return NextResponse.json(users);
+    const branchFilter = searchParams.get('branch');
+    let mappedUsers = (users || []).map((u: any) => ({
+      ...u,
+      branch: u.branch || 'Kukatpally',
+    }));
+
+    if (branchFilter && branchFilter !== 'all') {
+      mappedUsers = mappedUsers.filter((u: any) => u.branch === branchFilter);
+    }
+
+    return NextResponse.json(mappedUsers);
   } catch (error) {
     console.error('Unexpected error in GET /api/admin/users:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -139,14 +151,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const { email, username, full_name, designation, role, role_id, password, phone_number } = parsed.data;
+    const { email, username, full_name, designation, role, role_id, password, phone_number, branch } = parsed.data;
 
     const finalPassword =
       password && password.trim() !== ''
         ? password
         : generateTemporaryPassword();
 
-    console.log('Creating user:', { email, full_name, role });
+    console.log('Creating user:', { email, full_name, role, branch });
     console.log('Service role key exists:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
     console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
 
@@ -161,6 +173,7 @@ export async function POST(req: Request) {
           designation,
           role,
           username,
+          branch: branch || 'Kukatpally',
         },
       });
 
@@ -202,14 +215,26 @@ export async function POST(req: Request) {
         role_id: role_id || null,
         phone_number: phone_number || null,
         password_changed: false,
+        branch: branch || 'Kukatpally',
       };
       if (hasUsername) profile.username = username;
 
-      const { error: profileError } = await supabaseAdmin
+      let { error: profileError } = await supabaseAdmin
         .from('users')
         .upsert(profile, {
           onConflict: 'id'
         });
+
+      // Fallback if branch column is not migrated yet in public.users
+      if (profileError && profileError.code === '42703') {
+        delete profile.branch;
+        const retry = await supabaseAdmin
+          .from('users')
+          .upsert(profile, {
+            onConflict: 'id'
+          });
+        profileError = retry.error;
+      }
 
       if (profileError) {
         console.error('Error creating user profile:', profileError);
@@ -360,9 +385,9 @@ export async function PATCH(req: Request) {
       );
     }
 
-    const { id, email, username, full_name, designation, role, role_id, password, phone_number } = parsed.data;
+    const { id, email, username, full_name, designation, role, role_id, password, phone_number, branch } = parsed.data;
 
-    console.log('Updating user:', { id, email, full_name, role, role_id });
+    console.log('Updating user:', { id, email, full_name, role, role_id, branch });
 
     // Update user profile in database
     let hasUsername = true;
@@ -384,11 +409,22 @@ export async function PATCH(req: Request) {
       phone_number: phone_number || null,
     };
     if (hasUsername) profileUpdate.username = username;
+    if (branch) profileUpdate.branch = branch;
 
-    const { error: profileError } = await supabaseAdmin
+    let { error: profileError } = await supabaseAdmin
       .from('users')
       .update(profileUpdate)
       .eq('id', id);
+
+    // Fallback if branch column is not migrated yet in public.users
+    if (profileError && profileError.code === '42703' && profileUpdate.branch) {
+      delete profileUpdate.branch;
+      const retry = await supabaseAdmin
+        .from('users')
+        .update(profileUpdate)
+        .eq('id', id);
+      profileError = retry.error;
+    }
 
     if (profileError) {
       console.error('Error updating user profile:', profileError);
@@ -416,16 +452,19 @@ export async function PATCH(req: Request) {
     }
 
     // Update auth user metadata
+    const metadataUpdate: any = {
+      full_name,
+      designation,
+      role,
+      phone_number: phone_number || null,
+      username,
+    };
+    if (branch) metadataUpdate.branch = branch;
+
     const { error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(
       id,
       {
-        user_metadata: {
-          full_name,
-          designation,
-          role,
-          phone_number: phone_number || null,
-          username,
-        },
+        user_metadata: metadataUpdate,
       }
     );
 

@@ -17,6 +17,7 @@ import OfficeExpenseApprovalModal from '@/components/office-expenses/OfficeExpen
 import { formatDateIST } from '@/lib/dateUtils';
 import { DataTable, StatusBadge, CurrencyCell, Column } from '@/components/ui/DataTable';
 import { CustomDropdown } from '@/components/ui/CustomControls';
+import { useBranch } from '@/contexts/BranchContext';
 
 interface OfficeExpense {
     id: string;
@@ -50,6 +51,7 @@ export default function OfficeExpensesPage() {
     const searchParams = useSearchParams();
     const expenseIdParam = searchParams?.get('expenseId');
     const { user } = useAuth();
+    const { currentBranch } = useBranch();
     const { hasPermission, isAdmin, isLoading: permLoading } = useUserPermissions();
     const router = useRouter();
     const { setTitle, setSubtitle } = useHeaderTitle();
@@ -122,7 +124,8 @@ export default function OfficeExpensesPage() {
 
     // Load projects list for dropdown
     useEffect(() => {
-        fetch('/api/admin/projects')
+        const branchParam = currentBranch !== 'all' ? `?branch=${encodeURIComponent(currentBranch)}` : '';
+        fetch(`/api/admin/projects${branchParam}`)
             .then(r => r.ok ? r.json() : null)
             .then(data => {
                 const list = Array.isArray(data) ? data : data?.projects || [];
@@ -138,11 +141,11 @@ export default function OfficeExpensesPage() {
                 }));
             })
             .catch(err => console.error('Failed to load projects list in expenses page:', err));
-    }, []);
+    }, [currentBranch]);
 
     useEffect(() => {
         fetchExpenses();
-    }, [selectedMonth, selectedYear, selectedProject]);
+    }, [selectedMonth, selectedYear, selectedProject, currentBranch]);
 
     // Close menu on scroll or click outside
     useEffect(() => {
@@ -173,6 +176,9 @@ export default function OfficeExpensesPage() {
         try {
             setLoading(true);
             let url = `/api/office-expenses?month=${selectedMonth}&year=${selectedYear}`;
+            if (currentBranch !== 'all') {
+                url += `&branch=${encodeURIComponent(currentBranch)}`;
+            }
             if (selectedProject && selectedProject !== 'all') {
                 url += `&project_id=${selectedProject}`;
             }

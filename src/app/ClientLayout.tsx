@@ -7,6 +7,8 @@ import { ToastProvider } from '@/components/ui/Toast';
 import WomensDayPopup from '@/components/WomensDayPopup';
 import TelemetryTracker from '@/components/TelemetryTracker';
 
+import { BranchProvider } from '@/contexts/BranchContext';
+
 export default function ClientLayout({
   children,
 }: {
@@ -71,9 +73,11 @@ export default function ClientLayout({
     <ErrorBoundary>
       <ToastProvider>
         <AuthProvider>
-          <TelemetryTracker />
-          <WomensDayPopup />
-          {children}
+          <BranchProvider>
+            <TelemetryTracker />
+            <WomensDayPopup />
+            {children}
+          </BranchProvider>
         </AuthProvider>
       </ToastProvider>
     </ErrorBoundary>

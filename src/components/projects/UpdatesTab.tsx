@@ -1507,36 +1507,36 @@ export function UpdatesTab({
                         key={update.id}
                         className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
                       >
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div className="flex items-start gap-3 min-w-0">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+                        <div className="flex items-start justify-between gap-2 sm:gap-3 mb-3">
+                          <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 flex-1">
+                            <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold shrink-0 ${
                               update.sender_name && !update.user_id
                                 ? 'bg-yellow-100 text-yellow-700'
                                 : 'bg-gray-100 text-gray-700'
                             }`}>
                               {(update.sender_name || update.user?.full_name || '?').charAt(0).toUpperCase()}
                             </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-semibold text-gray-900 truncate">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 sm:gap-2">
+                                <h4 className="font-semibold text-sm sm:text-base text-gray-900 truncate">
                                   {update.sender_name && !update.user_id ? update.sender_name : update.user?.full_name || 'Team'}
                                 </h4>
                                 {update.sender_name && !update.user_id && (
-                                  <span className="text-[9px] font-bold text-yellow-700 bg-yellow-100 px-1.5 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0">Client</span>
+                                  <span className="text-[9px] font-bold text-yellow-700 bg-yellow-100 px-1.5 py-0.5 rounded-full uppercase tracking-wide shrink-0">Client</span>
                                 )}
                               </div>
-                              <p className="text-sm text-gray-500">{formatDateTimeReadable(update.created_at)}</p>
+                              <p className="text-xs text-gray-500 whitespace-nowrap mt-0.5">{formatDateTimeReadable(update.created_at)}</p>
                             </div>
                           </div>
                           
                           {/* Actions: Share, Edit, Delete */}
-                          <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 ml-1">
                             {/* Share to WhatsApp Button */}
                             <button
                               type="button"
                               onClick={() => shareToWhatsApp(update)}
                               disabled={sharingId !== null}
-                              className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-[#25D366] hover:bg-[#20ba5a] disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-full shadow-sm hover:shadow transition-all shrink-0 active:scale-95 cursor-pointer"
+                              className="w-7 h-7 sm:w-auto p-0 sm:px-2.5 sm:py-1.5 bg-[#25D366] hover:bg-[#20ba5a] disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-full shadow-xs hover:shadow transition-all shrink-0 flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer"
                               title="Share update to WhatsApp"
                             >
                               {sharingId === update.id ? (
@@ -1545,14 +1545,14 @@ export function UpdatesTab({
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                   </svg>
-                                  <span>Preparing...</span>
+                                  <span className="hidden sm:inline">Preparing...</span>
                                 </>
                               ) : (
                                 <>
                                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.197 1.489 4.921 1.49 5.518 0 10.017-4.493 10.02-10.007.003-2.67-1.03-5.178-2.91-7.06C16.745 1.696 14.25 1.662 11.995 1.66c-5.521 0-10.02 4.494-10.022 10.009-.001 1.767.469 3.493 1.36 5.011L2.247 21.91l4.4-1.756zM16.96 13.43c-.27-.135-1.597-.788-1.845-.878-.248-.09-.43-.135-.61.135-.18.27-.698.878-.857 1.058-.158.18-.317.202-.587.067-.27-.135-1.14-.42-2.172-1.34-.803-.715-1.344-1.6-1.503-1.87-.158-.27-.017-.417.118-.552.122-.122.27-.315.405-.472.135-.158.18-.27.27-.45.09-.18.045-.337-.023-.472-.068-.135-.61-1.47-.837-2.013-.218-.527-.44-.456-.6-.464-.166-.008-.356-.01-.546-.01-.19 0-.5.07-.76.36-.26.29-1.02 1-1.02 2.43 0 1.43 1.04 2.81 1.18 3 .14.19 2.05 3.13 4.96 4.385.69.3 1.23.48 1.65.61.697.22 1.33.19 1.83.12.558-.08 1.598-.65 1.828-1.28.23-.63.23-1.17.16-1.28-.07-.11-.25-.19-.52-.325z"/>
                                   </svg>
-                                  <span>Share</span>
+                                  <span className="hidden sm:inline">Share</span>
                                 </>
                               )}
                             </button>

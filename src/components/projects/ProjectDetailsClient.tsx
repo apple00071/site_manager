@@ -457,6 +457,7 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
                 projectId={project.id}
                 projectName={project.title}
                 activeSubTab={activeSubTab}
+                onSubTabChange={handleTabChange}
               />
             )}
 

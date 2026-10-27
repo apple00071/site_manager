@@ -26,6 +26,7 @@ const userSchema = z.object({
   designation: z.string().min(2, 'Designation is required').optional().or(z.literal('')),
   role_id: z.string().min(1, 'Please select a role'),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
+  branch: z.enum(['Kukatpally', 'AS Rao Nagar']).default('Kukatpally'),
   base_salary: z.coerce.number().min(0).default(0),
   hra: z.coerce.number().min(0).default(0),
   special_allowance: z.coerce.number().min(0).default(0),
@@ -52,6 +53,7 @@ export default function NewUserPage() {
     resolver: zodResolver(userSchema) as any,
     defaultValues: {
       role_id: '',
+      branch: 'Kukatpally',
       base_salary: 0,
       hra: 0,
       special_allowance: 0,
@@ -267,6 +269,30 @@ export default function NewUserPage() {
               {errors.role_id && (
                 <p className="mt-1 text-sm text-red-600">{errors.role_id.message}</p>
               )}
+            </div>
+
+            <div>
+              <label htmlFor="branch" className="block text-sm font-medium text-gray-700 mb-1">
+                Assigned Branch <span className="text-rose-500">*</span>
+              </label>
+              <Controller
+                name="branch"
+                control={control}
+                render={({ field }) => (
+                  <CustomDropdown
+                    value={field.value}
+                    onChange={field.onChange}
+                    options={[
+                      { id: 'Kukatpally', title: 'Kukatpally Branch' },
+                      { id: 'AS Rao Nagar', title: 'AS Rao Nagar Branch' },
+                    ]}
+                    placeholder="Select Branch"
+                  />
+                )}
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                The employee will only have access to operations and data under this branch.
+              </p>
             </div>
 
             <div className="pt-4 border-t border-gray-100">

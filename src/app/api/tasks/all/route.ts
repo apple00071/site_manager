@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { getActiveBranch } from '@/lib/branch-helper';
 
 // Force dynamic rendering - never cache task data
 export const dynamic = 'force-dynamic';
@@ -23,9 +24,9 @@ export async function GET(request: NextRequest) {
     const userId = user.id;
     const userRole = (user.user_metadata?.role || user.app_metadata?.role || 'employee') as string;
 
-    // Fetch users mapping for resolving assignee names
-    const { data: usersData } = await supabaseAdmin.from('users').select('id, full_name');
-    const userMap = new Map(usersData?.map((u: any) => [u.id, u.full_name]) || []);
+    // Fetch users mapping for resolving assignee names and branches
+    const { data: usersData } = await supabaseAdmin.from('users').select('id, full_name, branch');
+    const userMap = new Map<string, any>(usersData?.map((u: any) => [u.id, u]) || []);
 
     let tasks: any[] = [];
     let fetchError;
@@ -36,6 +37,14 @@ export async function GET(request: NextRequest) {
         .from('tasks')
         .select(`
           *,
+          project:projects!project_id(
+            id,
+            title,
+            customer_name,
+            status,
+            branch,
+            creator:created_by(id, full_name, branch)
+          ),
           step:project_steps(
             id,
             title,
@@ -43,7 +52,9 @@ export async function GET(request: NextRequest) {
               id,
               title,
               customer_name,
-              status
+              status,
+              branch,
+              creator:created_by(id, full_name, branch)
             )
           )
         `)
@@ -116,6 +127,14 @@ export async function GET(request: NextRequest) {
         .from('tasks')
         .select(`
           *,
+          project:projects!project_id(
+            id,
+            title,
+            customer_name,
+            status,
+            branch,
+            creator:created_by(id, full_name, branch)
+          ),
           step:project_steps(
             id,
             title,
@@ -123,7 +142,9 @@ export async function GET(request: NextRequest) {
               id,
               title,
               customer_name,
-              status
+              status,
+              branch,
+              creator:created_by(id, full_name, branch)
             )
           )
         `)
@@ -143,15 +164,19 @@ export async function GET(request: NextRequest) {
     }
 
     // Normalize and map assignee names in memory
-    const combinedTasks = tasks.map((t: any) => {
+    let combinedTasks = tasks.map((t: any) => {
       const rawAssignees = Array.isArray(t.assigned_to) 
         ? t.assigned_to 
         : (t.assigned_to ? [t.assigned_to] : []);
       
-      const assignedUsers = rawAssignees.map((id: string) => ({
-        id,
-        full_name: userMap.get(id) || 'Unknown User'
-      }));
+      const assignedUsers = rawAssignees.map((id: string) => {
+        const u = userMap.get(id);
+        return {
+          id,
+          full_name: u?.full_name || 'Unknown User',
+          branch: u?.branch || null
+        };
+      });
 
       return {
         ...t,
@@ -161,6 +186,33 @@ export async function GET(request: NextRequest) {
         assigned_users: assignedUsers
       };
     });
+
+    const activeBranch = getActiveBranch(request, user);
+    if (activeBranch !== 'all') {
+      combinedTasks = combinedTasks.filter((t: any) => {
+        const proj = t.project || t.step?.project;
+        if (proj) {
+          if (proj.branch) return proj.branch === activeBranch;
+          if (proj.creator?.branch) return proj.creator.branch === activeBranch;
+        }
+        // If no project or project branch unassigned, check ASSIGNEES FIRST!
+        const rawAssignees = Array.isArray(t.assigned_to) ? t.assigned_to : (t.assigned_to ? [t.assigned_to] : []);
+        if (rawAssignees.length > 0) {
+          const hasAssigneeInBranch = rawAssignees.some((id: string) => (userMap.get(id)?.branch || 'Kukatpally') === activeBranch);
+          if (hasAssigneeInBranch) return true;
+        }
+        // Then check creator
+        if (t.created_by) {
+          const creatorBranch = userMap.get(t.created_by)?.branch || 'Kukatpally';
+          if (creatorBranch === activeBranch) return true;
+        }
+        if (t.branch) return t.branch === activeBranch;
+        const text = `${t.title || ''} ${t.description || ''} ${t.location || ''}`.toLowerCase();
+        if (text.includes(activeBranch.toLowerCase())) return true;
+        if (activeBranch === 'Kukatpally') return !text.includes('as rao nagar');
+        return false;
+      });
+    }
 
     return NextResponse.json({ tasks: combinedTasks }, { status: 200 });
   } catch (error: any) {

@@ -72,12 +72,6 @@ export const PERMISSION_NODES = {
     UPDATES_EDIT: 'updates.edit',
     UPDATES_DELETE: 'updates.delete',
 
-    // Site Logs Permissions
-    SITE_LOGS_VIEW: 'site_logs.view',
-    SITE_LOGS_CREATE: 'site_logs.create',
-    SITE_LOGS_EDIT: 'site_logs.edit',
-    SITE_LOGS_DELETE: 'site_logs.delete',
-
     // Snag Permissions
     SNAGS_VIEW: 'snags.view',
     SNAGS_VIEW_ALL: 'snags.view_all',
@@ -146,12 +140,18 @@ export const PERMISSION_NODES = {
     CRM_VIEW: 'crm.view',
     CRM_MANAGE: 'crm.manage',
     CRM_EDIT_APPROVED: 'crm.edit_approved',
+    LEADS_CREATE: 'leads.create',
     RATE_CARD_VIEW: 'rate_card.view',
     RATE_CARD_MANAGE: 'rate_card.manage',
+    MARKETING_VIEW: 'marketing.view',
 
     // In-App Popups & Announcements
     POPUPS_VIEW: 'popups.view',
     POPUPS_MANAGE: 'popups.manage',
+
+    // Reports & Analytics Permissions
+    REPORTS_VIEW: 'reports.view',
+    REPORTS_EXPORT: 'reports.export',
 
 } as const;
 

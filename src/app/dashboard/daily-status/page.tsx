@@ -37,6 +37,7 @@ import { useToast } from '@/components/ui/Toast';
 import { formatDateIST, getTodayDateString } from '@/lib/dateUtils';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBranch } from '@/contexts/BranchContext';
 import {
   DailyTaskItem,
   ProjectTasksData,
@@ -994,6 +995,7 @@ function ReopenProjectModal({
 export default function DailyStatusPage() {
   const { hasPermission, hasAnyPermission, isAdmin, roleName, designation: permDesignation, isLoading: permLoading } = useUserPermissions();
   const { user } = useAuth();
+  const { currentBranch } = useBranch();
   const router = useRouter();
   const canAccess = hasAnyPermission(['designs.daily_status', 'daily_status.view', 'designs.view_all']);
   const canViewAll = hasPermission('designs.view_all');
@@ -1081,7 +1083,9 @@ export default function DailyStatusPage() {
   const fetchProjects = useCallback(async () => {
     setLoading(true);
     try {
-      const url = `/api/daily-status${statusFilter !== 'active' ? '?include_completed=true' : ''}`;
+      const branchParam = currentBranch !== 'all' ? `branch=${encodeURIComponent(currentBranch)}` : '';
+      const base = `/api/daily-status${statusFilter !== 'active' ? '?include_completed=true' : ''}`;
+      const url = branchParam ? (base.includes('?') ? `${base}&${branchParam}` : `${base}?${branchParam}`) : base;
       const res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) throw new Error('Failed to load projects');
       const data = await res.json();
@@ -1096,7 +1100,7 @@ export default function DailyStatusPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, showToast]);
+  }, [statusFilter, showToast, currentBranch]);
 
   useEffect(() => {
     fetchProjects();

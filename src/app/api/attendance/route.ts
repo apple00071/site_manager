@@ -4,6 +4,7 @@ import { verifyPermission } from '@/lib/rbac';
 import { PERMISSION_NODES } from '@/lib/rbac-constants';
 import { getTodayDateString } from '@/lib/dateUtils';
 import { NotificationService } from '@/lib/notificationService';
+import { getActiveBranch } from '@/lib/branch-helper';
 
 /**
  * GET: Fetch attendance logs
@@ -108,6 +109,15 @@ export async function GET(request: NextRequest) {
             });
         }
 
+        // Branch filter for admin / supervisors viewing all logs
+        const activeBranch = getActiveBranch(request, userResult.user);
+        if (canViewAll && activeBranch !== 'all' && !latestOnly && Array.isArray(responseData)) {
+            responseData = responseData.filter((row: any) => {
+                if (row.branch) return row.branch === activeBranch;
+                return (row.users?.branch || 'Kukatpally') === activeBranch;
+            });
+        }
+
         return NextResponse.json(responseData);
     } catch (error: any) {
         console.error('Unexpected error in GET /api/attendance:', error);
@@ -186,18 +196,33 @@ export async function POST(request: NextRequest) {
                 }
             }
 
-            const { data, error } = await supabaseAdmin
+            const insertData: any = {
+                user_id: userResult.user.id,
+                date: today,
+                check_in: new Date().toISOString(),
+                check_in_latitude: latitude,
+                check_in_longitude: longitude,
+                status: 'approved',
+                branch: userResult.user.branch || 'Kukatpally',
+            };
+
+            let { data, error } = await supabaseAdmin
                 .from('attendance')
-                .insert({
-                    user_id: userResult.user.id,
-                    date: today,
-                    check_in: new Date().toISOString(),
-                    check_in_latitude: latitude,
-                    check_in_longitude: longitude,
-                    status: 'approved'
-                })
+                .insert(insertData)
                 .select()
                 .single();
+
+            // Fallback if branch column is not migrated yet in public.attendance
+            if (error && error.code === '42703') {
+                delete insertData.branch;
+                const retry = await supabaseAdmin
+                    .from('attendance')
+                    .insert(insertData)
+                    .select()
+                    .single();
+                data = retry.data;
+                error = retry.error;
+            }
 
             if (error) {
                 console.error('Punch in error:', error);

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, getAuthUser } from '@/lib/supabase-server';
 import { verifyPermission } from '@/lib/rbac';
+import { getActiveBranch } from '@/lib/branch-helper';
+import { NotificationService } from '@/lib/notificationService';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,9 +31,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const permissionResult = await verifyPermission(user.id, 'crm.view');
-    if (!permissionResult.allowed) {
-      return NextResponse.json({ error: permissionResult.message }, { status: permissionResult.status });
+    const permCrmView = await verifyPermission(user.id, 'crm.view');
+    const permCreateLead = await verifyPermission(user.id, 'leads.create');
+    if (!permCrmView.allowed && !permCreateLead.allowed) {
+      return NextResponse.json({ error: 'Permission denied. Required: crm.view or leads.create' }, { status: 403 });
     }
 
     if (!supabaseAdmin) {
@@ -125,7 +128,53 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, data: leads });
+    const url = new URL(request.url);
+    const scope = url.searchParams.get('scope');
+
+    let outputLeads = leads;
+    const isMarketingOnly = !permCrmView.allowed && permCreateLead.allowed;
+
+    // Filter to user's own leads if marketing executive or scope=mine requested
+    if (isMarketingOnly || scope === 'mine') {
+      const userEmail = (user.email || '').toLowerCase();
+      const userPrefix = userEmail ? userEmail.split('@')[0] : '';
+      const fullName = (user.user_metadata?.full_name || '').toLowerCase();
+
+      outputLeads = leads.filter((l: any) => {
+        if (l.created_by && l.created_by === user.id) return true;
+        const remarks = (l.remarks || '').toLowerCase();
+        if (remarks.includes(user.id.toLowerCase())) return true;
+        if (userEmail && remarks.includes(userEmail)) return true;
+        const assigned = (l.assigned_by || '').toLowerCase();
+        if (userPrefix && assigned.includes(userPrefix)) return true;
+        if (fullName && assigned.includes(fullName)) return true;
+        return false;
+      });
+
+      if (isMarketingOnly) {
+        outputLeads.forEach((l: any) => {
+          l.quote_value = 0;
+          l.approved_value = 0;
+        });
+      }
+    }
+
+    // Branch segregation: filter leads by active/assigned branch
+    const activeBranch = getActiveBranch(request, user);
+    if (activeBranch !== 'all') {
+      outputLeads = outputLeads.filter((l: any) => {
+        if (l.branch) return l.branch === activeBranch;
+        const remarks = l.remarks || '';
+        if (remarks.includes(`[Branch: ${activeBranch}]`)) return true;
+        // Default historical records belong to Kukatpally branch
+        if (activeBranch === 'Kukatpally') {
+          return !l.branch && !remarks.includes('[Branch: AS Rao Nagar]');
+        }
+        return false;
+      });
+    }
+
+    return NextResponse.json({ success: true, data: outputLeads });
   } catch (err: any) {
     console.error('CRM GET API Error:', err);
     return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
@@ -139,9 +188,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const permissionResult = await verifyPermission(user.id, 'crm.manage');
-    if (!permissionResult.allowed) {
-      return NextResponse.json({ error: permissionResult.message }, { status: permissionResult.status });
+    const permManage = await verifyPermission(user.id, 'crm.manage');
+    const permCreateLead = await verifyPermission(user.id, 'leads.create');
+    if (!permManage.allowed && !permCreateLead.allowed) {
+      return NextResponse.json({ error: 'Permission denied. Required: crm.manage or leads.create' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -192,7 +242,21 @@ export async function POST(request: NextRequest) {
       remarks: body.remarks || '',
       floor_plan_url: body.floor_plan_url || null,
       floor_plan_name: body.floor_plan_name || null,
+      created_by: user.id,
     };
+
+    const activeBranch = getActiveBranch(request, user);
+    const branchToSave = body.branch || (activeBranch !== 'all' ? activeBranch : (user.branch || 'Kukatpally'));
+    newLead.branch = branchToSave;
+
+    if (!newLead.remarks.includes('[Branch:')) {
+      newLead.remarks = `${newLead.remarks ? newLead.remarks + ' ' : ''}[Branch: ${branchToSave}]`.trim();
+    }
+
+    // Ensure CreatorId is embedded in remarks for fallback identification
+    if (!newLead.remarks.includes('[CreatorId:')) {
+      newLead.remarks = `${newLead.remarks ? newLead.remarks + ' ' : ''}[CreatorId: ${user.id}] [CreatorEmail: ${user.email || ''}]`.trim();
+    }
 
     if (newLead.status === 'Approved' && newLead.quote_value <= 0 && newLead.approved_value <= 0) {
       return NextResponse.json({
@@ -206,8 +270,10 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    // Fallback if floor_plan columns are not migrated yet
-    if (error && error.code === '42703' && (body.floor_plan_url || body.floor_plan_name)) {
+    // Fallback if floor_plan, created_by, or branch columns are not migrated yet
+    if (error && error.code === '42703') {
+      delete newLead.created_by;
+      delete newLead.branch;
       delete newLead.floor_plan_url;
       delete newLead.floor_plan_name;
       if (body.floor_plan_url) {
@@ -226,6 +292,27 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Error inserting quotation lead:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Notify Admins & CRM managers about the new lead
+    try {
+      const creatorName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'A member';
+      const adminIds = await NotificationService.getAdminAndHrUserIds();
+      const recipients = adminIds.filter(id => id !== user.id);
+
+      for (const recipientId of recipients) {
+        await NotificationService.createNotification({
+          userId: recipientId,
+          title: 'New Lead Created',
+          message: `${creatorName} registered a new lead: "${data.client_name}" (${data.site_project || 'General Project'}).`,
+          type: 'general',
+          relatedId: data.id,
+          relatedType: 'crm',
+          metadata: { leadId: data.id }
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Failed to send new lead notification:', notifErr);
     }
 
     return NextResponse.json({ success: true, data: parseLeadFloorPlan(data) });
@@ -360,6 +447,32 @@ export async function PUT(request: NextRequest) {
       }
     } catch (syncErr) {
       console.error('Error auto-syncing approved quote to project budget:', syncErr);
+    }
+
+    // Notify creator & admins when quotation lead is approved
+    try {
+      if (updateFields.status === 'Approved') {
+        const adminIds = await NotificationService.getAdminAndHrUserIds();
+        const notifyTargetIds = new Set<string>(adminIds);
+        if (currentLeads?.[0]?.created_by) {
+          notifyTargetIds.add(currentLeads[0].created_by);
+        }
+        notifyTargetIds.delete(user.id);
+
+        for (const recipientId of Array.from(notifyTargetIds)) {
+          await NotificationService.createNotification({
+            userId: recipientId,
+            title: 'Quotation Approved',
+            message: `Quotation for "${currentLeads?.[0]?.client_name || 'Client'}" has been approved.`,
+            type: 'general',
+            relatedId: currentLeads?.[0]?.id,
+            relatedType: 'crm_quotation',
+            metadata: { leadId: currentLeads?.[0]?.id }
+          });
+        }
+      }
+    } catch (notifErr) {
+      console.warn('Failed to send quotation approved notification:', notifErr);
     }
 
     const result = Array.isArray(data) ? data.map(parseLeadFloorPlan) : parseLeadFloorPlan(data);

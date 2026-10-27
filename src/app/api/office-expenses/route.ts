@@ -5,6 +5,7 @@ import { PERMISSION_NODES } from '@/lib/rbac-constants';
 import { NotificationService } from '@/lib/notificationService';
 import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 import { attachProjectCodes } from '@/lib/projectUtils';
+import { getActiveBranch } from '@/lib/branch-helper';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
                 .from('office_expenses')
                 .select(`
                     *,
-                    user:users!user_id(full_name, email)
+                    user:users!user_id(full_name, email, branch)
                 `)
                 .order('expense_date', { ascending: false });
 
@@ -98,6 +99,7 @@ export async function GET(request: NextRequest) {
                     admin_remarks: e.admin_remarks || null,
                     category: e.category || 'Office Expense',
                     bill_urls: e.bill_urls || (e.bill_url ? [e.bill_url] : []),
+                    branch: e.branch || null,
                     user_id: e.user_id,
                     user: e.user || null,
                     created_at: e.created_at
@@ -123,8 +125,8 @@ export async function GET(request: NextRequest) {
                         created_by,
                         created_at,
                         supplier_name,
-                        project:projects(id, title),
-                        created_by_user:users!inventory_items_created_by_fkey(full_name, email)
+                        project:projects(id, title, branch),
+                        created_by_user:users!inventory_items_created_by_fkey(full_name, email, branch)
                     `)
                     .order('created_at', { ascending: false });
 
@@ -167,6 +169,7 @@ export async function GET(request: NextRequest) {
                             admin_remarks: e.bill_rejection_reason || null,
                             category: e.supplier_name || 'Project Expense',
                             bill_urls: e.bill_urls || [],
+                            project_branch: e.project?.branch || null,
                             user_id: e.created_by,
                             requested_by: e.created_by_user?.full_name || e.created_by_user?.email || 'Unknown',
                             user: e.created_by_user || null,
@@ -190,8 +193,22 @@ export async function GET(request: NextRequest) {
             return dateB - dateA;
         });
 
+        const activeBranch = getActiveBranch(request, user);
+
+        // Filter by branch if activeBranch is not 'all'
+        let filteredExpenses = finalExpenses;
+        if (activeBranch !== 'all') {
+            filteredExpenses = finalExpenses.filter((e: any) => {
+                if (e.branch) return e.branch === activeBranch;
+                if (e.source === 'project') {
+                    return (e.project_branch || e.user?.branch || 'Kukatpally') === activeBranch;
+                }
+                return (e.user?.branch || 'Kukatpally') === activeBranch;
+            });
+        }
+
         return NextResponse.json({
-            expenses: finalExpenses
+            expenses: filteredExpenses
         });
     } catch (error: any) {
         console.error('Error fetching office expenses:', error);
@@ -562,7 +579,11 @@ export async function POST(request: NextRequest) {
         }
 
         // Otherwise save as Office Expense
-        const { data: expense, error } = await supabaseAdmin
+        const activeBranch = getActiveBranch(request, user);
+        const assignedBranch = activeBranch !== 'all' ? activeBranch : (user.branch || 'Kukatpally');
+
+        let expense: any = null;
+        const { data: insertedExpense, error: insertError } = await supabaseAdmin
             .from('office_expenses')
             .insert({
                 user_id: user.id,
@@ -571,12 +592,36 @@ export async function POST(request: NextRequest) {
                 category: (category && typeof category === 'string' && category.trim()) ? category.trim() : 'General',
                 expense_date,
                 bill_urls: bill_urls || [],
-                status: 'pending'
+                status: 'pending',
+                branch: assignedBranch
             })
             .select()
             .single();
 
-        if (error) throw error;
+        if (insertError) {
+            if (insertError.code === '42703' || insertError.message?.includes('branch')) {
+                // branch column not created yet in DB: fallback without column and tag description
+                const { data: fallbackData, error: fallbackError } = await supabaseAdmin
+                    .from('office_expenses')
+                    .insert({
+                        user_id: user.id,
+                        amount: parseFloat(amount),
+                        description: `${safeDescription} [Branch: ${assignedBranch}]`,
+                        category: (category && typeof category === 'string' && category.trim()) ? category.trim() : 'General',
+                        expense_date,
+                        bill_urls: bill_urls || [],
+                        status: 'pending'
+                    })
+                    .select()
+                    .single();
+                if (fallbackError) throw fallbackError;
+                expense = fallbackData;
+            } else {
+                throw insertError;
+            }
+        } else {
+            expense = insertedExpense;
+        }
 
         // --- NOTIFICATIONS ---
         try {

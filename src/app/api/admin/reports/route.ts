@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { getActiveBranch } from '@/lib/branch-helper';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -11,8 +12,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!authUser.isAdmin && role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden. Admin access required.' }, { status: 403 });
+    const canViewReports = authUser.isAdmin || role === 'admin' || authUser.permissionCodes?.has('reports.view');
+    if (!canViewReports) {
+      return NextResponse.json({ error: 'Forbidden. Reports access required.' }, { status: 403 });
     }
 
     if (!supabaseAdmin) {
@@ -34,10 +36,12 @@ export async function GET(request: NextRequest) {
     const startIso = `${startDate}T00:00:00.000Z`;
     const endIso = `${endDate}T23:59:59.999Z`;
 
+    const activeBranch = getActiveBranch(request, authUser);
+
     // 1. Fetch Users
     const { data: allUsers, error: usersError } = await supabaseAdmin
       .from('users')
-      .select('id, full_name, email, role, designation, phone_number, is_active')
+      .select('id, full_name, email, role, designation, phone_number, is_active, branch')
       .order('full_name', { ascending: true });
 
     if (usersError) {
@@ -56,9 +60,15 @@ export async function GET(request: NextRequest) {
       return desig.includes('designer') || role === 'designer';
     };
 
-    // Filter users based on query
+    const matchesBranch = (u: any) => {
+      if (activeBranch === 'all') return true;
+      return (u.branch || 'Kukatpally') === activeBranch;
+    };
+
+    // Filter users based on query and branch
     let targetUsers = (allUsers || []).filter((u: any) => {
       if (!u.is_active && u.is_active !== null) return false;
+      if (!matchesBranch(u)) return false;
       const engineer = isSiteEngineer(u);
       const designer = isDesigner(u);
       
@@ -73,6 +83,10 @@ export async function GET(request: NextRequest) {
 
     const userIds = targetUsers.map((u: any) => u.id);
 
+    const availableUsers = (allUsers || []).filter((u: any) => {
+      return matchesBranch(u) && (isSiteEngineer(u) || isDesigner(u));
+    });
+
     if (userIds.length === 0) {
       return NextResponse.json({
         period: { startDate, endDate },
@@ -84,7 +98,7 @@ export async function GET(request: NextRequest) {
           totalAttendanceDays: 0,
         },
         users: [],
-        availableUsers: allUsers?.filter((u: any) => isSiteEngineer(u) || isDesigner(u)) || []
+        availableUsers
       });
     }
 
@@ -118,7 +132,7 @@ export async function GET(request: NextRequest) {
       // Attendance
       supabaseAdmin
         .from('attendance')
-        .select('id, user_id, date, status, punch_in_time, punch_out_time, working_hours')
+        .select('id, user_id, date, status, check_in, check_out')
         .gte('date', startDate)
         .lte('date', endDate)
         .in('user_id', userIds)
@@ -174,9 +188,21 @@ export async function GET(request: NextRequest) {
       const userUpdates = updates.filter((u: any) => u.user_id === user.id);
       const totalPhotos = userUpdates.reduce((sum: number, u: any) => sum + (Array.isArray(u.photos) ? u.photos.length : 0), 0);
 
-      // Attendance records for this user
+      // Deduplicate updates: even if multiple updates are logged on one project on a single day, count as 1
+      const uniqueProjectDays = new Set(
+        userUpdates.map((u: any) => {
+          const day = (u.update_date || u.created_at || '').slice(0, 10);
+          return `${u.project_id}_${day}`;
+        }).filter((key: string) => key && !key.startsWith('_'))
+      );
+
+      // Attendance records for this user (unique days present)
       const userAttendance = attendance.filter((a: any) => a.user_id === user.id);
-      const presentDays = userAttendance.filter((a: any) => a.status === 'present' || a.punch_in_time).length;
+      const presentDays = new Set(
+        userAttendance
+          .filter((a: any) => a.check_in || a.status === 'approved' || a.status === 'present' || a.status === 'pending')
+          .map((a: any) => a.date)
+      ).size;
 
       // Active projects assigned to this user
       const userAssignedProjects = allProjects.filter((p: any) => {
@@ -206,7 +232,8 @@ export async function GET(request: NextRequest) {
           type: memberRoleType
         },
         metrics: {
-          totalUpdates: userUpdates.length,
+          totalUpdates: uniqueProjectDays.size,
+          rawUpdatesCount: userUpdates.length,
           totalPhotos,
           activeProjectsCount: userAssignedProjects.length,
           attendanceDays: presentDays,

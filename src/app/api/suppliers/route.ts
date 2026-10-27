@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { getActiveBranch } from '@/lib/branch-helper';
 
 export const dynamic = 'force-dynamic';
 
@@ -104,7 +105,7 @@ export async function GET(request: NextRequest) {
 
         let query = supabaseAdmin
             .from('suppliers')
-            .select('*')
+            .select('*, creator:created_by(id, full_name, branch)')
             .order('name', { ascending: true });
 
         if (search) {
@@ -122,7 +123,20 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to fetch suppliers' }, { status: 500 });
         }
 
-        return NextResponse.json({ suppliers: (data || []).map(parseWageMeta) });
+        const activeBranch = getActiveBranch(request, user);
+        let suppliers = (data || []).map(parseWageMeta);
+        if (activeBranch !== 'all') {
+            suppliers = suppliers.filter((s: any) => {
+                if (s.branch) return s.branch === activeBranch;
+                if (s.creator?.branch) return s.creator.branch === activeBranch;
+                const text = `${s.name || ''} ${s.city || ''} ${s.address || ''}`.toLowerCase();
+                if (text.includes(activeBranch.toLowerCase())) return true;
+                if (activeBranch === 'Kukatpally') return !text.includes('as rao nagar');
+                return false;
+            });
+        }
+
+        return NextResponse.json({ suppliers });
     } catch (error) {
         console.error('Unexpected error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

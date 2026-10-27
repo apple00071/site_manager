@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX, FiCheckSquare, FiAlertTriangle, FiCreditCard, FiRadio, FiClock, FiSearch, FiFileText, FiMessageSquare, FiActivity, FiGrid, FiTruck, FiLayers } from 'react-icons/fi';
+import { FiHome, FiUsers, FiBriefcase, FiLogOut, FiSettings, FiMenu, FiX, FiCheckSquare, FiAlertTriangle, FiCreditCard, FiRadio, FiClock, FiSearch, FiFileText, FiMessageSquare, FiActivity, FiGrid, FiTruck, FiLayers, FiUserPlus } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
 import { supabase } from '@/lib/supabase';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
@@ -18,6 +18,7 @@ import AttendanceWidget from '@/components/attendance/AttendanceWidget';
 import PasswordChangeModal from '@/components/PasswordChangeModal';
 import NotepadDrawer from '@/components/notepad/NotepadDrawer';
 import AppPopupModal from '@/components/popups/AppPopupModal';
+import BranchSwitcher from '@/components/navigation/BranchSwitcher';
 
 
 
@@ -197,10 +198,14 @@ function DashboardLayoutContent({
     if (pathname === '/dashboard/tasks') return 'All Tasks';
     if (pathname === '/dashboard/office-expenses') return 'Expenses';
     if (pathname === '/dashboard/crm') return 'CRM';
+    if (pathname === '/dashboard/leads/new') return 'New Lead';
     if (pathname === '/dashboard/vendors-workers') return 'Vendors & Workers';
     if (pathname === '/dashboard/attendance') return 'Attendance';
     if (pathname === '/dashboard/finance') return 'Finance Overview';
     if (pathname === '/dashboard/snags') return 'Snags';
+    if (pathname === '/dashboard/reports' || pathname.startsWith('/dashboard/reports/')) return 'Performance Reports';
+    if (pathname === '/dashboard/payroll' || pathname.startsWith('/dashboard/payroll/')) return 'Payroll';
+    if (pathname === '/dashboard/telemetry' || pathname.startsWith('/dashboard/telemetry/')) return 'Telemetry';
     if (pathname.startsWith('/dashboard/projects/')) {
       if (pathname.endsWith('/edit')) return 'Edit Project';
       if (pathname.endsWith('/members')) return 'Project Members';
@@ -286,11 +291,11 @@ function DashboardLayoutContent({
       {/* Sidebar */}
       <div className={`
         fixed inset-y-0 left-0 z-50 w-40 lg:w-14 lg:hover:w-32 bg-white text-gray-900 shadow-lg border-r border-gray-200 transform transition-all duration-300 ease-in-out group peer
-        lg:translate-x-0 lg:fixed lg:top-0 lg:h-screen lg:left-0
+        lg:translate-x-0 lg:fixed lg:top-0 lg:h-screen lg:left-0 flex flex-col h-full
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Logo at top */}
-        <div className="p-2 lg:p-3">
+        <div className="p-2 lg:p-3 shrink-0">
           <div className="flex items-center justify-center lg:justify-start lg:pl-1">
             <Link href="/dashboard" className="flex items-center">
               <img
@@ -303,8 +308,8 @@ function DashboardLayoutContent({
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-1 lg:py-2 lg:px-0">
-          <div className="space-y-0.5">
+        <nav className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden no-scrollbar py-1 lg:py-2 lg:px-0">
+          <div className="space-y-0.5 pb-10">
             <Link
               href="/dashboard"
               className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
@@ -336,7 +341,7 @@ function DashboardLayoutContent({
                 <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">Design Status</span>
               </Link>
             )}
-            {isAdmin && (
+            {(isAdmin || hasPermission('reports.view')) && (
               <Link
                 href="/dashboard/reports"
                 className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
@@ -391,6 +396,18 @@ function DashboardLayoutContent({
               >
                 <FiGrid className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
                 <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">CRM</span>
+              </Link>
+            )}
+            {(hasPermission('leads.create') || isAdmin) && (
+              <Link
+                href="/dashboard/leads/new"
+                className="flex items-center justify-start px-3 lg:pl-[14px] lg:pr-2 py-3 text-gray-600 hover:bg-yellow-50 hover:text-yellow-600 active:bg-yellow-100 transition-all duration-200 group rounded-lg touch-target"
+                onClick={() => setSidebarOpen(false)}
+                title="New Lead"
+                id="sidebar-new-lead"
+              >
+                <FiUserPlus className="h-5 w-5 min-w-[20px] group-hover:text-yellow-600 transition-colors flex-shrink-0" />
+                <span className="ml-3 text-sm font-medium lg:text-xs block lg:hidden lg:group-hover:block whitespace-nowrap">New Lead</span>
               </Link>
             )}
             {hasAnyPermission(['vendors.view', 'workers.view', 'suppliers.view', 'suppliers.create']) && (
@@ -474,14 +491,14 @@ function DashboardLayoutContent({
 
         {/* Global Header - Responsive */}
         <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
-          <div className="px-4 py-1.5 flex items-center justify-between min-h-[50px]">
+          <div className="px-3 sm:px-4 py-1.5 flex items-center justify-between min-h-[50px] gap-1.5 sm:gap-3">
             {/* Left side: Hamburger + Title + Tabs */}
-            <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               {/* Mobile Menu Button */}
               <button
                 onClick={() => setSidebarOpen(true)}
                 id="mobile-menu-button"
-                className="lg:hidden p-1.5 -ml-1.5 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors shrink-0"
+                className="lg:hidden p-1.5 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors shrink-0"
                 aria-label="Open navigation menu"
               >
                 <FiMenu className="h-6 w-6" />
@@ -533,6 +550,11 @@ function DashboardLayoutContent({
                 Ctrl+K
               </span>
             </button>
+
+            {/* Global Branch Switcher / Indicator */}
+            <div className="shrink-0 mx-1">
+              <BranchSwitcher />
+            </div>
 
             {/* Right side: Status + Actions + Notification */}
             <div className="flex items-center gap-2 lg:gap-3 ml-auto shrink-0">

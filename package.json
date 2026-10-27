@@ -23,6 +23,7 @@
     "@supabase/supabase-js": "^2.76.1",
     "date-fns": "^3.6.0",
     "heic2any": "^0.0.4",
+    "html-to-image": "^1.11.13",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.9",
     "mammoth": "^1.11.0",

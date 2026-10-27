@@ -11,6 +11,7 @@ import { FiUpload, FiX, FiCheck, FiAlertCircle, FiPlus, FiChevronLeft } from 're
 import Link from 'next/link';
 import { CustomDropdown, CustomDatePicker } from '@/components/ui/CustomControls';
 import { supabase } from '@/lib/supabase';
+import { useBranch } from '@/contexts/BranchContext';
 
 const projectSchema = z.object({
   // Basic Information
@@ -83,6 +84,7 @@ const projectSchema = z.object({
 
   // System Fields
   status: z.string().optional().nullable(),
+  branch: z.string().optional().nullable(),
   created_by: z.string().optional(),
   updated_by: z.string().optional()
 });
@@ -92,6 +94,7 @@ type ProjectFormValues = z.infer<typeof projectSchema>;
 export default function NewProjectPage() {
   const { isAdmin, isLoading: authLoading, user } = useAuth();
   const { hasPermission } = useUserPermissions();
+  const { currentBranch, userBranch } = useBranch();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
@@ -102,11 +105,14 @@ export default function NewProjectPage() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [uploadingPDF, setUploadingPDF] = useState(false);
 
+  const defaultBranch = currentBranch !== 'all' ? currentBranch : userBranch;
+
   const { register, handleSubmit, control, reset, formState: { errors } } = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
     mode: 'onChange',
     defaultValues: {
       status: 'pending',
+      branch: defaultBranch,
     },
   });
 
@@ -314,6 +320,7 @@ export default function NewProjectPage() {
         requirements_pdf_url: pdfUrl,
         project_notes: data.project_notes || null,
         created_by: user?.id,
+        branch: data.branch || defaultBranch,
       };
 
       const res = await fetch('/api/admin/projects', {
@@ -482,7 +489,30 @@ export default function NewProjectPage() {
                       </p>
                     )}
                   </div>
-                </div>
+
+                    {isAdmin && (
+                      <div>
+                        <label htmlFor="branch" className="block text-sm font-semibold text-gray-700 mb-2">
+                          Branch Location *
+                        </label>
+                        <Controller
+                          name="branch"
+                          control={control}
+                          render={({ field }) => (
+                            <CustomDropdown
+                              value={field.value || defaultBranch}
+                              onChange={field.onChange}
+                              options={[
+                                { id: 'Kukatpally', title: 'Kukatpally' },
+                                { id: 'AS Rao Nagar', title: 'AS Rao Nagar' }
+                              ]}
+                              placeholder="Select Branch"
+                            />
+                          )}
+                        />
+                      </div>
+                    )}
+                  </div>
 
                 {/* Property Details Section */}
                 <div className="bg-gray-50 rounded-xl p-4 sm:p-6 space-y-4">
@@ -685,19 +715,19 @@ export default function NewProjectPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Select Designer *
                 </label>
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-72 overflow-y-auto pr-1 p-0.5">
                   {isLoading ? (
-                    <div className="flex items-center justify-center py-4">
+                    <div className="col-span-full flex items-center justify-center py-6">
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-500"></div>
                       <span className="ml-2 text-sm text-gray-500">Loading designers...</span>
                     </div>
                   ) : !employees || employees.length === 0 ? (
-                    <div className="text-center py-4">
+                    <div className="col-span-full text-center py-6">
                       <p className="text-sm text-gray-500">No team members found in the system.</p>
                       <p className="text-xs text-gray-400 mt-1">Please add team members and set their designations (e.g., 'Designer') first in User Management.</p>
                     </div>
                   ) : employees.filter(emp => emp.is_active && ((emp.designation && emp.designation.toLowerCase().includes('designer')) || (emp.role_name && emp.role_name.toLowerCase().includes('designer')) || (emp.role && emp.role.toLowerCase() === 'designer'))).length === 0 ? (
-                    <div className="text-center py-4">
+                    <div className="col-span-full text-center py-6">
                       <p className="text-sm text-gray-500">No active designers found.</p>
                       <p className="text-xs text-gray-400 mt-1">Please add active users whose designation or role contains 'designer' in User Management.</p>
                       <p className="text-xs text-gray-400 mt-2">Total team members loaded: {employees.length}</p>
@@ -708,29 +738,31 @@ export default function NewProjectPage() {
                       .map((employee) => (
                         <label
                           key={employee.id}
-                          className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-white hover:border-yellow-400 cursor-pointer transition-all duration-200 mb-2"
+                          className="relative flex items-start gap-2.5 p-3 bg-white border border-gray-200 rounded-xl hover:border-yellow-400 hover:shadow-xs cursor-pointer transition-all duration-200 has-[:checked]:border-yellow-500 has-[:checked]:bg-yellow-50/50 has-[:checked]:ring-1 has-[:checked]:ring-yellow-500 group"
                         >
                           <input
                             type="radio"
                             value={employee.id}
                             {...register('assigned_employee_id')}
-                            className="h-4 w-4 text-yellow-500 focus:ring-yellow-400 border-gray-300"
+                            className="mt-0.5 h-4 w-4 text-yellow-500 focus:ring-yellow-400 border-gray-300 shrink-0"
                           />
-                          <span className="ml-3 flex-1">
-                            <span className="block text-sm font-medium text-gray-900">
-                              {employee.name}
-                            </span>
-                            {employee.designation && (
-                              <span className="block text-xs text-gray-500">
-                                {employee.designation}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="block text-xs sm:text-sm font-bold text-gray-900 truncate group-hover:text-yellow-900">
+                                {employee.name}
                               </span>
-                            )}
+                              {employee.designation && (
+                                <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded shrink-0">
+                                  {employee.designation}
+                                </span>
+                              )}
+                            </div>
                             {employee.email && (
-                              <span className="block text-xs text-gray-500 truncate">
+                              <span className="block text-[11px] text-gray-400 truncate mt-0.5">
                                 {employee.email}
                               </span>
                             )}
-                          </span>
+                          </div>
                         </label>
                       ))
                   )}

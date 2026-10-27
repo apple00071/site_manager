@@ -19,6 +19,7 @@ interface User {
     role_id: string | null;
     roles?: Role; // Joined role data
     is_active?: boolean;
+    branch?: string;
 }
 
 export default function UsersTab() {
@@ -27,7 +28,7 @@ export default function UsersTab() {
     const [roles, setRoles] = useState<Role[]>([]);
     const [loading, setLoading] = useState(true);
     const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
-
+    const [branchFilter, setBranchFilter] = useState<'all' | 'Kukatpally' | 'AS Rao Nagar'>('all');
     const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
@@ -98,7 +99,9 @@ export default function UsersTab() {
         const roleName = getRoleDisplay(user).toLowerCase();
         if (roleName === 'client') return false;
 
-        return (
+        const matchesBranch = branchFilter === 'all' || (user.branch || 'Kukatpally') === branchFilter;
+
+        return matchesBranch && (
             user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (user.designation?.toLowerCase() || '').includes(searchQuery.toLowerCase())
@@ -141,16 +144,56 @@ export default function UsersTab() {
         <div className="space-y-6">
             {/* Action Bar */}
             <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                <div className="relative w-full sm:w-64">
-                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <input
-                        type="text"
-                        placeholder="Search team..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 outline-none transition-all"
-                    />
+                <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
+                    <div className="relative w-full sm:w-60">
+                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <input
+                            type="text"
+                            placeholder="Search team..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 outline-none transition-all"
+                        />
+                    </div>
+
+                    {/* Branch Filter Pills */}
+                    <div className="flex items-center gap-1 p-0.5 bg-gray-100 rounded-lg border border-gray-200">
+                        <button
+                            type="button"
+                            onClick={() => setBranchFilter('all')}
+                            className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                                branchFilter === 'all'
+                                    ? 'bg-white text-gray-900 shadow-2xs'
+                                    : 'text-gray-500 hover:text-gray-900'
+                            }`}
+                        >
+                            All Branches
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setBranchFilter('Kukatpally')}
+                            className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                                branchFilter === 'Kukatpally'
+                                    ? 'bg-white text-gray-900 shadow-2xs'
+                                    : 'text-gray-500 hover:text-gray-900'
+                            }`}
+                        >
+                            Kukatpally
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setBranchFilter('AS Rao Nagar')}
+                            className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                                branchFilter === 'AS Rao Nagar'
+                                    ? 'bg-white text-gray-900 shadow-2xs'
+                                    : 'text-gray-500 hover:text-gray-900'
+                            }`}
+                        >
+                            AS Rao Nagar
+                        </button>
+                    </div>
                 </div>
+
                 <Link
                     href="/dashboard/organization/new"
                     className="w-full sm:w-auto btn-primary flex items-center justify-center gap-2 px-6 shadow-sm"
@@ -221,9 +264,14 @@ export default function UsersTab() {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.designation || '-'}</td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleColor(user)}`}>
-                                                    {getRoleDisplay(user)}
-                                                </span>
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleColor(user)}`}>
+                                                        {getRoleDisplay(user)}
+                                                    </span>
+                                                    <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 rounded-md">
+                                                        {user.branch || 'Kukatpally'}
+                                                    </span>
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 <div className="flex justify-end items-center gap-4" onClick={(e) => e.stopPropagation()}>

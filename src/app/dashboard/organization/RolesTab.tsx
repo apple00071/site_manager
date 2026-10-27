@@ -48,7 +48,10 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
             { id: 'projects.create', label: 'Create new projects' },
             { id: 'projects.edit', label: 'Edit project details' },
             { id: 'projects.delete', label: 'Delete projects' },
-            { id: 'projects.assign', label: 'Assign projects to team members' }
+            { id: 'projects.assign', label: 'Assign projects to team members' },
+            { id: 'requirements.view', label: 'View Project Requirements' },
+            { id: 'requirements.edit', label: 'Edit Project Requirements & notes' },
+            { id: 'requirements.delete', label: 'Delete Project Requirements notes' }
         ],
         notifications: ['Project updates', 'Project comments']
     },
@@ -212,6 +215,8 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
             { id: 'crm.view', label: 'View CRM leads & quotations' },
             { id: 'crm.manage', label: 'Manage CRM leads, stages & quotations' },
             { id: 'crm.edit_approved', label: 'Modify approved quotations & leads' },
+            { id: 'leads.create', label: 'Create new marketing/sales leads' },
+            { id: 'marketing.view', label: 'View Marketing & Lead Acquisition dashboard' },
             { id: 'rate_card.view', label: 'View quotation rate card' },
             { id: 'rate_card.manage', label: 'Manage rate card items & standard pricing' }
         ],
@@ -249,6 +254,15 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
         notifications: ['Popup published']
     },
     {
+        module: 'Performance Reports',
+        icon: '📊',
+        permissions: [
+            { id: 'reports.view', label: 'View performance reports' },
+            { id: 'reports.export', label: 'Download & export performance reports' }
+        ],
+        notifications: []
+    },
+    {
         module: 'Settings & System',
         icon: '⚙️',
         permissions: [
@@ -263,7 +277,7 @@ const MODULE_PERMISSIONS: ModulePermission[] = [
 
 // Map of module names to their permission prefixes (including plural and singular forms)
 const MODULE_PREFIX_MAP: Record<string, string[]> = {
-    'Project Management': ['project.', 'projects.'],
+    'Project Management': ['project.', 'projects.', 'requirement.', 'requirements.'],
     'Design Status': ['designs.daily_status', 'daily_status.'],
     'Design': ['design.', 'designs.'],
     'BOQ': ['boq.'],
@@ -281,10 +295,11 @@ const MODULE_PREFIX_MAP: Record<string, string[]> = {
     'Office Expenses': ['office_expenses.'],
     'Attendance & Leaves': ['attendance.', 'leaves.'],
     'Payroll': ['payroll.'],
-    'CRM & Leads': ['crm.'],
+    'CRM & Leads': ['crm.', 'lead.', 'leads.', 'rate_card.', 'marketing.'],
     'Holidays': ['holidays.', 'holiday.'],
     'User & Role Management': ['user.', 'users.', 'role.'],
     'In-App Popups & Announcements': ['popup.', 'popups.'],
+    'Performance Reports': ['report.', 'reports.'],
     'Settings & System': ['settings.', 'telemetry.']
 };
 

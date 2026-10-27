@@ -1,26 +1,18 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { 
-  FiFileText, 
   FiCalendar, 
-  FiFilter, 
-  FiPrinter, 
-  FiShare2, 
   FiRefreshCw, 
-  FiCheckCircle, 
-  FiCamera, 
-  FiClock, 
   FiAlertTriangle, 
-  FiUser, 
-  FiMapPin, 
-  FiLayers, 
-  FiFolder,
-  FiChevronRight
+  FiDownload
 } from 'react-icons/fi';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useBranch } from '@/contexts/BranchContext';
 
 interface AvailableUser {
   id: string;
@@ -55,31 +47,14 @@ interface UserReport {
     customer_name?: string;
     status: string;
     workflow_stage?: string;
-    unified_status?: string;
-    project_notes?: string;
-    deadline?: string;
-    estimated_completion_date?: string;
   }>;
   updates: Array<{
     id: string;
     project_id: string;
     project_title: string;
     customer_name?: string;
-    update_date: string;
     created_at: string;
     description: string;
-    photosCount: number;
-    photos: string[];
-  }>;
-  designs?: Array<{
-    id: string;
-    project_title: string;
-    file_name: string;
-    file_type: string;
-    version: number;
-    approval_status: string;
-    is_frozen: boolean;
-    created_at: string;
   }>;
 }
 
@@ -94,8 +69,6 @@ interface ReportData {
     activeProjectsCount: number;
     totalSnagsResolved: number;
     totalAttendanceDays: number;
-    totalDesignsUploaded: number;
-    totalDesignsFrozen: number;
   };
   users: UserReport[];
   availableUsers: AvailableUser[];
@@ -103,7 +76,6 @@ interface ReportData {
 
 type PresetType = 'this_week' | 'last_7_days' | 'last_week' | 'this_month' | 'custom';
 
-// Helpers to compute standard date strings (YYYY-MM-DD)
 const toDateInputString = (d: Date): string => {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -115,7 +87,6 @@ const getPresetDates = (preset: PresetType): { start: string; end: string } => {
   const now = new Date();
   
   if (preset === 'this_week') {
-    // Current week starting Monday
     const day = now.getDay();
     const diffToMonday = now.getDate() - day + (day === 0 ? -6 : 1);
     const monday = new Date(now.setDate(diffToMonday));
@@ -126,7 +97,6 @@ const getPresetDates = (preset: PresetType): { start: string; end: string } => {
   }
 
   if (preset === 'last_week') {
-    // Previous week Monday to Sunday
     const day = now.getDay();
     const diffToMonday = now.getDate() - day + (day === 0 ? -6 : 1) - 7;
     const prevMonday = new Date(now.setDate(diffToMonday));
@@ -154,10 +124,39 @@ const getPresetDates = (preset: PresetType): { start: string; end: string } => {
   };
 };
 
+const formatDateRangeHeader = (startStr: string, endStr: string): string => {
+  if (!startStr || !endStr) return '';
+  const start = new Date(startStr);
+  const end = new Date(endStr);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return `${startStr} to ${endStr}`;
+  
+  const startMonth = start.toLocaleDateString('en-US', { month: 'short' });
+  const startDay = start.getDate();
+  const endMonth = end.toLocaleDateString('en-US', { month: 'short' });
+  const endDay = end.getDate();
+  const endYear = end.getFullYear();
+
+  if (startMonth === endMonth) {
+    return `${startMonth} ${startDay} to ${endDay}, ${endYear}`;
+  }
+  return `${startMonth} ${startDay} to ${endMonth} ${endDay}, ${endYear}`;
+};
+
 export default function ReportsPage() {
   const { showToast } = useToast();
   const { isAdmin, isLoading: authLoading } = useAuth();
-  const [roleFilter, setRoleFilter] = useState<'all' | 'site_engineer' | 'designer'>('all');
+  const { currentBranch } = useBranch();
+  const { hasPermission } = useUserPermissions();
+  const { setTitle } = useHeaderTitle();
+
+  const canViewReports = isAdmin || hasPermission('reports.view');
+  const canExportReports = isAdmin || hasPermission('reports.export');
+
+  useEffect(() => {
+    setTitle('Performance Reports');
+  }, [setTitle]);
+  
+  const [roleFilter, setRoleFilter] = useState<'site_engineer' | 'designer'>('site_engineer');
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
   const [datePreset, setDatePreset] = useState<PresetType>('last_7_days');
   
@@ -166,7 +165,10 @@ export default function ReportsPage() {
   const [endDate, setEndDate] = useState<string>(initialDates.end);
   
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
   const [reportData, setReportData] = useState<ReportData | null>(null);
+
+  const slideRef = useRef<HTMLDivElement>(null);
 
   // Apply preset dates
   const handlePresetChange = (preset: PresetType) => {
@@ -180,7 +182,7 @@ export default function ReportsPage() {
 
   // Fetch report data from API
   const fetchReport = useCallback(async () => {
-    if (!isAdmin) return;
+    if (!canViewReports) return;
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -189,6 +191,9 @@ export default function ReportsPage() {
         startDate,
         endDate
       });
+      if (currentBranch !== 'all') {
+        params.set('branch', currentBranch);
+      }
 
       const res = await fetch(`/api/admin/reports?${params.toString()}`);
       if (!res.ok) {
@@ -203,56 +208,72 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, roleFilter, selectedUserId, startDate, endDate, showToast]);
+  }, [canViewReports, roleFilter, selectedUserId, startDate, endDate, currentBranch, showToast]);
 
   useEffect(() => {
-    if (!authLoading && isAdmin) {
+    if (!authLoading && canViewReports) {
       fetchReport();
     }
-  }, [authLoading, isAdmin, fetchReport]);
+  }, [authLoading, canViewReports, fetchReport]);
 
-  // Copy Executive Summary for WhatsApp / Sharing
-  const copyWhatsAppSummary = () => {
-    if (!reportData) return;
+  const roleTitle = roleFilter === 'site_engineer' 
+    ? 'Weekly Site Engineer Report' 
+    : 'Weekly Designer Report';
 
-    const lines: string[] = [];
-    lines.push(`📊 *APPLE INTERIOR - WEEKLY PERFORMANCE REPORT*`);
-    lines.push(`📅 Period: ${reportData.period.startDate} to ${reportData.period.endDate}`);
-    lines.push(`━━━━━━━━━━━━━━━━━━━━━`);
-    lines.push(`📈 *TEAM TOTALS:*`);
-    lines.push(`• Daily Updates Logged: ${reportData.summary.totalUpdates}`);
-    lines.push(`• Active Sites / Projects: ${reportData.summary.activeProjectsCount}`);
-    lines.push(`• Site Photos Uploaded: ${reportData.summary.totalPhotos}`);
-    lines.push(`• Snags Resolved: ${reportData.summary.totalSnagsResolved}`);
-    lines.push(`━━━━━━━━━━━━━━━━━━━━━\n`);
+  // Sorted user reports by updates descending
+  const sortedReports = useMemo(() => {
+    if (!reportData?.users) return [];
+    return [...reportData.users].sort((a, b) => b.metrics.totalUpdates - a.metrics.totalUpdates);
+  }, [reportData]);
 
-    reportData.users.forEach(u => {
-      const icon = u.user.type === 'site_engineer' ? '🏗️' : '🎨';
-      lines.push(`${icon} *${u.user.name}* (${u.user.designation})`);
-      lines.push(`  • Updates: ${u.metrics.totalUpdates} | Photos: ${u.metrics.totalPhotos} | Sites: ${u.metrics.activeProjectsCount}`);
-      lines.push(`  • Attendance: ${u.metrics.attendanceDays} days present`);
-      if (u.user.type === 'designer') {
-        lines.push(`  • Drawings Uploaded: ${u.metrics.designsUploaded} (Frozen: ${u.metrics.designsFrozen})`);
-      }
-      if (u.updates.length > 0) {
-        const latestUpdate = u.updates[0];
-        lines.push(`  • Latest: "${latestUpdate.project_title}" - ${latestUpdate.description.slice(0, 70)}...`);
-      }
-      lines.push(``);
+  // Compute scale and maximum for dual bar chart
+  const maxChartValue = useMemo(() => {
+    if (sortedReports.length === 0) return 50;
+    const maxVal = Math.max(...sortedReports.map(u => Math.max(u.metrics.attendanceDays, u.metrics.totalUpdates)));
+    return Math.max(20, Math.ceil((maxVal + 5) / 10) * 10);
+  }, [sortedReports]);
+
+  // Chart Y-Axis tick steps (5 ticks)
+  const yAxisTicks = useMemo(() => {
+    const step = maxChartValue / 5;
+    return [maxChartValue, step * 4, step * 3, step * 2, step, 0];
+  }, [maxChartValue]);
+
+  // High-resolution image generator using html-to-image (SVG foreignObject native browser render)
+  const getSlideDataUrl = async (): Promise<string> => {
+    const el = slideRef.current;
+    if (!el) throw new Error('Slide element not found');
+
+    const { toPng } = await import('html-to-image');
+    return await toPng(el, {
+      pixelRatio: 2.5,
+      backgroundColor: '#ffffff',
+      cacheBust: true,
     });
-
-    lines.push(`Generated via Apple Interior Manager`);
-
-    navigator.clipboard.writeText(lines.join('\n'));
-    showToast('success', 'Executive report summary copied to clipboard!');
   };
 
-  // Filter available users for dropdown by current role filter
-  const filteredAvailableUsers = useMemo(() => {
-    if (!reportData?.availableUsers) return [];
-    if (roleFilter === 'all') return reportData.availableUsers;
-    return reportData.availableUsers.filter(u => u.type === roleFilter);
-  }, [reportData?.availableUsers, roleFilter]);
+  // Download as High-Resolution PNG Image
+  const handleDownloadPNG = async () => {
+    try {
+      setDownloading(true);
+      const dataUrl = await getSlideDataUrl();
+
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      const cleanTitle = roleTitle.replace(/\s+/g, '_');
+      link.download = `${cleanTitle}_${startDate}_to_${endDate}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      showToast('success', 'Corporate report slide downloaded as PNG image!');
+    } catch (err: any) {
+      console.error('PNG export failed:', err);
+      showToast('error', 'Could not export PNG image: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   if (authLoading) {
     return (
@@ -263,16 +284,16 @@ export default function ReportsPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!canViewReports) {
     return (
       <div className="py-24 flex flex-col items-center justify-center text-center space-y-4">
         <div className="w-14 h-14 rounded-2xl bg-rose-50 border border-rose-200/80 flex items-center justify-center text-rose-600 shadow-2xs">
           <FiAlertTriangle className="w-7 h-7 text-rose-600" />
         </div>
         <div>
-          <h2 className="text-lg font-black text-gray-900">Admin Access Required</h2>
+          <h2 className="text-lg font-black text-gray-900">Reports Access Required</h2>
           <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto font-medium">
-            This performance reporting dashboard is restricted to system administrators only.
+            This performance reporting dashboard is restricted. Contact an administrator to grant you access.
           </p>
         </div>
         <Link
@@ -286,87 +307,53 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="space-y-6 pb-12 text-left">
-      {/* Print-only Header */}
-      <div className="hidden print:block mb-6 border-b border-gray-300 pb-4">
-        <h1 className="text-2xl font-black text-gray-900">Apple Interior - Team Performance Report</h1>
-        <p className="text-sm text-gray-600 mt-1">
-          Period: <strong>{startDate}</strong> to <strong>{endDate}</strong> | Filter: {roleFilter === 'all' ? 'All Team' : roleFilter === 'site_engineer' ? 'Site Engineers' : 'Designers'}
-        </p>
-      </div>
-
-      {/* Main Top Header (Screen Only) */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-yellow-50 border border-yellow-200/80 flex items-center justify-center text-yellow-600">
-              <FiFileText className="w-5 h-5 text-yellow-600" />
+    <div className="space-y-6 pb-16 text-left w-full">
+      
+      {/* ─── SLEEK TOP CONTROLS BAR (APPLE INTERIORS BRAND DESIGN) ──────── */}
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-200 shadow-xs space-y-4 print:hidden w-full">
+        {/* Top Header Row with Logo */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center shrink-0">
+              <img 
+                src="/New-logo.png" 
+                alt="Apple Interiors" 
+                className="w-7 h-7 object-contain"
+                crossOrigin="anonymous"
+              />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">Team Performance Reports</h1>
-              <p className="text-xs text-gray-500 font-medium mt-0.5">
-                Weekly &amp; custom activity reports for Site Engineers and Designers
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg sm:text-xl font-black text-gray-900 tracking-tight">
+                  Performance Reports
+                </h1>
+              </div>
+              <p className="text-xs font-medium text-gray-500">
+                Corporate executive presentation slides & team operational summaries
               </p>
             </div>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={copyWhatsAppSummary}
-            className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer active:scale-95"
-            title="Copy formatted summary to paste into WhatsApp"
-          >
-            <FiShare2 className="w-4 h-4 text-emerald-600" />
-            <span>Copy WhatsApp Summary</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200/80 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer active:scale-95"
-          >
-            <FiPrinter className="w-4 h-4 text-gray-600" />
-            <span>Print / PDF</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Filter Card (Screen Only) */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-200/80 shadow-xs space-y-4 print:hidden">
+        {/* Action Controls Row */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           
-          {/* Role Segmented Tabs */}
-          <div className="flex items-center gap-1.5 p-1 bg-gray-100/80 rounded-xl w-fit">
-            <button
-              type="button"
-              onClick={() => {
-                setRoleFilter('all');
-                setSelectedUserId('all');
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
-                roleFilter === 'all'
-                  ? 'bg-white text-gray-900 shadow-2xs'
-                  : 'text-gray-500 hover:text-gray-900'
-              }`}
-            >
-              👥 All Team
-            </button>
+          {/* Role Pill Switcher */}
+          <div className="flex items-center gap-1.5 p-1 bg-gray-100 rounded-xl w-fit border border-gray-200">
             <button
               type="button"
               onClick={() => {
                 setRoleFilter('site_engineer');
                 setSelectedUserId('all');
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
                 roleFilter === 'site_engineer'
-                  ? 'bg-yellow-500 text-white shadow-2xs'
-                  : 'text-gray-500 hover:text-gray-900'
+                  ? 'bg-yellow-500 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
               }`}
             >
-              🏗️ Site Engineers
+              <span>🏗️</span>
+              <span>Site Engineers</span>
             </button>
             <button
               type="button"
@@ -374,42 +361,39 @@ export default function ReportsPage() {
                 setRoleFilter('designer');
                 setSelectedUserId('all');
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
                 roleFilter === 'designer'
-                  ? 'bg-purple-600 text-white shadow-2xs'
-                  : 'text-gray-500 hover:text-gray-900'
+                  ? 'bg-yellow-500 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
               }`}
             >
-              🎨 Designers
+              <span>🎨</span>
+              <span>Designers</span>
             </button>
           </div>
 
-          {/* Member Selector Dropdown */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-gray-500 hidden sm:inline">Member:</span>
-            <select
-              value={selectedUserId}
-              onChange={(e) => setSelectedUserId(e.target.value)}
-              className="px-3 py-1.5 bg-gray-50 hover:bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500 cursor-pointer"
-            >
-              <option value="all">
-                {roleFilter === 'site_engineer' ? 'All Site Engineers' : roleFilter === 'designer' ? 'All Designers' : 'All Team Members'}
-              </option>
-              {filteredAvailableUsers.map(u => (
-                <option key={u.id} value={u.id}>
-                  {u.name} {u.designation ? `(${u.designation})` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Action Download Button */}
+          {canExportReports && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadPNG}
+                disabled={downloading || loading}
+                className="btn-primary py-2 px-4 text-xs sm:text-sm font-medium cursor-pointer disabled:opacity-50"
+                title="Download presentation slide as PNG"
+              >
+                <FiDownload className="w-4 h-4 text-white" />
+                <span>{downloading ? 'Downloading...' : 'Download'}</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Date Filters Row */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-gray-100">
-          {/* Preset Buttons */}
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-xs font-bold text-gray-500 mr-1 flex items-center gap-1">
-              <FiCalendar className="w-3.5 h-3.5 text-gray-400" /> Date:
+              <FiCalendar className="w-3.5 h-3.5 text-gray-400" /> Period:
             </span>
             {(['this_week', 'last_7_days', 'last_week', 'this_month', 'custom'] as PresetType[]).map((preset) => {
               const labels: Record<PresetType, string> = {
@@ -424,10 +408,10 @@ export default function ReportsPage() {
                   key={preset}
                   type="button"
                   onClick={() => handlePresetChange(preset)}
-                  className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                     datePreset === preset
-                      ? 'bg-gray-900 text-white shadow-2xs'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200/80'
+                      ? 'bg-yellow-500 text-white shadow-2xs'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
                   }`}
                 >
                   {labels[preset]}
@@ -436,7 +420,7 @@ export default function ReportsPage() {
             })}
           </div>
 
-          {/* Custom Date Inputs & Fetch Button */}
+          {/* Custom Date Pickers & Refresh Button */}
           <div className="flex items-center gap-2 flex-wrap">
             {datePreset === 'custom' && (
               <div className="flex items-center gap-1.5">
@@ -444,14 +428,14 @@ export default function ReportsPage() {
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="px-2.5 py-1 text-xs font-bold border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:border-yellow-500"
+                  className="px-2.5 py-1.5 text-xs font-bold border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                 />
                 <span className="text-xs text-gray-400 font-bold">to</span>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="px-2.5 py-1 text-xs font-bold border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:border-yellow-500"
+                  className="px-2.5 py-1.5 text-xs font-bold border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                 />
               </div>
             )}
@@ -460,268 +444,200 @@ export default function ReportsPage() {
               type="button"
               onClick={fetchReport}
               disabled={loading}
-              className="px-3.5 py-1 bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700 text-white font-bold text-xs rounded-lg transition-all flex items-center gap-1 shadow-2xs cursor-pointer disabled:opacity-50"
+              className="p-2 bg-gray-100 hover:bg-yellow-50 text-gray-700 hover:text-yellow-900 rounded-lg transition-all cursor-pointer disabled:opacity-50 border border-gray-200"
+              title="Refresh Report Data"
             >
               <FiRefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>{loading ? 'Refreshing...' : 'Generate'}</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Loading Skeleton */}
+      {/* ─── MAIN PRESENTATION SLIDE (MATCHES EXACT PROMPT & BRAND IDENTITY) ─ */}
       {loading ? (
-        <div className="py-20 flex flex-col items-center justify-center space-y-3">
+        <div className="py-28 flex flex-col items-center justify-center space-y-3 bg-white rounded-2xl border border-gray-200 shadow-sm w-full">
           <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-yellow-500" />
-          <p className="text-xs font-bold text-gray-500">Aggregating site logs and designer milestones...</p>
+          <p className="text-xs font-bold text-gray-500">Generating corporate slide...</p>
         </div>
-      ) : !reportData || reportData.users.length === 0 ? (
-        <div className="bg-white p-12 text-center rounded-2xl border border-gray-200 space-y-3">
+      ) : !reportData || sortedReports.length === 0 ? (
+        <div className="bg-white p-14 text-center rounded-2xl border border-gray-200 shadow-sm space-y-3 w-full">
           <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto text-xl">
             📋
           </div>
-          <h3 className="text-base font-bold text-gray-800">No Activity Logged</h3>
+          <h3 className="text-base font-bold text-gray-800">No Activity in Selected Period</h3>
           <p className="text-xs text-gray-500 max-w-sm mx-auto">
-            No updates or site logs were found for the selected team members and date range ({startDate} to {endDate}). Try selecting a broader date range or another role.
+            No updates or attendance logs found between {startDate} and {endDate}. Select another date range above.
           </p>
         </div>
       ) : (
-        <>
-          {/* Executive KPI Summary Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
-            <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs">
-              <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Updates Logged</span>
-              <div className="text-2xl font-black text-gray-900 mt-1 flex items-center justify-between">
-                <span>{reportData.summary.totalUpdates}</span>
-                <span className="text-base">📝</span>
-              </div>
-              <p className="text-[10px] text-gray-500 font-medium mt-1">Daily reports posted</p>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs">
-              <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Active Projects</span>
-              <div className="text-2xl font-black text-yellow-600 mt-1 flex items-center justify-between">
-                <span>{reportData.summary.activeProjectsCount}</span>
-                <span className="text-base">🏗️</span>
-              </div>
-              <p className="text-[10px] text-gray-500 font-medium mt-1">Sites in progress</p>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs">
-              <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Site Photos</span>
-              <div className="text-2xl font-black text-blue-600 mt-1 flex items-center justify-between">
-                <span>{reportData.summary.totalPhotos}</span>
-                <span className="text-base">📸</span>
-              </div>
-              <p className="text-[10px] text-gray-500 font-medium mt-1">Visual proof uploads</p>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs">
-              <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Snags Resolved</span>
-              <div className="text-2xl font-black text-emerald-600 mt-1 flex items-center justify-between">
-                <span>{reportData.summary.totalSnagsResolved}</span>
-                <span className="text-base">✅</span>
-              </div>
-              <p className="text-[10px] text-gray-500 font-medium mt-1">Quality defects closed</p>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs col-span-2 sm:col-span-1">
-              <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Attendance Days</span>
-              <div className="text-2xl font-black text-purple-600 mt-1 flex items-center justify-between">
-                <span>{reportData.summary.totalAttendanceDays}</span>
-                <span className="text-base">📅</span>
-              </div>
-              <p className="text-[10px] text-gray-500 font-medium mt-1">Cumulative days present</p>
+        <div 
+          ref={slideRef}
+          id="presentation-slide"
+          className="w-full bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden flex flex-col p-6 sm:p-10 lg:p-12 print:shadow-none print:border-none print:m-0 print:p-6 print:rounded-none"
+          style={{ backgroundColor: '#ffffff' }}
+        >
+          {/* 1. TOP HEADER: TITLE WITH LOGO & DATE RANGE */}
+          <div className="flex items-center justify-between pb-3 sm:pb-4">
+            <div className="flex items-center gap-3.5 sm:gap-4">
+              <img 
+                src="/New-logo.png" 
+                alt="Apple Interiors" 
+                className="h-9 sm:h-11 w-auto object-contain shrink-0"
+                crossOrigin="anonymous"
+              />
+              <h1 className="text-xl sm:text-3xl lg:text-4xl font-extrabold text-gray-950 tracking-tight">
+                {roleTitle} — {formatDateRangeHeader(startDate, endDate)}
+              </h1>
             </div>
           </div>
 
-          {/* Member Detailed Breakdown Cards */}
-          <div className="space-y-6">
-            {reportData.users.map((memberReport) => {
-              const { user, metrics, activeProjects, updates: userUpdates, designs } = memberReport;
-              const initials = user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'ST';
-              const isEngineer = user.type === 'site_engineer';
+          {/* Sleek Brand Accent Line */}
+          <div 
+            className="w-full h-1 sm:h-1.5 rounded-full mb-6 sm:mb-8"
+            style={{ backgroundColor: '#F59E0B' }}
+          />
 
-              return (
-                <div 
-                  key={user.id} 
-                  className="bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden break-inside-avoid"
-                >
-                  {/* Member Card Header */}
-                  <div className="p-4 sm:p-5 bg-gradient-to-r from-gray-50/90 to-white border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-sm text-white shadow-xs ${
-                        isEngineer ? 'bg-gradient-to-br from-yellow-500 to-amber-600' : 'bg-gradient-to-br from-purple-500 to-indigo-600'
-                      }`}>
-                        {initials}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-black text-sm sm:text-base text-gray-900">{user.name}</h3>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase border ${
-                            isEngineer 
-                              ? 'bg-amber-50 text-amber-800 border-amber-200' 
-                              : 'bg-purple-50 text-purple-800 border-purple-200'
-                          }`}>
-                            {user.designation}
+          {/* Structured Summary Table (Matches Exact 4-Column Format) */}
+          <div className="border border-gray-300 rounded-lg overflow-hidden shadow-2xs mb-8 sm:mb-10">
+            <table className="w-full text-center border-collapse">
+              <tbody className="divide-y divide-gray-300 text-xs sm:text-base font-medium">
+                {sortedReports.map((report, idx) => {
+                  const projCount = report.activeProjects.length;
+                  const isCrossSite = projCount === 0 && report.metrics.attendanceDays > 0;
+                  const projText = roleFilter === 'designer'
+                    ? `${projCount} Projects Assigned`
+                    : (isCrossSite ? 'Cross-Site Supervision' : `${projCount} Projects Under Execution`);
+                  
+                  const daysText = `${report.metrics.attendanceDays} Days Present`;
+                  const updatesText = roleFilter === 'designer'
+                    ? `${report.metrics.totalUpdates} Designs Uploaded`
+                    : (isCrossSite && report.metrics.totalUpdates === 0 ? 'Multi-Site Support' : `${report.metrics.totalUpdates} Project Updates`);
+
+                  return (
+                    <tr 
+                      key={report.user.id} 
+                      className={idx % 2 === 1 ? 'bg-gray-50/70' : 'bg-white'}
+                    >
+                      <td className="py-3.5 sm:py-4 px-4 sm:px-6 font-bold text-gray-950 border-r border-gray-300 text-left sm:text-center w-1/4">
+                        {report.user.name}
+                      </td>
+                      <td className="py-3.5 sm:py-4 px-4 sm:px-6 text-gray-800 border-r border-gray-300 w-1/4 font-semibold">
+                        {projText}
+                      </td>
+                      <td className="py-3.5 sm:py-4 px-4 sm:px-6 text-gray-800 border-r border-gray-300 w-1/4 font-semibold">
+                        {daysText}
+                      </td>
+                      <td className="py-3.5 sm:py-4 px-4 sm:px-6 font-bold text-gray-950 w-1/4">
+                        {updatesText}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* 3. DUAL-BAR COMPARISON CHART */}
+          <div className="pt-2 pb-4">
+            <div className="relative flex h-56 sm:h-68 w-full">
+              
+              {/* Chart Grid & Bars Container */}
+              <div className="relative flex-1 flex flex-col justify-between">
+                {/* Horizontal Background Grid Lines */}
+                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                  {yAxisTicks.map((tick) => (
+                    <div 
+                      key={tick} 
+                      className="border-b w-full h-0 border-gray-100" 
+                    />
+                  ))}
+                </div>
+
+                {/* Bars Flex Row */}
+                <div className="relative z-10 flex-1 flex items-end justify-around px-2 sm:px-8 border-b-2 border-gray-300">
+                  {sortedReports.map((report) => {
+                    const daysPresent = report.metrics.attendanceDays;
+                    const updates = report.metrics.totalUpdates;
+                    const daysHeight = Math.min(100, Math.max(4, (daysPresent / maxChartValue) * 100));
+                    const updatesHeight = Math.min(100, Math.max(4, (updates / maxChartValue) * 100));
+
+                    return (
+                      <div key={report.user.id} className="flex flex-col items-center group">
+                        {/* Paired Bars */}
+                        <div className="flex items-end gap-1.5 sm:gap-3.5 h-44 sm:h-56">
+                          {/* Dark Charcoal Bar: Attendance Days */}
+                          <div className="flex flex-col items-center justify-end h-full">
+                            <span 
+                              className="text-[10px] sm:text-xs font-black mb-1 text-gray-900"
+                            >
+                              {daysPresent}
+                            </span>
+                            <div 
+                              className="w-5 sm:w-12 transition-all shadow-2xs rounded-t-xs"
+                              style={{ height: `${daysHeight}%`, backgroundColor: '#111827' }}
+                              title={`${report.user.name}: ${daysPresent} days present`}
+                            />
+                          </div>
+
+                          {/* Apple Brand Yellow Bar: Project Updates */}
+                          <div className="flex flex-col items-center justify-end h-full">
+                            <span 
+                              className="text-[10px] sm:text-xs font-black mb-1"
+                              style={{ color: '#D97706' }}
+                            >
+                              {updates}
+                            </span>
+                            <div 
+                              className="w-5 sm:w-12 transition-all shadow-2xs rounded-t-xs"
+                              style={{ height: `${updatesHeight}%`, backgroundColor: '#F59E0B' }}
+                              title={`${report.user.name}: ${updates} updates`}
+                            />
+                          </div>
+                        </div>
+
+                        {/* X-Axis Name */}
+                        <div className="mt-2.5 sm:mt-3 text-center max-w-[85px] sm:max-w-[130px]">
+                          <span 
+                            className="text-[11px] sm:text-xs font-bold text-gray-900 block truncate"
+                          >
+                            {report.user.name}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-500 font-medium mt-0.5">
-                          {user.email} {user.phone ? `• ${user.phone}` : ''}
-                        </p>
                       </div>
-                    </div>
-
-                    {/* Member Quick Stats Chips */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <div className="px-2.5 py-1 bg-white rounded-xl border border-gray-200/80 text-xs font-bold text-gray-700 shadow-2xs">
-                        <span className="text-gray-400 font-medium">Updates:</span> {metrics.totalUpdates}
-                      </div>
-                      <div className="px-2.5 py-1 bg-white rounded-xl border border-gray-200/80 text-xs font-bold text-gray-700 shadow-2xs">
-                        <span className="text-gray-400 font-medium">Photos:</span> {metrics.totalPhotos}
-                      </div>
-                      <div className="px-2.5 py-1 bg-white rounded-xl border border-gray-200/80 text-xs font-bold text-gray-700 shadow-2xs">
-                        <span className="text-gray-400 font-medium">Active Sites:</span> {activeProjects.length}
-                      </div>
-                      <div className="px-2.5 py-1 bg-white rounded-xl border border-gray-200/80 text-xs font-bold text-gray-700 shadow-2xs">
-                        <span className="text-gray-400 font-medium">Attendance:</span> {metrics.attendanceDays}d
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Body: Active Projects & Chronological Update Log */}
-                  <div className="p-4 sm:p-5 space-y-5">
-                    
-                    {/* Active Projects Assigned */}
-                    {activeProjects.length > 0 && (
-                      <div>
-                        <h4 className="text-[11px] font-black uppercase text-gray-400 tracking-wider mb-2 flex items-center gap-1.5">
-                          <FiFolder className="w-3.5 h-3.5 text-gray-400" />
-                          <span>Active Projects Assigned ({activeProjects.length})</span>
-                        </h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                          {activeProjects.map(proj => (
-                            <Link 
-                              key={proj.id}
-                              href={`/dashboard/projects/${proj.id}`}
-                              className="p-2.5 rounded-xl border border-gray-100 hover:border-yellow-300 bg-gray-50/60 hover:bg-white transition-all flex items-start justify-between gap-2 group cursor-pointer"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <p className="font-bold text-xs text-gray-900 group-hover:text-yellow-600 truncate">
-                                  {proj.title}
-                                </p>
-                                <p className="text-[10px] text-gray-500 truncate mt-0.5">
-                                  {proj.customer_name || 'No client specified'}
-                                </p>
-                              </div>
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 bg-white border border-gray-200 text-gray-600">
-                                {proj.workflow_stage || proj.status || 'Active'}
-                              </span>
-                            </Link>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Designer Drawing Milestones (If Designer) */}
-                    {!isEngineer && designs && designs.length > 0 && (
-                      <div className="pt-2 border-t border-gray-100">
-                        <h4 className="text-[11px] font-black uppercase text-gray-400 tracking-wider mb-2 flex items-center gap-1.5">
-                          <FiLayers className="w-3.5 h-3.5 text-purple-500" />
-                          <span>Drawings &amp; Design Files Uploaded ({designs.length})</span>
-                        </h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                          {designs.map(d => (
-                            <div key={d.id} className="p-2.5 bg-purple-50/40 rounded-xl border border-purple-100 flex items-center justify-between gap-2">
-                              <div className="min-w-0">
-                                <p className="font-bold text-gray-900 truncate">{d.file_name}</p>
-                                <p className="text-[10px] text-gray-500 truncate">Project: {d.project_title} • v{d.version}</p>
-                              </div>
-                              {d.is_frozen ? (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
-                                  Frozen ❄️
-                                </span>
-                              ) : (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white text-gray-600 border border-gray-200 shrink-0">
-                                  {d.approval_status || 'Draft'}
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Site Engineer Activity Log Stream */}
-                    <div>
-                      <h4 className="text-[11px] font-black uppercase text-gray-400 tracking-wider mb-2.5 flex items-center gap-1.5">
-                        <FiClock className="w-3.5 h-3.5 text-gray-400" />
-                        <span>Work Updates Posted ({userUpdates.length})</span>
-                      </h4>
-
-                      {userUpdates.length === 0 ? (
-                        <div className="py-4 px-3 bg-amber-50/50 rounded-xl border border-amber-200/60 text-xs text-amber-800 flex items-center gap-2">
-                          <FiAlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                          <span>No site updates or logs were posted by this member during this period.</span>
-                        </div>
-                      ) : (
-                        <div className="space-y-2.5">
-                          {userUpdates.map((u) => {
-                            const dateStr = u.update_date || u.created_at;
-                            const formattedDate = dateStr ? new Date(dateStr).toLocaleDateString('en-GB', {
-                              day: 'numeric',
-                              month: 'short',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            }) : 'Recent';
-
-                            return (
-                              <div 
-                                key={u.id}
-                                className="p-3 bg-gray-50/70 hover:bg-gray-50 rounded-xl border border-gray-100 space-y-1.5 transition-colors"
-                              >
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <span className="font-black text-xs text-gray-900 truncate">
-                                      {u.project_title}
-                                    </span>
-                                    {u.customer_name && (
-                                      <span className="text-[10px] text-gray-500 font-medium truncate">
-                                        ({u.customer_name})
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    {u.photosCount > 0 && (
-                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                                        <FiCamera className="w-3 h-3 text-blue-600" />
-                                        <span>{u.photosCount} photo{u.photosCount > 1 ? 's' : ''}</span>
-                                      </span>
-                                    )}
-                                    <span className="text-[10px] text-gray-400 font-bold whitespace-nowrap">
-                                      {formattedDate}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line font-medium">
-                                  {u.description}
-                                </p>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                  </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </div>
+            </div>
+
+            {/* Centered Chart Legend (Matches Slide Exactly) */}
+            <div className="flex items-center justify-center gap-6 sm:gap-8 pt-5 text-xs sm:text-sm font-bold">
+              <div className="flex items-center gap-2">
+                <span 
+                  className="w-3.5 sm:w-4 h-3.5 sm:h-4 inline-block rounded-xs" 
+                  style={{ backgroundColor: '#111827' }}
+                />
+                <span className="text-gray-900">Attendance Days</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span 
+                  className="w-3.5 sm:w-4 h-3.5 sm:h-4 inline-block rounded-xs" 
+                  style={{ backgroundColor: '#F59E0B' }}
+                />
+                <span className="text-gray-900">
+                  {roleFilter === 'designer' ? 'Designs Uploaded' : 'Project Updates'}
+                </span>
+              </div>
+            </div>
           </div>
-        </>
+
+          {/* 4. FOOTER: CENTERED SLIDE SUMMARY (MATCHES SLIDE EXACTLY) */}
+          <div className="pt-8 sm:pt-10 text-center text-xs sm:text-sm text-gray-500 font-medium tracking-wide">
+            Apple Interior Manager • Weekly Operations Summary
+          </div>
+        </div>
       )}
+
     </div>
   );
 }

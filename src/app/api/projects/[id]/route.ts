@@ -476,3 +476,73 @@ export async function PATCH(
         return NextResponse.json(handled.error, { status: handled.status });
     }
 }
+
+/**
+ * DELETE /api/projects/[id]
+ * Deletes a project and its cascaded data
+ */
+export async function DELETE(
+    request: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    if (isBuildContext) {
+        return NextResponse.json({ success: true }, { status: 200 });
+    }
+
+    try {
+        const { id: projectId } = await params;
+        if (!projectId) {
+            return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
+        }
+
+        const { user, error: authError } = await getAuthUser();
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Verify permission: admin or projects.delete
+        const canDelete = await verifyPermission(user.id, PERMISSION_NODES.PROJECTS_DELETE);
+        if (!canDelete) {
+            return NextResponse.json({ error: 'Permission denied: projects.delete required' }, { status: 403 });
+        }
+
+        // Check if project exists
+        const { data: project, error: fetchErr } = await supabaseAdmin
+            .from('projects')
+            .select('id, title')
+            .eq('id', projectId)
+            .single();
+
+        if (fetchErr || !project) {
+            return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+        }
+
+        // Perform cascade cleanups if any related tables don't have DB cascade
+        await Promise.allSettled([
+            supabaseAdmin.from('requirement_notes').delete().eq('project_id', projectId),
+            supabaseAdmin.from('project_members').delete().eq('project_id', projectId),
+            supabaseAdmin.from('project_designs').delete().eq('project_id', projectId),
+            supabaseAdmin.from('daily_updates').delete().eq('project_id', projectId),
+            supabaseAdmin.from('boq_items').delete().eq('project_id', projectId),
+            supabaseAdmin.from('expenses').delete().eq('project_id', projectId),
+            supabaseAdmin.from('snag_items').delete().eq('project_id', projectId),
+        ]);
+
+        // Delete project
+        const { error: delError } = await supabaseAdmin
+            .from('projects')
+            .delete()
+            .eq('id', projectId);
+
+        if (delError) {
+            console.error('Error deleting project:', delError);
+            return NextResponse.json({ error: delError.message }, { status: 500 });
+        }
+
+        console.log(`[Projects] Project deleted: ${project.title} (${projectId}) by user ${user.id}`);
+        return NextResponse.json({ success: true, message: `Project "${project.title}" deleted successfully` });
+    } catch (err: any) {
+        console.error('Unexpected error in DELETE /api/projects/[id]:', err);
+        return NextResponse.json({ error: err?.message || 'Internal server error' }, { status: 500 });
+    }
+}

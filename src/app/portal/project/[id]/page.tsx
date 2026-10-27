@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo, use, useRef } from 'react';
-import { Inter } from 'next/font/google';
 import { supabase } from '@/lib/supabase';
 import { 
   FiImage, FiFileText, FiMessageSquare, FiUser, 
@@ -14,11 +13,6 @@ import { DesignViewer } from '@/components/projects/DesignViewer';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-
-const inter = Inter({ 
-  subsets: ['latin'],
-  variable: '--font-inter',
-});
 
 // Voice Note Player Helper Component
 function VoiceNotePlayer({ src }: { src: string }) {
@@ -259,7 +253,7 @@ export default function SecureProjectPortal({ params }: { params: Promise<{ id: 
   const { project, photos, siteEngineer, designer } = data;
 
   return (
-    <div className={`min-h-screen bg-[#fafaf8] ${inter.className}`}>
+    <div className="min-h-screen bg-[#fafaf8] font-sans">
       {/* Top Notification Bar */}
       <div className="bg-yellow-500 py-2.5 px-6 border-b border-yellow-600 shadow-sm relative z-50">
         <div className="text-[10px] font-bold text-white uppercase tracking-[0.25em] text-center">

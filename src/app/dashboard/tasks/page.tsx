@@ -5,6 +5,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useBranch } from '@/contexts/BranchContext';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, startOfMonth, endOfMonth, endOfWeek, eachDayOfInterval, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
@@ -719,6 +720,7 @@ const ViewTaskContent = ({
 
 export default function TasksPage() {
   const { user } = useAuth();
+  const { currentBranch } = useBranch();
   const { hasPermission, isLoading: permLoading } = useUserPermissions();
   const router = useRouter();
   const [view, setView] = useState<CalendarViewType>('month');
@@ -894,6 +896,7 @@ export default function TasksPage() {
       params.set('start', rangeStart.toISOString());
       params.set('end', rangeEnd.toISOString());
       if (filterAssignee && filterAssignee !== 'all') params.set('assigned_to', filterAssignee);
+      if (currentBranch !== 'all') params.set('branch', currentBranch);
 
       const res = await fetch(`/api/calendar-tasks?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch tasks');
@@ -921,7 +924,7 @@ export default function TasksPage() {
     if (taskIdParam && tasks.length > 0) {
       const task = tasks.find(t => t.id === taskIdParam);
       if (task) {
-        console.log('ðŸŽ¯ Deep linking to task:', task.id);
+        console.log('Deep linking to task:', task.id);
         setViewTask(task);
         setViewModalOpen(true);
       }
@@ -931,7 +934,7 @@ export default function TasksPage() {
   useEffect(() => {
     fetchTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, filterAssignee]);
+  }, [date, filterAssignee, currentBranch]);
 
   // Filter tasks to only include the currently selected month
   const selectedMonthTasks = useMemo(() => {
@@ -1485,6 +1488,7 @@ export default function TasksPage() {
         priority: form.priority,
         location: form.location || null,
         meeting_link: form.meeting_link || null,
+        branch: currentBranch !== 'all' ? currentBranch : undefined,
       };
       let res: Response;
 
@@ -1536,7 +1540,8 @@ export default function TasksPage() {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const res = await fetch('/api/admin/projects');
+        const branchParam = currentBranch !== 'all' ? `?branch=${encodeURIComponent(currentBranch)}` : '';
+        const res = await fetch(`/api/admin/projects${branchParam}`);
         if (!res.ok) throw new Error('Failed to fetch projects');
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -1547,7 +1552,7 @@ export default function TasksPage() {
       }
     };
     fetchProjects();
-  }, []);
+  }, [currentBranch]);
 
   // ponytail: redirect unauthorized users silently — sidebar already hides the link
   useEffect(() => {

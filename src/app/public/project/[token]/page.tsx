@@ -1,11 +1,8 @@
 'use client';
 
 import { useState, useEffect, use } from 'react';
-import { Inter } from 'next/font/google';
 import { useRouter } from 'next/navigation';
 import { FiLock, FiShield, FiArrowRight, FiInfo } from 'react-icons/fi';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export default function PublicProjectRedirect({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
@@ -27,7 +24,7 @@ export default function PublicProjectRedirect({ params }: { params: Promise<{ to
   }, [router]);
 
   return (
-    <div className={`min-h-screen bg-[#fafaf8] flex items-center justify-center p-6 ${inter.className}`}>
+    <div className="min-h-screen bg-[#fafaf8] flex items-center justify-center p-6 font-sans">
       <div className="w-full max-w-xl text-center">
         <div className="mb-10 inline-flex items-center justify-center w-24 h-24 bg-white rounded-[2.5rem] shadow-2xl shadow-gray-200/50 border border-gray-100 text-[#eab308]">
           <FiShield size={40} />

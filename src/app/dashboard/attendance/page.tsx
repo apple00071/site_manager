@@ -16,6 +16,7 @@ import { SidePanel } from '@/components/ui/SidePanel';
 import { formatDateIST, formatTimeIST } from '@/lib/dateUtils';
 import { DataTable, StatusBadge, Column } from '@/components/ui/DataTable';
 import { CustomDatePicker } from '@/components/ui/CustomControls';
+import { useBranch } from '@/contexts/BranchContext';
 
 interface AttendanceRecord {
     id: string;
@@ -54,6 +55,7 @@ interface Leave {
 export default function AttendancePage() {
     const searchParams = useSearchParams();
     const { user, isAdmin } = useAuth();
+    const { currentBranch } = useBranch();
     const { hasPermission } = useUserPermissions();
     const { showToast } = useToast();
     const { setTitle, setSubtitle } = useHeaderTitle();
@@ -126,12 +128,13 @@ export default function AttendancePage() {
         } else {
             fetchLeaves();
         }
-    }, [activeTab]);
+    }, [activeTab, currentBranch]);
 
     const fetchAttendance = async () => {
         try {
             setAttendanceLoading(true);
-            const res = await fetch('/api/attendance');
+            const branchParam = currentBranch !== 'all' ? `?branch=${encodeURIComponent(currentBranch)}` : '';
+            const res = await fetch(`/api/attendance${branchParam}`);
             if (res.ok) {
                 const data = await res.json();
                 setAttendanceLogs(data);

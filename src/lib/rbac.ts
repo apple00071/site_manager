@@ -35,6 +35,8 @@ const ALIAS_PREFIX_MAP: Record<string, string> = {
   leave: 'leaves', leaves: 'leave',
   popup: 'popups', popups: 'popup',
   requirement: 'requirements', requirements: 'requirement',
+  report: 'reports', reports: 'report',
+  lead: 'leads', leads: 'lead',
 };
 
 function getCodeVariants(code: string): string[] {

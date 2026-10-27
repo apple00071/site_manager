@@ -21,6 +21,7 @@ import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { buildQuotationHtmlString } from '@/lib/reports/quotationHtmlBuilder';
 import CreateProjectFromLeadModal from '@/components/crm/CreateProjectFromLeadModal';
 import { openQuotationPrint } from '@/lib/shareUtils';
+import { useBranch } from '@/contexts/BranchContext';
 const QuotationBuilder = dynamic(() => import('@/components/crm/QuotationBuilder'), { ssr: false });
 
 interface Lead {
@@ -39,6 +40,8 @@ interface Lead {
   follow_up_2: string;
   follow_up_3: string;
   remarks: string;
+  branch?: string;
+  source?: string;
   floor_plan_url?: string | null;
   floor_plan_name?: string | null;
   latest_quotation_id?: string;
@@ -76,6 +79,7 @@ export default function CRMPage() {
   const { setTitle, setSubtitle } = useHeaderTitle();
   const { hasPermission, isAdmin: permIsAdmin } = useUserPermissions();
   const { user, isAdmin: authIsAdmin } = useAuth();
+  const { currentBranch, userBranch } = useBranch();
   const isAdmin = Boolean(authIsAdmin || permIsAdmin || user?.role?.toLowerCase() === 'admin');
   const canEditApproved = Boolean(isAdmin || hasPermission('crm.edit_approved'));
 
@@ -243,6 +247,8 @@ export default function CRMPage() {
       created_date: 80,
       client_name: 100,
       phone: 95,
+      source: 120,
+      branch: 105,
       site_project: 220,
       area_sqft: 70,
       quote_value: 95,
@@ -578,23 +584,53 @@ export default function CRMPage() {
   ], []);
 
 
-  // Column definitions modeled after user screenshot
-  const columns = useMemo(() => [
-    { id: 'ref_no', label: 'Ref No.', width: '110px', editable: false },
-    { id: 'created_date', label: 'Date', width: '80px', editable: true, type: 'date' },
-    { id: 'client_name', label: 'Client Name', width: '100px', editable: true, type: 'text' },
-    { id: 'phone', label: 'Phone', width: '95px', editable: true, type: 'text' },
-    { id: 'site_project', label: 'Site / Project', width: '220px', editable: true, type: 'text' },
-    { id: 'area_sqft', label: 'Area (sq.ft)', width: '70px', editable: true, type: 'number' },
-    { id: 'quote_value', label: 'Quote Value (₹)', width: '95px', editable: true, type: 'number' },
-    { id: 'status', label: 'Status', width: '105px', editable: true, type: 'status' },
-    { id: 'approved_value', label: 'Approved Value (₹)', width: '110px', editable: true, type: 'number' },
-    { id: 'assigned_by', label: 'Assigned By', width: '100px', editable: true, type: 'assignee' },
-    { id: 'follow_up_1', label: 'Follow-up 1', width: '160px', editable: true, type: 'text' },
-    { id: 'follow_up_2', label: 'Follow-up 2', width: '160px', editable: true, type: 'text' },
-    { id: 'follow_up_3', label: 'Follow-up 3', width: '160px', editable: true, type: 'text' },
-    { id: 'remarks', label: 'Remarks', width: '150px', editable: true, type: 'text' }
-  ], []);
+  const getLeadSource = (l: Lead) => {
+    if (l.source) return l.source;
+    if (l.remarks) {
+      const match = l.remarks.match(/\[Source:\s*([^\]]+)\]/i);
+      if (match && match[1]?.trim()) return match[1].trim();
+    }
+    return l.assigned_by || 'Direct';
+  };
+
+  const getLeadBranch = (l: Lead) => {
+    if (l.branch) return l.branch;
+    if (l.remarks) {
+      const match = l.remarks.match(/\[Branch:\s*([^\]]+)\]/i);
+      if (match && match[1]?.trim()) return match[1].trim();
+    }
+    return 'Kukatpally';
+  };
+
+  // Column definitions with Lead Source and Admin All-Branches indicator
+  const columns = useMemo(() => {
+    const cols = [
+      { id: 'ref_no', label: 'Ref No.', width: '110px', editable: false },
+      { id: 'created_date', label: 'Date', width: '80px', editable: true, type: 'date' },
+      { id: 'client_name', label: 'Client Name', width: '100px', editable: true, type: 'text' },
+      { id: 'phone', label: 'Phone', width: '95px', editable: true, type: 'text' },
+      { id: 'source', label: 'Lead Source', width: '120px', editable: false, type: 'source' },
+    ];
+
+    if (isAdmin && currentBranch === 'all') {
+      cols.push({ id: 'branch', label: 'Branch', width: '105px', editable: false, type: 'branch' });
+    }
+
+    cols.push(
+      { id: 'site_project', label: 'Site / Project', width: '220px', editable: true, type: 'text' },
+      { id: 'area_sqft', label: 'Area (sq.ft)', width: '70px', editable: true, type: 'number' },
+      { id: 'quote_value', label: 'Quote Value (₹)', width: '95px', editable: true, type: 'number' },
+      { id: 'status', label: 'Status', width: '105px', editable: true, type: 'status' },
+      { id: 'approved_value', label: 'Approved Value (₹)', width: '110px', editable: true, type: 'number' },
+      { id: 'assigned_by', label: 'Assigned By', width: '100px', editable: true, type: 'assignee' },
+      { id: 'follow_up_1', label: 'Follow-up 1', width: '160px', editable: true, type: 'text' },
+      { id: 'follow_up_2', label: 'Follow-up 2', width: '160px', editable: true, type: 'text' },
+      { id: 'follow_up_3', label: 'Follow-up 3', width: '160px', editable: true, type: 'text' },
+      { id: 'remarks', label: 'Remarks', width: '150px', editable: true, type: 'text' }
+    );
+
+    return cols;
+  }, [isAdmin, currentBranch]);
 
   // Dynamically extract unique assignees to prevent data mismatches and support custom data entries
   const assigneeOptions = useMemo(() => {
@@ -612,11 +648,14 @@ export default function CRMPage() {
     return Array.from(set).sort();
   }, [leads, employees]);
 
-  // Fetch leads
-  const fetchLeads = async () => {
+  // Fetch leads with branch filtering
+  const fetchLeads = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/crm');
+      const branchParam = currentBranch !== 'all' ? `?branch=${encodeURIComponent(currentBranch)}` : '';
+      const response = await fetch(`/api/crm${branchParam}`, {
+        headers: { 'x-branch': currentBranch }
+      });
       if (response.ok) {
         const result = await response.json();
         const loadedLeads = result.data || [];
@@ -649,10 +688,19 @@ export default function CRMPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentBranch]);
 
   useEffect(() => {
     fetchLeads();
+  }, [fetchLeads, currentBranch]);
+
+  useEffect(() => {
+    const handleBranchChange = () => fetchLeads();
+    window.addEventListener('branch_changed', handleBranchChange);
+    return () => window.removeEventListener('branch_changed', handleBranchChange);
+  }, [fetchLeads]);
+
+  useEffect(() => {
     
     const fetchEmployees = async () => {
       try {
@@ -1626,7 +1674,7 @@ export default function CRMPage() {
               </div>
 
               {/* Action Buttons */}
-              {hasPermission('crm.manage') && (
+              {(hasPermission('crm.manage') || hasPermission('leads.create')) && (
                 <button
                   onClick={handleAddLead}
                   className="px-3.5 py-1.5 bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 text-white font-black rounded-xl text-xs transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
@@ -2346,10 +2394,23 @@ export default function CRMPage() {
                                   {lead.ref_no}
                                 </span>
                               )}
+                              <span className="text-[9px] bg-blue-50 text-blue-700 border border-blue-200 font-bold px-1.5 py-0.5 rounded">
+                                {getLeadSource(lead)}
+                              </span>
+                              {isAdmin && currentBranch === 'all' && (
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                                  getLeadBranch(lead) === 'AS Rao Nagar'
+                                    ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                }`}>
+                                  {getLeadBranch(lead)}
+                                </span>
+                              )}
                             </div>
                             {lead.site_project && (
-                              <p className="text-xs text-gray-500 mt-0.5 truncate font-medium">
-                                {'📍 '} {lead.site_project} {lead.area_sqft ? `(${lead.area_sqft} sq.ft)` : ''}
+                              <p className="text-xs text-gray-500 mt-1 truncate font-medium flex items-center">
+                                <FiMapPin className="w-3 h-3 text-gray-400 shrink-0 mr-1" />
+                                <span className="truncate">{lead.site_project} {lead.area_sqft ? `(${lead.area_sqft} sq.ft)` : ''}</span>
                               </p>
                             )}
                           </div>
@@ -2715,7 +2776,19 @@ export default function CRMPage() {
                                          </div>
                                        )}
                                      </div>
-                                   ) : (
+                                   ) : col.id === 'source' ? (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                      {getLeadSource(lead)}
+                                    </span>
+                                  ) : col.id === 'branch' ? (
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
+                                      getLeadBranch(lead) === 'AS Rao Nagar'
+                                        ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    }`}>
+                                      {getLeadBranch(lead)}
+                                    </span>
+                                  ) : (
                                     <span className="text-gray-800 font-medium">{cellValue || '-'}</span>
                                   )
                                 )}

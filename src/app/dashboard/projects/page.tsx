@@ -9,6 +9,7 @@ import { FiPlus, FiEdit2, FiTrash2, FiEye, FiMoreVertical, FiSearch, FiX, FiSend
 import { formatDateIST } from '@/lib/dateUtils';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useBranch } from '@/contexts/BranchContext';
 
 const getDesignerName = (project: any): string => {
   return (
@@ -43,6 +44,7 @@ const getSupervisorName = (project: any): string => {
 
 export default function ProjectsPage() {
   const { user } = useAuth();
+  const { currentBranch } = useBranch();
   const { hasPermission, hasAnyPermission, isAdmin, roleName, designation: permDesignation, isLoading: permLoading } = useUserPermissions();
   const router = useRouter();
   const canViewProjects = hasAnyPermission(['projects.view', 'projects.view_all']);
@@ -150,7 +152,8 @@ export default function ProjectsPage() {
         setLoading(true);
       }
       try {
-        const response = await fetch('/api/admin/projects');
+        const branchParam = currentBranch !== 'all' ? `?branch=${encodeURIComponent(currentBranch)}` : '';
+        const response = await fetch(`/api/admin/projects${branchParam}`);
 
         if (!response.ok) {
           if (response.status === 401) {
@@ -187,7 +190,7 @@ export default function ProjectsPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [currentBranch]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -228,12 +231,17 @@ export default function ProjectsPage() {
   const handleDeleteProject = async (projectId: string) => {
     if (!canDeleteProject) return;
 
-    if (window.confirm('Are you sure you want to delete this project?')) {
+    if (window.confirm('Are you sure you want to permanently delete this project? This action cannot be undone.')) {
       try {
-        const { error } = await supabase
-          .from('projects')
-          .delete()
-          .eq('id', projectId);
+        const res = await fetch(`/api/projects/${projectId}`, {
+          method: 'DELETE',
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          alert(errData.error || 'Failed to delete project');
+          return;
+        }
 
         const updated = projects.filter(p => p.id !== projectId);
         setProjects(updated);
@@ -242,6 +250,7 @@ export default function ProjectsPage() {
         } catch {}
       } catch (error) {
         console.error('Error deleting project:', error);
+        alert('An unexpected error occurred while deleting the project.');
       }
     }
   };

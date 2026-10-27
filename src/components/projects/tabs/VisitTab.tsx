@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { FiEdit2, FiPhone, FiPlus, FiUsers, FiMessageSquare } from 'react-icons/fi';
+import { FiEdit2, FiPhone, FiPlus, FiUsers, FiMessageSquare, FiTrash2 } from 'react-icons/fi';
 import { formatDateIST } from '@/lib/dateUtils';
 import { ProjectUsersPanel } from '../ProjectUsersPanel';
 import type { Project } from '../ProjectDetailsClient';
@@ -58,6 +58,22 @@ export const VisitTab: React.FC<VisitTabProps> = ({
     }
   }, [activeSubTab, project.id]);
 
+  const handleDeleteProject = async () => {
+    if (!window.confirm(`Are you sure you want to permanently delete "${project.title}"? This action cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Failed to delete project');
+        return;
+      }
+      alert('Project deleted successfully.');
+      window.location.href = '/dashboard/projects';
+    } catch (e) {
+      alert('Error deleting project');
+    }
+  };
+
   const assignedTrades = TRADES.filter(t => !!(project[`${t.id}_name` as keyof Project] as string)?.trim());
   const unassignedTrades = TRADES.filter(t => !(project[`${t.id}_name` as keyof Project] as string)?.trim());
   return (
@@ -70,15 +86,28 @@ export const VisitTab: React.FC<VisitTabProps> = ({
               <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-gray-900">Project Information</h3>
-                  {canEditProject && (
-                    <button 
-                      onClick={() => onEdit('info')} 
-                      className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
-                      aria-label="Edit Project Information"
-                    >
-                      <FiEdit2 className="w-4 h-4" />
-                    </button>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {canEditProject && (
+                      <button 
+                        onClick={() => onEdit('info')} 
+                        className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
+                        aria-label="Edit Project Information"
+                        title="Edit Project Information"
+                      >
+                        <FiEdit2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    {(isAdmin || canEditProject) && (
+                      <button 
+                        onClick={handleDeleteProject} 
+                        className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                        aria-label="Delete Project"
+                        title="Delete Project"
+                      >
+                        <FiTrash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   <div>
@@ -222,9 +251,9 @@ export const VisitTab: React.FC<VisitTabProps> = ({
                   {canEditProject && (
                     <button
                       onClick={() => onEdit('workers')}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 active:scale-[0.99] text-gray-950 font-semibold rounded-lg shadow-xs transition-all text-xs"
+                      className="btn-primary py-1.5 px-3.5 text-xs font-medium cursor-pointer"
                     >
-                      <FiPlus className="w-3.5 h-3.5" />
+                      <FiPlus className="w-3.5 h-3.5 text-white" />
                       <span>Assign Vendors</span>
                     </button>
                   )}
@@ -246,9 +275,9 @@ export const VisitTab: React.FC<VisitTabProps> = ({
                     {canEditProject && (
                       <button
                         onClick={() => onEdit('workers')}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-semibold rounded-lg text-xs shadow-xs transition-all shrink-0"
+                        className="btn-primary py-1.5 px-3 text-xs font-medium cursor-pointer shrink-0"
                       >
-                        <FiEdit2 className="w-3 h-3" />
+                        <FiEdit2 className="w-3 h-3 text-white" />
                         <span>Manage Vendors</span>
                       </button>
                     )}

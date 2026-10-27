@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
-
+import { getActiveBranch } from '@/lib/branch-helper';
 import { NotificationService } from '@/lib/notificationService';
 
 export const dynamic = 'force-dynamic';
@@ -94,7 +94,24 @@ export async function GET(request: NextRequest) {
 
     let query = supabaseAdmin
       .from('tasks')
-      .select('*')
+      .select(`
+        *,
+        creator:users!tasks_created_by_fkey (
+          id,
+          full_name,
+          branch
+        ),
+        project:projects!project_id (
+          id,
+          title,
+          branch,
+          creator:created_by (
+            id,
+            full_name,
+            branch
+          )
+        )
+      `)
       .gte('end_at', range.start.toISOString())
       .lte('start_at', range.end.toISOString())
       .order('start_at', { ascending: true });
@@ -126,7 +143,37 @@ export async function GET(request: NextRequest) {
         : (task.assigned_to ? [task.assigned_to] : [])
     }));
 
-    return NextResponse.json({ tasks: normalizedTasks }, { status: 200 });
+    const activeBranch = getActiveBranch(request, user);
+    let filteredTasks = normalizedTasks;
+    if (activeBranch !== 'all') {
+      const allAssigneeIds = [...new Set(normalizedTasks.flatMap((t: any) => t.assigned_to).filter(Boolean))];
+      const { data: assigneeUsers } = allAssigneeIds.length > 0
+        ? await supabaseAdmin.from('users').select('id, branch').in('id', allAssigneeIds)
+        : { data: [] };
+      const assigneeBranchMap = new Map((assigneeUsers || []).map((u: any) => [u.id, u.branch || 'Kukatpally']));
+
+      filteredTasks = normalizedTasks.filter((task: any) => {
+        if (task.branch) return task.branch === activeBranch;
+        if (task.project?.branch) return task.project.branch === activeBranch;
+        if (task.project?.creator?.branch) return task.project.creator.branch === activeBranch;
+        // Prioritize assigned users: if admin created task and assigned to an employee, match employee's branch
+        const assignees: string[] = Array.isArray(task.assigned_to) ? task.assigned_to : [];
+        if (assignees.length > 0) {
+          const hasAssigneeInBranch = assignees.some((id: string) => assigneeBranchMap.get(id) === activeBranch);
+          if (hasAssigneeInBranch) return true;
+        }
+        // Fallback to creator's branch
+        if (task.creator?.branch) return task.creator.branch === activeBranch;
+        const text = `${task.title || ''} ${task.description || ''} ${task.location || ''} ${task.project?.title || ''}`.toLowerCase();
+        if (text.includes(activeBranch.toLowerCase())) return true;
+        if (activeBranch === 'Kukatpally') {
+          return !text.includes('as rao nagar');
+        }
+        return false;
+      });
+    }
+
+    return NextResponse.json({ tasks: filteredTasks }, { status: 200 });
   } catch (error) {
     console.error('Unexpected error in GET /api/calendar-tasks:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -209,6 +256,7 @@ export async function POST(request: NextRequest) {
       created_by: user.id,
       location: data.location || null,
       meeting_link: data.meeting_link || null,
+      branch: (body as any).branch || (getActiveBranch(request, user) !== 'all' ? getActiveBranch(request, user) : (user.branch || 'Kukatpally')),
     };
 
     let { data: inserted, error } = await supabaseAdmin
@@ -216,6 +264,18 @@ export async function POST(request: NextRequest) {
       .insert(insertData)
       .select('*')
       .single();
+
+    // Fallback: If DB does not have branch column (42703)
+    if (error?.code === '42703') {
+      delete (insertData as any).branch;
+      const retry = await supabaseAdmin
+        .from('tasks')
+        .insert(insertData)
+        .select('*')
+        .single();
+      inserted = retry.data;
+      error = retry.error;
+    }
 
     // Fallback: If DB is still single UUID (22P02), retry with first assignee as string
     if (error?.code === '22P02' && Array.isArray(assignedTo)) {

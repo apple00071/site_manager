@@ -710,9 +710,9 @@ export default function EditProjectPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Select Designer *
                 </label>
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-72 overflow-y-auto pr-1 p-0.5">
                   {designers.length === 0 ? (
-                    <div className="text-center py-4">
+                    <div className="col-span-full text-center py-6">
                       <p className="text-sm text-gray-500">No designers found.</p>
                       <p className="text-xs text-gray-400 mt-1">Please add users whose designation contains 'designer' in User Management.</p>
                     </div>
@@ -720,29 +720,31 @@ export default function EditProjectPage() {
                     designers.map((employee) => (
                       <label
                         key={employee.id}
-                        className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-white hover:border-yellow-400 cursor-pointer transition-all duration-200 mb-2"
+                        className="relative flex items-start gap-2.5 p-3 bg-white border border-gray-200 rounded-xl hover:border-yellow-400 hover:shadow-xs cursor-pointer transition-all duration-200 has-[:checked]:border-yellow-500 has-[:checked]:bg-yellow-50/50 has-[:checked]:ring-1 has-[:checked]:ring-yellow-500 group"
                       >
                         <input
                           type="radio"
                           value={employee.id}
                           {...register('assigned_employee_id')}
-                          className="h-4 w-4 text-yellow-500 focus:ring-yellow-400 border-gray-300"
+                          className="mt-0.5 h-4 w-4 text-yellow-500 focus:ring-yellow-400 border-gray-300 shrink-0"
                         />
-                        <span className="ml-3 flex-1">
-                          <span className="block text-sm font-medium text-gray-900">
-                            {employee.name}
-                          </span>
-                          {employee.designation && (
-                            <span className="block text-xs text-gray-500">
-                              {employee.designation}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="block text-xs sm:text-sm font-bold text-gray-900 truncate group-hover:text-yellow-900">
+                              {employee.name}
                             </span>
-                          )}
+                            {employee.designation && (
+                              <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded shrink-0">
+                                {employee.designation}
+                              </span>
+                            )}
+                          </div>
                           {employee.email && (
-                            <span className="block text-xs text-gray-500 truncate">
+                            <span className="block text-[11px] text-gray-400 truncate mt-0.5">
                               {employee.email}
                             </span>
                           )}
-                        </span>
+                        </div>
                       </label>
                     ))
                   )}

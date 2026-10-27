@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, getAuthUser } from '@/lib/supabase-server';
 import { verifyPermission } from '@/lib/rbac';
 import { PERMISSION_NODES } from '@/lib/rbac-constants';
+import { getActiveBranch } from '@/lib/branch-helper';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +37,17 @@ export async function GET(request: NextRequest) {
         status,
         unified_status,
         created_at,
+        branch,
+        creator:created_by (
+          id,
+          full_name,
+          branch
+        ),
+        assigned_employee:assigned_employee_id (
+          id,
+          full_name,
+          branch
+        ),
         client:client_id (
           id,
           name,
@@ -90,12 +102,29 @@ export async function GET(request: NextRequest) {
       expensesByProject.set(e.project_id, current + cost);
     });
 
+    const activeBranch = getActiveBranch(request, user);
+
+    let filteredProjects = projects || [];
+    if (activeBranch !== 'all') {
+      filteredProjects = filteredProjects.filter((proj: any) => {
+        if (proj.branch) return proj.branch === activeBranch;
+        if (proj.creator?.branch) return proj.creator.branch === activeBranch;
+        if (proj.assigned_employee?.branch) return proj.assigned_employee.branch === activeBranch;
+        const text = `${proj.title || ''} ${proj.customer_name || ''}`.toLowerCase();
+        if (text.includes(activeBranch.toLowerCase())) return true;
+        if (activeBranch === 'Kukatpally') {
+          return !text.includes('as rao nagar');
+        }
+        return false;
+      });
+    }
+
     let totalBudget = 0;
     let totalCollected = 0;
     let totalPending = 0;
     let totalExpenses = 0;
 
-    const projectBreakdown = (projects || []).map((proj: any) => {
+    const projectBreakdown = filteredProjects.map((proj: any) => {
       const budget = Number(proj.project_budget) || 0;
       const pStats = paymentsByProject.get(proj.id) || { total: 0, count: 0, lastDate: null };
       const collected = pStats.total;
@@ -126,14 +155,17 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    const validProjectIds = new Set(filteredProjects.map((p: any) => p.id));
+    const matchingPayments = (payments || []).filter((p: any) => validProjectIds.has(p.project_id));
+
     const kpis = {
       totalBudget,
       totalCollected,
       totalPending,
       totalExpenses,
       netMargin: totalCollected - totalExpenses,
-      projectCount: (projects || []).length,
-      paymentCount: (payments || []).length,
+      projectCount: filteredProjects.length,
+      paymentCount: matchingPayments.length,
     };
 
     return NextResponse.json({ kpis, projects: projectBreakdown });

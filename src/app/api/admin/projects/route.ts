@@ -7,6 +7,7 @@ import { createNoCacheResponse } from '@/lib/apiHelpers';
 import { verifyPermission } from '@/lib/rbac';
 import { PERMISSION_NODES } from '@/lib/rbac-constants';
 import { attachProjectCodes, invalidateProjectCodeCache } from '@/lib/projectUtils';
+import { getActiveBranch } from '@/lib/branch-helper';
 
 // Optimize caching for projects API
 export const dynamic = 'force-dynamic';
@@ -45,6 +46,7 @@ const projectSchema = z.object({
   project_budget: z.string().optional().nullable(),
   requirements_pdf_url: z.string().optional().nullable(),
   project_notes: z.string().optional().nullable(),
+  branch: z.enum(['Kukatpally', 'AS Rao Nagar']).optional(),
   created_by: z.string().uuid('Invalid user ID format').optional(),
 });
 
@@ -157,25 +159,29 @@ export async function GET(request: NextRequest) {
           email,
           name:username,
           full_name,
-          designation
+          designation,
+          branch
         ),
         designer:designer_id(
           id,
           email,
           username,
-          full_name
+          full_name,
+          branch
         ),
         site_supervisor:site_supervisor_id(
           id,
           email,
           username,
-          full_name
+          full_name,
+          branch
         ),
         creator:created_by(
           id,
           email,
           full_name,
-          username
+          username,
+          branch
         ),
         project_members(
           user_id,
@@ -273,6 +279,24 @@ export async function GET(request: NextRequest) {
 
     // Compute continuous sequential project codes (AI/PRJ/YY/01, AI/PRJ/YY/02...)
     responseData = await attachProjectCodes(responseData);
+
+    // Apply branch filter for active or employee branch
+    const activeBranch = getActiveBranch(request, user);
+    if (activeBranch !== 'all' && !projectId && Array.isArray(responseData)) {
+      responseData = responseData.filter((p: any) => {
+        if (p.branch) return p.branch === activeBranch;
+        if (p.creator?.branch) return p.creator.branch === activeBranch;
+        if (p.assigned_employee?.branch) return p.assigned_employee.branch === activeBranch;
+        if (p.designer?.branch) return p.designer.branch === activeBranch;
+        if (p.site_supervisor?.branch) return p.site_supervisor.branch === activeBranch;
+        const text = `${p.address || ''} ${p.title || ''} ${p.project_notes || ''}`.toLowerCase();
+        if (text.includes(activeBranch.toLowerCase())) return true;
+        if (activeBranch === 'Kukatpally') {
+          return !text.includes('as rao nagar');
+        }
+        return false;
+      });
+    }
 
     return NextResponse.json(responseData);
 
@@ -379,12 +403,28 @@ export async function POST(req: Request) {
       updated_by: userId,
     };
 
+    const activeBranch = getActiveBranch(req as any, user);
+    const branchToSave = (body as any).branch || (activeBranch !== 'all' ? activeBranch : (user.branch || 'Kukatpally'));
+    (projectData as any).branch = branchToSave;
+
     // Insert the new project
-    const { data: project, error: insertError } = await supabaseAdmin
+    let { data: project, error: insertError } = await supabaseAdmin
       .from('projects')
       .insert([projectData])
       .select()
       .single();
+
+    // Fallback if branch column is not migrated yet in public.projects
+    if (insertError && insertError.code === '42703') {
+      delete (projectData as any).branch;
+      const retry = await supabaseAdmin
+        .from('projects')
+        .insert([projectData])
+        .select()
+        .single();
+      project = retry.data;
+      insertError = retry.error;
+    }
 
     if (insertError) {
       console.error('Error creating project:', insertError);

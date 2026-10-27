@@ -11,9 +11,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const perm = await verifyPermission(user.id, 'crm.manage');
-    if (!perm.allowed) {
-      return NextResponse.json({ error: 'Permission denied: crm.manage required' }, { status: 403 });
+    const permManage = await verifyPermission(user.id, 'crm.manage');
+    const permCreateLead = await verifyPermission(user.id, 'leads.create');
+    if (!permManage.allowed && !permCreateLead.allowed) {
+      return NextResponse.json({ error: 'Permission denied: crm.manage or leads.create required' }, { status: 403 });
     }
 
     const formData = await request.formData();

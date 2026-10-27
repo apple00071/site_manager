@@ -171,16 +171,16 @@ export default function AttendanceWidget({ variant = 'default' }: { variant?: 'd
                         <button
                             onClick={() => handlePunch('punch_in')}
                             disabled={punching}
-                            className={`flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700 text-gray-950 font-bold rounded-xl shadow-xs transition-all active:scale-95 disabled:opacity-60 ${variant === 'compact' ? 'px-2.5 py-2' : 'px-5 py-2.5'}`}
+                            className={`btn-primary font-medium text-white shadow-xs transition-all active:scale-95 disabled:opacity-60 ${variant === 'compact' ? 'px-2.5 py-1.5 text-xs' : 'px-5 py-2.5 text-sm'}`}
                             title="Punch In"
                         >
                             {punching ? (
-                                <FiRefreshCw className="h-4 w-4 animate-spin text-gray-900" />
+                                <FiRefreshCw className="h-4 w-4 animate-spin text-white" />
                             ) : (
-                                <FiLogIn className={`${variant === 'compact' ? 'h-4 w-4' : 'h-5 w-5'} text-gray-950`} />
+                                <FiLogIn className={`${variant === 'compact' ? 'h-4 w-4' : 'h-5 w-5'} text-white`} />
                             )}
                             {variant !== 'compact' && (
-                                <span>{punching ? 'Recording...' : 'Punch In'}</span>
+                                <span className="text-white font-medium">{punching ? 'Recording...' : 'Punch In'}</span>
                             )}
                         </button>
                     </div>

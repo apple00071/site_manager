@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { SnagTimeline, TimelineItem } from '@/components/projects/SnagTimeline';
 import { CustomDropdown } from '@/components/ui/CustomControls';
+import { useBranch } from '@/contexts/BranchContext';
 
 interface Snag {
     id: string;
@@ -51,6 +52,7 @@ interface UserOption {
 export default function SnagsPage() {
     const { setTitle, setSubtitle } = useHeaderTitle();
     const { user } = useAuth();
+    const { currentBranch } = useBranch();
     const { hasPermission, hasAnyPermission, isAdmin, isLoading: permLoading } = useUserPermissions();
     const router = useRouter();
 
@@ -127,7 +129,7 @@ export default function SnagsPage() {
         setTitle('Snag Dashboard');
         fetchGlobalSnags();
         fetchAllUsers();
-    }, [user]);
+    }, [user, currentBranch]);
 
     // Ensure users are fetched when modal opens (backup)
     useEffect(() => {
@@ -171,13 +173,17 @@ export default function SnagsPage() {
     const fetchGlobalSnags = async () => {
         try {
             setLoading(true);
-            const res = await fetch(`/api/snags?all=true`);
+            const branchParam = currentBranch !== 'all' ? `&branch=${encodeURIComponent(currentBranch)}` : '';
+            const res = await fetch(`/api/snags?all=true${branchParam}`);
             const data = await res.json();
             if (data.snags) {
                 setSnags(data.snags);
-                // Select first snag by default on desktop if none selected
-                if (data.snags.length > 0 && !selectedSnag && window.innerWidth >= 1024) {
-                    setSelectedSnag(data.snags[0]);
+                // Select first snag by default on desktop if none selected or if previously selected snag is no longer in list
+                if (data.snags.length > 0 && window.innerWidth >= 1024) {
+                    const stillExists = data.snags.find((s: any) => s.id === selectedSnag?.id);
+                    setSelectedSnag(stillExists || data.snags[0]);
+                } else if (data.snags.length === 0) {
+                    setSelectedSnag(null);
                 }
             }
         } catch (err) {
@@ -362,7 +368,11 @@ export default function SnagsPage() {
             const res = await fetch('/api/snags', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...formData, project_id: formData.project_id || null })
+                body: JSON.stringify({ 
+                    ...formData, 
+                    project_id: formData.project_id || null,
+                    branch: currentBranch !== 'all' ? currentBranch : undefined 
+                })
             });
 
             if (res.ok) {

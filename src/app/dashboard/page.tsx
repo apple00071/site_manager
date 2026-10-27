@@ -12,6 +12,8 @@ import {
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import AttendanceWidget from '@/components/attendance/AttendanceWidget';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import MarketingDashboard from '@/components/dashboard/MarketingDashboard';
+import { useBranch } from '@/contexts/BranchContext';
 
 // Brand color
 const BRAND = '#F3C133';
@@ -98,7 +100,29 @@ interface DashboardStats {
 
 export default function DashboardPage() {
   const { user, isAdmin } = useAuth();
+  const { currentBranch } = useBranch();
   const { setTitle, setSubtitle } = useHeaderTitle();
+  const { hasPermission, roleName, designation } = useUserPermissions();
+
+  const canViewMarketing =
+    isAdmin ||
+    hasPermission('marketing.view') ||
+    Boolean(roleName?.toLowerCase().includes('marketing')) ||
+    Boolean(designation?.toLowerCase().includes('marketing'));
+
+  const canViewOperations =
+    isAdmin ||
+    hasPermission('projects.view') ||
+    hasPermission('projects.view_all') ||
+    !canViewMarketing;
+
+  const canToggleDashboard = isAdmin || (canViewMarketing && canViewOperations);
+
+  const [dashboardMode, setDashboardMode] = useState<'operations' | 'marketing'>('operations');
+
+  const isMarketingActive = canViewMarketing && (
+    !canViewOperations ? true : dashboardMode === 'marketing'
+  );
 
   const [stats, setStats] = useState<DashboardStats>(() => {
     if (typeof window !== 'undefined') {
@@ -189,16 +213,18 @@ export default function DashboardPage() {
         setLoading(true);
       }
       try {
+        const branchParam = currentBranch !== 'all' ? `?branch=${encodeURIComponent(currentBranch)}` : '';
+
         const [projectsRes, tasksRes, snagsRes, updatesRes, usersRes, membersRes] = await Promise.all([
-          fetchWithTimeout('/api/admin/projects').catch((err) => {
+          fetchWithTimeout(`/api/admin/projects${branchParam}`).catch((err) => {
             console.error('Projects fetch error:', err);
             return null;
           }),
-          fetchWithTimeout('/api/tasks/all').catch((err) => {
+          fetchWithTimeout(`/api/tasks/all${branchParam}`).catch((err) => {
             console.error('Tasks fetch error:', err);
             return null;
           }),
-          fetchWithTimeout('/api/snags?all=true').catch((err) => {
+          fetchWithTimeout(`/api/snags?all=true${branchParam ? '&' + branchParam.slice(1) : ''}`).catch((err) => {
             console.error('Snags fetch error:', err);
             return null;
           }),
@@ -206,7 +232,7 @@ export default function DashboardPage() {
             console.error('Project updates fetch error:', err);
             return null;
           }),
-          fetchWithTimeout('/api/admin/users').catch((err) => {
+          fetchWithTimeout(`/api/admin/users`).catch((err) => {
             console.error('Users fetch error:', err);
             return null;
           }),
@@ -216,37 +242,56 @@ export default function DashboardPage() {
           })
         ]);
 
+        // Users mapping for resolving assignee & creator branches
+        const rawUsers = (usersRes && usersRes.ok) ? await usersRes.json().catch(() => []) : [];
+        const userList = Array.isArray(rawUsers) ? rawUsers : [];
+        const userBranchMap = new Map<string, string>(userList.map((u: any) => [u.id, u.branch || 'Kukatpally']));
+
         // Projects
         let projects: any[] = [];
         if (projectsRes && projectsRes.ok) {
           projects = await projectsRes.json().catch(() => []);
-          if (projects.length > 0) {
-            setProjectsList(projects);
-            setStats(prev => ({
-              ...prev,
-              totalProjects: projects.length,
-              activeProjects: projects.filter(p => p.status !== 'completed').length,
-              completedProjects: projects.filter(p => p.status === 'completed').length,
-              upcomingDeadlines: projects.filter(p => {
-                const days = (new Date(p.estimated_completion_date).getTime() - Date.now()) / 86400000;
-                return days <= 7 && days > 0;
-              }).length,
-            }));
-          }
+          setProjectsList(projects);
+          setStats(prev => ({
+            ...prev,
+            totalProjects: projects.length,
+            activeProjects: projects.filter(p => p.status !== 'completed').length,
+            completedProjects: projects.filter(p => p.status === 'completed').length,
+            upcomingDeadlines: projects.filter(p => {
+              const days = (new Date(p.estimated_completion_date).getTime() - Date.now()) / 86400000;
+              return days <= 7 && days > 0;
+            }).length,
+          }));
         }
+
+        const validProjectIds = new Set(projects.map(p => p.id));
 
         // Tasks
         if (tasksRes && tasksRes.ok) {
           const raw = await tasksRes.json().catch(() => []);
-          const tasks = Array.isArray(raw) ? raw : (raw?.tasks || raw?.data || []);
+          let tasks = Array.isArray(raw) ? raw : (raw?.tasks || raw?.data || []);
           if (Array.isArray(tasks)) {
+            if (currentBranch !== 'all') {
+              tasks = tasks.filter((t: any) => {
+                if (t.project_id) return validProjectIds.has(t.project_id);
+                if (t.branch) return t.branch === currentBranch;
+                // If no project, check assigned users first
+                const assignees = Array.isArray(t.assigned_to) ? t.assigned_to : (t.assigned_to ? [t.assigned_to] : []);
+                if (assignees.length > 0) {
+                  return assignees.some((id: string) => userBranchMap.get(id) === currentBranch);
+                }
+                // Fallback to creator
+                const creatorBranch = t.creator?.branch || (t.created_by ? userBranchMap.get(t.created_by) : null) || 'Kukatpally';
+                return creatorBranch === currentBranch;
+              });
+            }
             setTasksList(tasks);
             setStats(prev => ({
               ...prev,
               totalTasks: tasks.length,
-              todoTasks: tasks.filter(t => t.status === 'todo').length,
-              inProgressTasks: tasks.filter(t => t.status === 'in_progress').length,
-              doneTasks: tasks.filter(t => t.status === 'done').length,
+              todoTasks: tasks.filter((t: any) => t.status === 'todo').length,
+              inProgressTasks: tasks.filter((t: any) => t.status === 'in_progress').length,
+              doneTasks: tasks.filter((t: any) => t.status === 'done').length,
             }));
           }
         }
@@ -254,8 +299,20 @@ export default function DashboardPage() {
         // Snags
         if (snagsRes && snagsRes.ok) {
           const raw = await snagsRes.json().catch(() => []);
-          const snags = Array.isArray(raw) ? raw : (raw?.snags || raw?.data || []);
+          let snags = Array.isArray(raw) ? raw : (raw?.snags || raw?.data || []);
           if (Array.isArray(snags)) {
+            if (currentBranch !== 'all') {
+              snags = snags.filter((s: any) => {
+                if (s.project_id) return validProjectIds.has(s.project_id);
+                if (s.branch) return s.branch === currentBranch;
+                // Prioritize assigned employee's branch
+                const assigneeBranch = s.assigned_to_user?.branch || (s.assigned_to_user_id ? userBranchMap.get(s.assigned_to_user_id) : null);
+                if (assigneeBranch) return assigneeBranch === currentBranch;
+                // Fallback to creator's branch
+                const creatorBranch = s.created_by_user?.branch || (s.created_by ? userBranchMap.get(s.created_by) : null) || 'Kukatpally';
+                return creatorBranch === currentBranch;
+              });
+            }
             setStats(prev => ({
               ...prev,
               totalSnags: snags.length,
@@ -268,7 +325,8 @@ export default function DashboardPage() {
         // Project Updates (Work Progress Updates)
         if (updatesRes && updatesRes.ok) {
           const raw = await updatesRes.json().catch(() => ({}));
-          setUpdatesList(raw.updates || []);
+          const updates = raw.updates || [];
+          setUpdatesList(currentBranch !== 'all' ? updates.filter((u: any) => u.project_id && validProjectIds.has(u.project_id)) : updates);
         }
 
         // Team
@@ -341,7 +399,7 @@ export default function DashboardPage() {
       }
     };
     fetchData();
-  }, [user, isAdmin]);
+  }, [user, isAdmin, currentBranch]);
 
   const getAvatarColor = (name: string) => {
     const i = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_COLORS.length;
@@ -369,10 +427,10 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="w-full space-y-5">
 
-      {/* ── Greeting ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      {/* ── Greeting & View Switcher ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-gray-100">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
             Welcome back,{' '}
@@ -383,10 +441,45 @@ export default function DashboardPage() {
             {todayFormatted}
           </p>
         </div>
-        {!isAdmin && (
-          <div className="shrink-0"><AttendanceWidget /></div>
-        )}
+
+        <div className="flex items-center gap-3">
+          {canToggleDashboard && (
+            <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-xl border border-gray-200">
+              <button
+                type="button"
+                onClick={() => setDashboardMode('operations')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  dashboardMode === 'operations'
+                    ? 'btn-primary text-white shadow-xs'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                🏗️ Operations
+              </button>
+              <button
+                type="button"
+                onClick={() => setDashboardMode('marketing')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  dashboardMode === 'marketing'
+                    ? 'btn-primary text-white shadow-xs'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                📣 Marketing
+              </button>
+            </div>
+          )}
+          {!isAdmin && (
+            <div className="shrink-0"><AttendanceWidget /></div>
+          )}
+        </div>
       </div>
+
+      {/* ── Content Switch: Marketing vs Operations ── */}
+      {isMarketingActive ? (
+        <MarketingDashboard user={user} />
+      ) : (
+        <>
 
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -728,6 +821,8 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );
