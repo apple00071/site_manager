@@ -2876,13 +2876,18 @@ export default function CRMPage() {
           {selectedCell && filteredLeads[selectedCell.rowIndex] && selectedLeadIds.length === 0 && (() => {
             const activeLead = filteredLeads[selectedCell.rowIndex];
             return (
-              <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-md text-gray-900 py-2.5 px-4 sm:px-5 rounded-2xl border border-gray-200/90 shadow-2xl ${mobileViewType === 'table' ? 'flex' : 'hidden md:flex'} items-center justify-between gap-3 sm:gap-4 z-50 transition-all max-w-[95vw] sm:max-w-3xl animate-in fade-in slide-in-from-bottom-3 duration-200 ring-1 ring-black/5`}>
-                <div className="flex items-center gap-2.5 min-w-0">
+              <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-md text-gray-900 py-2.5 px-4 sm:px-5 rounded-2xl border border-gray-200/90 shadow-2xl ${mobileViewType === 'table' ? 'flex' : 'hidden md:flex'} items-center justify-between gap-3 sm:gap-4 z-50 transition-all w-fit max-w-[96vw] sm:max-w-4xl lg:max-w-5xl animate-in fade-in slide-in-from-bottom-3 duration-200 ring-1 ring-black/5`}>
+                <div className="flex items-center gap-2.5 shrink-0 min-w-0">
                   <span className="text-[11px] font-black bg-amber-500 text-white px-2.5 py-0.5 rounded-full shrink-0 shadow-2xs">
-                    #{selectedCell.rowIndex + 1}
+                    #{monthSerialNumbers[activeLead.id] ?? (selectedCell.rowIndex + 1)}
                   </span>
-                  <div className="min-w-0 flex items-center gap-2 truncate hidden sm:flex">
-                    <span className="text-xs font-bold text-gray-900 truncate">{activeLead.client_name || 'Unnamed'}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span 
+                      className="text-xs font-bold text-gray-900 truncate max-w-[120px] sm:max-w-[180px] md:max-w-[240px]"
+                      title={activeLead.client_name || 'Unnamed'}
+                    >
+                      {activeLead.client_name || 'Unnamed'}
+                    </span>
                     {activeLead.status && (
                       <span className={`px-2 py-0.5 text-[9px] font-black border uppercase rounded-md shadow-2xs shrink-0 ${getStatusBadgeClass(activeLead.status)}`}>
                         {activeLead.status}
@@ -3034,6 +3039,7 @@ export default function CRMPage() {
                   >
                     <FiEdit className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">Edit Details</span>
+                    <span className="sm:hidden">Edit</span>
                   </button>
 
                   {/* Delete Row */}
