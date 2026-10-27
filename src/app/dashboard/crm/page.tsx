@@ -232,35 +232,60 @@ export default function CRMPage() {
     });
   }, [existingProjects]);
 
-  // Default column widths state (loaded from localStorage if exists)
+  const DEFAULT_COLUMN_WIDTHS: Record<string, number> = useMemo(() => ({
+    ref_no: 110,
+    created_date: 85,
+    client_name: 120,
+    phone: 105,
+    source: 120,
+    branch: 110,
+    site_project: 220,
+    area_sqft: 80,
+    quote_value: 105,
+    status: 105,
+    approved_value: 115,
+    assigned_by: 115,
+    follow_up_1: 150,
+    follow_up_2: 150,
+    follow_up_3: 150,
+    remarks: 180
+  }), []);
+
+  // Default column widths state (loaded from localStorage and always merged with defaults)
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
+    const baseDefaults: Record<string, number> = {
+      ref_no: 110,
+      created_date: 85,
+      client_name: 120,
+      phone: 105,
+      source: 120,
+      branch: 110,
+      site_project: 220,
+      area_sqft: 80,
+      quote_value: 105,
+      status: 105,
+      approved_value: 115,
+      assigned_by: 115,
+      follow_up_1: 150,
+      follow_up_2: 150,
+      follow_up_3: 150,
+      remarks: 180
+    };
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('crm_column_widths');
       if (saved) {
         try {
-          return { ...JSON.parse(saved) };
+          const parsed = JSON.parse(saved);
+          return { ...baseDefaults, ...parsed };
         } catch (_) {}
       }
     }
-    return {
-      ref_no: 110,
-      created_date: 80,
-      client_name: 100,
-      phone: 95,
-      source: 120,
-      branch: 105,
-      site_project: 220,
-      area_sqft: 70,
-      quote_value: 95,
-      status: 105,
-      approved_value: 110,
-      assigned_by: 100,
-      follow_up_1: 160,
-      follow_up_2: 160,
-      follow_up_3: 160,
-      remarks: 150
-    };
+    return baseDefaults;
   });
+
+  const getColWidth = useCallback((colId: string) => {
+    return columnWidths[colId] || DEFAULT_COLUMN_WIDTHS[colId] || 110;
+  }, [columnWidths, DEFAULT_COLUMN_WIDTHS]);
 
   // Save widths to localStorage
   useEffect(() => {
@@ -602,35 +627,46 @@ export default function CRMPage() {
     return 'Kukatpally';
   };
 
+  const getCleanRemarks = (remarks?: string | null) => {
+    if (!remarks) return '';
+    return remarks
+      .replace(/\[(Source|Type|Scope|Branch|CreatorId|CreatorEmail|FloorPlan|Email|Alt Phone|AltPhone):\s*[^\]]+\]\s*/gi, '')
+      .trim();
+  };
+
   // Column definitions with Lead Source and Admin All-Branches indicator
   const columns = useMemo(() => {
     const cols = [
       { id: 'ref_no', label: 'Ref No.', width: '110px', editable: false },
-      { id: 'created_date', label: 'Date', width: '80px', editable: true, type: 'date' },
-      { id: 'client_name', label: 'Client Name', width: '100px', editable: true, type: 'text' },
-      { id: 'phone', label: 'Phone', width: '95px', editable: true, type: 'text' },
+      { id: 'created_date', label: 'Date', width: '85px', editable: true, type: 'date' },
+      { id: 'client_name', label: 'Client Name', width: '120px', editable: true, type: 'text' },
+      { id: 'phone', label: 'Phone', width: '105px', editable: true, type: 'text' },
       { id: 'source', label: 'Lead Source', width: '120px', editable: false, type: 'source' },
     ];
 
     if (isAdmin && currentBranch === 'all') {
-      cols.push({ id: 'branch', label: 'Branch', width: '105px', editable: false, type: 'branch' });
+      cols.push({ id: 'branch', label: 'Branch', width: '110px', editable: false, type: 'branch' });
     }
 
     cols.push(
       { id: 'site_project', label: 'Site / Project', width: '220px', editable: true, type: 'text' },
-      { id: 'area_sqft', label: 'Area (sq.ft)', width: '70px', editable: true, type: 'number' },
-      { id: 'quote_value', label: 'Quote Value (₹)', width: '95px', editable: true, type: 'number' },
+      { id: 'area_sqft', label: 'Area (sq.ft)', width: '80px', editable: true, type: 'number' },
+      { id: 'quote_value', label: 'Quote Value (₹)', width: '105px', editable: true, type: 'number' },
       { id: 'status', label: 'Status', width: '105px', editable: true, type: 'status' },
-      { id: 'approved_value', label: 'Approved Value (₹)', width: '110px', editable: true, type: 'number' },
-      { id: 'assigned_by', label: 'Assigned By', width: '100px', editable: true, type: 'assignee' },
-      { id: 'follow_up_1', label: 'Follow-up 1', width: '160px', editable: true, type: 'text' },
-      { id: 'follow_up_2', label: 'Follow-up 2', width: '160px', editable: true, type: 'text' },
-      { id: 'follow_up_3', label: 'Follow-up 3', width: '160px', editable: true, type: 'text' },
-      { id: 'remarks', label: 'Remarks', width: '150px', editable: true, type: 'text' }
+      { id: 'approved_value', label: 'Approved Value (₹)', width: '115px', editable: true, type: 'number' },
+      { id: 'assigned_by', label: 'Assigned By', width: '115px', editable: true, type: 'assignee' },
+      { id: 'follow_up_1', label: 'Follow-up 1', width: '150px', editable: true, type: 'text' },
+      { id: 'follow_up_2', label: 'Follow-up 2', width: '150px', editable: true, type: 'text' },
+      { id: 'follow_up_3', label: 'Follow-up 3', width: '150px', editable: true, type: 'text' },
+      { id: 'remarks', label: 'Remarks', width: '180px', editable: true, type: 'text' }
     );
 
     return cols;
   }, [isAdmin, currentBranch]);
+
+  const totalTableWidth = useMemo(() => {
+    return 40 + columns.reduce((acc, col) => acc + (columnWidths[col.id] || DEFAULT_COLUMN_WIDTHS[col.id] || 110), 0);
+  }, [columns, columnWidths, DEFAULT_COLUMN_WIDTHS]);
 
   // Dynamically extract unique assignees to prevent data mismatches and support custom data entries
   const assigneeOptions = useMemo(() => {
@@ -1175,7 +1211,10 @@ export default function CRMPage() {
     if (!selectedCell) return;
     const lead = filteredLeads[selectedCell.rowIndex];
     if (!lead) return;
-    setMobileEditForm({ ...lead });
+    setMobileEditForm({ 
+      ...lead,
+      remarks: getCleanRemarks(lead.remarks)
+    });
     setIsMobileEditOpen(true);
   };
 
@@ -1271,7 +1310,15 @@ export default function CRMPage() {
       }
     } else {
       // Updating EXISTING Lead
-      await syncLeadChange(mobileEditForm);
+      const existingLead = leads.find(l => l.id === mobileEditForm.id);
+      const existingTags = (existingLead?.remarks || '').match(/\[(Source|Type|Scope|Branch|CreatorId|CreatorEmail|FloorPlan|Email|Alt Phone|AltPhone):\s*[^\]]+\]/gi) || [];
+      const cleanNew = (mobileEditForm.remarks || '').trim();
+      const finalRemarks = existingTags.length > 0 ? (cleanNew ? `${cleanNew} ${existingTags.join(' ')}` : existingTags.join(' ')) : cleanNew;
+
+      await syncLeadChange({
+        ...mobileEditForm,
+        remarks: finalRemarks
+      });
       setIsMobileEditOpen(false);
       setMobileEditForm(null);
     }
@@ -1420,7 +1467,7 @@ export default function CRMPage() {
     
     setSelectedCell({ rowIndex, colIndex });
     setIsEditing(true);
-    setEditValue(String(lead[col.id as keyof Lead] ?? ''));
+    setEditValue(col.id === 'remarks' ? getCleanRemarks(lead.remarks) : String(lead[col.id as keyof Lead] ?? ''));
   }, [filteredLeads, columns, hasPermission, isAdmin, canEditApproved]);
 
   // Close cell editor and save
@@ -1433,6 +1480,10 @@ export default function CRMPage() {
     let newValue: string | number = editValue;
     if (col.type === 'number') {
       newValue = Number(editValue) || 0;
+    } else if (col.id === 'remarks') {
+      const existingTags = (lead.remarks || '').match(/\[(Source|Type|Scope|Branch|CreatorId|CreatorEmail|FloorPlan|Email|Alt Phone|AltPhone):\s*[^\]]+\]/gi) || [];
+      const cleanNew = String(editValue).trim();
+      newValue = existingTags.length > 0 ? (cleanNew ? `${cleanNew} ${existingTags.join(' ')}` : existingTags.join(' ')) : cleanNew;
     }
 
     // Only sync if value actually changed
@@ -1570,6 +1621,7 @@ export default function CRMPage() {
     const lead = filteredLeads[selectedCell.rowIndex];
     const col = selectedCell.colIndex !== undefined ? columns[selectedCell.colIndex] : (selectedCell.colId ? columns.find(c => c.id === selectedCell.colId) : undefined);
     if (!lead || !col) return '';
+    if (col.id === 'remarks') return getCleanRemarks(lead.remarks);
     return String(lead[col.id as keyof Lead] ?? '');
   }, [selectedCell, filteredLeads, columns]);
 
@@ -2533,9 +2585,16 @@ export default function CRMPage() {
           <div className={`${mobileViewType === 'table' ? 'block' : 'hidden md:block'} overflow-auto max-w-full max-h-[calc(100vh-230px)]`}>
             <table 
               ref={tableRef}
-              className="w-full text-left border-collapse border-spacing-0 text-xs select-none"
-              style={{ tableLayout: 'fixed' }}
+              className="text-left border-collapse border-spacing-0 text-xs select-none"
+              style={{ tableLayout: 'fixed', width: `${totalTableWidth}px`, minWidth: `${totalTableWidth}px` }}
             >
+              <colgroup>
+                <col style={{ width: '40px', minWidth: '40px' }} />
+                {columns.map(col => {
+                  const w = getColWidth(col.id);
+                  return <col key={col.id} style={{ width: `${w}px`, minWidth: `${w}px` }} />;
+                })}
+              </colgroup>
               <thead>
                 <tr className="bg-gray-100 text-gray-500 font-bold select-none text-center divide-x divide-gray-200 sticky top-0 z-20">
                   {/* Left row index header spacer with checkbox */}
@@ -2558,22 +2617,27 @@ export default function CRMPage() {
                       className="rounded border-gray-300 text-yellow-500 focus:ring-yellow-500 cursor-pointer h-3.5 w-3.5 align-middle"
                     />
                   </th>
-                  {columns.map((col, idx) => (
-                    <th 
-                      key={col.id} 
-                      className="py-1.5 border-b border-gray-300 text-gray-600 text-[11px] font-black uppercase shadow-sm relative group/resize select-none"
-                      style={{ width: columnWidths[col.id] }}
-                    >
-                      {String.fromCharCode(65 + idx)} {/* A, B, C... */}
-                      <span className="block text-[9px] text-gray-400 tracking-wider font-bold capitalize mt-0.5">{col.label}</span>
-                      
-                      {/* Resize Handle */}
-                      <div
-                        onMouseDown={(e) => handleResizeStart(e, col.id)}
-                        className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize bg-transparent hover:bg-yellow-400/80 active:bg-yellow-500 z-10 select-none transition-all"
-                      />
-                    </th>
-                  ))}
+                  {columns.map((col, idx) => {
+                    const w = getColWidth(col.id);
+                    return (
+                      <th 
+                        key={col.id} 
+                        className="py-1.5 px-2 border-b border-gray-300 text-gray-600 text-[11px] font-black uppercase shadow-sm relative group/resize select-none overflow-hidden"
+                        style={{ width: `${w}px`, minWidth: `${w}px` }}
+                      >
+                        <div className="truncate">
+                          <span>{String.fromCharCode(65 + idx)}</span> {/* A, B, C... */}
+                          <span className="block text-[9px] text-gray-400 tracking-wider font-bold capitalize mt-0.5 truncate">{col.label}</span>
+                        </div>
+                        
+                        {/* Resize Handle */}
+                        <div
+                          onMouseDown={(e) => handleResizeStart(e, col.id)}
+                          className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize bg-transparent hover:bg-yellow-400/80 active:bg-yellow-500 z-10 select-none transition-all"
+                        />
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -2683,7 +2747,7 @@ export default function CRMPage() {
                                 } ${
                                   isCellSelected && !isCellEditing ? 'ring-2 ring-blue-500 ring-inset bg-blue-50/15' : ''
                                 } ${col.id === 'ref_no' ? 'text-gray-400 font-bold text-center' : ''}`}
-                                style={{ width: columnWidths[col.id], minHeight: '36px', verticalAlign: 'middle' }}
+                                style={{ width: `${getColWidth(col.id)}px`, minWidth: `${getColWidth(col.id)}px`, maxWidth: `${getColWidth(col.id)}px`, minHeight: '36px', verticalAlign: 'middle' }}
                               >
                                 {isCellEditing ? (
                                   col.type === 'status' ? (
@@ -2787,6 +2851,10 @@ export default function CRMPage() {
                                         : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                     }`}>
                                       {getLeadBranch(lead)}
+                                    </span>
+                                  ) : col.id === 'remarks' ? (
+                                    <span className="text-gray-800 font-medium truncate block max-w-full" title={getCleanRemarks(cellValue as string) || ''}>
+                                      {getCleanRemarks(cellValue as string) || '-'}
                                     </span>
                                   ) : (
                                     <span className="text-gray-800 font-medium">{cellValue || '-'}</span>

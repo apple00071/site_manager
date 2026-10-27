@@ -249,15 +249,6 @@ export async function POST(request: NextRequest) {
     const branchToSave = body.branch || (activeBranch !== 'all' ? activeBranch : (user.branch || 'Kukatpally'));
     newLead.branch = branchToSave;
 
-    if (!newLead.remarks.includes('[Branch:')) {
-      newLead.remarks = `${newLead.remarks ? newLead.remarks + ' ' : ''}[Branch: ${branchToSave}]`.trim();
-    }
-
-    // Ensure CreatorId is embedded in remarks for fallback identification
-    if (!newLead.remarks.includes('[CreatorId:')) {
-      newLead.remarks = `${newLead.remarks ? newLead.remarks + ' ' : ''}[CreatorId: ${user.id}] [CreatorEmail: ${user.email || ''}]`.trim();
-    }
-
     if (newLead.status === 'Approved' && newLead.quote_value <= 0 && newLead.approved_value <= 0) {
       return NextResponse.json({
         error: 'Cannot create an approved lead with total quotation value of ₹0. Please build a valid quotation first.'

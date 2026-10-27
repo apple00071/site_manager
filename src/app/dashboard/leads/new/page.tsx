@@ -197,14 +197,14 @@ export default function NewLeadPage() {
         setUploadingFile(false);
       }
 
-      // 2. Prepare metadata remarks
+      // 2. Prepare metadata remarks (user notes first, metadata tags after)
       const remarksParts: string[] = [];
+      if (notes.trim()) remarksParts.push(notes.trim());
       remarksParts.push(`[Source: ${leadSource}]`);
       if (propertyType) remarksParts.push(`[Type: ${propertyType}]`);
       if (email.trim()) remarksParts.push(`[Email: ${email.trim()}]`);
       if (alternatePhone.trim()) remarksParts.push(`[Alt Phone: ${alternatePhone.trim()}]`);
       if (selectedScopes.length > 0) remarksParts.push(`[Scope: ${selectedScopes.join(', ')}]`);
-      if (notes.trim()) remarksParts.push(notes.trim());
 
       const finalRemarks = remarksParts.join(' ');
 
