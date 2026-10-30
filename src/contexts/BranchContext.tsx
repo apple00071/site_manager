@@ -18,7 +18,7 @@ const BranchContext = createContext<BranchContextType | undefined>(undefined);
 export function BranchProvider({ children }: { children: React.ReactNode }) {
   const { user, isAdmin, isLoading } = useAuth();
 
-  // Strict check: Only Super Admins (admin@appleinteriors.in and pavankumarv1497@gmail.com) have global multi-branch access
+  // Strict check: Only system Admins (role === 'admin') have global multi-branch access
   const isSuperAdmin = isSuperAdminUser(user);
 
   // User's assigned branch

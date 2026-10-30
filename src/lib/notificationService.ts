@@ -591,7 +591,7 @@ export class NotificationService {
 
   /**
    * Helper to fetch all Admin and HR user IDs, optionally scoped to a target branch.
-   * Super Admins (admin@appleinteriors.in or admin with no branch) always receive notifications.
+   * System Admins always receive notifications across all branches.
    * Other Admins/HR only receive notifications for their own assigned branch.
    */
   static async getAdminAndHrUserIds(targetBranch?: string | null): Promise<string[]> {
