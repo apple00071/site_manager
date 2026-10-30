@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
         // Notify Admins & HR
         try {
-            const adminAndHrIds = await NotificationService.getAdminAndHrUserIds();
+            const adminAndHrIds = await NotificationService.getAdminAndHrUserIds(userResult.user.user_metadata?.branch || (userResult.user as any).branch);
             const employeeName = userResult.user.user_metadata?.full_name || 'An employee';
             const date = data.date;
 

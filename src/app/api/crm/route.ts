@@ -288,7 +288,7 @@ export async function POST(request: NextRequest) {
     // Notify Admins & CRM managers about the new lead
     try {
       const creatorName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'A member';
-      const adminIds = await NotificationService.getAdminAndHrUserIds();
+      const adminIds = await NotificationService.getAdminAndHrUserIds(data.branch || (user as any).branch);
       const recipients = adminIds.filter(id => id !== user.id);
 
       for (const recipientId of recipients) {
@@ -341,7 +341,7 @@ export async function PUT(request: NextRequest) {
     // Guard against modifying Approved leads without crm.edit_approved permission
     const { data: currentLeads } = await supabaseAdmin
       .from('quotation_leads')
-      .select('id, status, remarks, quote_value, approved_value')
+      .select('id, status, remarks, quote_value, approved_value, branch')
       .in('id', ids);
 
     const hasApprovedLead = currentLeads?.some((l: any) => l.status === 'Approved');
@@ -443,7 +443,8 @@ export async function PUT(request: NextRequest) {
     // Notify creator & admins when quotation lead is approved
     try {
       if (updateFields.status === 'Approved') {
-        const adminIds = await NotificationService.getAdminAndHrUserIds();
+        const leadBranch = currentLeads?.[0]?.branch || (user as any).branch;
+        const adminIds = await NotificationService.getAdminAndHrUserIds(leadBranch);
         const notifyTargetIds = new Set<string>(adminIds);
         if (currentLeads?.[0]?.created_by) {
           notifyTargetIds.add(currentLeads[0].created_by);

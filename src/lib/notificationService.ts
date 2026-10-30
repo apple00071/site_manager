@@ -589,20 +589,34 @@ export class NotificationService {
   }
 
   /**
-   * Helper to fetch all Admin and HR user IDs across the organization
+   * Helper to fetch all Admin and HR user IDs, optionally scoped to a target branch.
+   * Super Admins (admin@appleinteriors.in or admin with no branch) always receive notifications.
+   * Other Admins/HR only receive notifications for their own assigned branch.
    */
-  static async getAdminAndHrUserIds(): Promise<string[]> {
+  static async getAdminAndHrUserIds(targetBranch?: string | null): Promise<string[]> {
     try {
       const { data: allUsers } = await supabaseAdmin
         .from('users')
-        .select('id, role, designation, roles(name)')
+        .select('id, email, role, designation, branch, roles(name)')
         .eq('is_active', true);
 
       const adminsAndHr = allUsers?.filter((u: any) => {
         const role = u.role?.toLowerCase() || '';
         const des = u.designation?.toLowerCase() || '';
         const roleName = u.roles?.name?.toLowerCase() || '';
-        return role === 'admin' || des.includes('admin') || des.includes('hr') || roleName.includes('admin') || roleName.includes('hr');
+        const isAdminOrHr = role === 'admin' || des.includes('admin') || des.includes('hr') || roleName.includes('admin') || roleName.includes('hr');
+        if (!isAdminOrHr) return false;
+
+        // If targetBranch is provided, only include Super Admin and users matching targetBranch
+        if (targetBranch && targetBranch !== 'all') {
+          const isSuperAdmin = u.email?.toLowerCase() === 'admin@appleinteriors.in' || (role === 'admin' && !u.branch);
+          if (isSuperAdmin) return true;
+
+          const userBranch = u.branch || 'Kukatpally';
+          return userBranch === targetBranch;
+        }
+
+        return true;
       }) || [];
 
       return adminsAndHr.map((u: any) => u.id);
@@ -614,19 +628,26 @@ export class NotificationService {
 
   /**
    * Fetches all relevant stakeholders for a project:
-   * 1. Project Creator (Primary Admin)
-   * 2. Global Admins
-   * 3. Assigned Designer
-   * 4. Project Members with Site Designations (Site Engineers, Supervisors)
+   * 1. Project Creator (Primary Admin), Designer, Site Supervisor
+   * 2. Admins & HR belonging to this project's branch (plus Super Admin)
+   * 3. Project Members with Site Designations (Site Engineers, Supervisors)
    */
   static async getProjectStakeholders(projectId: string) {
     const stakeholders = new Set<string>();
 
     try {
-      // 1. Get Project Basics (Creator and Designer)
+      // 1. Get Project Basics (Creator, Designer, Site Supervisor, and Branch)
       const { data: project } = await supabaseAdmin
         .from('projects')
-        .select('created_by, designer_id, site_supervisor_id')
+        .select(`
+          created_by,
+          designer_id,
+          site_supervisor_id,
+          branch,
+          creator:users!created_by(id, branch),
+          designer:users!designer_id(id, branch),
+          site_supervisor:users!site_supervisor_id(id, branch)
+        `)
         .eq('id', projectId)
         .single();
 
@@ -636,19 +657,12 @@ export class NotificationService {
         if (project.site_supervisor_id) stakeholders.add(project.site_supervisor_id);
       }
 
-      // 2. Get Global Admins & HR (both receive all project-level notifications)
-      const { data: allUsers } = await supabaseAdmin
-        .from('users')
-        .select('id, role, designation, roles(name)')
-        .eq('is_active', true);
+      // Determine the project's branch
+      const projectBranch = (project as any)?.branch || (project as any)?.creator?.branch || (project as any)?.designer?.branch || (project as any)?.site_supervisor?.branch || 'Kukatpally';
 
-      const adminsAndHr = allUsers?.filter((u: any) => {
-        const role = u.role?.toLowerCase() || '';
-        const des = u.designation?.toLowerCase() || '';
-        const roleName = u.roles?.name?.toLowerCase() || '';
-        return role === 'admin' || des.includes('admin') || des.includes('hr') || roleName.includes('admin') || roleName.includes('hr');
-      }) || [];
-      adminsAndHr.forEach((u: { id: string }) => stakeholders.add(u.id));
+      // 2. Get Admins & HR for THIS project's branch
+      const branchAdminAndHrIds = await this.getAdminAndHrUserIds(projectBranch);
+      branchAdminAndHrIds.forEach((id: string) => stakeholders.add(id));
 
       // 3. Get Project Members (specifically site supervisors/engineers)
       const { data: members } = await supabaseAdmin

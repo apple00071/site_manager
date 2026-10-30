@@ -38,6 +38,39 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Filter out notifications from other branches for non-super-admin branch users
+    if (user.branch && user.email?.toLowerCase() !== 'admin@appleinteriors.in' && notifications && notifications.length > 0) {
+      const projectIds = Array.from(new Set(
+        notifications
+          .filter((n: any) => n.related_type === 'project' && n.related_id)
+          .map((n: any) => n.related_id)
+      ));
+
+      if (projectIds.length > 0) {
+        const { data: projects } = await supabaseAdmin
+          .from('projects')
+          .select('id, branch, creator:users!created_by(branch)')
+          .in('id', projectIds);
+
+        const projectBranchMap = new Map<string, string>();
+        projects?.forEach((p: any) => {
+          projectBranchMap.set(p.id, p.branch || p.creator?.branch || 'Kukatpally');
+        });
+
+        const filteredNotifications = notifications.filter((n: any) => {
+          if (n.related_type === 'project' && n.related_id) {
+            const pBranch = projectBranchMap.get(n.related_id);
+            if (pBranch && pBranch !== user.branch) {
+              return false;
+            }
+          }
+          return true;
+        });
+
+        return NextResponse.json(filteredNotifications);
+      }
+    }
+
     return NextResponse.json(notifications);
   } catch (error) {
     console.error('Error in GET /api/notifications:', error);

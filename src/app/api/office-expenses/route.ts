@@ -625,7 +625,7 @@ export async function POST(request: NextRequest) {
 
         // --- NOTIFICATIONS ---
         try {
-            const adminAndHrIds = await NotificationService.getAdminAndHrUserIds();
+            const adminAndHrIds = await NotificationService.getAdminAndHrUserIds(expense.branch || (user as any).branch || user.user_metadata?.branch);
 
             const { data: requester } = await supabaseAdmin
                 .from('users')
