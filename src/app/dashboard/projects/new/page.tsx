@@ -93,6 +93,7 @@ type ProjectFormValues = z.infer<typeof projectSchema>;
 
 export default function NewProjectPage() {
   const { isAdmin, isLoading: authLoading, user } = useAuth();
+  const isSuperAdmin = Boolean(user?.email?.toLowerCase() === 'admin@appleinteriors.in');
   const { hasPermission } = useUserPermissions();
   const { currentBranch, userBranch } = useBranch();
   const router = useRouter();
@@ -490,7 +491,7 @@ export default function NewProjectPage() {
                     )}
                   </div>
 
-                    {isAdmin && (
+                    {isSuperAdmin && (
                       <div>
                         <label htmlFor="branch" className="block text-sm font-semibold text-gray-700 mb-2">
                           Branch Location *

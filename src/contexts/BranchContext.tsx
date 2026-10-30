@@ -18,6 +18,12 @@ const BranchContext = createContext<BranchContextType | undefined>(undefined);
 export function BranchProvider({ children }: { children: React.ReactNode }) {
   const { user, isAdmin, isLoading } = useAuth();
 
+  // Strict check: Only Super Admin (admin@appleinteriors.in) has global multi-branch access
+  const isSuperAdmin = Boolean(
+    user?.email?.toLowerCase() === 'admin@appleinteriors.in' ||
+    (isAdmin && !(user as any)?.branch && !user?.user_metadata?.branch)
+  );
+
   // User's assigned branch
   const userBranch: Branch = (
     isValidBranch((user as any)?.branch)
@@ -28,7 +34,7 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
   );
 
   // Active branch:
-  // - If admin: can be 'all' | 'Kukatpally' | 'AS Rao Nagar' (persisted in localStorage/cookies)
+  // - If Super Admin: can be 'all' | 'Kukatpally' | 'AS Rao Nagar' (persisted in localStorage/cookies)
   // - If non-admin: strictly locked to userBranch
   const [currentBranch, setCurrentBranchState] = useState<BranchFilter>(() => {
     if (typeof window !== 'undefined') {
@@ -45,7 +51,7 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
   // Sync when user changes or role loads
   useEffect(() => {
     if (!isLoading && user) {
-      if (!isAdmin) {
+      if (!isSuperAdmin) {
         // Non-admin is strictly locked to their branch
         setCurrentBranchState(userBranch);
         try {
@@ -53,7 +59,7 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
           document.cookie = `active_branch=${encodeURIComponent(userBranch)}; path=/; max-age=31536000; SameSite=Lax`;
         } catch {}
       } else {
-        // Admin: read saved preference or default to 'all'
+        // Super Admin: read saved preference or default to 'all'
         try {
           const saved = localStorage.getItem('active_branch');
           if (saved === 'all' || isValidBranch(saved)) {
@@ -63,10 +69,10 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
         } catch {}
       }
     }
-  }, [isLoading, user, isAdmin, userBranch]);
+  }, [isLoading, user, isSuperAdmin, userBranch]);
 
   const setBranch = useCallback((branch: BranchFilter) => {
-    if (!isAdmin) {
+    if (!isSuperAdmin) {
       // Non-admins cannot switch branches
       return;
     }
@@ -80,13 +86,13 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
         window.dispatchEvent(new CustomEvent('branch_changed', { detail: { branch } }));
       } catch {}
     }
-  }, [isAdmin]);
+  }, [isSuperAdmin]);
 
   const value: BranchContextType = {
-    currentBranch: isAdmin ? currentBranch : userBranch,
+    currentBranch: isSuperAdmin ? currentBranch : userBranch,
     userBranch,
-    isAdmin,
-    isAllBranches: isAdmin && currentBranch === 'all',
+    isAdmin: isSuperAdmin,
+    isAllBranches: isSuperAdmin && currentBranch === 'all',
     availableBranches: BRANCHES,
     setBranch,
   };

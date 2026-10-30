@@ -67,6 +67,7 @@ export default function NewLeadPage() {
   const { setTitle } = useHeaderTitle();
   const { currentBranch, userBranch } = useBranch();
 
+  const isSuperAdmin = Boolean(user?.email?.toLowerCase() === 'admin@appleinteriors.in');
   const canCreateLead = isAdmin || hasPermission('leads.create') || hasPermission('crm.manage');
   const canViewCrm = isAdmin || hasPermission('crm.view');
 
@@ -586,7 +587,7 @@ export default function NewLeadPage() {
               </h2>
             </div>
 
-            {isAdmin && (
+            {isSuperAdmin && (
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                   Target Branch <span className="text-rose-500">*</span>

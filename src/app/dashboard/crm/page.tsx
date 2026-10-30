@@ -81,6 +81,7 @@ export default function CRMPage() {
   const { user, isAdmin: authIsAdmin } = useAuth();
   const { currentBranch, userBranch } = useBranch();
   const isAdmin = Boolean(authIsAdmin || permIsAdmin || user?.role?.toLowerCase() === 'admin');
+  const isSuperAdmin = Boolean(user?.email?.toLowerCase() === 'admin@appleinteriors.in');
   const canEditApproved = Boolean(isAdmin || hasPermission('crm.edit_approved'));
 
   useEffect(() => {
@@ -644,7 +645,7 @@ export default function CRMPage() {
       { id: 'source', label: 'Lead Source', width: '120px', editable: false, type: 'source' },
     ];
 
-    if (isAdmin && currentBranch === 'all') {
+    if (isSuperAdmin && currentBranch === 'all') {
       cols.push({ id: 'branch', label: 'Branch', width: '110px', editable: false, type: 'branch' });
     }
 
@@ -662,7 +663,7 @@ export default function CRMPage() {
     );
 
     return cols;
-  }, [isAdmin, currentBranch]);
+  }, [isSuperAdmin, currentBranch]);
 
   const totalTableWidth = useMemo(() => {
     return 40 + columns.reduce((acc, col) => acc + (columnWidths[col.id] || DEFAULT_COLUMN_WIDTHS[col.id] || 110), 0);
@@ -2449,7 +2450,7 @@ export default function CRMPage() {
                               <span className="text-[9px] bg-blue-50 text-blue-700 border border-blue-200 font-bold px-1.5 py-0.5 rounded">
                                 {getLeadSource(lead)}
                               </span>
-                              {isAdmin && currentBranch === 'all' && (
+                              {isSuperAdmin && currentBranch === 'all' && (
                                 <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
                                   getLeadBranch(lead) === 'AS Rao Nagar'
                                     ? 'bg-purple-50 text-purple-700 border-purple-200'

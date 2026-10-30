@@ -39,7 +39,8 @@ const userSchema = z.object({
 type UserFormValues = z.infer<typeof userSchema>;
 
 export default function NewUserPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user: currentUser } = useAuth();
+  const isSuperAdmin = Boolean(currentUser?.email?.toLowerCase() === 'admin@appleinteriors.in');
   const { hasPermission } = useUserPermissions();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -130,8 +131,8 @@ export default function NewUserPage() {
           role: selectedRole?.name.toLowerCase() || 'employee', // Legacy field
           role_id: data.role_id, // New role system
           phone_number: data.phone_number || '',
-          // Only Super Admin can assign a custom branch. Non-admin defaults to Kukatpally.
-          branch: isAdmin ? (data.branch || 'Kukatpally') : 'Kukatpally',
+          // Only Super Admin can assign a custom branch. Non-admin defaults to creator's branch.
+          branch: isSuperAdmin ? (data.branch || 'Kukatpally') : ((currentUser as any)?.branch || 'Kukatpally'),
           dob: data.dob || null,
           emergency_contact_number: data.emergency_contact_number || null,
           blood_group: data.blood_group || null,
@@ -302,7 +303,7 @@ export default function NewUserPage() {
                 )}
               </div>
 
-              {!isTargetAdmin && isAdmin && (
+              {!isTargetAdmin && isSuperAdmin && (
                 <div>
                   <label htmlFor="branch" className="block text-sm font-medium text-gray-700 mb-1">
                     Assigned Branch / Location <span className="text-rose-500">*</span>

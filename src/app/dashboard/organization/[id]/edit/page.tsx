@@ -45,6 +45,7 @@ type UserFormValues = z.infer<typeof userSchema>;
 
 export default function EditUserPage() {
   const { user: currentUser, isAdmin } = useAuth();
+  const isSuperAdmin = Boolean(currentUser?.email?.toLowerCase() === 'admin@appleinteriors.in');
   const { hasPermission } = useUserPermissions();
   const router = useRouter();
   const params = useParams();
@@ -180,7 +181,7 @@ export default function EditUserPage() {
           role: selectedRole?.name.toLowerCase() || 'employee', // Legacy field
           role_id: data.role_id, // New role system
           // Only Super Admin can change the branch location. Non-admins retain existing branch.
-          branch: isAdmin ? data.branch : (user?.branch || 'Kukatpally'),
+          branch: isSuperAdmin ? data.branch : (user?.branch || 'Kukatpally'),
           dob: data.dob || '',
           emergency_contact_number: data.emergency_contact_number || '',
           blood_group: data.blood_group || '',
@@ -361,7 +362,7 @@ export default function EditUserPage() {
                 )}
               </div>
 
-              {!isTargetAdmin && isAdmin && (
+              {!isTargetAdmin && isSuperAdmin && (
                 <div>
                   <label htmlFor="branch" className="block text-sm font-medium text-gray-700 mb-1">
                     Assigned Branch / Location <span className="text-rose-500">*</span>
