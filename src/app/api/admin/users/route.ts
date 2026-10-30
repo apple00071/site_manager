@@ -21,6 +21,10 @@ const createUserSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
   branch: z.enum(['Kukatpally', 'AS Rao Nagar']).optional().default('Kukatpally'),
+  dob: z.string().optional().or(z.literal('')),
+  emergency_contact_number: z.string().optional().or(z.literal('')),
+  blood_group: z.string().optional().or(z.literal('')),
+  address: z.string().optional().or(z.literal('')),
 });
 
 function generateTemporaryPassword(): string {
@@ -39,6 +43,10 @@ const updateUserSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
   branch: z.enum(['Kukatpally', 'AS Rao Nagar']).optional(),
+  dob: z.string().optional().or(z.literal('')),
+  emergency_contact_number: z.string().optional().or(z.literal('')),
+  blood_group: z.string().optional().or(z.literal('')),
+  address: z.string().optional().or(z.literal('')),
 });
 
 // GET handler for fetching users
@@ -80,7 +88,11 @@ export async function GET(request: NextRequest) {
       const userWithSalary = {
         ...data,
         salary_profile: salaryData || null,
-        branch: data.branch || 'Kukatpally'
+        branch: data.branch || 'Kukatpally',
+        dob: data.dob || data.user_metadata?.dob || '',
+        emergency_contact_number: data.emergency_contact_number || data.user_metadata?.emergency_contact_number || '',
+        blood_group: data.blood_group || data.user_metadata?.blood_group || '',
+        address: data.address || data.user_metadata?.address || ''
       };
 
       return NextResponse.json(userWithSalary);
@@ -115,6 +127,10 @@ export async function GET(request: NextRequest) {
     let mappedUsers = (users || []).map((u: any) => ({
       ...u,
       branch: u.branch || 'Kukatpally',
+      dob: u.dob || u.user_metadata?.dob || '',
+      emergency_contact_number: u.emergency_contact_number || u.user_metadata?.emergency_contact_number || '',
+      blood_group: u.blood_group || u.user_metadata?.blood_group || '',
+      address: u.address || u.user_metadata?.address || '',
     }));
 
     if (branchFilter && branchFilter !== 'all') {
@@ -152,7 +168,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { email, username, full_name, designation, role, role_id, password, phone_number, branch } = parsed.data;
+    const { email, username, full_name, designation, role, role_id, password, phone_number, branch, dob, emergency_contact_number, blood_group, address } = parsed.data;
 
     const finalPassword =
       password && password.trim() !== ''
@@ -174,7 +190,14 @@ export async function POST(req: Request) {
           designation,
           role,
           username,
-          branch: branch || 'Kukatpally',
+      dob: dob || null,
+          branch: isAdmin ? (branch || 'Kukatpally') : 'Kukatpally',
+
+
+    
+          emergency_contact_number: emergency_contact_number || null,
+          blood_group: blood_group || null,
+          address: address || null,
         },
       });
 
@@ -214,9 +237,17 @@ export async function POST(req: Request) {
         designation,
         role: normalizedRole,
         role_id: role_id || null,
+      dob: dob || null,
         phone_number: phone_number || null,
-        password_changed: false,
-        branch: branch || 'Kukatpally',
+
+      emergency_contact_number: emergency_contact_number || null,
+      blood_group: blood_group || null,
+      address: address || null,
+
+  
+
+        branch: isAdmin ? (branch || 'Kukatpally') : 'Kukatpally',
+
       };
       if (hasUsername) profile.username = username;
 
@@ -229,6 +260,10 @@ export async function POST(req: Request) {
       // Fallback if branch column is not migrated yet in public.users
       if (profileError && profileError.code === '42703') {
         delete profile.branch;
+        delete profile.dob;
+        delete profile.emergency_contact_number;
+        delete profile.blood_group;
+        delete profile.address;
         const retry = await supabaseAdmin
           .from('users')
           .upsert(profile, {
@@ -386,7 +421,7 @@ export async function PATCH(req: Request) {
       );
     }
 
-    const { id, email, username, full_name, designation, role, role_id, password, phone_number, branch } = parsed.data;
+    const { id, email, username, full_name, designation, role, role_id, password, phone_number, branch, dob, emergency_contact_number, blood_group, address } = parsed.data;
 
     console.log('Updating user:', { id, email, full_name, role, role_id, branch });
 
@@ -407,10 +442,15 @@ export async function PATCH(req: Request) {
       designation,
       role: normalizedRole,
       role_id: role_id || null,
+      dob: dob || null,
       phone_number: phone_number || null,
+
+      emergency_contact_number: emergency_contact_number || null,
+      blood_group: blood_group || null,
+      address: address || null,
     };
     if (hasUsername) profileUpdate.username = username;
-    if (branch) profileUpdate.branch = branch;
+    if (isAdmin && branch) profileUpdate.branch = branch;
 
     let { error: profileError } = await supabaseAdmin
       .from('users')
@@ -420,6 +460,10 @@ export async function PATCH(req: Request) {
     // Fallback if branch column is not migrated yet in public.users
     if (profileError && profileError.code === '42703' && profileUpdate.branch) {
       delete profileUpdate.branch;
+      delete profileUpdate.dob;
+      delete profileUpdate.emergency_contact_number;
+      delete profileUpdate.blood_group;
+      delete profileUpdate.address;
       const retry = await supabaseAdmin
         .from('users')
         .update(profileUpdate)
@@ -458,9 +502,14 @@ export async function PATCH(req: Request) {
       designation,
       role,
       phone_number: phone_number || null,
+
+      emergency_contact_number: emergency_contact_number || null,
+      blood_group: blood_group || null,
+      address: address || null,
       username,
+      dob: dob || null,
     };
-    if (branch) metadataUpdate.branch = branch;
+    if (isAdmin && branch) metadataUpdate.branch = branch;
 
     const { error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(
       id,

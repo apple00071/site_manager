@@ -12,10 +12,28 @@ export async function GET(req: NextRequest) {
 
     const nowIso = new Date().toISOString();
 
-    // 1. Fetch active popups
+    // Determine user's assigned branch
+    let userBranch = (user as any).branch || user.user_metadata?.branch;
+    if (!userBranch) {
+      try {
+        const { data: uDoc } = await supabaseAdmin
+          .from('users')
+          .select('branch')
+          .eq('id', user.id)
+          .single();
+        userBranch = uDoc?.branch || 'Kukatpally';
+      } catch (_) {
+        userBranch = 'Kukatpally';
+      }
+    }
+
+    // 1. Fetch active popups with creator branch info
     const { data: popups, error: popupsError } = await supabaseAdmin
       .from('app_popups')
-      .select('*')
+      .select(`
+        *,
+        creator:users!created_by(id, branch)
+      `)
       .eq('is_active', true)
       .lte('starts_at', nowIso)
       .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
@@ -57,7 +75,21 @@ export async function GET(req: NextRequest) {
       // Already dismissed?
       if (dismissedIds.has(p.id)) return false;
 
-      // Check audience targeting
+      // 1. If targeted to specific users, strictly check recipient list
+      if (p.target_type === 'users') {
+        const userIds: string[] = Array.isArray(p.target_user_ids) ? p.target_user_ids : [];
+        return userIds.includes(user.id);
+      }
+
+      // 2. Branch scoping check: Do not show popups from other branches
+      if (p.branch && p.branch !== 'all' && p.branch !== userBranch) {
+        return false;
+      }
+      if (p.creator?.branch && p.creator.branch !== userBranch) {
+        return false;
+      }
+
+      // 3. Audience targeting check
       if (p.target_type === 'all') return true;
 
       if (p.target_type === 'role') {
@@ -67,11 +99,6 @@ export async function GET(req: NextRequest) {
                (userDesignation && r.toLowerCase() === userDesignation.toLowerCase())
         );
         return matchesRole;
-      }
-
-      if (p.target_type === 'users') {
-        const userIds: string[] = Array.isArray(p.target_user_ids) ? p.target_user_ids : [];
-        return userIds.includes(user.id);
       }
 
       return false;

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, use } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
-import { FiUser, FiClock, FiCalendar, FiBriefcase, FiActivity, FiArrowLeft, FiCheckCircle, FiAlertCircle, FiFileText, FiUploadCloud, FiTrash2, FiDownload, FiEye, FiX, FiChevronDown, FiChevronRight } from 'react-icons/fi';
+import { FiUser, FiClock, FiCalendar, FiBriefcase, FiActivity, FiArrowLeft, FiCheckCircle, FiAlertCircle, FiFileText, FiUploadCloud, FiTrash2, FiDownload, FiEye, FiX, FiChevronDown, FiChevronRight, FiEdit2, FiPhone, FiDroplet, FiMapPin, FiPhoneCall } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
 import { formatDateIST, formatTimeIST } from '@/lib/dateUtils';
 import { DataTable, StatusBadge, getStatusVariant } from '@/components/ui/DataTable';
@@ -345,17 +345,61 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
                                     <span className="px-2.5 py-1 bg-yellow-50 text-yellow-700 border border-yellow-100 rounded-lg text-[10px] font-bold uppercase tracking-widest">
                                         {user?.roles?.name || user?.role || 'User'}
                                     </span>
-                                    <span className="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg text-[10px] font-bold tracking-wider">
-                                        📍 {user?.branch || 'Kukatpally'}
-                                    </span>
+                                    {isAdmin && (
+                                        <span className="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg text-[10px] font-bold tracking-wider inline-flex items-center gap-1">
+                                            <FiMapPin className="w-3 h-3 text-amber-600" /> {user?.branch || 'Kukatpally'}
+                                        </span>
+                                    )}
                                     <span className="text-xs font-medium text-gray-500 flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100">
                                         <FiCalendar className="w-3.5 h-3.5 text-gray-400" /> Member since {formatDateIST(user?.created_at).split(',')[0]}
                                     </span>
                                 </div>
+
+                                {(user?.dob || user?.blood_group || user?.emergency_contact_number || user?.phone_number || user?.address) && (
+                                    <div className="pt-1 flex flex-wrap items-center gap-x-3.5 gap-y-2 text-xs text-gray-600">
+                                        {user?.phone_number && (
+                                            <span className="inline-flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100">
+                                                <FiPhone className="w-3.5 h-3.5 text-gray-400" />
+                                                <a href={`tel:${user.phone_number}`} className="hover:text-yellow-600 font-medium text-gray-700">{user.phone_number}</a>
+                                            </span>
+                                        )}
+                                        {user?.dob && (
+                                            <span className="inline-flex items-center gap-1.5 bg-amber-50/70 text-amber-900 px-2.5 py-1 rounded-lg border border-amber-200/80 font-medium">
+                                                <FiCalendar className="w-3.5 h-3.5 text-amber-600" />
+                                                <span>DOB: {formatDateIST(user.dob).split(',')[0]}</span>
+                                            </span>
+                                        )}
+                                        {user?.blood_group && (
+                                            <span className="inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 px-2.5 py-1 rounded-lg border border-rose-200 font-bold">
+                                                <FiDroplet className="w-3.5 h-3.5 text-rose-500" />
+                                                <span>{user.blood_group}</span>
+                                            </span>
+                                        )}
+                                        {user?.emergency_contact_number && (
+                                            <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-700 px-2.5 py-1 rounded-lg border border-red-200 font-medium">
+                                                <FiPhoneCall className="w-3.5 h-3.5 text-red-500" />
+                                                <span>Emergency: <a href={`tel:${user.emergency_contact_number}`} className="underline font-bold hover:text-red-800">{user.emergency_contact_number}</a></span>
+                                            </span>
+                                        )}
+                                        {user?.address && (
+                                            <span className="inline-flex items-center gap-1.5 bg-gray-50 text-gray-600 px-2.5 py-1 rounded-lg border border-gray-100 max-w-md truncate" title={user.address}>
+                                                <FiMapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                <span className="truncate">{user.address}</span>
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                            <Link href="/dashboard/organization" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-600 font-semibold text-xs transition-colors shrink-0">
-                                <FiArrowLeft className="w-3.5 h-3.5" /> Directory
-                            </Link>
+                            <div className="flex items-center gap-2 shrink-0">
+                                {(isAdmin || hasPermission('users.edit')) && (
+                                    <Link href={`/dashboard/organization/${id}/edit`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold text-xs shadow-sm transition-colors shrink-0">
+                                        <FiEdit2 className="w-3.5 h-3.5" /> Edit Profile
+                                    </Link>
+                                )}
+                                <Link href="/dashboard/organization" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-600 font-semibold text-xs transition-colors shrink-0">
+                                    <FiArrowLeft className="w-3.5 h-3.5" /> Directory
+                                </Link>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -16,6 +16,10 @@ const profileSchema = z.object({
   full_name: z.string().min(1, 'Full name is required'),
   email: z.string().email('Invalid email address').min(1, 'Email is required'),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
+  dob: z.string().optional().or(z.literal('')),
+  blood_group: z.string().optional().or(z.literal('')),
+  emergency_contact_number: z.string().optional().or(z.literal('')),
+  address: z.string().optional().or(z.literal('')),
   current_password: z.string().optional(),
   new_password: z.string().min(6, 'Password must be at least 6 characters').optional(),
   confirm_password: z.string().optional(),
@@ -62,6 +66,10 @@ export default function SettingsPage() {
       full_name: '',
       email: '',
       phone_number: '',
+      dob: '',
+      blood_group: '',
+      emergency_contact_number: '',
+      address: '',
       current_password: '',
       new_password: '',
       confirm_password: '',
@@ -112,6 +120,10 @@ export default function SettingsPage() {
                     full_name: newUser.full_name || '',
                     email: user.email || '',
                     phone_number: newUser.phone_number || '',
+                    dob: newUser.dob || user.user_metadata?.dob || '',
+                    blood_group: newUser.blood_group || user.user_metadata?.blood_group || '',
+                    emergency_contact_number: newUser.emergency_contact_number || user.user_metadata?.emergency_contact_number || '',
+                    address: newUser.address || user.user_metadata?.address || '',
                   });
                   return;
                 }
@@ -131,6 +143,10 @@ export default function SettingsPage() {
             full_name: user.user_metadata?.full_name || '',
             email: user.email || '',
             phone_number: user.user_metadata?.phone_number || '',
+            dob: user.user_metadata?.dob || '',
+            blood_group: user.user_metadata?.blood_group || '',
+            emergency_contact_number: user.user_metadata?.emergency_contact_number || '',
+            address: user.user_metadata?.address || '',
           });
           return;
         }
@@ -140,6 +156,10 @@ export default function SettingsPage() {
           full_name: data.full_name || '',
           email: user.email || '',
           phone_number: data.phone_number || '',
+          dob: data.dob || user.user_metadata?.dob || '',
+          blood_group: data.blood_group || user.user_metadata?.blood_group || '',
+          emergency_contact_number: data.emergency_contact_number || user.user_metadata?.emergency_contact_number || '',
+          address: data.address || user.user_metadata?.address || '',
         });
       } catch (error) {
         console.error('Error fetching user profile:', error);
@@ -154,17 +174,54 @@ export default function SettingsPage() {
     setMessage(null);
 
     try {
-      // Update profile information
+      // Update profile information in database
+      const updatePayload: any = {
+        full_name: data.full_name,
+        phone_number: data.phone_number || null,
+        dob: data.dob || null,
+        blood_group: data.blood_group || null,
+        emergency_contact_number: data.emergency_contact_number || null,
+        address: data.address || null,
+        updated_at: new Date().toISOString(),
+      };
+
       const { error: profileError } = await supabase
         .from('users')
-        .update({
-          full_name: data.full_name,
-          phone_number: data.phone_number || null,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', user?.id);
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        // Fallback if specific columns are missing in public.users
+        if (profileError.code === '42703') {
+          delete updatePayload.dob;
+          delete updatePayload.blood_group;
+          delete updatePayload.emergency_contact_number;
+          delete updatePayload.address;
+          const retry = await supabase
+            .from('users')
+            .update(updatePayload)
+            .eq('id', user?.id);
+          if (retry.error) throw retry.error;
+        } else {
+          throw profileError;
+        }
+      }
+
+      // Sync user_metadata in Supabase Auth
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            full_name: data.full_name,
+            phone_number: data.phone_number || null,
+            dob: data.dob || null,
+            blood_group: data.blood_group || null,
+            emergency_contact_number: data.emergency_contact_number || null,
+            address: data.address || null,
+          }
+        });
+      } catch (metaErr) {
+        console.warn('Could not sync user_metadata:', metaErr);
+      }
 
       // Update email if changed
       if (data.email !== user?.email) {
@@ -289,7 +346,7 @@ export default function SettingsPage() {
                           id="full_name"
                           type="text"
                           {...register('full_name')}
-                          className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                          className="shadow-sm focus:ring-yellow-500 focus:border-yellow-500 block w-full sm:text-sm border-gray-300 rounded-md"
                         />
                         {errors.full_name && (
                           <p className="mt-1 text-sm text-red-600">{errors.full_name.message}</p>
@@ -306,7 +363,7 @@ export default function SettingsPage() {
                           id="email"
                           type="email"
                           {...register('email')}
-                          className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                          className="shadow-sm focus:ring-yellow-500 focus:border-yellow-500 block w-full sm:text-sm border-gray-300 rounded-md"
                         />
                         {errors.email && (
                           <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
@@ -324,11 +381,95 @@ export default function SettingsPage() {
                           type="tel"
                           {...register('phone_number')}
                           placeholder="10-digit mobile number"
-                          className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                          className="shadow-sm focus:ring-yellow-500 focus:border-yellow-500 block w-full sm:text-sm border-gray-300 rounded-md"
                         />
                         {errors.phone_number && (
                           <p className="mt-1 text-sm text-red-600">{errors.phone_number.message}</p>
                         )}
+                      </div>
+                    </div>
+
+                    <div className="border-t border-gray-100 pt-5">
+                      <h4 className="text-sm font-semibold text-gray-900 mb-3">Personal & Emergency Details</h4>
+                      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                        <div>
+                          <label htmlFor="dob" className="block text-sm font-medium text-gray-700">
+                            Date of Birth (DOB)
+                          </label>
+                          <div className="mt-1">
+                            <input
+                              id="dob"
+                              type="date"
+                              {...register('dob')}
+                              className="shadow-sm focus:ring-yellow-500 focus:border-yellow-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                            />
+                            {errors.dob && (
+                              <p className="mt-1 text-sm text-red-600">{errors.dob.message}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label htmlFor="blood_group" className="block text-sm font-medium text-gray-700">
+                            Blood Group
+                          </label>
+                          <div className="mt-1">
+                            <select
+                              id="blood_group"
+                              {...register('blood_group')}
+                              className="shadow-sm focus:ring-yellow-500 focus:border-yellow-500 block w-full sm:text-sm border-gray-300 rounded-md py-2 px-3 bg-white"
+                            >
+                              <option value="">Select Blood Group</option>
+                              <option value="A+">A+</option>
+                              <option value="A-">A-</option>
+                              <option value="B+">B+</option>
+                              <option value="B-">B-</option>
+                              <option value="AB+">AB+</option>
+                              <option value="AB-">AB-</option>
+                              <option value="O+">O+</option>
+                              <option value="O-">O-</option>
+                            </select>
+                            {errors.blood_group && (
+                              <p className="mt-1 text-sm text-red-600">{errors.blood_group.message}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label htmlFor="emergency_contact_number" className="block text-sm font-medium text-gray-700">
+                            Emergency Contact Number
+                          </label>
+                          <div className="mt-1">
+                            <input
+                              id="emergency_contact_number"
+                              type="tel"
+                              {...register('emergency_contact_number')}
+                              placeholder="e.g. +91 9876543210"
+                              className="shadow-sm focus:ring-yellow-500 focus:border-yellow-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                            />
+                            {errors.emergency_contact_number && (
+                              <p className="mt-1 text-sm text-red-600">{errors.emergency_contact_number.message}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label htmlFor="address" className="block text-sm font-medium text-gray-700">
+                            Residential Address
+                          </label>
+                          <div className="mt-1">
+                            <input
+                              id="address"
+                              type="text"
+                              {...register('address')}
+                              placeholder="House/Flat No, Street, City, Pincode"
+                              className="shadow-sm focus:ring-yellow-500 focus:border-yellow-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                            />
+                            {errors.address && (
+                              <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -346,7 +487,7 @@ export default function SettingsPage() {
                           id="current_password"
                           type={showCurrentPassword ? 'text' : 'password'}
                           {...register('current_password')}
-                          className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md pr-12"
+                          className="shadow-sm focus:ring-yellow-500 focus:border-yellow-500 block w-full sm:text-sm border-gray-300 rounded-md pr-12"
                         />
                         <button
                           type="button"
@@ -370,7 +511,7 @@ export default function SettingsPage() {
                           id="new_password"
                           type={showNewPassword ? 'text' : 'password'}
                           {...register('new_password')}
-                          className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md pr-12"
+                          className="shadow-sm focus:ring-yellow-500 focus:border-yellow-500 block w-full sm:text-sm border-gray-300 rounded-md pr-12"
                         />
                         <button
                           type="button"
@@ -394,7 +535,7 @@ export default function SettingsPage() {
                           id="confirm_password"
                           type={showConfirmPassword ? 'text' : 'password'}
                           {...register('confirm_password')}
-                          className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md pr-12"
+                          className="shadow-sm focus:ring-yellow-500 focus:border-yellow-500 block w-full sm:text-sm border-gray-300 rounded-md pr-12"
                         />
                         <button
                           type="button"

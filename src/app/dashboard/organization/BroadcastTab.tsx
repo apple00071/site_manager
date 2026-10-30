@@ -18,9 +18,11 @@ import {
   FiX,
   FiExternalLink,
   FiCheck,
+  FiMapPin,
 } from 'react-icons/fi';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { PERMISSION_NODES } from '@/lib/rbac-constants';
+import { useBranch } from '@/contexts/BranchContext';
 
 type PopupType = 'info' | 'warning' | 'celebration' | 'announcement';
 type TargetType = 'all' | 'role' | 'users';
@@ -28,9 +30,11 @@ type TargetType = 'all' | 'role' | 'users';
 interface UserItem {
   id: string;
   full_name: string;
+  email?: string;
   designation?: string | null;
   role?: string;
   is_active?: boolean;
+  branch?: string;
 }
 
 interface PopupItem {
@@ -51,6 +55,7 @@ interface PopupItem {
     id: string;
     full_name: string;
     email: string;
+    branch?: string | null;
   } | null;
 }
 
@@ -63,6 +68,7 @@ const POPUP_TYPES: { id: PopupType; label: string; icon: any; color: string; des
 
 export default function BroadcastTab() {
   const { user } = useAuth();
+  const { userBranch, currentBranch, isAdmin: isSuperAdmin } = useBranch();
   const { hasPermission } = useUserPermissions();
   const isAdmin = user?.role === 'admin' || (user?.designation?.toLowerCase().includes('it') ?? false);
   const canManage = isAdmin || hasPermission(PERMISSION_NODES.POPUPS_MANAGE);
@@ -87,7 +93,6 @@ export default function BroadcastTab() {
 
   // Users & roles
   const [allUsers, setAllUsers] = useState<UserItem[]>([]);
-  const [availableRoles, setAvailableRoles] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFetchingUsers, setIsFetchingUsers] = useState(false);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
@@ -122,13 +127,6 @@ export default function BroadcastTab() {
       const data: UserItem[] = await response.json();
       setAllUsers(data || []);
 
-      // Extract unique designations / roles
-      const rolesSet = new Set<string>();
-      (data || []).forEach((u) => {
-        if (u.designation?.trim()) rolesSet.add(u.designation.trim());
-        if (u.role?.trim()) rolesSet.add(u.role.trim());
-      });
-      setAvailableRoles(Array.from(rolesSet).sort());
     } catch (err) {
       console.error('Failed to fetch users:', err);
     } finally {
@@ -136,12 +134,60 @@ export default function BroadcastTab() {
     }
   };
 
-  const activeUsers = allUsers.filter((u) => u.is_active !== false);
+  // Determine login user's branch location
+  const currentUserProfile = allUsers.find(
+    (u) => u.id === user?.id || (user?.email && (u as any).email?.toLowerCase() === user.email.toLowerCase())
+  );
+  const loggedInUserBranch = currentUserProfile?.branch || (user as any)?.branch || user?.user_metadata?.branch || userBranch;
+
+  // Active branch scope:
+  // For non-admin (e.g. Admin HR), strictly scope to their login location.
+  // For Super Admin, scope to current active branch (or all branches if 'all' is selected).
+  const activeBranch = !isSuperAdmin ? loggedInUserBranch : (currentBranch === 'all' ? null : currentBranch);
+
+  const activeUsers = allUsers.filter((u) => {
+    if (u.is_active === false) return false;
+    if (activeBranch && (u.branch || 'Kukatpally') !== activeBranch) {
+      return false;
+    }
+    return true;
+  });
+
+  // Extract unique designations / roles for the active branch scope
+  const availableRoles = Array.from(
+    new Set(
+      activeUsers
+        .flatMap((u) => [u.designation?.trim(), u.role?.trim()])
+        .filter((r): r is string => Boolean(r && r.length > 0))
+    )
+  ).sort();
 
   const filteredUsers = activeUsers.filter((u) =>
     (u.full_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
     (u.designation?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
+
+  // Filter popup history to only display popups relevant to the active branch scope
+  const visiblePopups = popups.filter((p) => {
+    if (isSuperAdmin && (!currentBranch || currentBranch === 'all')) return true;
+
+    const branchToMatch = activeBranch || 'AS Rao Nagar';
+
+    if ((p as any).branch && (p as any).branch !== 'all') {
+      return (p as any).branch === branchToMatch;
+    }
+
+    if (p.creator?.branch) {
+      return p.creator.branch === branchToMatch;
+    }
+
+    if (p.target_type === 'users' && Array.isArray(p.target_user_ids) && p.target_user_ids.length > 0) {
+      const branchUserIds = new Set(activeUsers.map((u) => u.id));
+      return p.target_user_ids.some((id) => branchUserIds.has(id));
+    }
+
+    return false;
+  });
 
   const toggleUser = (userId: string) => {
     setSelectedUserIds((prev) =>
@@ -183,6 +229,23 @@ export default function BroadcastTab() {
     setIsSubmitting(true);
     setStatus(null);
 
+    let finalTargetType = targetType;
+    let finalTargetRoles = selectedRoles;
+    let finalTargetUserIds = selectedUserIds;
+
+    // Scope recipients to activeBranch (e.g. login user location)
+    if (activeBranch) {
+      if (targetType === 'all') {
+        finalTargetType = 'users';
+        finalTargetUserIds = activeUsers.map((u) => u.id);
+      } else if (targetType === 'role') {
+        finalTargetType = 'users';
+        finalTargetUserIds = activeUsers
+          .filter((u) => selectedRoles.includes(u.designation || '') || selectedRoles.includes(u.role || ''))
+          .map((u) => u.id);
+      }
+    }
+
     try {
       const response = await fetch('/api/admin/popups', {
         method: 'POST',
@@ -194,9 +257,9 @@ export default function BroadcastTab() {
           image_url: imageUrl.trim() || null,
           action_label: actionLabel.trim() || 'Got it',
           action_url: actionUrl.trim() || null,
-          target_type: targetType,
-          target_roles: selectedRoles,
-          target_user_ids: selectedUserIds,
+          target_type: finalTargetType,
+          target_roles: finalTargetRoles,
+          target_user_ids: finalTargetUserIds,
           is_active: true,
           send_notification: sendNotification,
         }),
@@ -285,11 +348,10 @@ export default function BroadcastTab() {
           <button
             type="button"
             onClick={() => setShowComposer(!showComposer)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm ${
-              showComposer
-                ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                : 'bg-yellow-500 text-gray-900 hover:bg-yellow-600 shadow-yellow-200'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm ${showComposer
+              ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              : 'bg-yellow-500 text-gray-900 hover:bg-yellow-600 shadow-yellow-200'
+              }`}
           >
             {showComposer ? (
               <>
@@ -306,11 +368,10 @@ export default function BroadcastTab() {
 
       {status && (
         <div
-          className={`p-4 rounded-xl flex items-start gap-3 transition-all ${
-            status.type === 'success'
-              ? 'bg-green-50 text-green-700 border border-green-200'
-              : 'bg-red-50 text-red-700 border border-red-200'
-          }`}
+          className={`p-4 rounded-xl flex items-start gap-3 transition-all ${status.type === 'success'
+            ? 'bg-green-50 text-green-700 border border-green-200'
+            : 'bg-red-50 text-red-700 border border-red-200'
+            }`}
         >
           {status.type === 'success' ? (
             <FiCheckCircle className="mt-0.5 shrink-0 w-5 h-5" />
@@ -348,11 +409,10 @@ export default function BroadcastTab() {
                       key={t.id}
                       type="button"
                       onClick={() => setPopupType(t.id)}
-                      className={`p-3 rounded-xl border text-left transition-all flex flex-col gap-1.5 ${
-                        isSelected
-                          ? `${t.color} ring-2 ring-yellow-500 shadow-sm font-semibold`
-                          : 'border-gray-200 hover:border-gray-300 bg-white text-gray-600'
-                      }`}
+                      className={`p-3 rounded-xl border text-left transition-all flex flex-col gap-1.5 ${isSelected
+                        ? `${t.color} ring-2 ring-yellow-500 shadow-sm font-semibold`
+                        : 'border-gray-200 hover:border-gray-300 bg-white text-gray-600'
+                        }`}
                     >
                       <div className="flex items-center gap-1.5">
                         <Icon className="w-4 h-4 shrink-0" />
@@ -448,9 +508,17 @@ export default function BroadcastTab() {
 
             {/* Target Audience */}
             <div className="space-y-3 pt-2 border-t border-gray-100">
-              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Target Audience
-              </label>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  Target Audience
+                </label>
+                {activeBranch && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                    <FiMapPin className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Location: {activeBranch}</span>
+                  </span>
+                )}
+              </div>
 
               {/* Target Type Selector */}
               <div className="flex flex-wrap gap-3">
@@ -463,7 +531,9 @@ export default function BroadcastTab() {
                     onChange={() => setTargetType('all')}
                     className="text-yellow-500 focus:ring-yellow-500"
                   />
-                  <span>All Active Users ({activeUsers.length})</span>
+                  <span>
+                    {activeBranch ? `All ${activeBranch} Team (${activeUsers.length})` : `All Active Users (${activeUsers.length})`}
+                  </span>
                 </label>
 
                 <label className="flex items-center gap-2 cursor-pointer bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium">
@@ -503,11 +573,10 @@ export default function BroadcastTab() {
                           key={r}
                           type="button"
                           onClick={() => toggleRole(r)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5 ${
-                            isSelected
-                              ? 'bg-yellow-500 text-gray-900 border-yellow-500 font-semibold'
-                              : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
-                          }`}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5 ${isSelected
+                            ? 'bg-yellow-500 text-gray-900 border-yellow-500 font-semibold'
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                            }`}
                         >
                           {isSelected && <FiCheck className="w-3.5 h-3.5" />}
                           <span>{r}</span>
@@ -592,11 +661,10 @@ export default function BroadcastTab() {
               <button
                 type="submit"
                 disabled={isSubmitting || !title.trim() || !message.trim()}
-                className={`py-3 px-6 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
-                  isSubmitting || !title.trim() || !message.trim()
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-yellow-500 text-gray-900 hover:bg-yellow-600 shadow-md shadow-yellow-200 active:scale-[0.98]'
-                }`}
+                className={`py-3 px-6 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${isSubmitting || !title.trim() || !message.trim()
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-yellow-500 text-gray-900 hover:bg-yellow-600 shadow-md shadow-yellow-200 active:scale-[0.98]'
+                  }`}
               >
                 {isSubmitting ? (
                   <>
@@ -671,15 +739,14 @@ export default function BroadcastTab() {
                   </button>
                   <button
                     type="button"
-                    className={`px-4 py-1.5 rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 ${
-                      popupType === 'warning'
-                        ? 'bg-amber-600 text-white'
-                        : popupType === 'celebration'
+                    className={`px-4 py-1.5 rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 ${popupType === 'warning'
+                      ? 'bg-amber-600 text-white'
+                      : popupType === 'celebration'
                         ? 'bg-yellow-500 text-gray-900'
                         : popupType === 'info'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-indigo-600 text-white'
-                    }`}
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-indigo-600 text-white'
+                      }`}
                   >
                     <span>{actionLabel.trim() || 'Got it'}</span>
                     {actionUrl.trim() && <FiExternalLink className="w-3 h-3" />}
@@ -707,13 +774,13 @@ export default function BroadcastTab() {
             </p>
           </div>
           <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-            {popups.length} {popups.length === 1 ? 'Popup' : 'Popups'} Total
+            {visiblePopups.length} {visiblePopups.length === 1 ? 'Popup' : 'Popups'} Total
           </span>
         </div>
 
         {isLoadingPopups ? (
           <div className="p-8 text-center text-sm text-gray-400">Loading popups history...</div>
-        ) : popups.length === 0 ? (
+        ) : visiblePopups.length === 0 ? (
           <div className="p-8 text-center space-y-2">
             <div className="w-12 h-12 rounded-full bg-yellow-50 text-yellow-600 flex items-center justify-center mx-auto text-xl">
               📢
@@ -725,7 +792,7 @@ export default function BroadcastTab() {
           </div>
         ) : (
           <div className="divide-y divide-gray-100 overflow-x-auto">
-            {popups.map((p) => {
+            {visiblePopups.map((p) => {
               const typeCfg = POPUP_TYPES.find((t) => t.id === p.popup_type) || POPUP_TYPES[0];
               const Icon = typeCfg.icon;
 
@@ -751,11 +818,10 @@ export default function BroadcastTab() {
                       </span>
 
                       <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          p.is_active
-                            ? 'bg-green-100 text-green-700 border border-green-200'
-                            : 'bg-gray-100 text-gray-500 border border-gray-200'
-                        }`}
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${p.is_active
+                          ? 'bg-green-100 text-green-700 border border-green-200'
+                          : 'bg-gray-100 text-gray-500 border border-gray-200'
+                          }`}
                       >
                         {p.is_active ? 'Active / Visible' : 'Disabled'}
                       </span>
@@ -796,11 +862,10 @@ export default function BroadcastTab() {
                       <button
                         type="button"
                         onClick={() => handleToggleActive(p)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                          p.is_active
-                            ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
-                            : 'border-green-200 text-green-700 hover:bg-green-50'
-                        }`}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${p.is_active
+                          ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
+                          : 'border-green-200 text-green-700 hover:bg-green-50'
+                          }`}
                         title={p.is_active ? 'Disable this popup' : 'Enable this popup'}
                       >
                         {p.is_active ? 'Deactivate' : 'Activate'}

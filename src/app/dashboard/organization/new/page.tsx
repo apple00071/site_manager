@@ -27,6 +27,10 @@ const userSchema = z.object({
   role_id: z.string().min(1, 'Please select a role'),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
   branch: z.enum(['Kukatpally', 'AS Rao Nagar']).default('Kukatpally'),
+  dob: z.string().optional().or(z.literal('')),
+  emergency_contact_number: z.string().optional().or(z.literal('')),
+  blood_group: z.string().optional().or(z.literal('')),
+  address: z.string().optional().or(z.literal('')),
   base_salary: z.coerce.number().min(0).default(0),
   hra: z.coerce.number().min(0).default(0),
   special_allowance: z.coerce.number().min(0).default(0),
@@ -49,16 +53,25 @@ export default function NewUserPage() {
     control,
     formState: { errors },
     setValue,
+    watch,
   } = useForm<UserFormValues>({
     resolver: zodResolver(userSchema) as any,
     defaultValues: {
       role_id: '',
       branch: 'Kukatpally',
+      dob: '',
+      emergency_contact_number: '',
+      blood_group: '',
+      address: '',
       base_salary: 0,
       hra: 0,
       special_allowance: 0,
     },
   });
+
+  const selectedRoleId = watch('role_id');
+  const selectedRoleObj = roles.find(r => r.id === selectedRoleId);
+  const isTargetAdmin = (selectedRoleObj?.name || '').toLowerCase().includes('admin');
 
   // Fetch roles from API
   useEffect(() => {
@@ -117,6 +130,12 @@ export default function NewUserPage() {
           role: selectedRole?.name.toLowerCase() || 'employee', // Legacy field
           role_id: data.role_id, // New role system
           phone_number: data.phone_number || '',
+          // Only Super Admin can assign a custom branch. Non-admin defaults to Kukatpally.
+          branch: isAdmin ? (data.branch || 'Kukatpally') : 'Kukatpally',
+          dob: data.dob || null,
+          emergency_contact_number: data.emergency_contact_number || null,
+          blood_group: data.blood_group || null,
+          address: data.address || null,
         }),
       });
 
@@ -127,31 +146,37 @@ export default function NewUserPage() {
         throw new Error(result.error || 'Failed to create user');
       }
 
-      // Step 2: Save Salary Profile
+      // Step 2: Create Salary Profile
       if (userId) {
-        const salaryResponse = await fetch('/api/payroll/salary-config', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            user_id: userId,
-            base_salary: data.base_salary,
-            hra: data.hra,
-            special_allowance: data.special_allowance,
-          }),
-        });
+        try {
+          const salaryResponse = await fetch('/api/payroll/salary-config', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              user_id: userId,
+              base_salary: data.base_salary,
+              hra: data.hra,
+              special_allowance: data.special_allowance,
+            }),
+          });
 
-        if (!salaryResponse.ok) {
-          const salaryResult = await salaryResponse.json().catch(() => ({}));
-          console.error('Salary save error:', salaryResult);
-          alert('User created, but salary profile could not be saved. You can update it later from the edit page.');
+          if (!salaryResponse.ok) {
+            console.error('Failed to create salary profile');
+            // Don't fail the whole operation, but alert the user
+            alert('User created successfully, but salary profile setup failed. You can configure it later from the user edit page.');
+          }
+        } catch (salaryError) {
+          console.error('Error creating salary profile:', salaryError);
+          // Continue to redirect even if salary setup fails
         }
       }
 
       router.push('/dashboard/organization');
     } catch (err: any) {
-      setError(err.message || 'An error occurred while creating the user');
+      console.error('Error creating user:', err);
+      setError(err.message || 'Failed to create user. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -159,140 +184,231 @@ export default function NewUserPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 lg:hidden">Add New User</h1>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Add New User</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Create a new user account with role-based access control.
+        </p>
       </div>
 
-      <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+      <div className="bg-white shadow rounded-lg">
         <div className="px-4 py-5 sm:p-6">
           {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-              <p className="text-red-700">{error}</p>
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+              {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div>
-              <label htmlFor="full_name" className="block text-sm font-medium text-gray-700">
-                Full Name
-              </label>
-              <input
-                id="full_name"
-                type="text"
-                {...register('full_name')}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              {errors.full_name && (
-                <p className="mt-1 text-sm text-red-600">{errors.full_name.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                Username
-              </label>
-              <input
-                id="username"
-                type="text"
-                {...register('username')}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              {errors.username && (
-                <p className="mt-1 text-sm text-red-600">{errors.username.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="designation" className="block text-sm font-medium text-gray-700">
-                Designation
-              </label>
-              <input
-                id="designation"
-                type="text"
-                {...register('designation')}
-                placeholder="e.g., Interior Designer, Project Manager, Carpenter"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              {errors.designation && (
-                <p className="mt-1 text-sm text-red-600">{errors.designation.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="phone_number" className="block text-sm font-medium text-gray-700">
-                Phone Number
-              </label>
-              <input
-                id="phone_number"
-                type="tel"
-                {...register('phone_number')}
-                placeholder="e.g., +91 9876543210"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              {errors.phone_number && (
-                <p className="mt-1 text-sm text-red-600">{errors.phone_number.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email Address
-              </label>
-              <input
-                id="email"
-                type="email"
-                {...register('email')}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="role_id" className="block text-sm font-medium text-gray-700">
-                Role
-              </label>
-              <Controller
-                name="role_id"
-                control={control}
-                render={({ field }) => (
-                  <CustomDropdown
-                    value={field.value}
-                    onChange={field.onChange}
-                    options={roles.map(r => ({ id: r.id, title: r.name }))}
-                    placeholder={loadingRoles ? "Loading roles..." : "Select Role"}
-                    disabled={loadingRoles}
-                  />
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div>
+                <label htmlFor="full_name" className="block text-sm font-medium text-gray-700">
+                  Full Name
+                </label>
+                <input
+                  id="full_name"
+                  type="text"
+                  {...register('full_name')}
+                  placeholder="e.g., John Doe"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                {errors.full_name && (
+                  <p className="mt-1 text-sm text-red-600">{errors.full_name.message}</p>
                 )}
-              />
-              {errors.role_id && (
-                <p className="mt-1 text-sm text-red-600">{errors.role_id.message}</p>
+              </div>
+
+              <div>
+                <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                  Username
+                </label>
+                <input
+                  id="username"
+                  type="text"
+                  {...register('username')}
+                  placeholder="e.g., john.doe"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                {errors.username && (
+                  <p className="mt-1 text-sm text-red-600">{errors.username.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="designation" className="block text-sm font-medium text-gray-700">
+                  Designation
+                </label>
+                <input
+                  id="designation"
+                  type="text"
+                  {...register('designation')}
+                  placeholder="e.g., Interior Designer, Project Manager, Carpenter"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                {errors.designation && (
+                  <p className="mt-1 text-sm text-red-600">{errors.designation.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="phone_number" className="block text-sm font-medium text-gray-700">
+                  Phone Number
+                </label>
+                <input
+                  id="phone_number"
+                  type="tel"
+                  {...register('phone_number')}
+                  placeholder="e.g., +91 9876543210"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                {errors.phone_number && (
+                  <p className="mt-1 text-sm text-red-600">{errors.phone_number.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                  Email Address
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  {...register('email')}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                {errors.email && (
+                  <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="role_id" className="block text-sm font-medium text-gray-700">
+                  Role
+                </label>
+                <Controller
+                  name="role_id"
+                  control={control}
+                  render={({ field }) => (
+                    <CustomDropdown
+                      value={field.value}
+                      onChange={field.onChange}
+                      options={roles.map(r => ({ id: r.id, title: r.name }))}
+                      placeholder={loadingRoles ? "Loading roles..." : "Select Role"}
+                      disabled={loadingRoles}
+                    />
+                  )}
+                />
+                {errors.role_id && (
+                  <p className="mt-1 text-sm text-red-600">{errors.role_id.message}</p>
+                )}
+              </div>
+
+              {!isTargetAdmin && isAdmin && (
+                <div>
+                  <label htmlFor="branch" className="block text-sm font-medium text-gray-700 mb-1">
+                    Assigned Branch / Location <span className="text-rose-500">*</span>
+                  </label>
+                  <Controller
+                    name="branch"
+                    control={control}
+                    render={({ field }) => (
+                      <CustomDropdown
+                        value={field.value}
+                        onChange={field.onChange}
+                        options={[
+                          { id: 'Kukatpally', title: 'Kukatpally Branch' },
+                          { id: 'AS Rao Nagar', title: 'AS Rao Nagar Branch' },
+                        ]}
+                        placeholder="Select Branch"
+                      />
+                    )}
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    The employee will only have access to operations and data under this branch.
+                  </p>
+                </div>
               )}
             </div>
 
-            <div>
-              <label htmlFor="branch" className="block text-sm font-medium text-gray-700 mb-1">
-                Assigned Branch / Location <span className="text-rose-500">*</span>
-              </label>
-              <Controller
-                name="branch"
-                control={control}
-                render={({ field }) => (
-                  <CustomDropdown
-                    value={field.value}
-                    onChange={field.onChange}
-                    options={[
-                      { id: 'Kukatpally', title: 'Kukatpally Branch' },
-                      { id: 'AS Rao Nagar', title: 'AS Rao Nagar Branch' },
-                    ]}
-                    placeholder="Select Branch"
+            <div className="pt-4 border-t border-gray-100">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Personal & Emergency Details</h3>
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="dob" className="block text-sm font-medium text-gray-700 mb-1">
+                    Date of Birth (DOB)
+                  </label>
+                  <input
+                    id="dob"
+                    type="date"
+                    {...register('dob')}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 text-sm"
                   />
-                )}
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                The employee will only have access to operations and data under this branch.
-              </p>
+                  {errors.dob && (
+                    <p className="mt-1 text-sm text-red-600">{errors.dob.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="blood_group" className="block text-sm font-medium text-gray-700 mb-1">
+                    Blood Group
+                  </label>
+                  <Controller
+                    name="blood_group"
+                    control={control}
+                    render={({ field }) => (
+                      <CustomDropdown
+                        value={field.value || ''}
+                        onChange={field.onChange}
+                        options={[
+                          { id: 'A+', title: 'A+' },
+                          { id: 'A-', title: 'A-' },
+                          { id: 'B+', title: 'B+' },
+                          { id: 'B-', title: 'B-' },
+                          { id: 'AB+', title: 'AB+' },
+                          { id: 'AB-', title: 'AB-' },
+                          { id: 'O+', title: 'O+' },
+                          { id: 'O-', title: 'O-' },
+                        ]}
+                        placeholder="Select Blood Group"
+                      />
+                    )}
+                  />
+                  {errors.blood_group && (
+                    <p className="mt-1 text-sm text-red-600">{errors.blood_group.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="emergency_contact_number" className="block text-sm font-medium text-gray-700 mb-1">
+                    Emergency Contact Number
+                  </label>
+                  <input
+                    id="emergency_contact_number"
+                    type="tel"
+                    {...register('emergency_contact_number')}
+                    placeholder="e.g., +91 9876543210"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 text-sm"
+                  />
+                  {errors.emergency_contact_number && (
+                    <p className="mt-1 text-sm text-red-600">{errors.emergency_contact_number.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
+                    Residential Address
+                  </label>
+                  <input
+                    id="address"
+                    type="text"
+                    {...register('address')}
+                    placeholder="House/Flat No, Street, City, Pincode"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 text-sm"
+                  />
+                  {errors.address && (
+                    <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="pt-4 border-t border-gray-100">

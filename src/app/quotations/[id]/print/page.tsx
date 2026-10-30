@@ -86,6 +86,28 @@ export default function QuotationPrintPage() {
     }
   };
 
+  const handleCloseOrBack = () => {
+    if (typeof window === 'undefined') return;
+    try {
+      if (window.opener && !window.opener.closed) {
+        window.opener.focus();
+      }
+    } catch (_) {}
+
+    window.close();
+
+    // Fallback if browser did not allow window.close (e.g. opened in same tab on mobile)
+    setTimeout(() => {
+      if (!window.closed) {
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          window.location.href = '/dashboard/crm';
+        }
+      }
+    }, 100);
+  };
+
   // Dynamic Page Title & Mobile Viewport
   useEffect(() => {
     if (lead?.client_name) {
@@ -567,17 +589,11 @@ export default function QuotationPrintPage() {
               🖨 Print / Save PDF
             </button>
             <button
-              onClick={() => {
-                if (window.history.length > 1) {
-                  window.history.back();
-                } else {
-                  window.location.href = '/dashboard/crm';
-                }
-              }}
+              onClick={handleCloseOrBack}
               style={{ background: '#eee', border: 'none', borderRadius: '6px', padding: '8px 14px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
-              title="Return to CRM"
+              title="Close quotation and return to where you were"
             >
-              ← Back to CRM
+              ✕ Close / Back to CRM
             </button>
           </div>
         </div>

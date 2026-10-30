@@ -30,6 +30,10 @@ const userSchema = z.object({
   designation: z.string().min(2, 'Designation is required'),
   role_id: z.string().min(1, 'Please select a role'),
   branch: z.enum(['Kukatpally', 'AS Rao Nagar']).default('Kukatpally'),
+  dob: z.string().optional().or(z.literal('')),
+  emergency_contact_number: z.string().optional().or(z.literal('')),
+  blood_group: z.string().optional().or(z.literal('')),
+  address: z.string().optional().or(z.literal('')),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
   base_salary: z.coerce.number().min(0).default(0),
@@ -60,9 +64,14 @@ export default function EditUserPage() {
     formState: { errors },
     reset,
     setValue,
+    watch,
   } = useForm<UserFormValues>({
     resolver: zodResolver(userSchema) as any,
   });
+
+  const selectedRoleId = watch('role_id');
+  const selectedRoleObj = roles.find(r => r.id === selectedRoleId);
+  const isTargetAdmin = (selectedRoleObj?.name || user?.roles?.name || user?.role || '').toLowerCase().includes('admin');
 
   // Fetch roles from API
   useEffect(() => {
@@ -115,6 +124,10 @@ export default function EditUserPage() {
           designation: data.designation || '',
           role_id: roleId,
           branch: data.branch === 'AS Rao Nagar' ? 'AS Rao Nagar' : 'Kukatpally',
+          dob: data.dob || '',
+          emergency_contact_number: data.emergency_contact_number || '',
+          blood_group: data.blood_group || '',
+          address: data.address || '',
           phone_number: data.phone_number || '',
           base_salary: Number(salaryData?.base_salary || 0),
           hra: Number(salaryData?.hra || 0),
@@ -166,7 +179,12 @@ export default function EditUserPage() {
           designation: data.designation,
           role: selectedRole?.name.toLowerCase() || 'employee', // Legacy field
           role_id: data.role_id, // New role system
-          branch: data.branch,
+          // Only Super Admin can change the branch location. Non-admins retain existing branch.
+          branch: isAdmin ? data.branch : (user?.branch || 'Kukatpally'),
+          dob: data.dob || '',
+          emergency_contact_number: data.emergency_contact_number || '',
+          blood_group: data.blood_group || '',
+          address: data.address || '',
           phone_number: data.phone_number || '',
           password: data.password || '',
         }),
@@ -343,32 +361,34 @@ export default function EditUserPage() {
                 )}
               </div>
 
-              <div>
-                <label htmlFor="branch" className="block text-sm font-medium text-gray-700 mb-1">
-                  Assigned Branch / Location <span className="text-rose-500">*</span>
-                </label>
-                <Controller
-                  name="branch"
-                  control={control}
-                  render={({ field }) => (
-                    <CustomDropdown
-                      value={field.value}
-                      onChange={field.onChange}
-                      options={[
-                        { id: 'Kukatpally', title: 'Kukatpally Branch' },
-                        { id: 'AS Rao Nagar', title: 'AS Rao Nagar Branch' },
-                      ]}
-                      placeholder="Select Location / Branch"
-                    />
+              {!isTargetAdmin && isAdmin && (
+                <div>
+                  <label htmlFor="branch" className="block text-sm font-medium text-gray-700 mb-1">
+                    Assigned Branch / Location <span className="text-rose-500">*</span>
+                  </label>
+                  <Controller
+                    name="branch"
+                    control={control}
+                    render={({ field }) => (
+                      <CustomDropdown
+                        value={field.value}
+                        onChange={field.onChange}
+                        options={[
+                          { id: 'Kukatpally', title: 'Kukatpally Branch' },
+                          { id: 'AS Rao Nagar', title: 'AS Rao Nagar Branch' },
+                        ]}
+                        placeholder="Select Location / Branch"
+                      />
+                    )}
+                  />
+                  {errors.branch && (
+                    <p className="mt-1 text-sm text-red-600">{errors.branch.message}</p>
                   )}
-                />
-                {errors.branch && (
-                  <p className="mt-1 text-sm text-red-600">{errors.branch.message}</p>
-                )}
-                <p className="mt-1 text-xs text-gray-500">
-                  The employee will only have access to operations and data under this branch location.
-                </p>
-              </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    The employee will only have access to operations and data under this branch location.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700">
@@ -393,6 +413,88 @@ export default function EditUserPage() {
                 {errors.password && (
                   <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
                 )}
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-gray-100">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Personal & Emergency Details</h3>
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="dob" className="block text-sm font-medium text-gray-700 mb-1">
+                    Date of Birth (DOB)
+                  </label>
+                  <input
+                    id="dob"
+                    type="date"
+                    {...register('dob')}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 text-sm"
+                  />
+                  {errors.dob && (
+                    <p className="mt-1 text-sm text-red-600">{errors.dob.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="blood_group" className="block text-sm font-medium text-gray-700 mb-1">
+                    Blood Group
+                  </label>
+                  <Controller
+                    name="blood_group"
+                    control={control}
+                    render={({ field }) => (
+                      <CustomDropdown
+                        value={field.value || ''}
+                        onChange={field.onChange}
+                        options={[
+                          { id: 'A+', title: 'A+' },
+                          { id: 'A-', title: 'A-' },
+                          { id: 'B+', title: 'B+' },
+                          { id: 'B-', title: 'B-' },
+                          { id: 'AB+', title: 'AB+' },
+                          { id: 'AB-', title: 'AB-' },
+                          { id: 'O+', title: 'O+' },
+                          { id: 'O-', title: 'O-' },
+                        ]}
+                        placeholder="Select Blood Group"
+                      />
+                    )}
+                  />
+                  {errors.blood_group && (
+                    <p className="mt-1 text-sm text-red-600">{errors.blood_group.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="emergency_contact_number" className="block text-sm font-medium text-gray-700 mb-1">
+                    Emergency Contact Number
+                  </label>
+                  <input
+                    id="emergency_contact_number"
+                    type="tel"
+                    {...register('emergency_contact_number')}
+                    placeholder="e.g., +91 9876543210"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 text-sm"
+                  />
+                  {errors.emergency_contact_number && (
+                    <p className="mt-1 text-sm text-red-600">{errors.emergency_contact_number.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
+                    Residential Address
+                  </label>
+                  <input
+                    id="address"
+                    type="text"
+                    {...register('address')}
+                    placeholder="e.g., Flat 401, Fortune Towers, Madhapur, Hyderabad"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 text-sm"
+                  />
+                  {errors.address && (
+                    <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
+                  )}
+                </div>
               </div>
             </div>
 

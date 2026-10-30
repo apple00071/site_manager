@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiActivity, FiChevronDown, FiChevronRight } from 'react-icons/fi';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Role {
     id: string;
@@ -24,6 +25,7 @@ interface User {
 
 export default function UsersTab() {
     const router = useRouter();
+    const { isAdmin, user: authUser } = useAuth();
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
     const [loading, setLoading] = useState(true);
@@ -64,10 +66,10 @@ export default function UsersTab() {
 
     const handleToggleUserStatus = async (userId: string, currentActiveState: boolean) => {
         const nextState = !currentActiveState;
-        const confirmMsg = nextState 
-            ? 'Are you sure you want to reactivate this user?' 
+        const confirmMsg = nextState
+            ? 'Are you sure you want to reactivate this user?'
             : 'Are you sure you want to deactivate this user? They will not be able to log in or be assigned to new projects.';
-            
+
         if (window.confirm(confirmMsg)) {
             try {
                 const response = await fetch('/api/admin/users', {
@@ -94,12 +96,20 @@ export default function UsersTab() {
         return user.role || 'No Role';
     };
 
+    const loggedInUserData = users.find(
+        (u) => u.id === authUser?.id || (authUser?.email && u.email?.toLowerCase() === authUser.email.toLowerCase())
+    );
+    const loggedInRoleDisplay = loggedInUserData ? getRoleDisplay(loggedInUserData).trim().toLowerCase() : '';
+    // Only true Super Admin ('Admin') can see/switch branches and view branch location badges (Admin HR and others cannot)
+    const isSuperAdmin = loggedInRoleDisplay === 'admin' || (!loggedInRoleDisplay && authUser?.email?.toLowerCase() === 'admin@appleinteriors.in');
+
     const filteredUsers = users.filter((user: User) => {
         // Filter out clients from the team list
         const roleName = getRoleDisplay(user).toLowerCase();
         if (roleName === 'client') return false;
 
-        const matchesBranch = branchFilter === 'all' || (user.branch || 'Kukatpally') === branchFilter;
+        // Branch filtering is only active when Super Admin selects a branch
+        const matchesBranch = !isSuperAdmin || branchFilter === 'all' || (user.branch || 'Kukatpally') === branchFilter;
 
         return matchesBranch && (
             user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -156,42 +166,41 @@ export default function UsersTab() {
                         />
                     </div>
 
-                    {/* Branch Filter Pills */}
-                    <div className="flex items-center gap-1 p-0.5 bg-gray-100 rounded-lg border border-gray-200">
-                        <button
-                            type="button"
-                            onClick={() => setBranchFilter('all')}
-                            className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                                branchFilter === 'all'
+                    {/* Branch Filter Pills: Visible to Admin only */}
+                    {isSuperAdmin && (
+                        <div className="flex items-center gap-1 p-0.5 bg-gray-100 rounded-lg border border-gray-200">
+                            <button
+                                type="button"
+                                onClick={() => setBranchFilter('all')}
+                                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${branchFilter === 'all'
                                     ? 'bg-white text-gray-900 shadow-2xs'
                                     : 'text-gray-500 hover:text-gray-900'
-                            }`}
-                        >
-                            All Branches
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setBranchFilter('Kukatpally')}
-                            className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                                branchFilter === 'Kukatpally'
+                                    }`}
+                            >
+                                All Branches
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setBranchFilter('Kukatpally')}
+                                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${branchFilter === 'Kukatpally'
                                     ? 'bg-white text-gray-900 shadow-2xs'
                                     : 'text-gray-500 hover:text-gray-900'
-                            }`}
-                        >
-                            Kukatpally
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setBranchFilter('AS Rao Nagar')}
-                            className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                                branchFilter === 'AS Rao Nagar'
+                                    }`}
+                            >
+                                Kukatpally
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setBranchFilter('AS Rao Nagar')}
+                                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${branchFilter === 'AS Rao Nagar'
                                     ? 'bg-white text-gray-900 shadow-2xs'
                                     : 'text-gray-500 hover:text-gray-900'
-                            }`}
-                        >
-                            AS Rao Nagar
-                        </button>
-                    </div>
+                                    }`}
+                            >
+                                AS Rao Nagar
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <Link
@@ -218,100 +227,101 @@ export default function UsersTab() {
                             const groupUsers = groupedUsers[designation] || [];
                             const activeCount = groupUsers.filter((u: User) => u.is_active !== false).length;
                             return (
-                            <React.Fragment key={designation}>
-                                <tr
-                                    className="bg-gray-50/50 cursor-pointer hover:bg-gray-100/50 transition-colors"
-                                    onClick={() => toggleGroup(designation)}
-                                >
-                                    <td colSpan={4} className="px-6 py-2 border-y border-gray-100/50">
-                                        <div className="flex items-center gap-2">
-                                            {collapsedGroups[designation] ? (
-                                                <FiChevronRight className="w-4 h-4 text-gray-400" />
-                                            ) : (
-                                                <FiChevronDown className="w-4 h-4 text-gray-400" />
-                                            )}
-                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                                {designation} — {activeCount} {activeCount === 1 ? 'Member' : 'Members'}
-                                            </span>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {!collapsedGroups[designation] && groupUsers.map((user: User) => {
-                                    const isInactive = user.is_active === false;
-                                    return (
-                                        <tr 
-                                            key={user.id} 
-                                            onClick={() => router.push(`/dashboard/organization/${user.id}`)}
-                                            className={`cursor-pointer hover:bg-gray-50 transition-colors group ${isInactive ? 'opacity-65 bg-gray-50/30' : ''}`}
-                                        >
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="h-9 w-9 rounded-full bg-yellow-50 flex items-center justify-center text-yellow-700 font-bold border border-yellow-100 text-xs">
-                                                        {user.full_name.charAt(0).toUpperCase()}
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                                                            {user.full_name}
-                                                            {isInactive && (
-                                                                <span className="px-1.5 py-0.5 text-[9px] font-bold tracking-wider uppercase bg-gray-100 text-gray-500 rounded border border-gray-200">
-                                                                    Inactive
-                                                                </span>
-                                                            )}
+                                <React.Fragment key={designation}>
+                                    <tr
+                                        className="bg-gray-50/50 cursor-pointer hover:bg-gray-100/50 transition-colors"
+                                        onClick={() => toggleGroup(designation)}
+                                    >
+                                        <td colSpan={4} className="px-6 py-2 border-y border-gray-100/50">
+                                            <div className="flex items-center gap-2">
+                                                {collapsedGroups[designation] ? (
+                                                    <FiChevronRight className="w-4 h-4 text-gray-400" />
+                                                ) : (
+                                                    <FiChevronDown className="w-4 h-4 text-gray-400" />
+                                                )}
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                                    {designation} — {activeCount} {activeCount === 1 ? 'Member' : 'Members'}
+                                                </span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {!collapsedGroups[designation] && groupUsers.map((user: User) => {
+                                        const isInactive = user.is_active === false;
+                                        return (
+                                            <tr
+                                                key={user.id}
+                                                onClick={() => router.push(`/dashboard/organization/${user.id}`)}
+                                                className={`cursor-pointer hover:bg-gray-50 transition-colors group ${isInactive ? 'opacity-65 bg-gray-50/30' : ''}`}
+                                            >
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-9 w-9 rounded-full bg-yellow-50 flex items-center justify-center text-yellow-700 font-bold border border-yellow-100 text-xs">
+                                                            {user.full_name.charAt(0).toUpperCase()}
                                                         </div>
-                                                        <div className="text-xs text-gray-500">{user.email}</div>
+                                                        <div>
+                                                            <div className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                                                                {user.full_name}
+                                                                {isInactive && (
+                                                                    <span className="px-1.5 py-0.5 text-[9px] font-bold tracking-wider uppercase bg-gray-100 text-gray-500 rounded border border-gray-200">
+                                                                        Inactive
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div className="text-xs text-gray-500">{user.email}</div>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.designation || '-'}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center gap-1.5 flex-wrap">
-                                                    <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleColor(user)}`}>
-                                                        {getRoleDisplay(user)}
-                                                    </span>
-                                                    <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 rounded-md">
-                                                        {user.branch || 'Kukatpally'}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <div className="flex justify-end items-center gap-4" onClick={(e) => e.stopPropagation()}>
-                                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <Link
-                                                            href={`/dashboard/organization/${user.id}`}
-                                                            className="flex items-center justify-center p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
-                                                            title="View Profile (360)"
-                                                        >
-                                                            <FiActivity className="h-4 w-4" />
-                                                        </Link>
-                                                        <Link
-                                                            href={`/dashboard/organization/${user.id}/edit`}
-                                                            className="flex items-center justify-center p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                                            title="Edit user"
-                                                        >
-                                                            <FiEdit2 className="h-4 w-4" />
-                                                        </Link>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.designation || '-'}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                        <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleColor(user)}`}>
+                                                            {getRoleDisplay(user)}
+                                                        </span>
+                                                        {/* Branch Location Badge: Visible to Admin only */}
+                                                        {isSuperAdmin && (
+                                                            <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 rounded-md">
+                                                                {user.branch || 'Kukatpally'}
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                    
-                                                    {/* Sleek Toggle Switch */}
-                                                    <button
-                                                        onClick={() => handleToggleUserStatus(user.id, user.is_active !== false)}
-                                                        className={`no-touch-target relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 ${
-                                                            user.is_active !== false ? 'bg-yellow-500' : 'bg-gray-200'
-                                                        }`}
-                                                        title={user.is_active !== false ? 'Deactivate User' : 'Activate User'}
-                                                    >
-                                                        <span
-                                                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                                                                user.is_active !== false ? 'translate-x-4' : 'translate-x-0'
-                                                            }`}
-                                                        />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </React.Fragment>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                    <div className="flex justify-end items-center gap-4" onClick={(e) => e.stopPropagation()}>
+                                                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <Link
+                                                                href={`/dashboard/organization/${user.id}`}
+                                                                className="flex items-center justify-center p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
+                                                                title="View Profile (360)"
+                                                            >
+                                                                <FiActivity className="h-4 w-4" />
+                                                            </Link>
+                                                            <Link
+                                                                href={`/dashboard/organization/${user.id}/edit`}
+                                                                className="flex items-center justify-center p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                                                title="Edit user"
+                                                            >
+                                                                <FiEdit2 className="h-4 w-4" />
+                                                            </Link>
+                                                        </div>
+
+                                                        {/* Sleek Toggle Switch */}
+                                                        <button
+                                                            onClick={() => handleToggleUserStatus(user.id, user.is_active !== false)}
+                                                            className={`no-touch-target relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 ${user.is_active !== false ? 'bg-yellow-500' : 'bg-gray-200'
+                                                                }`}
+                                                            title={user.is_active !== false ? 'Deactivate User' : 'Activate User'}
+                                                        >
+                                                            <span
+                                                                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${user.is_active !== false ? 'translate-x-4' : 'translate-x-0'
+                                                                    }`}
+                                                            />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </React.Fragment>
                             );
                         })}
                     </tbody>
@@ -324,92 +334,97 @@ export default function UsersTab() {
                     const groupUsers = groupedUsers[designation] || [];
                     const activeCount = groupUsers.filter((u: User) => u.is_active !== false).length;
                     return (
-                    <div key={designation} className="space-y-2">
-                        {/* Group Header */}
-                        <div
-                            className="flex items-center gap-2 px-1 cursor-pointer"
-                            onClick={() => toggleGroup(designation)}
-                        >
-                            {collapsedGroups[designation]
-                                ? <FiChevronRight className="w-3.5 h-3.5 text-gray-400" />
-                                : <FiChevronDown className="w-3.5 h-3.5 text-gray-400" />
-                            }
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                {designation}
-                            </span>
-                            <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
-                                {activeCount}
-                            </span>
-                        </div>
-
-                        {!collapsedGroups[designation] && (
-                            <div className="space-y-2">
-                                {groupUsers.map((user: User) => {
-                                    const isInactive = user.is_active === false;
-                                    return (
-                                        <div
-                                            key={user.id}
-                                            onClick={() => router.push(`/dashboard/organization/${user.id}`)}
-                                            className={`bg-white rounded-xl border border-gray-100 px-3.5 py-3 flex items-center gap-3 cursor-pointer hover:border-yellow-200 hover:bg-yellow-50/10 transition-colors ${isInactive ? 'opacity-60' : ''}`}
-                                        >
-                                            {/* Avatar */}
-                                            <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${isInactive ? 'bg-gray-100 text-gray-400 border border-gray-200' : 'bg-yellow-50 text-yellow-700 border border-yellow-100'}`}>
-                                                {user.full_name.charAt(0).toUpperCase()}
-                                            </div>
-
-                                            {/* Name + Email */}
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-1.5 flex-wrap">
-                                                    <span className="text-sm font-semibold text-gray-900 truncate">
-                                                        {user.full_name}
-                                                    </span>
-                                                    {isInactive && (
-                                                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-gray-100 text-gray-400 border border-gray-200 shrink-0">
-                                                            Inactive
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <p className="text-xs text-gray-400 truncate">{user.email}</p>
-                                                <span className={`inline-flex mt-1 px-2 py-0.5 text-[10px] font-bold uppercase rounded-full ${getRoleColor(user)}`}>
-                                                    {getRoleDisplay(user)}
-                                                </span>
-                                            </div>
-
-                                            {/* Actions */}
-                                            <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                                                <Link
-                                                    href={`/dashboard/organization/${user.id}`}
-                                                    className="flex items-center justify-center p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
-                                                    title="View Profile"
-                                                >
-                                                    <FiActivity className="h-4 w-4" />
-                                                </Link>
-                                                <Link
-                                                    href={`/dashboard/organization/${user.id}/edit`}
-                                                    className="flex items-center justify-center p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                                    title="Edit"
-                                                >
-                                                    <FiEdit2 className="h-4 w-4" />
-                                                </Link>
-                                                {/* Toggle */}
-                                                <button
-                                                    onClick={() => handleToggleUserStatus(user.id, user.is_active !== false)}
-                                                    className={`no-touch-target relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                                                        user.is_active !== false ? 'bg-yellow-400' : 'bg-gray-200'
-                                                    }`}
-                                                    title={user.is_active !== false ? 'Deactivate' : 'Activate'}
-                                                >
-                                                    <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
-                                                        user.is_active !== false ? 'translate-x-4' : 'translate-x-0'
-                                                    }`} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                        <div key={designation} className="space-y-2">
+                            {/* Group Header */}
+                            <div
+                                className="flex items-center gap-2 px-1 cursor-pointer"
+                                onClick={() => toggleGroup(designation)}
+                            >
+                                {collapsedGroups[designation]
+                                    ? <FiChevronRight className="w-3.5 h-3.5 text-gray-400" />
+                                    : <FiChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                                }
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                    {designation}
+                                </span>
+                                <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
+                                    {activeCount}
+                                </span>
                             </div>
-                        )}
-                    </div>
+
+                            {!collapsedGroups[designation] && (
+                                <div className="space-y-2">
+                                    {groupUsers.map((user: User) => {
+                                        const isInactive = user.is_active === false;
+                                        return (
+                                            <div
+                                                key={user.id}
+                                                onClick={() => router.push(`/dashboard/organization/${user.id}`)}
+                                                className={`bg-white rounded-xl border border-gray-100 px-3.5 py-3 flex items-center gap-3 cursor-pointer hover:border-yellow-200 hover:bg-yellow-50/10 transition-colors ${isInactive ? 'opacity-60' : ''}`}
+                                            >
+                                                {/* Avatar */}
+                                                <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${isInactive ? 'bg-gray-100 text-gray-400 border border-gray-200' : 'bg-yellow-50 text-yellow-700 border border-yellow-100'}`}>
+                                                    {user.full_name.charAt(0).toUpperCase()}
+                                                </div>
+
+                                                {/* Name + Email */}
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                        <span className="text-sm font-semibold text-gray-900 truncate">
+                                                            {user.full_name}
+                                                        </span>
+                                                        {isInactive && (
+                                                            <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-gray-100 text-gray-400 border border-gray-200 shrink-0">
+                                                                Inactive
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                                                    <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                                                        <span className={`inline-flex px-2 py-0.5 text-[10px] font-bold uppercase rounded-full ${getRoleColor(user)}`}>
+                                                            {getRoleDisplay(user)}
+                                                        </span>
+                                                        {isSuperAdmin && (
+                                                            <span className="px-1.5 py-0.5 text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200 rounded">
+                                                                {user.branch || 'Kukatpally'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Actions */}
+                                                <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                                    <Link
+                                                        href={`/dashboard/organization/${user.id}`}
+                                                        className="flex items-center justify-center p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
+                                                        title="View Profile"
+                                                    >
+                                                        <FiActivity className="h-4 w-4" />
+                                                    </Link>
+                                                    <Link
+                                                        href={`/dashboard/organization/${user.id}/edit`}
+                                                        className="flex items-center justify-center p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                                        title="Edit"
+                                                    >
+                                                        <FiEdit2 className="h-4 w-4" />
+                                                    </Link>
+                                                    {/* Toggle */}
+                                                    <button
+                                                        onClick={() => handleToggleUserStatus(user.id, user.is_active !== false)}
+                                                        className={`no-touch-target relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${user.is_active !== false ? 'bg-yellow-400' : 'bg-gray-200'
+                                                            }`}
+                                                        title={user.is_active !== false ? 'Deactivate' : 'Activate'}
+                                                    >
+                                                        <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${user.is_active !== false ? 'translate-x-4' : 'translate-x-0'
+                                                            }`} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     );
                 })}
             </div>
