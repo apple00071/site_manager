@@ -18,7 +18,6 @@ import {
   FiX,
   FiExternalLink,
   FiCheck,
-  FiMapPin,
 } from 'react-icons/fi';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { PERMISSION_NODES } from '@/lib/rbac-constants';
@@ -512,12 +511,6 @@ export default function BroadcastTab() {
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">
                   Target Audience
                 </label>
-                {activeBranch && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                    <FiMapPin className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Location: {activeBranch}</span>
-                  </span>
-                )}
               </div>
 
               {/* Target Type Selector */}
@@ -532,7 +525,7 @@ export default function BroadcastTab() {
                     className="text-yellow-500 focus:ring-yellow-500"
                   />
                   <span>
-                    {activeBranch ? `All ${activeBranch} Team (${activeUsers.length})` : `All Active Users (${activeUsers.length})`}
+                    All Team Members ({activeUsers.length})
                   </span>
                 </label>
 
