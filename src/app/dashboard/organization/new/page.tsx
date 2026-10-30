@@ -273,7 +273,7 @@ export default function NewUserPage() {
 
             <div>
               <label htmlFor="branch" className="block text-sm font-medium text-gray-700 mb-1">
-                Assigned Branch <span className="text-rose-500">*</span>
+                Assigned Branch / Location <span className="text-rose-500">*</span>
               </label>
               <Controller
                 name="branch"

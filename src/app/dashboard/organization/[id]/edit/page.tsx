@@ -29,6 +29,7 @@ const userSchema = z.object({
   full_name: z.string().min(2, 'Full name is required'),
   designation: z.string().min(2, 'Designation is required'),
   role_id: z.string().min(1, 'Please select a role'),
+  branch: z.enum(['Kukatpally', 'AS Rao Nagar']).default('Kukatpally'),
   phone_number: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
   base_salary: z.coerce.number().min(0).default(0),
@@ -113,6 +114,7 @@ export default function EditUserPage() {
           full_name: data.full_name,
           designation: data.designation || '',
           role_id: roleId,
+          branch: data.branch === 'AS Rao Nagar' ? 'AS Rao Nagar' : 'Kukatpally',
           phone_number: data.phone_number || '',
           base_salary: Number(salaryData?.base_salary || 0),
           hra: Number(salaryData?.hra || 0),
@@ -164,6 +166,7 @@ export default function EditUserPage() {
           designation: data.designation,
           role: selectedRole?.name.toLowerCase() || 'employee', // Legacy field
           role_id: data.role_id, // New role system
+          branch: data.branch,
           phone_number: data.phone_number || '',
           password: data.password || '',
         }),
@@ -319,7 +322,7 @@ export default function EditUserPage() {
               </div>
 
               <div>
-                <label htmlFor="role_id" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="role_id" className="block text-sm font-medium text-gray-700 mb-1">
                   Role
                 </label>
                 <Controller
@@ -340,7 +343,34 @@ export default function EditUserPage() {
                 )}
               </div>
 
-              <div className="sm:col-span-2">
+              <div>
+                <label htmlFor="branch" className="block text-sm font-medium text-gray-700 mb-1">
+                  Assigned Branch / Location <span className="text-rose-500">*</span>
+                </label>
+                <Controller
+                  name="branch"
+                  control={control}
+                  render={({ field }) => (
+                    <CustomDropdown
+                      value={field.value}
+                      onChange={field.onChange}
+                      options={[
+                        { id: 'Kukatpally', title: 'Kukatpally Branch' },
+                        { id: 'AS Rao Nagar', title: 'AS Rao Nagar Branch' },
+                      ]}
+                      placeholder="Select Location / Branch"
+                    />
+                  )}
+                />
+                {errors.branch && (
+                  <p className="mt-1 text-sm text-red-600">{errors.branch.message}</p>
+                )}
+                <p className="mt-1 text-xs text-gray-500">
+                  The employee will only have access to operations and data under this branch location.
+                </p>
+              </div>
+
+              <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                   New Password (leave blank to keep current password)
                 </label>

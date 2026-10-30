@@ -345,6 +345,9 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
                                     <span className="px-2.5 py-1 bg-yellow-50 text-yellow-700 border border-yellow-100 rounded-lg text-[10px] font-bold uppercase tracking-widest">
                                         {user?.roles?.name || user?.role || 'User'}
                                     </span>
+                                    <span className="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg text-[10px] font-bold tracking-wider">
+                                        📍 {user?.branch || 'Kukatpally'}
+                                    </span>
                                     <span className="text-xs font-medium text-gray-500 flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100">
                                         <FiCalendar className="w-3.5 h-3.5 text-gray-400" /> Member since {formatDateIST(user?.created_at).split(',')[0]}
                                     </span>

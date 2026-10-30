@@ -2876,7 +2876,7 @@ export default function CRMPage() {
           {selectedCell && filteredLeads[selectedCell.rowIndex] && selectedLeadIds.length === 0 && (() => {
             const activeLead = filteredLeads[selectedCell.rowIndex];
             return (
-              <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-md text-gray-900 py-2.5 px-4 sm:px-5 rounded-2xl border border-gray-200/90 shadow-2xl ${mobileViewType === 'table' ? 'flex' : 'hidden md:flex'} items-center justify-between gap-3 sm:gap-4 z-50 transition-all w-fit max-w-[96vw] sm:max-w-4xl lg:max-w-5xl animate-in fade-in slide-in-from-bottom-3 duration-200 ring-1 ring-black/5`}>
+              <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-md text-gray-900 py-2 pl-3.5 pr-3 sm:py-2.5 sm:pl-5 sm:pr-4 rounded-2xl border border-gray-200/90 shadow-2xl ${mobileViewType === 'table' ? 'flex' : 'hidden md:flex'} items-center justify-between gap-2.5 sm:gap-4 z-50 transition-all w-fit max-w-[96vw] sm:max-w-4xl lg:max-w-5xl overflow-x-auto no-scrollbar animate-in fade-in slide-in-from-bottom-3 duration-200 ring-1 ring-black/5`}>
                 <div className="flex items-center gap-2.5 shrink-0 min-w-0">
                   <span className="text-[11px] font-black bg-amber-500 text-white px-2.5 py-0.5 rounded-full shrink-0 shadow-2xs">
                     #{monthSerialNumbers[activeLead.id] ?? (selectedCell.rowIndex + 1)}
@@ -2997,7 +2997,7 @@ export default function CRMPage() {
                       ) : (
                         <FiUpload className="h-3.5 w-3.5 text-yellow-600" />
                       )}
-                      <span>📐 + Floor Plan</span>
+                      <span>+ Floor Plan</span>
                     </button>
                   )}
 
@@ -3056,7 +3056,7 @@ export default function CRMPage() {
                   <button
                     type="button"
                     onClick={() => setSelectedCell(null)}
-                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer ml-1"
+                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer shrink-0 ml-0.5"
                     title="Deselect Row"
                   >
                     <FiX className="h-4 w-4" />
@@ -3728,7 +3728,7 @@ export default function CRMPage() {
       )}
 
       {/* Floating Action Button (FAB) for Lead Creation on Mobile */}
-      {hasPermission('crm.manage') && (
+      {hasPermission('crm.manage') && !selectedCell && selectedLeadIds.length === 0 && (
         <button
           onClick={handleAddLead}
           className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-yellow-500 hover:bg-yellow-600 text-white rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 transition-transform cursor-pointer border-2 border-white"

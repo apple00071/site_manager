@@ -79,7 +79,8 @@ export async function GET(request: NextRequest) {
 
       const userWithSalary = {
         ...data,
-        salary_profile: salaryData || null
+        salary_profile: salaryData || null,
+        branch: data.branch || 'Kukatpally'
       };
 
       return NextResponse.json(userWithSalary);
