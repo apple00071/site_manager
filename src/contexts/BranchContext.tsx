@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Branch, BranchFilter, BRANCHES, DEFAULT_BRANCH, isValidBranch } from '@/lib/branch-constants';
+import { Branch, BranchFilter, BRANCHES, DEFAULT_BRANCH, isValidBranch, isSuperAdminUser } from '@/lib/branch-constants';
 
 interface BranchContextType {
   currentBranch: BranchFilter;
@@ -18,11 +18,8 @@ const BranchContext = createContext<BranchContextType | undefined>(undefined);
 export function BranchProvider({ children }: { children: React.ReactNode }) {
   const { user, isAdmin, isLoading } = useAuth();
 
-  // Strict check: Only Super Admin (admin@appleinteriors.in) has global multi-branch access
-  const isSuperAdmin = Boolean(
-    user?.email?.toLowerCase() === 'admin@appleinteriors.in' ||
-    (isAdmin && !(user as any)?.branch && !user?.user_metadata?.branch)
-  );
+  // Strict check: Only Super Admins (admin@appleinteriors.in and pavankumarv1497@gmail.com) have global multi-branch access
+  const isSuperAdmin = isSuperAdminUser(user);
 
   // User's assigned branch
   const userBranch: Branch = (

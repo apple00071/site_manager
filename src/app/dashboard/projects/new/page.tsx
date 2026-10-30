@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { CustomDropdown, CustomDatePicker } from '@/components/ui/CustomControls';
 import { supabase } from '@/lib/supabase';
 import { useBranch } from '@/contexts/BranchContext';
+import { isSuperAdminUser } from '@/lib/branch-constants';
 
 const projectSchema = z.object({
   // Basic Information
@@ -93,7 +94,7 @@ type ProjectFormValues = z.infer<typeof projectSchema>;
 
 export default function NewProjectPage() {
   const { isAdmin, isLoading: authLoading, user } = useAuth();
-  const isSuperAdmin = Boolean(user?.email?.toLowerCase() === 'admin@appleinteriors.in');
+  const isSuperAdmin = isSuperAdminUser(user);
   const { hasPermission } = useUserPermissions();
   const { currentBranch, userBranch } = useBranch();
   const router = useRouter();

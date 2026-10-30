@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { ImageModal } from '@/components/ui/ImageModal';
 import { supabase } from '@/lib/supabase';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { isSuperAdminUser } from '@/lib/branch-constants';
 
 const openExternalLink = (url: string) => {
     if (!url) return;
@@ -76,6 +77,7 @@ function useCountUp(target: number, duration = 900) {
 export default function UserProfilePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const { user: currentUser, isAdmin } = useAuth();
+    const isSuperAdmin = isSuperAdminUser(currentUser);
     const { hasPermission } = useUserPermissions();
     const { setTitle, setSubtitle } = useHeaderTitle();
 
@@ -345,7 +347,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
                                     <span className="px-2.5 py-1 bg-yellow-50 text-yellow-700 border border-yellow-100 rounded-lg text-[10px] font-bold uppercase tracking-widest">
                                         {user?.roles?.name || user?.role || 'User'}
                                     </span>
-                                    {isAdmin && (
+                                    {isSuperAdmin && (
                                         <span className="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg text-[10px] font-bold tracking-wider inline-flex items-center gap-1">
                                             <FiMapPin className="w-3 h-3 text-amber-600" /> {user?.branch || 'Kukatpally'}
                                         </span>

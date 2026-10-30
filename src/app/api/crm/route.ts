@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, getAuthUser } from '@/lib/supabase-server';
 import { verifyPermission } from '@/lib/rbac';
 import { getActiveBranch } from '@/lib/branch-helper';
+import { isSuperAdminUser } from '@/lib/branch-constants';
 import { NotificationService } from '@/lib/notificationService';
 
 export const dynamic = 'force-dynamic';
@@ -246,7 +247,10 @@ export async function POST(request: NextRequest) {
     };
 
     const activeBranch = getActiveBranch(request, user);
-    const branchToSave = body.branch || (activeBranch !== 'all' ? activeBranch : (user.branch || 'Kukatpally'));
+    const isSuper = isSuperAdminUser(user);
+    const branchToSave = isSuper
+      ? (body.branch || (activeBranch !== 'all' ? activeBranch : (user.branch || 'Kukatpally')))
+      : (user.branch || 'Kukatpally');
     newLead.branch = branchToSave;
 
     if (newLead.status === 'Approved' && newLead.quote_value <= 0 && newLead.approved_value <= 0) {

@@ -5,6 +5,7 @@ import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiActivity, FiChevronDown, FiChevr
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { isSuperAdminEmail } from '@/lib/branch-constants';
 
 interface Role {
     id: string;
@@ -100,8 +101,8 @@ export default function UsersTab() {
         (u) => u.id === authUser?.id || (authUser?.email && u.email?.toLowerCase() === authUser.email.toLowerCase())
     );
     const loggedInRoleDisplay = loggedInUserData ? getRoleDisplay(loggedInUserData).trim().toLowerCase() : '';
-    // Only true Super Admin ('Admin') can see/switch branches and view branch location badges (Admin HR and others cannot)
-    const isSuperAdmin = loggedInRoleDisplay === 'admin' || (!loggedInRoleDisplay && authUser?.email?.toLowerCase() === 'admin@appleinteriors.in');
+    // Only true Super Admins can see/switch branches and view branch location badges
+    const isSuperAdmin = isSuperAdminEmail(authUser?.email) || isSuperAdminEmail(loggedInUserData?.email);
 
     const filteredUsers = users.filter((user: User) => {
         // Filter out clients from the team list

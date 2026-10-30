@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, supabaseAdmin } from '@/lib/supabase-server';
+import { isSuperAdminEmail } from '@/lib/branch-constants';
 
 // Force dynamic rendering and set cache control
 export const dynamic = 'force-dynamic';
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Filter out notifications from other branches for non-super-admin branch users
-    if (user.branch && user.email?.toLowerCase() !== 'admin@appleinteriors.in' && notifications && notifications.length > 0) {
+    if (user.branch && !isSuperAdminEmail(user.email) && notifications && notifications.length > 0) {
       const projectIds = Array.from(new Set(
         notifications
           .filter((n: any) => n.related_type === 'project' && n.related_id)

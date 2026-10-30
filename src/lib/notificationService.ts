@@ -1,6 +1,7 @@
 // Notification Service for creating and managing notifications
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
+import { isSuperAdminUser } from '@/lib/branch-constants';
 
 export type NotificationType =
   | 'task_assigned'
@@ -609,7 +610,7 @@ export class NotificationService {
 
         // If targetBranch is provided, only include Super Admin and users matching targetBranch
         if (targetBranch && targetBranch !== 'all') {
-          const isSuperAdmin = u.email?.toLowerCase() === 'admin@appleinteriors.in' || (role === 'admin' && !u.branch);
+          const isSuperAdmin = isSuperAdminUser(u);
           if (isSuperAdmin) return true;
 
           const userBranch = u.branch || 'Kukatpally';

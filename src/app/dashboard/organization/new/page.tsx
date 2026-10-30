@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CustomDropdown } from '@/components/ui/CustomControls';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { isSuperAdminUser } from '@/lib/branch-constants';
 
 interface Role {
   id: string;
@@ -40,7 +41,7 @@ type UserFormValues = z.infer<typeof userSchema>;
 
 export default function NewUserPage() {
   const { isAdmin, user: currentUser } = useAuth();
-  const isSuperAdmin = Boolean(currentUser?.email?.toLowerCase() === 'admin@appleinteriors.in');
+  const isSuperAdmin = isSuperAdminUser(currentUser);
   const { hasPermission } = useUserPermissions();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);

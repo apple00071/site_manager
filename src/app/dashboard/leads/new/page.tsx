@@ -2,18 +2,18 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { 
-  FiUser, 
-  FiPhone, 
-  FiMapPin, 
-  FiHome, 
-  FiMaximize2, 
-  FiUploadCloud, 
-  FiFileText, 
-  FiCheckCircle, 
-  FiAlertTriangle, 
-  FiPlus, 
-  FiArrowRight, 
+import {
+  FiUser,
+  FiPhone,
+  FiMapPin,
+  FiHome,
+  FiMaximize2,
+  FiUploadCloud,
+  FiFileText,
+  FiCheckCircle,
+  FiAlertTriangle,
+  FiPlus,
+  FiArrowRight,
   FiLoader,
   FiX,
   FiShare2,
@@ -27,6 +27,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useHeaderTitle } from '@/contexts/HeaderTitleContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useBranch } from '@/contexts/BranchContext';
+import { isSuperAdminUser } from '@/lib/branch-constants';
 
 const PROPERTY_TYPES = [
   '3 BHK Apartment',
@@ -67,7 +68,7 @@ export default function NewLeadPage() {
   const { setTitle } = useHeaderTitle();
   const { currentBranch, userBranch } = useBranch();
 
-  const isSuperAdmin = Boolean(user?.email?.toLowerCase() === 'admin@appleinteriors.in');
+  const isSuperAdmin = isSuperAdminUser(user);
   const canCreateLead = isAdmin || hasPermission('leads.create') || hasPermission('crm.manage');
   const canViewCrm = isAdmin || hasPermission('crm.view');
 
@@ -87,6 +88,14 @@ export default function NewLeadPage() {
   const [leadBranch, setLeadBranch] = useState<string>(() => {
     return currentBranch !== 'all' ? currentBranch : userBranch;
   });
+
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      setLeadBranch(userBranch);
+    } else if (currentBranch !== 'all') {
+      setLeadBranch(currentBranch);
+    }
+  }, [isSuperAdmin, userBranch, currentBranch]);
   const [selectedScopes, setSelectedScopes] = useState<string[]>([
     'Modular Kitchen',
     'Wardrobes & Storage'
@@ -109,7 +118,7 @@ export default function NewLeadPage() {
   } | null>(null);
 
   const toggleScope = (scope: string) => {
-    setSelectedScopes(prev => 
+    setSelectedScopes(prev =>
       prev.includes(scope) ? prev.filter(s => s !== scope) : [...prev, scope]
     );
   };
@@ -219,7 +228,7 @@ export default function NewLeadPage() {
         area_sqft: areaSqft ? Number(areaSqft) : 0,
         status: 'Draft',
         assigned_by: recordedByName,
-        branch: leadBranch,
+        branch: isSuperAdmin ? leadBranch : userBranch,
         remarks: finalRemarks,
         floor_plan_url: uploadedFloorPlanUrl,
         floor_plan_name: uploadedFloorPlanName,
@@ -347,7 +356,7 @@ export default function NewLeadPage() {
 
   return (
     <div className="w-full space-y-6">
-      
+
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-gray-200">
         <div>
@@ -372,10 +381,10 @@ export default function NewLeadPage() {
 
       {/* Main 2-Column Responsive Layout */}
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
+
         {/* Left Column (8 cols): Primary Details */}
         <div className="lg:col-span-8 space-y-5">
-          
+
           {/* Card 1: Customer Contact Information */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-5 sm:p-6 space-y-4">
             <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
@@ -540,11 +549,10 @@ export default function NewLeadPage() {
                         key={scope}
                         type="button"
                         onClick={() => toggleScope(scope)}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-yellow-50 text-yellow-900 border border-yellow-300 shadow-2xs font-semibold'
-                            : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100 hover:text-gray-900'
-                        }`}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${isSelected
+                          ? 'bg-yellow-50 text-yellow-900 border border-yellow-300 shadow-2xs font-semibold'
+                          : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100 hover:text-gray-900'
+                          }`}
                       >
                         {isSelected ? (
                           <FiCheck className="w-3.5 h-3.5 text-yellow-600" />
@@ -577,7 +585,7 @@ export default function NewLeadPage() {
 
         {/* Right Column (4 cols): Marketing Attribution, File Upload & Actions */}
         <div className="lg:col-span-4 space-y-5">
-          
+
           {/* Card: Source & Attribution */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-5 space-y-4">
             <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
@@ -650,11 +658,10 @@ export default function NewLeadPage() {
                 onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
                 onDragLeave={() => setIsDragOver(false)}
                 onDrop={handleFileDrop}
-                className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-colors ${
-                  isDragOver 
-                    ? 'border-yellow-500 bg-yellow-50/50' 
-                    : 'border-gray-200 hover:border-yellow-400 bg-gray-50/50 hover:bg-yellow-50/20'
-                }`}
+                className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-colors ${isDragOver
+                  ? 'border-yellow-500 bg-yellow-50/50'
+                  : 'border-gray-200 hover:border-yellow-400 bg-gray-50/50 hover:bg-yellow-50/20'
+                  }`}
               >
                 <div className="w-10 h-10 rounded-xl bg-white border border-gray-200 text-gray-500 flex items-center justify-center mb-2 shadow-2xs">
                   <FiUploadCloud className="w-5 h-5 text-yellow-600" />

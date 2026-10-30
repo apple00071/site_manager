@@ -22,6 +22,7 @@ import { buildQuotationHtmlString } from '@/lib/reports/quotationHtmlBuilder';
 import CreateProjectFromLeadModal from '@/components/crm/CreateProjectFromLeadModal';
 import { openQuotationPrint } from '@/lib/shareUtils';
 import { useBranch } from '@/contexts/BranchContext';
+import { isSuperAdminUser } from '@/lib/branch-constants';
 const QuotationBuilder = dynamic(() => import('@/components/crm/QuotationBuilder'), { ssr: false });
 
 interface Lead {
@@ -81,7 +82,7 @@ export default function CRMPage() {
   const { user, isAdmin: authIsAdmin } = useAuth();
   const { currentBranch, userBranch } = useBranch();
   const isAdmin = Boolean(authIsAdmin || permIsAdmin || user?.role?.toLowerCase() === 'admin');
-  const isSuperAdmin = Boolean(user?.email?.toLowerCase() === 'admin@appleinteriors.in');
+  const isSuperAdmin = isSuperAdminUser(user);
   const canEditApproved = Boolean(isAdmin || hasPermission('crm.edit_approved'));
 
   useEffect(() => {

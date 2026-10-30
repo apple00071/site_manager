@@ -12,6 +12,7 @@ import { FiArrowLeft, FiSave } from 'react-icons/fi';
 import Link from 'next/link';
 import BackButton from '@/components/BackButton';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { isSuperAdminUser } from '@/lib/branch-constants';
 
 interface Role {
   id: string;
@@ -45,7 +46,7 @@ type UserFormValues = z.infer<typeof userSchema>;
 
 export default function EditUserPage() {
   const { user: currentUser, isAdmin } = useAuth();
-  const isSuperAdmin = Boolean(currentUser?.email?.toLowerCase() === 'admin@appleinteriors.in');
+  const isSuperAdmin = isSuperAdminUser(currentUser);
   const { hasPermission } = useUserPermissions();
   const router = useRouter();
   const params = useParams();
