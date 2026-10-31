@@ -50,6 +50,50 @@ interface Lead {
   quote_version?: number;
 }
 
+const ACCEPTED_CRM_FILES = ".pdf,image/*,.dwg,.dxf,.xlsx,.xls,.docx,.doc,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+const getFileMeta = (fileName: string) => {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  if (['xlsx', 'xls', 'csv'].includes(ext)) return { icon: '📊', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: 'Excel' };
+  if (['docx', 'doc'].includes(ext)) return { icon: '📝', color: 'bg-blue-50 text-blue-700 border-blue-200', label: 'Word' };
+  if (ext === 'pdf') return { icon: '📄', color: 'bg-red-50 text-red-700 border-red-200', label: 'PDF' };
+  if (['dwg', 'dxf'].includes(ext)) return { icon: '📐', color: 'bg-purple-50 text-purple-700 border-purple-200', label: 'CAD' };
+  return { icon: '🖼️', color: 'bg-amber-50 text-amber-700 border-amber-200', label: 'Image' };
+};
+
+const openAttachment = (url: string, name: string) => {
+  if (!url) return;
+  const ext = name.split('.').pop()?.toLowerCase() || '';
+
+  // 1. Median / GoNative Mobile App: Delegates to native device apps (Excel, Word, Drive, Adobe)
+  // @ts-ignore
+  if (typeof window !== 'undefined' && window.median && window.median.open && window.median.open.external) {
+    // @ts-ignore
+    window.median.open.external({ url });
+    return;
+  }
+
+  // 2. Capacitor Mobile App
+  // @ts-ignore
+  if (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins?.Browser) {
+    try {
+      // @ts-ignore
+      window.Capacitor.Plugins.Browser.open({ url });
+      return;
+    } catch (e) {}
+  }
+
+  // 3. For Word and Excel documents: open via Google Docs Online Viewer for direct preview
+  if (['xlsx', 'xls', 'docx', 'doc'].includes(ext)) {
+    const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=false`;
+    window.open(viewerUrl, '_blank');
+    return;
+  }
+
+  // 4. Default web open (PDF, Images)
+  window.open(url, '_blank');
+};
+
 // ponytail: timezone-safe local date parser to avoid shifting on date-only strings
 const parseLocalDate = (dateStr: string) => {
   if (!dateStr) return new Date(NaN);
@@ -3435,38 +3479,40 @@ export default function CRMPage() {
 
                   {formAttachments.length > 0 && (
                     <div className="space-y-2">
-                      {formAttachments.map((file, idx) => (
-                        <div key={idx} className="flex items-center justify-between gap-3 p-2 bg-white border border-gray-200 rounded-lg">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 font-bold text-xs border border-blue-100">
-                              {file.name.toLowerCase().endsWith('.pdf') ? '📄' : '🖼️'}
+                      {formAttachments.map((file, idx) => {
+                        const meta = getFileMeta(file.name);
+                        return (
+                          <div key={idx} className="flex items-center justify-between gap-3 p-2 bg-white border border-gray-200 rounded-lg">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className={`w-7 h-7 rounded-lg ${meta.color} border flex items-center justify-center shrink-0 font-bold text-xs`}>
+                                {meta.icon}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-gray-900 truncate" title={file.name}>
+                                  {file.name}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => openAttachment(file.url, file.name)}
+                                  className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-0.5 cursor-pointer"
+                                >
+                                  <span>View / Open ({meta.label})</span>
+                                  <FiArrowUpRight className="w-3 h-3" />
+                                </button>
+                              </div>
                             </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-gray-900 truncate" title={file.name}>
-                                {file.name}
-                              </p>
-                              <a
-                                href={file.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-0.5"
-                              >
-                                <span>Preview / Download</span>
-                                <FiArrowUpRight className="w-3 h-3" />
-                              </a>
-                            </div>
-                          </div>
 
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveFloorPlan(mobileEditForm.id || undefined, file.url)}
-                            className="p-1.5 text-gray-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors cursor-pointer"
-                            title="Remove file"
-                          >
-                            <FiTrash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFloorPlan(mobileEditForm.id || undefined, file.url)}
+                              className="p-1.5 text-gray-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors cursor-pointer"
+                              title="Remove file"
+                            >
+                              <FiTrash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
 
@@ -3484,17 +3530,17 @@ export default function CRMPage() {
                           </div>
                           <div>
                             <p className="text-xs font-bold text-gray-800">
-                              {formAttachments.length > 0 ? '+ Upload More Files (Select Multiple)' : 'Click to upload Floor Plans (Multiple)'}
+                              {formAttachments.length > 0 ? '+ Upload More Files (Multiple)' : 'Click to upload Files (Multiple)'}
                             </p>
                             <p className="text-[10px] text-gray-400 mt-0.5">
-                              PDF, PNG, JPG, or DWG (Hold Ctrl/Shift to select multiple)
+                              PDF, Excel (.xlsx), Word (.docx), CAD (.dwg), Images
                             </p>
                           </div>
                         </>
                       )}
                       <input
                         type="file"
-                        accept=".pdf,image/*,.dwg,.dxf"
+                        accept={ACCEPTED_CRM_FILES}
                         className="hidden"
                         multiple
                         onChange={handleFloorPlanFileChange}
@@ -3827,34 +3873,33 @@ export default function CRMPage() {
                   </div>
                 ) : (
                   attachments.map((file, idx) => {
-                    const isPdf = file.name.toLowerCase().endsWith('.pdf');
+                    const meta = getFileMeta(file.name);
                     return (
                       <div key={idx} className="pt-2.5 first:pt-0 flex items-center justify-between gap-3 group">
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center shrink-0 text-xs font-bold">
-                            {isPdf ? '📄' : '🖼️'}
+                          <div className={`w-8 h-8 rounded-lg ${meta.color} border flex items-center justify-center shrink-0 text-xs font-bold`}>
+                            {meta.icon}
                           </div>
                           <div className="min-w-0">
                             <p className="text-xs font-semibold text-gray-900 truncate" title={file.name}>
                               {file.name}
                             </p>
                             <span className="text-[10px] text-gray-400">
-                              File #{idx + 1}
+                              {meta.label} Document #{idx + 1}
                             </span>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-1.5 shrink-0">
-                          <a
-                            href={file.url}
-                            target="_blank"
-                            rel="noreferrer"
+                          <button
+                            type="button"
+                            onClick={() => openAttachment(file.url, file.name)}
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
-                            title="Open / Download in new tab"
+                            title="Open / View document"
                           >
                             <span>Open</span>
                             <FiArrowUpRight className="w-3.5 h-3.5" />
-                          </a>
+                          </button>
                           <button
                             type="button"
                             onClick={() => handleRemoveFloorPlan(currentLead.id, file.url)}
@@ -3891,7 +3936,7 @@ export default function CRMPage() {
                   )}
                 </button>
                 <p className="text-[10px] text-gray-400 text-center">
-                  Supports PDF, PNG, JPG, DWG, DXF (select multiple files at once)
+                  Supports PDF, Excel (.xlsx, .xls), Word (.docx, .doc), CAD (.dwg), Images
                 </p>
               </div>
             </div>
@@ -3905,7 +3950,7 @@ export default function CRMPage() {
         ref={floorPlanInputRef}
         onChange={handleFloorPlanFileChange}
         className="hidden"
-        accept=".pdf,image/*,.dwg,.dxf"
+        accept={ACCEPTED_CRM_FILES}
         multiple
       />
     </div>

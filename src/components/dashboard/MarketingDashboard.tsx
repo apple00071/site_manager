@@ -77,20 +77,10 @@ export default function MarketingDashboard({ user }: { user: any }) {
   }, []);
 
   // Smart source extraction: checks new form metadata [Source: ...] first,
-  // then falls back to historical CRM assignment origin (Walk-in, Office Mobile, Direct Call, Referral, etc.)
-  const extractSource = (lead: Lead): string => {
-    if (lead.remarks) {
-      const match = lead.remarks.match(/\[Source:\s*([^\]]+)\]/i);
-      if (match && match[1]?.trim()) return match[1].trim();
-    }
+  // Resolves who assigned or brought in the lead (e.g. Aravind Sir, Office Mobile, Walk-in, Pavan kumar, etc.)
+  const extractAssignedBy = (lead: Lead): string => {
     const assigned = (lead.assigned_by || '').trim();
-    if (!assigned) return 'Direct / Unspecified';
-    if (assigned.toLowerCase() === 'walk-in') return 'Walk-in / Visit';
-    if (assigned.toLowerCase() === 'office mobile') return 'Inbound / Office Mobile';
-    if (assigned.toLowerCase() === 'direct call') return 'Direct Call';
-    if (assigned.toLowerCase().includes('aravind')) return 'Referral (Aravind Sir)';
-    if (assigned.toLowerCase().startsWith('marketing')) return 'Marketing Campaign';
-    return `Referral (${assigned})`;
+    return assigned || 'Direct / Unspecified';
   };
 
   // Lead Metrics Calculation
@@ -108,7 +98,7 @@ export default function MarketingDashboard({ user }: { user: any }) {
     let thisWeekCount = 0;
     let convertedCount = 0;
     let inProgressCount = 0;
-    const sourceCounts: Record<string, number> = {};
+    const assignedCounts: Record<string, number> = {};
 
     leads.forEach((l) => {
       const created = new Date(l.created_date || (l as any).created_at || now);
@@ -124,11 +114,11 @@ export default function MarketingDashboard({ user }: { user: any }) {
         inProgressCount++;
       }
 
-      const src = extractSource(l);
-      sourceCounts[src] = (sourceCounts[src] || 0) + 1;
+      const assignedPerson = extractAssignedBy(l);
+      assignedCounts[assignedPerson] = (assignedCounts[assignedPerson] || 0) + 1;
     });
 
-    const sortedSources = Object.entries(sourceCounts)
+    const sortedAssignedBy = Object.entries(assignedCounts)
       .map(([name, count]) => ({ name, count, pct: total > 0 ? Math.round((count / total) * 100) : 0 }))
       .sort((a, b) => b.count - a.count);
 
@@ -139,7 +129,8 @@ export default function MarketingDashboard({ user }: { user: any }) {
       convertedCount,
       inProgressCount,
       conversionRate: total > 0 ? Math.round((convertedCount / total) * 100) : 0,
-      sources: sortedSources
+      sources: sortedAssignedBy,
+      assignedByStats: sortedAssignedBy,
     };
   }, [leads]);
 
@@ -154,8 +145,8 @@ export default function MarketingDashboard({ user }: { user: any }) {
         l.site_project?.toLowerCase().includes(q) ||
         l.phone?.toLowerCase().includes(q);
 
-      const src = extractSource(l);
-      const matchesSource = sourceFilter === 'all' || src === sourceFilter;
+      const assigned = extractAssignedBy(l);
+      const matchesSource = sourceFilter === 'all' || assigned === sourceFilter;
 
       return matchesSearch && matchesSource;
     });
@@ -165,36 +156,23 @@ export default function MarketingDashboard({ user }: { user: any }) {
     <div className="w-full space-y-5">
       
       {/* ─── Marketing Toolbar ────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-gray-100">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h2 className="text-lg font-bold text-gray-900 tracking-tight">
-              Marketing & Lead Acquisition
-            </h2>
-          </div>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Real-time inquiry capture, campaign performance, and CRM dispatch status
-          </p>
-        </div>
+      <div className="flex items-center justify-end gap-2.5 pb-1">
+        <Link
+          href="/dashboard/leads/new"
+          className="btn-primary py-2 px-4 text-xs font-medium cursor-pointer shadow-xs"
+        >
+          <FiPlus className="w-4 h-4 text-white" />
+          <span>Add New Lead</span>
+        </Link>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <Link
-            href="/dashboard/leads/new"
-            className="btn-primary py-2 px-4 text-xs font-medium cursor-pointer shadow-xs"
-          >
-            <FiPlus className="w-4 h-4 text-white" />
-            <span>Add New Lead</span>
-          </Link>
-
-          <button
-            onClick={() => fetchLeads()}
-            disabled={loading}
-            className="p-2 bg-white border border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all shadow-2xs cursor-pointer"
-            title="Refresh Leads"
-          >
-            <FiRefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-yellow-600' : ''}`} />
-          </button>
-        </div>
+        <button
+          onClick={() => fetchLeads()}
+          disabled={loading}
+          className="p-2 bg-white border border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all shadow-2xs cursor-pointer"
+          title="Refresh Leads"
+        >
+          <FiRefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-yellow-600' : ''}`} />
+        </button>
       </div>
 
       {/* ─── KPI Metric Cards (Full Width 4-Column Grid) ───── */}
@@ -285,23 +263,23 @@ export default function MarketingDashboard({ user }: { user: any }) {
       {/* ─── Middle Section: Balanced Channel & Pipeline Overview ───── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start w-full">
         
-        {/* Source Channels Performance (7 cols) */}
+        {/* Assigned By Performance (7 cols) */}
         <div className="lg:col-span-7 bg-white rounded-xl border border-gray-200 shadow-xs p-5 space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-gray-100">
             <div className="flex items-center gap-2">
-              <FiTrendingUp className="w-4 h-4 text-yellow-600" />
+              <FiUsers className="w-4 h-4 text-yellow-600" />
               <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
-                Inquiries by Marketing Channel
+                Leads by Assigned By
               </h3>
             </div>
             <span className="text-[11px] text-gray-400 font-medium">
-              {metrics.sources.length} active channels
+              {metrics.sources.length} assigners
             </span>
           </div>
 
           {metrics.sources.length === 0 ? (
             <div className="py-8 text-center text-xs text-gray-400">
-              No channel data recorded yet.
+              No assignment data recorded yet.
             </div>
           ) : (
             <div className="space-y-3">
@@ -390,13 +368,13 @@ export default function MarketingDashboard({ user }: { user: any }) {
               />
             </div>
 
-            {/* Source Filter Dropdown */}
+            {/* Assigned By Filter Dropdown */}
             <select
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
               className="px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-medium focus:outline-none focus:ring-2 focus:ring-yellow-500/20"
             >
-              <option value="all">All Sources</option>
+              <option value="all">All Assigners</option>
               {metrics.sources.map(s => (
                 <option key={s.name} value={s.name}>{s.name}</option>
               ))}
@@ -448,14 +426,14 @@ export default function MarketingDashboard({ user }: { user: any }) {
                   <th className="py-3 px-4">Client Name</th>
                   <th className="py-3 px-4">Site Location</th>
                   <th className="py-3 px-4">Phone</th>
-                  <th className="py-3 px-4">Lead Source</th>
+                  <th className="py-3 px-4">Assigned By</th>
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4">Date</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-gray-800 font-medium">
                 {filteredLeads.slice(0, 30).map((l) => {
-                  const src = extractSource(l);
+                  const assignedPerson = extractAssignedBy(l);
                   return (
                     <tr key={l.id} className="hover:bg-yellow-50/20 transition-colors">
                       <td className="py-3 px-4 font-mono font-bold text-gray-900">
@@ -471,8 +449,8 @@ export default function MarketingDashboard({ user }: { user: any }) {
                         {l.phone || '—'}
                       </td>
                       <td className="py-3 px-4">
-                        <span className="inline-block px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 text-[11px] font-semibold">
-                          {src}
+                        <span className="inline-block px-2 py-0.5 rounded-md bg-gray-100 text-gray-800 text-[11px] font-semibold">
+                          {assignedPerson}
                         </span>
                       </td>
                       <td className="py-3 px-4">

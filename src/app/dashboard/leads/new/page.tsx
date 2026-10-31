@@ -663,7 +663,7 @@ export default function NewLeadPage() {
               type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
-              accept=".pdf,.png,.jpg,.jpeg,.webp"
+              accept=".pdf,image/*,.dwg,.dxf,.xlsx,.xls,.docx,.doc,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               className="hidden"
               id="floor-plan-file-drop"
               multiple
@@ -684,10 +684,10 @@ export default function NewLeadPage() {
                   <FiUploadCloud className="w-5 h-5 text-yellow-600" />
                 </div>
                 <span className="text-xs font-semibold text-gray-800">
-                  Click or drag drawings here (Multiple)
+                  Click or drag files here (Multiple)
                 </span>
                 <span className="text-[11px] text-gray-400 mt-0.5">
-                  PDF, PNG, JPG (select multiple files)
+                  PDF, Word, Excel, CAD, Images (up to 25MB)
                 </span>
               </label>
             ) : (
