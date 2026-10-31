@@ -102,8 +102,8 @@ export default function NewLeadPage() {
   ]);
   const [notes, setNotes] = useState('');
 
-  // Floor Plan Upload state
-  const [floorPlanFile, setFloorPlanFile] = useState<File | null>(null);
+  // Floor Plan Upload state (supports multiple files)
+  const [floorPlanFiles, setFloorPlanFiles] = useState<File[]>([]);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -126,23 +126,34 @@ export default function NewLeadPage() {
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      processFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFiles(Array.from(e.dataTransfer.files));
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      processFile(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      processFiles(Array.from(e.target.files));
     }
   };
 
-  const processFile = (file: File) => {
-    if (file.size > 25 * 1024 * 1024) {
-      showToast('error', 'File size exceeds 25MB limit');
-      return;
+  const processFiles = (files: File[]) => {
+    const validFiles: File[] = [];
+    for (const f of files) {
+      if (f.size > 25 * 1024 * 1024) {
+        showToast('error', `File ${f.name} exceeds 25MB limit`);
+      } else {
+        validFiles.push(f);
+      }
     }
-    setFloorPlanFile(file);
+    if (validFiles.length > 0) {
+      setFloorPlanFiles(prev => [...prev, ...validFiles]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setFloorPlanFiles(prev => prev.filter((_, i) => i !== index));
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleReset = () => {
@@ -156,7 +167,7 @@ export default function NewLeadPage() {
     setLeadSource('Meta / Instagram');
     setSelectedScopes(['Modular Kitchen', 'Wardrobes & Storage']);
     setNotes('');
-    setFloorPlanFile(null);
+    setFloorPlanFiles([]);
     setCreatedLead(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -186,11 +197,14 @@ export default function NewLeadPage() {
       let uploadedFloorPlanUrl: string | null = null;
       let uploadedFloorPlanName: string | null = null;
 
-      // 1. Upload floor plan if selected
-      if (floorPlanFile) {
+      // 1. Upload floor plan(s) if selected
+      let uploadedAttachments: Array<{ url: string; name: string }> = [];
+      if (floorPlanFiles.length > 0) {
         setUploadingFile(true);
         const uploadData = new FormData();
-        uploadData.append('file', floorPlanFile);
+        for (const f of floorPlanFiles) {
+          uploadData.append('files', f);
+        }
 
         const uploadRes = await fetch('/api/crm/upload-floor-plan', {
           method: 'POST',
@@ -200,7 +214,8 @@ export default function NewLeadPage() {
         if (uploadRes.ok) {
           const uploadJson = await uploadRes.json();
           uploadedFloorPlanUrl = uploadJson.url || null;
-          uploadedFloorPlanName = uploadJson.fileName || floorPlanFile.name;
+          uploadedFloorPlanName = uploadJson.name || floorPlanFiles[0]?.name || null;
+          uploadedAttachments = uploadJson.attachments || uploadJson.files || [];
         } else {
           console.warn('Floor plan upload warning:', await uploadRes.text());
         }
@@ -215,6 +230,7 @@ export default function NewLeadPage() {
       if (email.trim()) remarksParts.push(`[Email: ${email.trim()}]`);
       if (alternatePhone.trim()) remarksParts.push(`[Alt Phone: ${alternatePhone.trim()}]`);
       if (selectedScopes.length > 0) remarksParts.push(`[Scope: ${selectedScopes.join(', ')}]`);
+      if (uploadedAttachments.length > 0) remarksParts.push(`[Files: ${JSON.stringify(uploadedAttachments)}]`);
 
       const finalRemarks = remarksParts.join(' ');
 
@@ -650,9 +666,10 @@ export default function NewLeadPage() {
               accept=".pdf,.png,.jpg,.jpeg,.webp"
               className="hidden"
               id="floor-plan-file-drop"
+              multiple
             />
 
-            {!floorPlanFile ? (
+            {floorPlanFiles.length === 0 ? (
               <label
                 htmlFor="floor-plan-file-drop"
                 onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
@@ -667,39 +684,48 @@ export default function NewLeadPage() {
                   <FiUploadCloud className="w-5 h-5 text-yellow-600" />
                 </div>
                 <span className="text-xs font-semibold text-gray-800">
-                  Click or drag drawing here
+                  Click or drag drawings here (Multiple)
                 </span>
                 <span className="text-[11px] text-gray-400 mt-0.5">
-                  PDF, PNG, JPG (up to 25MB)
+                  PDF, PNG, JPG (select multiple files)
                 </span>
               </label>
             ) : (
-              <div className="p-3 bg-yellow-50/60 border border-yellow-200 rounded-xl flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5 overflow-hidden">
-                  <div className="w-8 h-8 rounded-lg bg-yellow-500/20 text-yellow-800 flex items-center justify-center shrink-0">
-                    <FiFileText className="w-4 h-4" />
-                  </div>
-                  <div className="truncate">
-                    <span className="text-xs font-semibold text-gray-900 block truncate">
-                      {floorPlanFile.name}
-                    </span>
-                    <span className="text-[10px] text-gray-500">
-                      {(floorPlanFile.size / (1024 * 1024)).toFixed(2)} MB
-                    </span>
-                  </div>
-                </div>
+              <div className="space-y-2">
+                {floorPlanFiles.map((file, idx) => (
+                  <div key={idx} className="p-2.5 bg-yellow-50/60 border border-yellow-200 rounded-xl flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 overflow-hidden">
+                      <div className="w-7 h-7 rounded-lg bg-yellow-500/20 text-yellow-800 flex items-center justify-center shrink-0">
+                        <FiFileText className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="truncate">
+                        <span className="text-xs font-semibold text-gray-900 block truncate">
+                          {file.name}
+                        </span>
+                        <span className="text-[10px] text-gray-500">
+                          {(file.size / (1024 * 1024)).toFixed(2)} MB
+                        </span>
+                      </div>
+                    </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFloorPlanFile(null);
-                    if (fileInputRef.current) fileInputRef.current.value = '';
-                  }}
-                  className="p-1 hover:bg-yellow-200 text-yellow-800 rounded-md transition-colors cursor-pointer"
-                  title="Remove drawing"
+                    <button
+                      type="button"
+                      onClick={() => removeFile(idx)}
+                      className="p-1 hover:bg-yellow-200 text-yellow-800 rounded-md transition-colors cursor-pointer"
+                      title="Remove drawing"
+                    >
+                      <FiX className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+
+                <label
+                  htmlFor="floor-plan-file-drop"
+                  className="w-full py-2 px-3 border border-dashed border-gray-300 hover:border-yellow-500 rounded-lg text-xs font-semibold text-gray-600 hover:text-yellow-700 bg-gray-50 hover:bg-yellow-50/30 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  <FiX className="w-4 h-4" />
-                </button>
+                  <FiPlus className="w-3.5 h-3.5" />
+                  <span>+ Add More Files</span>
+                </label>
               </div>
             )}
           </div>

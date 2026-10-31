@@ -11,17 +11,44 @@ export const dynamic = 'force-dynamic';
 
 function parseLeadFloorPlan(lead: any) {
   if (!lead) return lead;
-  if (!lead.floor_plan_url && lead.remarks) {
+
+  let attachments: Array<{ url: string; name: string }> = [];
+
+  if (lead.remarks) {
+    const filesMatch = lead.remarks.match(/\[Files:\s*(\[.*?\])\]/);
+    if (filesMatch) {
+      try {
+        attachments = JSON.parse(filesMatch[1]);
+        lead.remarks = lead.remarks.replace(/\[Files:\s*\[.*?\]\]\s*/g, '').trim();
+      } catch (_) {}
+    }
+
     const match = lead.remarks.match(/\[FloorPlan:\s*(\{.*?\})\]/);
     if (match) {
       try {
         const parsed = JSON.parse(match[1]);
-        lead.floor_plan_url = parsed.url;
-        lead.floor_plan_name = parsed.name || 'Floor Plan';
+        if (!lead.floor_plan_url) {
+          lead.floor_plan_url = parsed.url;
+          lead.floor_plan_name = parsed.name || 'Floor Plan';
+        }
         lead.remarks = lead.remarks.replace(/\[FloorPlan:\s*\{.*?\}\]\s*/g, '').trim();
       } catch (_) {}
     }
   }
+
+  if (attachments.length === 0 && lead.floor_plan_url) {
+    attachments = [{
+      url: lead.floor_plan_url,
+      name: lead.floor_plan_name || 'Floor Plan'
+    }];
+  }
+
+  if (attachments.length > 0 && !lead.floor_plan_url) {
+    lead.floor_plan_url = attachments[0].url;
+    lead.floor_plan_name = attachments[0].name;
+  }
+
+  lead.attachments = attachments;
   return lead;
 }
 
