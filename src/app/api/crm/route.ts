@@ -357,7 +357,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, ...updateFields } = body;
+    const { id, attachments, source, ...rawUpdateFields } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Missing lead ID' }, { status: 400 });
@@ -368,6 +368,56 @@ export async function PUT(request: NextRequest) {
     }
 
     const ids = Array.isArray(id) ? id : typeof id === 'string' && id.includes(',') ? id.split(',') : [id];
+
+    // Preserve attachments inside remarks (tag [Files: [...] ])
+    if (attachments !== undefined && Array.isArray(attachments)) {
+      const currentRemarks = rawUpdateFields.remarks !== undefined
+        ? String(rawUpdateFields.remarks || '')
+        : '';
+      const cleanedRemarks = currentRemarks.replace(/\[Files:\s*\[.*?\]\]\s*/g, '').trim();
+
+      if (attachments.length > 0) {
+        rawUpdateFields.remarks = `${cleanedRemarks ? cleanedRemarks + ' ' : ''}[Files: ${JSON.stringify(attachments)}]`.trim();
+        if (!rawUpdateFields.floor_plan_url) {
+          rawUpdateFields.floor_plan_url = attachments[0].url;
+          rawUpdateFields.floor_plan_name = attachments[0].name;
+        }
+      } else {
+        rawUpdateFields.remarks = cleanedRemarks;
+        rawUpdateFields.floor_plan_url = null;
+        rawUpdateFields.floor_plan_name = null;
+      }
+    }
+
+    // Filter strictly to allowed DB columns on quotation_leads
+    const ALLOWED_COLUMNS = [
+      'ref_no',
+      'created_date',
+      'client_name',
+      'phone',
+      'site_project',
+      'area_sqft',
+      'quote_value',
+      'status',
+      'approved_value',
+      'assigned_by',
+      'follow_up_1',
+      'follow_up_2',
+      'follow_up_3',
+      'remarks',
+      'branch',
+      'floor_plan_url',
+      'floor_plan_name',
+      'latest_quotation_id',
+      'quote_version'
+    ];
+
+    const updateFields: Record<string, any> = {};
+    for (const key of ALLOWED_COLUMNS) {
+      if (rawUpdateFields[key] !== undefined) {
+        updateFields[key] = rawUpdateFields[key];
+      }
+    }
 
     // Guard against modifying Approved leads without crm.edit_approved permission
     const { data: currentLeads } = await supabaseAdmin
@@ -409,16 +459,25 @@ export async function PUT(request: NextRequest) {
 
     let { data, error } = ids.length === 1 ? await query.single() : await query;
 
-    // Fallback if floor_plan columns are not yet in the DB
-    if (error && error.code === '42703' && (updateFields.floor_plan_url !== undefined || updateFields.floor_plan_name !== undefined)) {
+    // Fallback if any column is not yet migrated in the DB (error 42703)
+    if (error && error.code === '42703') {
       const safeFields = { ...updateFields };
-      delete safeFields.floor_plan_url;
-      delete safeFields.floor_plan_name;
+      const match = error.message?.match(/column "([^"]+)"/i);
+      const missingColumn = match ? match[1] : null;
+
+      if (missingColumn && safeFields[missingColumn] !== undefined) {
+        delete safeFields[missingColumn];
+      } else {
+        delete safeFields.floor_plan_url;
+        delete safeFields.floor_plan_name;
+        delete safeFields.latest_quotation_id;
+        delete safeFields.quote_version;
+      }
 
       const currentRemarks = safeFields.remarks !== undefined ? safeFields.remarks : (currentLeads?.[0]?.remarks || '');
       let newRemarks = currentRemarks.replace(/\[FloorPlan:\s*\{.*?\}\]\s*/g, '').trim();
 
-      if (updateFields.floor_plan_url) {
+      if (updateFields.floor_plan_url && !safeFields.floor_plan_url) {
         const meta = JSON.stringify({ url: updateFields.floor_plan_url, name: updateFields.floor_plan_name || 'Floor Plan' });
         newRemarks = `${newRemarks ? newRemarks + ' ' : ''}[FloorPlan: ${meta}]`.trim();
       }
