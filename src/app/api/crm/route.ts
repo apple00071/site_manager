@@ -14,6 +14,11 @@ function parseLeadFloorPlan(lead: any) {
 
   let attachments: Array<{ url: string; name: string }> = [];
 
+  // 1. Direct attachments JSONB column from DB if available
+  if (Array.isArray(lead.attachments) && lead.attachments.length > 0) {
+    attachments = lead.attachments;
+  }
+
   if (lead.remarks) {
     const filesMatch = lead.remarks.match(/\[Files:\s*(\[.*?\])\]/);
     if (filesMatch) {
@@ -377,12 +382,14 @@ export async function PUT(request: NextRequest) {
       const cleanedRemarks = currentRemarks.replace(/\[Files:\s*\[.*?\]\]\s*/g, '').trim();
 
       if (attachments.length > 0) {
+        rawUpdateFields.attachments = attachments;
         rawUpdateFields.remarks = `${cleanedRemarks ? cleanedRemarks + ' ' : ''}[Files: ${JSON.stringify(attachments)}]`.trim();
         if (!rawUpdateFields.floor_plan_url) {
           rawUpdateFields.floor_plan_url = attachments[0].url;
           rawUpdateFields.floor_plan_name = attachments[0].name;
         }
       } else {
+        rawUpdateFields.attachments = [];
         rawUpdateFields.remarks = cleanedRemarks;
         rawUpdateFields.floor_plan_url = null;
         rawUpdateFields.floor_plan_name = null;
@@ -408,6 +415,7 @@ export async function PUT(request: NextRequest) {
       'branch',
       'floor_plan_url',
       'floor_plan_name',
+      'attachments',
       'latest_quotation_id',
       'quote_version'
     ];

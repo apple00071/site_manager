@@ -115,15 +115,26 @@ export async function POST(request: NextRequest) {
       const newRemarks = `${cleanedRemarks ? cleanedRemarks + ' ' : ''}${filesTag}`.trim();
 
       // Update lead
-      await supabaseAdmin
+      const updatePayload: any = {
+        floor_plan_url: combinedAttachments[0]?.url || null,
+        floor_plan_name: combinedAttachments[0]?.name || null,
+        attachments: combinedAttachments,
+        remarks: newRemarks,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error: uploadUpdateError } = await supabaseAdmin
         .from('quotation_leads')
-        .update({
-          floor_plan_url: combinedAttachments[0]?.url || null,
-          floor_plan_name: combinedAttachments[0]?.name || null,
-          remarks: newRemarks,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', leadId);
+
+      if (uploadUpdateError && uploadUpdateError.code === '42703') {
+        delete updatePayload.attachments;
+        await supabaseAdmin
+          .from('quotation_leads')
+          .update(updatePayload)
+          .eq('id', leadId);
+      }
     }
 
     return NextResponse.json({
@@ -201,15 +212,26 @@ export async function DELETE(request: NextRequest) {
       newRemarks = `${cleanedRemarks ? cleanedRemarks + ' ' : ''}[Files: ${JSON.stringify(remainingAttachments)}]`.trim();
     }
 
-    await supabaseAdmin
+    const deletePayload: any = {
+      floor_plan_url: remainingAttachments[0]?.url || null,
+      floor_plan_name: remainingAttachments[0]?.name || null,
+      attachments: remainingAttachments,
+      remarks: newRemarks,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error: deleteUpdateError } = await supabaseAdmin
       .from('quotation_leads')
-      .update({
-        floor_plan_url: remainingAttachments[0]?.url || null,
-        floor_plan_name: remainingAttachments[0]?.name || null,
-        remarks: newRemarks,
-        updated_at: new Date().toISOString(),
-      })
+      .update(deletePayload)
       .eq('id', leadId);
+
+    if (deleteUpdateError && deleteUpdateError.code === '42703') {
+      delete deletePayload.attachments;
+      await supabaseAdmin
+        .from('quotation_leads')
+        .update(deletePayload)
+        .eq('id', leadId);
+    }
 
     return NextResponse.json({
       success: true,
