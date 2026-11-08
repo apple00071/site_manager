@@ -53,6 +53,7 @@ export interface CreateNotificationParams {
   relatedType?: string;
   metadata?: Record<string, any>;
   skipInApp?: boolean;
+  imageUrl?: string;
 }
 
 export class NotificationService {
@@ -239,8 +240,10 @@ export class NotificationService {
             relatedId: params.relatedId,
             relatedType: params.relatedType,
             route: deepLinkRoute,
+            imageUrl: params.imageUrl,
           },
-          deepLinkRoute
+          deepLinkRoute,
+          params.imageUrl
         );
         console.log('📲 OneSignal push result:', pushResult);
       } catch (pushError) {

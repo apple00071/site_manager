@@ -11,6 +11,7 @@ interface SendNotificationParams {
     data?: Record<string, unknown>; // Optional custom data
     url?: string; // Launch URL
     targetUrl?: string; // App-specific internal navigation URL
+    imageUrl?: string; // Big picture banner image URL
 }
 
 /**
@@ -64,6 +65,12 @@ export async function sendPushNotification(params: SendNotificationParams): Prom
             android_group_alert_behavior: 1,       // Alert once for group
             ttl: 259200,                           // 3 days TTL
             ...(isAbsoluteUrl ? { app_url: targetUrl, url: targetUrl } : {}),
+            ...(params.imageUrl && (params.imageUrl.startsWith('http://') || params.imageUrl.startsWith('https://')) ? {
+                big_picture: params.imageUrl,
+                chrome_web_image: params.imageUrl,
+                adm_big_picture: params.imageUrl,
+                ios_attachments: { id1: params.imageUrl }
+            } : {}),
         };
 
         // AUTHENTICATION HEADER
@@ -168,7 +175,8 @@ export async function sendPushNotificationByUserId(
     title: string,
     message: string,
     data?: Record<string, unknown>,
-    url?: string
+    url?: string,
+    imageUrl?: string
 ): Promise<boolean> {
     try {
         console.log('📲 Sending push notification to user:', userId);
@@ -205,6 +213,7 @@ export async function sendPushNotificationByUserId(
             message,
             data,
             url,
+            imageUrl,
         });
     } catch (error) {
         console.error('Error sending push notification by user ID:', error);
@@ -220,7 +229,8 @@ export async function sendPushNotificationToMultipleUsers(
     title: string,
     message: string,
     data?: Record<string, unknown>,
-    url?: string
+    url?: string,
+    imageUrl?: string
 ): Promise<boolean> {
     try {
         console.log('📲 Sending push notification to multiple users:', userIds);
@@ -258,6 +268,7 @@ export async function sendPushNotificationToMultipleUsers(
             message,
             data,
             url,
+            imageUrl,
         });
     } catch (error) {
         console.error('Error sending push notification to multiple users:', error);

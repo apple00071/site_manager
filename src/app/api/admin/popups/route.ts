@@ -107,6 +107,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Title and message are required' }, { status: 400 });
     }
 
+    if (image_url && typeof image_url === 'string' && image_url.trim().startsWith('blob:')) {
+      return NextResponse.json({
+        error: "Blob image links cannot be shared with other users. Please upload the image file directly so it receives a permanent public URL."
+      }, { status: 400 });
+    }
+
     const insertPayload = {
       title: title.trim(),
       message: message.trim(),
@@ -165,6 +171,9 @@ export async function POST(req: NextRequest) {
         }
 
         if (recipientIds.length > 0) {
+          const rawImg = insertPayload.image_url;
+          const validImageUrl = rawImg && (rawImg.startsWith('http://') || rawImg.startsWith('https://')) ? rawImg : undefined;
+
           // Send notification to each recipient
           for (const uid of recipientIds) {
             await NotificationService.createNotification({
@@ -172,6 +181,12 @@ export async function POST(req: NextRequest) {
               title: title,
               message: message.length > 120 ? message.slice(0, 117) + '...' : message,
               type: 'general',
+              imageUrl: validImageUrl,
+              metadata: {
+                popupId: newPopup.id,
+                imageUrl: validImageUrl,
+                actionUrl: insertPayload.action_url || undefined,
+              }
             });
           }
         }

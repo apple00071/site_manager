@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   FiSend,
@@ -18,6 +18,9 @@ import {
   FiX,
   FiExternalLink,
   FiCheck,
+  FiUpload,
+  FiRefreshCw,
+  FiImage,
 } from 'react-icons/fi';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { PERMISSION_NODES } from '@/lib/rbac-constants';
@@ -83,6 +86,8 @@ export default function BroadcastTab() {
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [sendNotification, setSendNotification] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Management & history state
   const [popups, setPopups] = useState<PopupItem[]>([]);
@@ -208,10 +213,64 @@ export default function BroadcastTab() {
     );
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setStatus({ type: 'error', text: 'Please select an image file (PNG, JPG, WebP, GIF).' });
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setStatus({ type: 'error', text: 'Image file size must be under 10MB.' });
+      return;
+    }
+
+    setIsUploadingImage(true);
+    setStatus(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bucket', 'project-update-photos');
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to upload image');
+      }
+
+      const data = await res.json();
+      if (data.url) {
+        setImageUrl(data.url);
+        setStatus({ type: 'success', text: 'Banner image uploaded successfully!' });
+      }
+    } catch (err: any) {
+      console.error('Error uploading image:', err);
+      setStatus({ type: 'error', text: err.message || 'Failed to upload banner image.' });
+    } finally {
+      setIsUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const handleCreatePopup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !message.trim()) {
       setStatus({ type: 'error', text: 'Please provide both a title and message.' });
+      return;
+    }
+
+    if (imageUrl.trim().startsWith('blob:')) {
+      setStatus({
+        type: 'error',
+        text: 'Blob links (from ChatGPT or your local browser tab) cannot be seen by other users. Please click "Upload Image" to upload the image file directly so everyone can view it.'
+      });
       return;
     }
 
@@ -456,21 +515,98 @@ export default function BroadcastTab() {
               />
             </div>
 
-            {/* Banner Image URL (Optional) */}
+            {/* Banner Image (Upload or URL) */}
             <div>
-              <label htmlFor="popup-image" className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
-                Banner Image URL (Optional)
-              </label>
-              <input
-                id="popup-image"
-                type="url"
-                className="w-full rounded-xl border border-gray-200 shadow-xs focus:border-yellow-500 focus:ring-yellow-500 text-sm p-3 transition-all"
-                placeholder="https://example.com/banner.jpg"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-              />
-              <p className="mt-1 text-[11px] text-gray-400">
-                Paste any direct image link to display an eye-catching banner at the top of the popup.
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="popup-image" className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  Banner Image (Optional)
+                </label>
+                {imageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setImageUrl('')}
+                    className="text-xs text-rose-600 hover:text-rose-700 font-medium flex items-center gap-1 cursor-pointer"
+                  >
+                    <FiTrash2 className="w-3.5 h-3.5" /> Remove
+                  </button>
+                )}
+              </div>
+
+              {/* Upload Button + URL input */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <div className="relative flex-1">
+                  <input
+                    id="popup-image"
+                    type="url"
+                    className={`w-full rounded-xl border text-sm p-3 transition-all ${
+                      imageUrl.startsWith('blob:')
+                        ? 'border-rose-400 bg-rose-50 text-rose-900 focus:border-rose-500 focus:ring-rose-500'
+                        : 'border-gray-200 shadow-xs focus:border-yellow-500 focus:ring-yellow-500'
+                    }`}
+                    placeholder="Paste image link (https://...) or click Upload"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                  />
+                </div>
+
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
+
+                <button
+                  type="button"
+                  disabled={isUploadingImage}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-4 py-3 bg-yellow-50 hover:bg-yellow-100 border border-yellow-300 text-yellow-900 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs active:scale-95 disabled:opacity-50 shrink-0"
+                >
+                  {isUploadingImage ? (
+                    <>
+                      <FiRefreshCw className="w-3.5 h-3.5 animate-spin text-yellow-600" />
+                      <span>Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FiUpload className="w-3.5 h-3.5 text-yellow-600" />
+                      <span>Upload Image</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Blob URL Warning */}
+              {imageUrl.startsWith('blob:') && (
+                <div className="mt-2 p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 flex items-start gap-2">
+                  <FiAlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
+                  <div>
+                    <span className="font-bold block">Blob link cannot be seen by other users</span>
+                    <span>Blob links (from ChatGPT or your browser tab) only work on your current screen. Please save the image to your device and click <strong>Upload Image</strong> above.</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Preview Card */}
+              {imageUrl && !imageUrl.startsWith('blob:') && (
+                <div className="mt-3 relative rounded-xl border border-gray-200 bg-gray-50 overflow-hidden max-h-48">
+                  <img
+                    src={imageUrl}
+                    alt="Banner preview"
+                    className="w-full h-44 object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLElement).parentElement?.classList.add('hidden');
+                    }}
+                  />
+                  <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-xs text-white text-[11px] px-2 py-0.5 rounded font-medium">
+                    Banner Preview
+                  </div>
+                </div>
+              )}
+
+              <p className="mt-1.5 text-[11px] text-gray-400">
+                Upload any JPG, PNG, or WebP photo, or paste a public HTTPS image link to display an eye-catching banner in both the popup and push notification.
               </p>
             </div>
 
