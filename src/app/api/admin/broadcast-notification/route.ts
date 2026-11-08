@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
         }
 
         const userIds = users.map((u: any) => u.id);
-        const title = customTitle || 'Site Update 📢';
+        const title = customTitle || 'Site Update';
         const fallbackMessage = 'Wishing everyone a very Happy Sankranti! Please note that the office will be closed from Jan 14th to Jan 16th. Enjoy the festive holidays!';
         const message = customMessage || fallbackMessage;
 

@@ -169,7 +169,7 @@ export async function POST(req: NextRequest) {
           for (const uid of recipientIds) {
             await NotificationService.createNotification({
               userId: uid,
-              title: `📢 ${title}`,
+              title: title,
               message: message.length > 120 ? message.slice(0, 117) + '...' : message,
               type: 'general',
             });
