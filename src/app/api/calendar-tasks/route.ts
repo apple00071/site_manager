@@ -265,8 +265,8 @@ export async function POST(request: NextRequest) {
       .select('*')
       .single();
 
-    // Fallback: If DB does not have branch column (42703)
-    if (error?.code === '42703') {
+    // Fallback: If DB does not have branch column (42703 or PostgREST PGRST204)
+    if (error && (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('branch'))) {
       delete (insertData as any).branch;
       const retry = await supabaseAdmin
         .from('tasks')
@@ -284,6 +284,8 @@ export async function POST(request: NextRequest) {
         ...insertData, 
         assigned_to: assignedTo.length > 0 ? assignedTo[0] : null 
       };
+      // Also ensure missing branch is removed if applicable
+      delete (fallbackData as any).branch;
       const retry = await supabaseAdmin
         .from('tasks')
         .insert(fallbackData)

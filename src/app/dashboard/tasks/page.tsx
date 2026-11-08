@@ -1510,7 +1510,8 @@ export default function TasksPage() {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || (editingTask ? 'Failed to update task' : 'Failed to create task'));
+        const msg = err.details?.message || err.error || (editingTask ? 'Failed to update task' : 'Failed to create task');
+        throw new Error(msg);
       }
       setModalOpen(false);
       setEditingTask(null);
