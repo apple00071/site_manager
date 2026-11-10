@@ -112,10 +112,10 @@ export default function FinalBillModal({
 
   const discountAmount = useMemo(() => {
     if (discountType === 'percent') {
-      return (subtotal * (Number(discountValue) || 0)) / 100;
+      return Math.round((subtotal * (Number(discountValue) || 0)) / 100);
     }
     if (discountType === 'flat') {
-      return Number(discountValue) || 0;
+      return Math.round(Number(discountValue) || 0);
     }
     return 0;
   }, [subtotal, discountType, discountValue]);
@@ -249,10 +249,10 @@ export default function FinalBillModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col border border-gray-100 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[92vh] max-h-[calc(100vh-1.5rem)] flex flex-col border border-gray-100 overflow-hidden">
         {/* Modal Header */}
-        <div className="px-5 py-4 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white flex items-center justify-between border-b border-gray-800">
+        <div className="shrink-0 px-5 py-3.5 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white flex items-center justify-between border-b border-gray-800">
           <div>
             <div className="flex items-center gap-2">
               <span className="p-1.5 bg-yellow-500/20 text-yellow-400 rounded-lg border border-yellow-500/30">
@@ -282,7 +282,7 @@ export default function FinalBillModal({
             <p className="text-sm font-medium">Fetching quotation and items from CRM...</p>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4">
             {/* Top 4 KPI Metrics */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
@@ -556,7 +556,7 @@ export default function FinalBillModal({
         )}
 
         {/* Modal Footer Actions */}
-        <div className="px-5 py-3.5 bg-gray-50 border-t border-gray-200 flex flex-wrap items-center justify-between gap-2.5">
+        <div className="shrink-0 px-5 py-3 bg-gray-50 border-t border-gray-200 flex flex-wrap items-center justify-between gap-2.5">
           <button
             type="button"
             onClick={onClose}
