@@ -4,8 +4,8 @@ import { useEffect, useState, useMemo, useRef, Fragment, useCallback } from 'rea
 import { createPortal } from 'react-dom';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useAuth } from '@/contexts/AuthContext';
-import { 
-  FiSearch, FiPlus, FiTrash2, FiRefreshCw, 
+import {
+  FiSearch, FiPlus, FiTrash2, FiRefreshCw,
   FiAlertTriangle, FiCloud,
   FiDownload, FiUpload, FiEdit, FiPrinter, FiSend,
   FiTrendingUp, FiCheckCircle, FiClock, FiXCircle, FiFilter,
@@ -81,7 +81,7 @@ const openAttachment = (url: string, name: string) => {
       // @ts-ignore
       window.Capacitor.Plugins.Browser.open({ url });
       return;
-    } catch (e) {}
+    } catch (e) { }
   }
 
   // 3. For Word and Excel documents: open via Google Docs Online Viewer for direct preview
@@ -139,14 +139,14 @@ export default function CRMPage() {
       setSubtitle(null);
     };
   }, [setTitle, setSubtitle]);
-  
+
   const [activeTab, setActiveTab] = useState<'dashboard' | 'log'>('dashboard');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [quotationLead, setQuotationLead] = useState<Lead | null>(null);
   const [loading, setLoading] = useState(true);
   const [dbWarning, setDbWarning] = useState<string | null>(null);
   const [dashboardTimeFilter, setDashboardTimeFilter] = useState<'all' | 'month' | '3months' | '6months'>('all');
-  
+
   // Real-time Sync Status
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
 
@@ -325,7 +325,7 @@ export default function CRMPage() {
         try {
           const parsed = JSON.parse(saved);
           return { ...baseDefaults, ...parsed };
-        } catch (_) {}
+        } catch (_) { }
       }
     }
     return baseDefaults;
@@ -383,7 +383,7 @@ export default function CRMPage() {
     const id = e.dataTransfer.getData('text/plain') || draggedLeadId;
     setDraggedLeadId(null);
     if (!id) return;
-    
+
     const lead = leads.find(l => l.id === id);
     if (!lead || lead.status === targetStatus) return;
 
@@ -478,16 +478,16 @@ export default function CRMPage() {
   const getRowAlertClass = useCallback((_lead: Lead) => {
     return '';
   }, []);
-  
+
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  
+
   // Active Cell Selection for Sheet Grid
   const [selectedCell, setSelectedCell] = useState<{ rowIndex: number; colIndex?: number; colId?: string } | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
-  
+
   const inputRef = useRef<HTMLInputElement>(null);
   const tableRef = useRef<HTMLTableElement>(null);
   const selectedCellRef = useRef<HTMLTableCellElement>(null);
@@ -710,7 +710,7 @@ export default function CRMPage() {
       setSendingWhatsappLeadId(null);
     }
   };
-  
+
   // Collapsible month groups (all open by default)
   const [collapsedMonths, setCollapsedMonths] = useState<Record<string, boolean>>({});
   const toggleMonthCollapse = (monthName: string) => {
@@ -751,14 +751,13 @@ export default function CRMPage() {
       .trim();
   };
 
-  // Column definitions with Lead Source and Admin All-Branches indicator
+  // Column definitions with Admin All-Branches indicator
   const columns = useMemo(() => {
     const cols = [
       { id: 'ref_no', label: 'Ref No.', width: '110px', editable: false },
       { id: 'created_date', label: 'Date', width: '85px', editable: true, type: 'date' },
       { id: 'client_name', label: 'Client Name', width: '120px', editable: true, type: 'text' },
       { id: 'phone', label: 'Phone', width: '105px', editable: true, type: 'text' },
-      { id: 'source', label: 'Lead Source', width: '120px', editable: false, type: 'source' },
     ];
 
     if (isSuperAdmin && currentBranch === 'all') {
@@ -854,7 +853,7 @@ export default function CRMPage() {
   }, [fetchLeads]);
 
   useEffect(() => {
-    
+
     const fetchEmployees = async () => {
       try {
         const response = await fetch('/api/admin/users');
@@ -873,15 +872,15 @@ export default function CRMPage() {
   const filteredLeads = useMemo(() => {
     const filtered = leads.filter((lead) => {
       const query = searchQuery.toLowerCase();
-      const matchesSearch = 
+      const matchesSearch =
         lead.client_name?.toLowerCase().includes(query) ||
         lead.phone?.includes(query) ||
         lead.ref_no?.toLowerCase().includes(query) ||
         lead.site_project?.toLowerCase().includes(query) ||
         lead.remarks?.toLowerCase().includes(query);
-      
+
       const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;
-      
+
       return matchesSearch && matchesStatus;
     });
 
@@ -943,7 +942,7 @@ export default function CRMPage() {
   // Date filtered leads for Dashboard view
   const dashboardFilteredLeads = useMemo(() => {
     const now = new Date();
-    
+
     if (dashboardTimeFilter === 'month') {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       return leads.filter(lead => {
@@ -952,7 +951,7 @@ export default function CRMPage() {
         return d >= startOfMonth;
       });
     }
-    
+
     if (dashboardTimeFilter === '3months') {
       const threeMonthsAgo = new Date();
       threeMonthsAgo.setMonth(now.getMonth() - 3);
@@ -983,17 +982,17 @@ export default function CRMPage() {
   // Group leads by month/year for Monthly breakdown
   const monthlyBreakdown = useMemo(() => {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     const groups: Record<string, { monthStr: string; dateVal: Date; quotes: number; approved: number; rejected: number; pending: number; value: number }> = {};
-    
+
     dashboardFilteredLeads.forEach(lead => {
       if (!lead.created_date) return;
       const date = parseLocalDate(lead.created_date);
       if (isNaN(date.getTime())) return;
       const key = `${date.getFullYear()}-${date.getMonth()}`;
-      
+
       if (!groups[key]) {
         groups[key] = {
           monthStr: `${months[date.getMonth()]} ${date.getFullYear()}`,
@@ -1005,7 +1004,7 @@ export default function CRMPage() {
           value: 0
         };
       }
-      
+
       groups[key].quotes += 1;
       if (lead.status === 'Approved') {
         groups[key].approved += 1;
@@ -1031,13 +1030,13 @@ export default function CRMPage() {
       'Rejected': 0,
       'On Hold': 0
     };
-    
+
     dashboardFilteredLeads.forEach(lead => {
       if (summary[lead.status] !== undefined) {
         summary[lead.status] += 1;
       }
     });
-    
+
     return summary;
   }, [dashboardFilteredLeads]);
 
@@ -1063,7 +1062,7 @@ export default function CRMPage() {
   // Overall statistics for Dashboard
   const stats = useMemo(() => {
     const totalQuotes = dashboardFilteredLeads.length;
-    
+
     // This month (June 2026 for default, dynamically checks current month)
     const now = new Date();
     const currentMonth = now.getMonth();
@@ -1248,7 +1247,7 @@ export default function CRMPage() {
           const rawClient = String(getColVal(row, ['client_name', 'client name', 'client', 'customer', 'customer name', 'name', 'clientname', 'customername']) || '').trim();
           const phone = String(getColVal(row, ['phone', 'phone number', 'phone no', 'phoneno', 'mobile', 'contact', 'cell', 'phone_number', 'mobile number', 'contact number']) || '').trim();
           const site_project = String(getColVal(row, ['site_project', 'site / project', 'site/project', 'site project', 'site', 'project', 'location', 'site location', 'project location', 'address']) || '').trim();
-          
+
           const rawArea = getColVal(row, ['area_sqft', 'area (sq.ft)', 'area (sq ft)', 'area sqft', 'area', 'sqft', 'sq.ft', 'square feet', 'size']);
           const area_sqft = Number(rawArea || 0);
 
@@ -1328,7 +1327,7 @@ export default function CRMPage() {
     if (!selectedCell) return;
     const lead = filteredLeads[selectedCell.rowIndex];
     if (!lead) return;
-    setMobileEditForm({ 
+    setMobileEditForm({
       ...lead,
       remarks: getCleanRemarks(lead.remarks)
     });
@@ -1581,7 +1580,7 @@ export default function CRMPage() {
       alert('This lead is approved. Only administrators or authorized users can modify approved status or values.');
       return;
     }
-    
+
     setSelectedCell({ rowIndex, colIndex });
     setIsEditing(true);
     setEditValue(col.id === 'remarks' ? getCleanRemarks(lead.remarks) : String(lead[col.id as keyof Lead] ?? ''));
@@ -1656,7 +1655,7 @@ export default function CRMPage() {
 
       syncLeadChange(updatedLead);
     }
-    
+
     setIsEditing(false);
   }, [selectedCell, isEditing, filteredLeads, columns, editValue, syncLeadChange]);
 
@@ -1776,7 +1775,7 @@ export default function CRMPage() {
 
   return (
     <div className="flex flex-col w-full bg-gray-50 p-1 sm:p-2.5 select-none">
-      
+
       {dbWarning && (
         <div className="mb-2 p-2.5 bg-yellow-50 border border-yellow-100 text-yellow-800 text-xs rounded-xl flex items-center gap-2">
           <FiAlertTriangle className="text-yellow-600 flex-shrink-0" />
@@ -1790,22 +1789,20 @@ export default function CRMPage() {
         <div className="flex items-center gap-2 bg-gray-200/60 p-1 rounded-xl w-fit">
           <button
             onClick={() => { setActiveTab('dashboard'); setSelectedCell(null); setIsEditing(false); }}
-            className={`px-4 py-1.5 text-xs font-black rounded-lg transition-all duration-200 flex items-center gap-1.5 ${
-              activeTab === 'dashboard' 
-                ? 'bg-white text-gray-900 shadow-sm border border-gray-100' 
+            className={`px-4 py-1.5 text-xs font-black rounded-lg transition-all duration-200 flex items-center gap-1.5 ${activeTab === 'dashboard'
+                ? 'bg-white text-gray-900 shadow-sm border border-gray-100'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
-            }`}
+              }`}
           >
             <span>🏡</span>
             <span>Dashboard</span>
           </button>
           <button
             onClick={() => { setActiveTab('log'); }}
-            className={`px-4 py-1.5 text-xs font-black rounded-lg transition-all duration-200 flex items-center gap-1.5 ${
-              activeTab === 'log' 
-                ? 'bg-white text-gray-900 shadow-sm border border-gray-100' 
+            className={`px-4 py-1.5 text-xs font-black rounded-lg transition-all duration-200 flex items-center gap-1.5 ${activeTab === 'log'
+                ? 'bg-white text-gray-900 shadow-sm border border-gray-100'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
-            }`}
+              }`}
           >
             <span>📋</span>
             <span>Quotation Log</span>
@@ -1830,11 +1827,10 @@ export default function CRMPage() {
                     <button
                       key={filterOpt}
                       onClick={() => setDashboardTimeFilter(filterOpt)}
-                      className={`px-2.5 py-1 text-[10px] font-black rounded-lg transition-all cursor-pointer ${
-                        isActive
+                      className={`px-2.5 py-1 text-[10px] font-black rounded-lg transition-all cursor-pointer ${isActive
                           ? 'bg-yellow-500 text-white shadow-2xs'
                           : 'text-gray-600 hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       {labels[filterOpt]}
                     </button>
@@ -1916,10 +1912,10 @@ export default function CRMPage() {
       ) : activeTab === 'dashboard' ? (
         // HIGH-FIDELITY REDESIGNED DASHBOARD VIEW
         <div className="space-y-6 text-xs text-left">
-          
+
           {/* Executive KPI Telemetry Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            
+
             {/* Card 1: Active Pipeline Value */}
             <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs hover:shadow-md transition-all duration-200 relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full -mr-8 -mt-8 group-hover:scale-110 transition-transform"></div>
@@ -1980,7 +1976,7 @@ export default function CRMPage() {
               </div>
               <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5">
                 <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className="bg-gradient-to-r from-blue-500 to-emerald-500 h-full rounded-full transition-all duration-500"
                     style={{ width: `${Math.min(100, Math.max(0, stats.conversionRate))}%` }}
                   ></div>
@@ -2020,7 +2016,7 @@ export default function CRMPage() {
 
           {/* Main Grid: Kanban Pipeline Board (3 cols) + Analytics Sidebar (1 col) */}
           <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-            
+
             {/* Left 3 Columns: Ultra-Clean & Spacious Kanban Pipeline */}
             <div className="xl:col-span-3 bg-white p-5 sm:p-6 rounded-3xl border border-gray-200/80 shadow-xs flex flex-col gap-5 overflow-hidden">
               <div className="flex items-center justify-between">
@@ -2093,7 +2089,7 @@ export default function CRMPage() {
                             const initials = lead.client_name
                               ? lead.client_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
                               : 'CL';
-                            
+
                             const avatarGradients = [
                               'from-amber-400 to-yellow-600',
                               'from-blue-400 to-indigo-600',
@@ -2263,7 +2259,7 @@ export default function CRMPage() {
 
             {/* Right 1 Column: Analytics Sidebar */}
             <div className="flex flex-col gap-6">
-              
+
               {/* Today's High Priority Follow-ups Stream */}
               <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col min-h-[300px] text-left">
                 <div className="flex items-center justify-between mb-4">
@@ -2383,7 +2379,7 @@ export default function CRMPage() {
       ) : (
         // QUOTATION LOG SHEET VIEW
         <div className="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          
+
           {/* SHEET TOOLBAR */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-gray-50 border-b border-gray-200">
             <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -2457,11 +2453,11 @@ export default function CRMPage() {
                     {isDataMenuOpen && (
                       <>
                         {/* Backdrop to close on tap */}
-                        <div 
-                          className="fixed inset-0 z-40" 
-                          onClick={() => setIsDataMenuOpen(false)} 
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={() => setIsDataMenuOpen(false)}
                         />
-                        <div 
+                        <div
                           className="absolute left-0 top-full mt-1 w-44 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50"
                         >
                           <button
@@ -2497,9 +2493,9 @@ export default function CRMPage() {
               <span className="text-[10px] text-gray-400 mr-1.5 font-black uppercase">Cell:</span>
               <span className="text-gray-800 text-[11px]">{selectedCell ? activeCellAddress : 'None'}</span>
             </div>
-            
+
             <div className="text-gray-400 font-serif italic text-sm font-bold px-3 select-none shrink-0">fx</div>
-            
+
             <input
               type="text"
               disabled={!selectedCell || !hasPermission('crm.manage')}
@@ -2542,12 +2538,11 @@ export default function CRMPage() {
                   ][colorHash];
 
                   return (
-                    <div 
+                    <div
                       key={lead.id || idx}
                       onClick={() => setSelectedCell({ rowIndex: idx, colId: 'client_name' })}
-                      className={`bg-white rounded-xl p-3.5 border transition-all text-left shadow-xs ${
-                        selectedCell?.rowIndex === idx ? 'border-yellow-500 ring-2 ring-yellow-200' : 'border-gray-200'
-                      }`}
+                      className={`bg-white rounded-xl p-3.5 border transition-all text-left shadow-xs ${selectedCell?.rowIndex === idx ? 'border-yellow-500 ring-2 ring-yellow-200' : 'border-gray-200'
+                        }`}
                     >
                       {/* Card Header: Client Name, Avatar, Ref No, Status */}
                       <div className="flex items-start justify-between gap-2 border-b border-gray-100 pb-2.5 mb-2.5">
@@ -2567,11 +2562,10 @@ export default function CRMPage() {
                                 {getLeadSource(lead)}
                               </span>
                               {isSuperAdmin && currentBranch === 'all' && (
-                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
-                                  getLeadBranch(lead) === 'AS Rao Nagar'
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${getLeadBranch(lead) === 'AS Rao Nagar'
                                     ? 'bg-purple-50 text-purple-700 border-purple-200'
                                     : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                }`}>
+                                  }`}>
                                   {getLeadBranch(lead)}
                                 </span>
                               )}
@@ -2610,7 +2604,7 @@ export default function CRMPage() {
                       {/* Contact Bar - Number directly dials client */}
                       {lead.phone && (
                         <div className="flex items-center mb-3 px-0.5">
-                          <a 
+                          <a
                             href={`tel:${lead.phone}`}
                             className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-800 hover:text-blue-700 transition-colors"
                             onClick={(e) => e.stopPropagation()}
@@ -2721,7 +2715,7 @@ export default function CRMPage() {
 
           {/* SHEET GRID CONTAINER */}
           <div className={`${mobileViewType === 'table' ? 'block' : 'hidden md:block'} overflow-auto max-w-full max-h-[calc(100vh-230px)]`}>
-            <table 
+            <table
               ref={tableRef}
               className="text-left border-collapse border-spacing-0 text-xs select-none"
               style={{ tableLayout: 'fixed', width: `${totalTableWidth}px`, minWidth: `${totalTableWidth}px` }}
@@ -2758,8 +2752,8 @@ export default function CRMPage() {
                   {columns.map((col, idx) => {
                     const w = getColWidth(col.id);
                     return (
-                      <th 
-                        key={col.id} 
+                      <th
+                        key={col.id}
                         className="py-1.5 px-2 border-b border-gray-300 text-gray-600 text-[11px] font-black uppercase shadow-sm relative group/resize select-none overflow-hidden"
                         style={{ width: `${w}px`, minWidth: `${w}px` }}
                       >
@@ -2767,7 +2761,7 @@ export default function CRMPage() {
                           <span>{String.fromCharCode(65 + idx)}</span> {/* A, B, C... */}
                           <span className="block text-[9px] text-gray-400 tracking-wider font-bold capitalize mt-0.5 truncate">{col.label}</span>
                         </div>
-                        
+
                         {/* Resize Handle */}
                         <div
                           onMouseDown={(e) => handleResizeStart(e, col.id)}
@@ -2791,13 +2785,13 @@ export default function CRMPage() {
                     const date = parseLocalDate(lead.created_date);
                     const prevLead = rowIndex > 0 ? filteredLeads[rowIndex - 1] : null;
                     const prevDate = prevLead ? parseLocalDate(prevLead.created_date) : null;
-                    
-                    const isNewMonthGroup = !prevLead || !prevDate || 
+
+                    const isNewMonthGroup = !prevLead || !prevDate ||
                       (isNaN(date.getTime()) !== isNaN(prevDate.getTime())) ||
                       (!isNaN(date.getTime()) && (date.getMonth() !== prevDate.getMonth() || date.getFullYear() !== prevDate.getFullYear()));
-                    
-                    const monthGroupName = !isNaN(date.getTime()) 
-                      ? `${monthsList[date.getMonth()]} ${date.getFullYear()}` 
+
+                    const monthGroupName = !isNaN(date.getTime())
+                      ? `${monthsList[date.getMonth()]} ${date.getFullYear()}`
                       : 'Unscheduled';
 
                     const monthSNo = monthSerialNumbers[lead.id] ?? (rowIndex + 1);
@@ -2806,7 +2800,7 @@ export default function CRMPage() {
                       <Fragment key={lead.id}>
                         {/* Render Month Divider Row */}
                         {isNewMonthGroup && (
-                          <tr 
+                          <tr
                             onClick={() => toggleMonthCollapse(monthGroupName)}
                             className="bg-amber-500 hover:bg-amber-600 text-white font-black select-none border-y border-amber-600 text-[11px] uppercase tracking-wider cursor-pointer transition-colors"
                             title={collapsedMonths[monthGroupName] ? `Click to expand ${monthGroupName}` : `Click to collapse ${monthGroupName}`}
@@ -2838,12 +2832,12 @@ export default function CRMPage() {
 
                         <tr className={`${collapsedMonths[monthGroupName] ? 'hidden' : ''} ${selectedCell?.rowIndex === rowIndex ? 'bg-amber-50/70 font-medium' : 'hover:bg-gray-50/40'} transition-colors divide-x divide-gray-200`}>
                           {/* Row Index / Sl. No. / Checkbox */}
-                          <td 
-                            className="w-10 text-center font-black text-gray-400 bg-gray-50 border-r border-gray-300 py-2 select-none align-middle cursor-pointer group/select" 
+                          <td
+                            className="w-10 text-center font-black text-gray-400 bg-gray-50 border-r border-gray-300 py-2 select-none align-middle cursor-pointer group/select"
                             style={{ verticalAlign: 'middle' }}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedLeadIds(prev => 
+                              setSelectedLeadIds(prev =>
                                 prev.includes(lead.id) ? prev.filter(id => id !== lead.id) : [...prev, lead.id]
                               );
                             }}
@@ -2852,10 +2846,9 @@ export default function CRMPage() {
                               <input
                                 type="checkbox"
                                 checked={selectedLeadIds.includes(lead.id)}
-                                onChange={() => {}} // toggled by cell onClick
-                                className={`rounded border-gray-300 text-yellow-500 focus:ring-yellow-500 cursor-pointer h-3.5 w-3.5 ${
-                                  selectedLeadIds.includes(lead.id) ? 'block' : 'hidden group-hover/select:block'
-                                }`}
+                                onChange={() => { }} // toggled by cell onClick
+                                className={`rounded border-gray-300 text-yellow-500 focus:ring-yellow-500 cursor-pointer h-3.5 w-3.5 ${selectedLeadIds.includes(lead.id) ? 'block' : 'hidden group-hover/select:block'
+                                  }`}
                               />
                               <span className={selectedLeadIds.includes(lead.id) ? 'hidden' : 'block group-hover/select:hidden text-[10px]'}>
                                 {monthSNo}
@@ -2879,13 +2872,11 @@ export default function CRMPage() {
                                   setIsEditing(false);
                                 }}
                                 onDoubleClick={() => startEditCell(rowIndex, colIndex)}
-                                className={`px-2 py-1.5 relative select-none align-middle transition-colors cursor-cell ${
-                                  col.id === 'site_project' || col.id === 'remarks' || col.id.startsWith('follow_up')
+                                className={`px-2 py-1.5 relative select-none align-middle transition-colors cursor-cell ${col.id === 'site_project' || col.id === 'remarks' || col.id.startsWith('follow_up')
                                     ? 'whitespace-normal break-words'
                                     : 'truncate'
-                                } ${
-                                  isCellSelected && !isCellEditing ? 'ring-2 ring-blue-500 ring-inset bg-blue-50/15' : ''
-                                } ${col.id === 'ref_no' ? 'text-gray-400 font-bold text-center' : ''}`}
+                                  } ${isCellSelected && !isCellEditing ? 'ring-2 ring-blue-500 ring-inset bg-blue-50/15' : ''
+                                  } ${col.id === 'ref_no' ? 'text-gray-400 font-bold text-center' : ''}`}
                                 style={{ width: `${getColWidth(col.id)}px`, minWidth: `${getColWidth(col.id)}px`, maxWidth: `${getColWidth(col.id)}px`, minHeight: '36px', verticalAlign: 'middle' }}
                               >
                                 {isCellEditing ? (
@@ -2951,44 +2942,43 @@ export default function CRMPage() {
                                     </span>
                                   ) : col.id === 'phone' ? (
                                     <span className="text-gray-800 font-medium">{cellValue || '-'}</span>
-                                   ) : col.id === 'ref_no' ? (
-                                     <div className="flex items-center justify-between group/ref w-full px-1">
-                                       <span className="text-gray-400 font-bold">{cellValue || '-'}</span>
-                                       {lead.latest_quotation_id && (
-                                         <div className="flex items-center gap-1 opacity-0 group-hover/ref:opacity-100 focus-within:opacity-100 transition-all shrink-0">
-                                           <button
-                                             onClick={(e) => {
-                                               e.stopPropagation();
-                                               openQuotationPrint(`/quotations/${lead.latest_quotation_id}/print`);
-                                             }}
-                                             title={`Print Client Quotation (v${lead.quote_version || 1})`}
-                                             className="text-yellow-600 hover:text-yellow-700 p-0.5 rounded hover:bg-yellow-50"
-                                           >
-                                             <FiPrinter size={12} />
-                                           </button>
-                                           <button
-                                             onClick={(e) => {
-                                               e.stopPropagation();
-                                               openQuotationPrint(`/quotations/${lead.latest_quotation_id}/print?designer=1`);
-                                             }}
-                                             title="Print Designer Scope Copy (Rates Hidden)"
-                                             className="text-purple-600 hover:text-purple-700 p-0.5 rounded hover:bg-purple-50 text-[11px]"
-                                           >
-                                             🎨
-                                           </button>
-                                         </div>
-                                       )}
-                                     </div>
-                                   ) : col.id === 'source' ? (
+                                  ) : col.id === 'ref_no' ? (
+                                    <div className="flex items-center justify-between group/ref w-full px-1">
+                                      <span className="text-gray-400 font-bold">{cellValue || '-'}</span>
+                                      {lead.latest_quotation_id && (
+                                        <div className="flex items-center gap-1 opacity-0 group-hover/ref:opacity-100 focus-within:opacity-100 transition-all shrink-0">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              openQuotationPrint(`/quotations/${lead.latest_quotation_id}/print`);
+                                            }}
+                                            title={`Print Client Quotation (v${lead.quote_version || 1})`}
+                                            className="text-yellow-600 hover:text-yellow-700 p-0.5 rounded hover:bg-yellow-50"
+                                          >
+                                            <FiPrinter size={12} />
+                                          </button>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              openQuotationPrint(`/quotations/${lead.latest_quotation_id}/print?designer=1`);
+                                            }}
+                                            title="Print Designer Scope Copy (Rates Hidden)"
+                                            className="text-purple-600 hover:text-purple-700 p-0.5 rounded hover:bg-purple-50 text-[11px]"
+                                          >
+                                            🎨
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : col.id === 'source' ? (
                                     <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                                       {getLeadSource(lead)}
                                     </span>
                                   ) : col.id === 'branch' ? (
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
-                                      getLeadBranch(lead) === 'AS Rao Nagar'
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${getLeadBranch(lead) === 'AS Rao Nagar'
                                         ? 'bg-purple-50 text-purple-700 border border-purple-200'
                                         : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                    }`}>
+                                      }`}>
                                       {getLeadBranch(lead)}
                                     </span>
                                   ) : col.id === 'remarks' ? (
@@ -3021,7 +3011,7 @@ export default function CRMPage() {
                     #{monthSerialNumbers[activeLead.id] ?? (selectedCell.rowIndex + 1)}
                   </span>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span 
+                    <span
                       className="text-xs font-bold text-gray-900 truncate max-w-[120px] sm:max-w-[180px] md:max-w-[240px]"
                       title={activeLead.client_name || 'Unnamed'}
                     >
@@ -3106,11 +3096,10 @@ export default function CRMPage() {
                         setProjectModalLead(activeLead);
                         setIsProjectModalOpen(true);
                       }}
-                      className={`px-3 py-1.5 font-bold rounded-lg text-xs transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 ${
-                        getLinkedProject(activeLead)
+                      className={`px-3 py-1.5 font-bold rounded-lg text-xs transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 ${getLinkedProject(activeLead)
                           ? 'bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800'
                           : 'bg-yellow-500 hover:bg-yellow-600 text-white'
-                      }`}
+                        }`}
                       title={getLinkedProject(activeLead) ? 'View linked project' : 'Add to Projects'}
                     >
                       {getLinkedProject(activeLead) ? (
@@ -3381,9 +3370,8 @@ export default function CRMPage() {
                   value={mobileEditForm.status || 'Draft'}
                   disabled={mobileEditForm.status === 'Approved' && !canEditApproved}
                   onChange={(e) => setMobileEditForm(prev => prev ? { ...prev, status: e.target.value as any } : null)}
-                  className={`w-full p-2 border rounded-lg focus:outline-none focus:border-yellow-500 text-gray-700 ${
-                    mobileEditForm.status === 'Approved' && !canEditApproved ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-50 border-gray-200'
-                  }`}
+                  className={`w-full p-2 border rounded-lg focus:outline-none focus:border-yellow-500 text-gray-700 ${mobileEditForm.status === 'Approved' && !canEditApproved ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-50 border-gray-200'
+                    }`}
                 >
                   <option value="Draft">Draft</option>
                   <option value="Sent">Sent</option>
@@ -3406,9 +3394,8 @@ export default function CRMPage() {
                   value={mobileEditForm.quote_value || 0}
                   onChange={(e) => setMobileEditForm(prev => prev ? { ...prev, quote_value: Number(e.target.value) || 0 } : null)}
                   disabled={Boolean(mobileEditForm.latest_quotation_id)}
-                  className={`w-full p-2 border rounded-lg focus:outline-none focus:border-yellow-500 ${
-                    mobileEditForm.latest_quotation_id ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed' : 'bg-gray-50 border-gray-200'
-                  }`}
+                  className={`w-full p-2 border rounded-lg focus:outline-none focus:border-yellow-500 ${mobileEditForm.latest_quotation_id ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed' : 'bg-gray-50 border-gray-200'
+                    }`}
                 />
               </div>
               <div>
@@ -3418,9 +3405,8 @@ export default function CRMPage() {
                   value={mobileEditForm.approved_value || 0}
                   onChange={(e) => setMobileEditForm(prev => prev ? { ...prev, approved_value: Number(e.target.value) || 0 } : null)}
                   disabled={mobileEditForm.status !== 'Approved' || (!canEditApproved && mobileEditForm.status === 'Approved')}
-                  className={`w-full p-2 border rounded-lg focus:outline-none focus:border-yellow-500 ${
-                    mobileEditForm.status === 'Approved' && (canEditApproved || !mobileEditForm.id) ? 'bg-gray-50 border-gray-200' : 'bg-gray-100 border-gray-100 text-gray-400 cursor-not-allowed'
-                  }`}
+                  className={`w-full p-2 border rounded-lg focus:outline-none focus:border-yellow-500 ${mobileEditForm.status === 'Approved' && (canEditApproved || !mobileEditForm.id) ? 'bg-gray-50 border-gray-200' : 'bg-gray-100 border-gray-100 text-gray-400 cursor-not-allowed'
+                    }`}
                 />
               </div>
             </div>
@@ -3603,7 +3589,7 @@ export default function CRMPage() {
       {/* Quotation Approval Confirmation Modal */}
       {pendingApproval && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-200" style={{ touchAction: 'auto' }}>
-          <div 
+          <div
             className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >

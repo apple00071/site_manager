@@ -39,10 +39,5 @@ export function isSuperAdminUser(user: any): boolean {
     return true;
   }
 
-  // Admin designation without HR role
-  if (designation === 'admin' && !role.includes('hr')) {
-    return true;
-  }
-
   return false;
 }
