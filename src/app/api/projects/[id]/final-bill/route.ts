@@ -44,19 +44,20 @@ export async function GET(
     const currentPending = currentBudget > 0 ? Math.max(0, currentBudget - totalCollected) : 0;
 
     // 3. Search for CRM quotation lead
-    // a) Check if project_notes references a quotation ref number e.g. "Ref #123"
     let matchedLead: any = null;
-    const refMatch = project.project_notes?.match(/Ref\s*#?([0-9]+)/i);
+    const refMatch = project.project_notes?.match(/Ref\s*#?([0-9]+)/i) || 
+                     project.project_notes?.match(/AI\/QTN\/\d+\/(\d+)/i) ||
+                     project.project_notes?.match(/Ref\s*#?(AI\/QTN\/[^\s]+)/i);
+
     if (refMatch && refMatch[1]) {
-      const refNo = parseInt(refMatch[1], 10);
-      if (!isNaN(refNo)) {
-        const { data: leadByRef } = await supabaseAdmin
-          .from('quotation_leads')
-          .select('id, ref_no, client_name, site_project, quote_value, approved_value, status')
-          .eq('ref_no', refNo)
-          .maybeSingle();
-        if (leadByRef) matchedLead = leadByRef;
-      }
+      const rawRef = refMatch[1];
+      const refNum = parseInt(rawRef.split('/').pop() || rawRef, 10);
+      const { data: leadByRef } = await supabaseAdmin
+        .from('quotation_leads')
+        .select('id, ref_no, client_name, site_project, quote_value, approved_value, status')
+        .or(`ref_no.eq.${rawRef},ref_no.ilike.%${refNum || rawRef}%`)
+        .maybeSingle();
+      if (leadByRef) matchedLead = leadByRef;
     }
 
     // b) If not found by ref, match by customer_name or site_project
@@ -92,7 +93,7 @@ export async function GET(
       }
     }
 
-    // 4. If lead found, fetch latest quotation and items
+    // 4. If lead found, fetch quotations and items (never pick empty 0-item quotations)
     let quotation: any = null;
     let items: any[] = [];
 
@@ -101,14 +102,36 @@ export async function GET(
         .from('quotations')
         .select('*, quotation_items(*)')
         .eq('lead_id', matchedLead.id)
-        .order('version', { ascending: false })
-        .limit(1);
+        .order('version', { ascending: false });
 
       if (quotes && quotes.length > 0) {
-        quotation = quotes[0];
-        const rawItems = quotation.quotation_items || [];
-        // Sort items by sort_order
-        items = rawItems.sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+        const targetVal = Number(project.project_budget) || Number(matchedLead.approved_value) || Number(matchedLead.quote_value) || 0;
+
+        // 1. Try matching the exact quotation whose amount matches project budget / approved value and has items
+        let bestQuote = quotes.find((q: any) => {
+          const itemsCount = q.quotation_items?.length || 0;
+          return itemsCount > 0 && Math.abs(Number(q.final_amount) - targetVal) < 2;
+        });
+
+        // 2. Otherwise pick the highest version that actually has items and amount > 0
+        if (!bestQuote) {
+          bestQuote = quotes.find((q: any) => {
+            const itemsCount = q.quotation_items?.length || 0;
+            return itemsCount > 0 && Number(q.final_amount) > 0;
+          });
+        }
+
+        // 3. Fallback to any quotation that has items
+        if (!bestQuote) {
+          bestQuote = quotes.find((q: any) => (q.quotation_items?.length || 0) > 0) || quotes[0];
+        }
+
+        if (bestQuote) {
+          quotation = bestQuote;
+          const rawItems = quotation.quotation_items || [];
+          // Sort items by sort_order
+          items = rawItems.sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+        }
       }
     }
 

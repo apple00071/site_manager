@@ -101,12 +101,20 @@ export async function GET(request: NextRequest) {
         if (allQuotes && allQuotes.length > 0) {
           const latestQuoteByLead: Record<string, { id: string; version: number; final_amount: number }> = {};
           for (const q of allQuotes) {
-            // Keep the latest version per lead
-            if (!latestQuoteByLead[q.lead_id]) {
+            // Keep the latest VALID version per lead that has final_amount > 0, or fallback to first
+            const existing = latestQuoteByLead[q.lead_id];
+            const qAmt = Number(q.final_amount) || 0;
+            if (!existing) {
               latestQuoteByLead[q.lead_id] = {
                 id: q.id,
                 version: q.version,
-                final_amount: Number(q.final_amount) || 0,
+                final_amount: qAmt,
+              };
+            } else if (existing.final_amount === 0 && qAmt > 0) {
+              latestQuoteByLead[q.lead_id] = {
+                id: q.id,
+                version: q.version,
+                final_amount: qAmt,
               };
             }
           }

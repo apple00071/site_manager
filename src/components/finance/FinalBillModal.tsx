@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useToast } from '@/components/ui/Toast';
 import {
   FiX,
@@ -38,6 +39,7 @@ export default function FinalBillModal({
 }: FinalBillModalProps) {
   const { showToast } = useToast();
 
+  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [leadId, setLeadId] = useState<string | null>(null);
@@ -53,6 +55,10 @@ export default function FinalBillModal({
   // Financial baseline
   const [baselineBudget, setBaselineBudget] = useState<number>(0);
   const [totalCollected, setTotalCollected] = useState<number>(0);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (isOpen && projectId) {
@@ -246,30 +252,31 @@ export default function FinalBillModal({
     });
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[92vh] max-h-[calc(100vh-1.5rem)] flex flex-col border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] max-h-[calc(100vh-2rem)] flex flex-col border border-gray-100 overflow-hidden">
         {/* Modal Header */}
-        <div className="shrink-0 px-5 py-3.5 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white flex items-center justify-between border-b border-gray-800">
-          <div>
+        <div className="shrink-0 px-5 py-3 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white flex items-center justify-between border-b border-gray-800">
+          <div className="flex items-center gap-2.5">
+            <span className="p-1.5 bg-yellow-500/20 text-yellow-400 rounded-lg border border-yellow-500/30">
+              <FiFileText className="w-4 h-4" />
+            </span>
             <div className="flex items-center gap-2">
-              <span className="p-1.5 bg-yellow-500/20 text-yellow-400 rounded-lg border border-yellow-500/30">
-                <FiFileText className="w-4 h-4" />
-              </span>
-              <h2 className="text-base sm:text-lg font-bold">
+              <h2 className="text-base font-bold">
                 Final Bill & Settlement
               </h2>
+              {customerName && (
+                <span className="text-xs bg-gray-800 text-yellow-400 font-medium px-2 py-0.5 rounded-full border border-gray-700">
+                  {customerName}
+                </span>
+              )}
             </div>
-            <p className="text-xs text-gray-300 mt-0.5">
-              Project: <span className="font-semibold text-white">{projectTitle}</span>
-              {customerName ? ` (${customerName})` : ''}
-            </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-xl transition-colors cursor-pointer"
+            className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-xl transition-colors cursor-pointer"
           >
             <FiX className="w-5 h-5" />
           </button>
@@ -588,6 +595,7 @@ export default function FinalBillModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

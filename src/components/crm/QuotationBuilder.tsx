@@ -38,6 +38,7 @@ interface Lead {
   phone: string;
   site_project: string;
   quote_value: number;
+  approved_value?: number;
   status?: string;
   latest_quotation_id?: string;
   quote_version?: number;
@@ -180,7 +181,22 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
       const quotations: any[] = qData.data || [];
       setAllQuotations(quotations);
       if (quotations.length > 0) {
-        const latest = quotations[0]; // ordered by version desc
+        // Prefer the quotation that actually has items and amount > 0, matching approved or highest valid version
+        const targetApprovedVal = Number(lead.approved_value) || Number(lead.quote_value) || 0;
+        let latest = quotations.find((q: any) => {
+          const itemsCount = q.quotation_items?.length || 0;
+          return itemsCount > 0 && Math.abs(Number(q.final_amount) - targetApprovedVal) < 2;
+        });
+        if (!latest) {
+          latest = quotations.find((q: any) => {
+            const itemsCount = q.quotation_items?.length || 0;
+            return itemsCount > 0 && Number(q.final_amount) > 0;
+          });
+        }
+        if (!latest) {
+          latest = quotations.find((q: any) => (q.quotation_items?.length || 0) > 0) || quotations[0];
+        }
+
         setExistingQuotation(latest);
         setSelectedQuoteId(latest.id);
         setDiscountType(latest.discount_type || 'none');
@@ -580,11 +596,18 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
                     fontWeight: 600
                   }}
                 >
-                  {allQuotations.map((q) => (
-                    <option key={q.id} value={q.id}>
-                      v{q.version} ({new Date(q.created_at).toLocaleDateString('en-IN')})
-                    </option>
-                  ))}
+                  {allQuotations.map((q) => {
+                    const count = q.quotation_items?.length || 0;
+                    const amt = Number(q.final_amount) || 0;
+                    const label = count === 0
+                      ? `v${q.version} (Empty / ₹0)`
+                      : `v${q.version} (${count} items • ₹${amt.toLocaleString('en-IN')})`;
+                    return (
+                      <option key={q.id} value={q.id}>
+                        {label}
+                      </option>
+                    );
+                  })}
                 </select>
               )}
               {isApproved && (
