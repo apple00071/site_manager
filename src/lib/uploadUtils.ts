@@ -70,6 +70,11 @@ function resolveContentType(file: File): string {
         case 'gif': return 'image/gif';
         case 'dwg': return 'application/dwg';
         case 'dxf': return 'application/dxf';
+        case 'xlsx': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        case 'xls': return 'application/vnd.ms-excel';
+        case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        case 'doc': return 'application/msword';
+        case 'csv': return 'text/csv';
         default: return file.type || 'application/octet-stream';
     }
 }

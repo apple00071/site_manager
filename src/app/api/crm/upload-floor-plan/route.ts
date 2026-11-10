@@ -22,82 +22,106 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Permission denied: crm.manage or leads.create required' }, { status: 403 });
     }
 
-    const formData = await request.formData();
-    const files = formData.getAll('files') as File[];
-    const singleFile = formData.get('file') as File | null;
-    const allFiles: File[] = files.length > 0 ? files : (singleFile ? [singleFile] : []);
-    const leadId = formData.get('lead_id') as string | null;
+    const contentType = request.headers.get('content-type') || '';
+    let leadId: string | null = null;
+    let uploadedList: AttachmentItem[] = [];
 
-    if (allFiles.length === 0) {
-      return NextResponse.json({ error: 'No files provided' }, { status: 400 });
-    }
-
-    const uploadedList: AttachmentItem[] = [];
-
-    for (const file of allFiles) {
-      const originalName = file.name || 'document.pdf';
-      const extension = originalName.split('.').pop() || 'bin';
-      const safeBaseName = originalName
-        .replace(/\.[^/.]+$/, '')
-        .replace(/[^\w\s-]/g, '')
-        .replace(/\s+/g, '_')
-        .slice(0, 50);
-
-      const uniqueId = Math.random().toString(36).substring(2, 8);
-      const fileName = `crm-floor-plans/${leadId ? leadId : user.id}_${Date.now()}_${uniqueId}_${safeBaseName}.${extension}`;
-      const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-
-      const { error: uploadErr } = await supabaseAdmin.storage
-        .from('design-files')
-        .upload(fileName, buffer, {
-          contentType: file.type || 'application/octet-stream',
-          upsert: true,
-        });
-
-      if (uploadErr) {
-        console.error('Storage Upload Error for file:', originalName, uploadErr);
-        continue;
+    // Support JSON payload with pre-uploaded files (bypasses Vercel payload limits)
+    if (contentType.includes('application/json')) {
+      const body = await request.json().catch(() => ({}));
+      leadId = body.lead_id || null;
+      const rawFiles = body.files || body.new_files || (body.url ? [{ url: body.url, name: body.name || 'document' }] : []);
+      if (Array.isArray(rawFiles)) {
+        uploadedList = rawFiles
+          .filter((f: any) => f && f.url)
+          .map((f: any) => ({
+            url: String(f.url),
+            name: String(f.name || 'document'),
+          }));
       }
+    } else {
+      // Support multipart/form-data
+      const formData = await request.formData();
+      const files = formData.getAll('files') as File[];
+      const singleFile = formData.get('file') as File | null;
+      const allFiles: File[] = files.length > 0 ? files : (singleFile ? [singleFile] : []);
+      leadId = formData.get('lead_id') as string | null;
 
-      const { data: { publicUrl } } = supabaseAdmin.storage
-        .from('design-files')
-        .getPublicUrl(fileName);
+      for (const file of allFiles) {
+        if (!file || typeof file === 'string') continue;
+        const originalName = file.name || 'document.pdf';
+        const extension = originalName.split('.').pop() || 'bin';
+        const safeBaseName = originalName
+          .replace(/\.[^/.]+$/, '')
+          .replace(/[^\w\s-]/g, '')
+          .replace(/\s+/g, '_')
+          .slice(0, 50);
 
-      uploadedList.push({
-        url: publicUrl,
-        name: originalName,
-      });
+        const uniqueId = Math.random().toString(36).substring(2, 8);
+        const fileName = `crm-floor-plans/${leadId ? leadId : user.id}_${Date.now()}_${uniqueId}_${safeBaseName}.${extension}`;
+        const bytes = await file.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+
+        const { error: uploadErr } = await supabaseAdmin.storage
+          .from('design-files')
+          .upload(fileName, buffer, {
+            contentType: file.type || 'application/octet-stream',
+            upsert: true,
+          });
+
+        if (uploadErr) {
+          console.error('Storage Upload Error for file:', originalName, uploadErr);
+          throw new Error(`Storage upload failed for "${originalName}": ${uploadErr.message}`);
+        }
+
+        const { data: { publicUrl } } = supabaseAdmin.storage
+          .from('design-files')
+          .getPublicUrl(fileName);
+
+        uploadedList.push({
+          url: publicUrl,
+          name: originalName,
+        });
+      }
     }
 
     if (uploadedList.length === 0) {
-      return NextResponse.json({ error: 'Failed to upload any of the provided files' }, { status: 500 });
+      return NextResponse.json({ error: 'No files provided or uploaded' }, { status: 400 });
     }
 
     let combinedAttachments: AttachmentItem[] = [...uploadedList];
 
     // If leadId is provided, merge with existing attachments and update lead
     if (leadId) {
-      const { data: leadData } = await supabaseAdmin
+      const { data: leadData, error: fetchErr } = await supabaseAdmin
         .from('quotation_leads')
-        .select('remarks, floor_plan_url, floor_plan_name')
+        .select('id, remarks, floor_plan_url, floor_plan_name, attachments')
         .eq('id', leadId)
         .single();
 
-      const currentRemarks = leadData?.remarks || '';
+      if (fetchErr || !leadData) {
+        return NextResponse.json({ error: `Lead not found: ${fetchErr?.message || leadId}` }, { status: 404 });
+      }
+
+      const currentRemarks = leadData.remarks || '';
       let existingAttachments: AttachmentItem[] = [];
 
-      // Check for [Files: [...]]
-      const filesMatch = currentRemarks.match(/\[Files:\s*(\[.*?\])\]/);
-      if (filesMatch) {
-        try {
-          existingAttachments = JSON.parse(filesMatch[1]);
-        } catch (_) {}
-      } else if (leadData?.floor_plan_url) {
-        existingAttachments = [{
-          url: leadData.floor_plan_url,
-          name: leadData.floor_plan_name || 'Floor Plan'
-        }];
+      // 1. Direct attachments JSONB column
+      if (Array.isArray(leadData.attachments) && leadData.attachments.length > 0) {
+        existingAttachments = leadData.attachments;
+      } else {
+        // 2. Check for [Files: [...]]
+        const filesMatch = currentRemarks.match(/\[Files:\s*(\[.*?\])\]/);
+        if (filesMatch) {
+          try {
+            existingAttachments = JSON.parse(filesMatch[1]);
+          } catch (_) {}
+        } else if (leadData.floor_plan_url) {
+          existingAttachments = [{
+            url: leadData.floor_plan_url,
+            name: leadData.floor_plan_name || 'Floor Plan'
+          }];
+        }
       }
 
       // Merge new files avoiding duplicate URLs
@@ -128,12 +152,19 @@ export async function POST(request: NextRequest) {
         .update(updatePayload)
         .eq('id', leadId);
 
-      if (uploadUpdateError && uploadUpdateError.code === '42703') {
-        delete updatePayload.attachments;
-        await supabaseAdmin
-          .from('quotation_leads')
-          .update(updatePayload)
-          .eq('id', leadId);
+      if (uploadUpdateError) {
+        if (uploadUpdateError.code === '42703') {
+          delete updatePayload.attachments;
+          const { error: retryErr } = await supabaseAdmin
+            .from('quotation_leads')
+            .update(updatePayload)
+            .eq('id', leadId);
+          if (retryErr) {
+            throw new Error(`Database update failed: ${retryErr.message}`);
+          }
+        } else {
+          throw new Error(`Database update failed: ${uploadUpdateError.message}`);
+        }
       }
     }
 
@@ -170,25 +201,33 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'lead_id is required' }, { status: 400 });
     }
 
-    const { data: leadData } = await supabaseAdmin
+    const { data: leadData, error: fetchErr } = await supabaseAdmin
       .from('quotation_leads')
-      .select('remarks, floor_plan_url, floor_plan_name')
+      .select('id, remarks, floor_plan_url, floor_plan_name, attachments')
       .eq('id', leadId)
       .single();
 
-    const currentRemarks = leadData?.remarks || '';
+    if (fetchErr || !leadData) {
+      return NextResponse.json({ error: `Lead not found: ${fetchErr?.message || leadId}` }, { status: 404 });
+    }
+
+    const currentRemarks = leadData.remarks || '';
     let existingAttachments: AttachmentItem[] = [];
 
-    const filesMatch = currentRemarks.match(/\[Files:\s*(\[.*?\])\]/);
-    if (filesMatch) {
-      try {
-        existingAttachments = JSON.parse(filesMatch[1]);
-      } catch (_) {}
-    } else if (leadData?.floor_plan_url) {
-      existingAttachments = [{
-        url: leadData.floor_plan_url,
-        name: leadData.floor_plan_name || 'Floor Plan'
-      }];
+    if (Array.isArray(leadData.attachments) && leadData.attachments.length > 0) {
+      existingAttachments = leadData.attachments;
+    } else {
+      const filesMatch = currentRemarks.match(/\[Files:\s*(\[.*?\])\]/);
+      if (filesMatch) {
+        try {
+          existingAttachments = JSON.parse(filesMatch[1]);
+        } catch (_) {}
+      } else if (leadData.floor_plan_url) {
+        existingAttachments = [{
+          url: leadData.floor_plan_url,
+          name: leadData.floor_plan_name || 'Floor Plan'
+        }];
+      }
     }
 
     let remainingAttachments: AttachmentItem[] = [];
@@ -225,12 +264,17 @@ export async function DELETE(request: NextRequest) {
       .update(deletePayload)
       .eq('id', leadId);
 
-    if (deleteUpdateError && deleteUpdateError.code === '42703') {
-      delete deletePayload.attachments;
-      await supabaseAdmin
-        .from('quotation_leads')
-        .update(deletePayload)
-        .eq('id', leadId);
+    if (deleteUpdateError) {
+      if (deleteUpdateError.code === '42703') {
+        delete deletePayload.attachments;
+        const { error: retryErr } = await supabaseAdmin
+          .from('quotation_leads')
+          .update(deletePayload)
+          .eq('id', leadId);
+        if (retryErr) throw new Error(`Database update failed: ${retryErr.message}`);
+      } else {
+        throw new Error(`Database update failed: ${deleteUpdateError.message}`);
+      }
     }
 
     return NextResponse.json({

@@ -23,6 +23,7 @@ import CreateProjectFromLeadModal from '@/components/crm/CreateProjectFromLeadMo
 import { openQuotationPrint } from '@/lib/shareUtils';
 import { useBranch } from '@/contexts/BranchContext';
 import { isSuperAdminUser } from '@/lib/branch-constants';
+import { uploadFile } from '@/lib/uploadUtils';
 const QuotationBuilder = dynamic(() => import('@/components/crm/QuotationBuilder'), { ssr: false });
 
 interface Lead {
@@ -524,15 +525,27 @@ export default function CRMPage() {
       const targetId = activeUploadTargetLeadId;
       setUploadingFloorPlanLeadId(targetId);
       try {
-        const formData = new FormData();
+        const uploadedItems: Array<{ url: string; name: string }> = [];
+
+        // Upload each file via signed URL (bypasses Vercel 4.5MB payload limit)
         for (const file of fileList) {
-          formData.append('files', file);
+          const url = await uploadFile(file, 'design-files', `crm-floor-plans/${targetId}`);
+          if (url) {
+            uploadedItems.push({ url, name: file.name });
+          }
         }
-        formData.append('lead_id', targetId);
+
+        if (uploadedItems.length === 0) {
+          throw new Error('No files were successfully uploaded to storage.');
+        }
 
         const res = await fetch('/api/crm/upload-floor-plan', {
           method: 'POST',
-          body: formData,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lead_id: targetId,
+            files: uploadedItems,
+          }),
         });
 
         if (res.ok) {
@@ -552,57 +565,82 @@ export default function CRMPage() {
           } : prev);
         } else {
           const err = await res.json().catch(() => ({}));
-          alert(`Failed to upload files: ${err.error || 'Server error'}`);
+          alert(`Failed to save uploaded files: ${err.error || 'Server error'}`);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error uploading files:', err);
-        alert('Failed to upload files.');
+        alert(`Failed to upload files: ${err?.message || 'Please check your connection and try again.'}`);
       } finally {
         setUploadingFloorPlanLeadId(null);
         setActiveUploadTargetLeadId(null);
+        if (floorPlanInputRef.current) floorPlanInputRef.current.value = '';
       }
     } else if (isMobileEditOpen) {
       setIsUploadingFormFloorPlan(true);
       try {
-        const formData = new FormData();
+        const targetId = mobileEditForm?.id;
+        const uploadedItems: Array<{ url: string; name: string }> = [];
+
         for (const file of fileList) {
-          formData.append('files', file);
-        }
-        if (mobileEditForm?.id) {
-          formData.append('lead_id', mobileEditForm.id);
+          const folder = targetId ? `crm-floor-plans/${targetId}` : 'crm-floor-plans/temp';
+          const url = await uploadFile(file, 'design-files', folder);
+          if (url) {
+            uploadedItems.push({ url, name: file.name });
+          }
         }
 
-        const res = await fetch('/api/crm/upload-floor-plan', {
-          method: 'POST',
-          body: formData,
-        });
+        if (uploadedItems.length === 0) {
+          throw new Error('No files were successfully uploaded to storage.');
+        }
 
-        if (res.ok) {
-          const data = await res.json();
-          const updatedAttachments = data.attachments || [{ url: data.url, name: data.name }];
-          setMobileEditForm(prev => prev ? {
-            ...prev,
-            floor_plan_url: data.url,
-            floor_plan_name: data.name,
-            attachments: updatedAttachments,
-          } : null);
-          if (mobileEditForm?.id) {
-            setLeads(prev => prev.map(l => l.id === mobileEditForm.id ? {
+        if (targetId) {
+          const res = await fetch('/api/crm/upload-floor-plan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              lead_id: targetId,
+              files: uploadedItems,
+            }),
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            const updatedAttachments = data.attachments || [{ url: data.url, name: data.name }];
+            setMobileEditForm(prev => prev ? {
+              ...prev,
+              floor_plan_url: data.url,
+              floor_plan_name: data.name,
+              attachments: updatedAttachments,
+            } : null);
+            setLeads(prev => prev.map(l => l.id === targetId ? {
               ...l,
               floor_plan_url: data.url,
               floor_plan_name: data.name,
               attachments: updatedAttachments,
             } : l));
+          } else {
+            const err = await res.json().catch(() => ({}));
+            alert(`Failed to save uploaded files: ${err.error || 'Server error'}`);
           }
         } else {
-          const err = await res.json().catch(() => ({}));
-          alert(`Failed to upload files: ${err.error || 'Server error'}`);
+          setMobileEditForm(prev => {
+            if (!prev) return null;
+            const currentAttachments = prev.attachments || [];
+            const merged = [...currentAttachments, ...uploadedItems];
+            return {
+              ...prev,
+              floor_plan_url: merged[0]?.url || null,
+              floor_plan_name: merged[0]?.name || null,
+              attachments: merged,
+            };
+          });
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error uploading files in form:', err);
-        alert('Failed to upload files.');
+        alert(`Failed to upload files: ${err?.message || 'Please check your connection and try again.'}`);
       } finally {
         setIsUploadingFormFloorPlan(false);
+        if (floorPlanInputRef.current) floorPlanInputRef.current.value = '';
       }
     }
   };
