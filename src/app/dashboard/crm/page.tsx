@@ -492,7 +492,7 @@ export default function CRMPage() {
   const selectedCellRef = useRef<HTMLTableCellElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [employees, setEmployees] = useState<{ id: string; full_name: string }[]>([]);
+  const [allEmployees, setAllEmployees] = useState<{ id: string; full_name: string; branch?: string }[]>([]);
   const [isMobileEditOpen, setIsMobileEditOpen] = useState(false);
   const [mobileEditForm, setMobileEditForm] = useState<Lead | null>(null);
   const [isDataMenuOpen, setIsDataMenuOpen] = useState(false);
@@ -750,6 +750,12 @@ export default function CRMPage() {
     return 40 + columns.reduce((acc, col) => acc + (columnWidths[col.id] || DEFAULT_COLUMN_WIDTHS[col.id] || 110), 0);
   }, [columns, columnWidths, DEFAULT_COLUMN_WIDTHS]);
 
+  // In-memory branch filtering to avoid repeat API calls
+  const employees = useMemo(() => {
+    if (currentBranch === 'all') return allEmployees;
+    return allEmployees.filter(u => (u.branch || 'Kukatpally') === currentBranch);
+  }, [allEmployees, currentBranch]);
+
   // Dynamically extract unique assignees to prevent data mismatches and support custom data entries
   const assigneeOptions = useMemo(() => {
     const set = new Set<string>(['Aravind Sir', 'Walk-in', 'Direct Call', 'Office Mobile', 'Other']);
@@ -819,23 +825,21 @@ export default function CRMPage() {
   }, [fetchLeads]);
 
   useEffect(() => {
-
+    let isMounted = true;
     const fetchEmployees = async () => {
       try {
-        const branchParam = currentBranch !== 'all' ? `?branch=${encodeURIComponent(currentBranch)}` : '';
-        const response = await fetch(`/api/admin/users${branchParam}`, {
-          headers: { 'x-branch': currentBranch }
-        });
-        if (response.ok) {
+        const response = await fetch('/api/admin/users?branch=all');
+        if (response.ok && isMounted) {
           const data = await response.json();
-          setEmployees((data || []).filter((u: any) => u.is_active !== false));
+          setAllEmployees((data || []).filter((u: any) => u.is_active !== false));
         }
       } catch (err) {
         console.error('Error fetching employees:', err);
       }
     };
     fetchEmployees();
-  }, [currentBranch]);
+    return () => { isMounted = false; };
+  }, []);
 
   // Filtered Leads list
   const filteredLeads = useMemo(() => {

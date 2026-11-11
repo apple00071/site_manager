@@ -12,6 +12,17 @@ import { getActiveBranch } from '@/lib/branch-helper';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+// In-memory cache for users to protect Supabase DB from repeat queries (60s TTL)
+let cachedUsersData: any[] | null = null;
+let cacheTimestamp = 0;
+const CACHE_TTL_MS = 60 * 1000;
+
+export function invalidateUsersCache() {
+  cachedUsersData = null;
+  cacheTimestamp = 0;
+}
+
+
 const createUserSchema = z.object({
   email: z.string().email('Invalid email address'),
   username: z.string().min(3, 'Username must be at least 3 characters').regex(/^[a-zA-Z0-9_\.\-]+$/, 'Only letters, numbers, underscore, dot and hyphen allowed'),
@@ -99,41 +110,51 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(userWithSalary);
     }
 
-    // Build query for multiple users
-    let query = supabaseAdmin
-      .from('users')
-      .select('*, roles(id, name)')
-      .neq('role', 'client') // Exclude legacy clients
-      .order('created_at', { ascending: false });
+    // Server-side in-memory cache check (60s TTL) to prevent hammering Supabase DB
+    const includeInactive = searchParams.get('include_inactive') === 'true' || searchParams.get('all') === 'true';
+    const now = Date.now();
+    let allUsers = cachedUsersData;
+
+    if (!allUsers || (now - cacheTimestamp) > CACHE_TTL_MS) {
+      const { data: users, error } = await supabaseAdmin
+        .from('users')
+        .select('*, roles(id, name)')
+        .neq('role', 'client')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching users from DB:', error);
+        if (!allUsers) {
+          return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
+        }
+      } else {
+        cachedUsersData = (users || []).map((u: any) => ({
+          ...u,
+          branch: u.branch || 'Kukatpally',
+          dob: u.dob || u.user_metadata?.dob || '',
+          emergency_contact_number: u.emergency_contact_number || u.user_metadata?.emergency_contact_number || '',
+          blood_group: u.blood_group || u.user_metadata?.blood_group || '',
+          address: u.address || u.user_metadata?.address || '',
+        }));
+        cacheTimestamp = now;
+        allUsers = cachedUsersData;
+      }
+    }
+
+    let mappedUsers = [...(allUsers || [])];
 
     // Filter out inactive users unless explicitly requested
-    const includeInactive = searchParams.get('include_inactive') === 'true' || searchParams.get('all') === 'true';
     if (!includeInactive) {
-      query = query.or('is_active.is.null,is_active.eq.true');
+      mappedUsers = mappedUsers.filter((u: any) => u.is_active === null || u.is_active === undefined || u.is_active === true);
     }
 
     // Add role filter if provided
     if (roleFilter) {
-      query = query.eq('role', roleFilter);
+      mappedUsers = mappedUsers.filter((u: any) => u.role === roleFilter);
     }
 
-    const { data: users, error } = await query;
-
-    if (error) {
-      console.error('Error fetching users:', error);
-      return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
-    }
-
+    // Branch filter
     const activeBranch = getActiveBranch(request, user);
-    let mappedUsers = (users || []).map((u: any) => ({
-      ...u,
-      branch: u.branch || 'Kukatpally',
-      dob: u.dob || u.user_metadata?.dob || '',
-      emergency_contact_number: u.emergency_contact_number || u.user_metadata?.emergency_contact_number || '',
-      blood_group: u.blood_group || u.user_metadata?.blood_group || '',
-      address: u.address || u.user_metadata?.address || '',
-    }));
-
     if (activeBranch !== 'all') {
       mappedUsers = mappedUsers.filter((u: any) => u.branch === activeBranch);
     }
@@ -290,7 +311,8 @@ export async function POST(req: Request) {
         );
       }
 
-      console.log('User profile created successfully');
+      console.log('User profile created successfully');
+invalidateUsersCache();
 
       // Send welcome notification to new user
       try {
@@ -410,7 +432,8 @@ export async function PATCH(req: Request) {
         console.error('Error updating auth ban status:', authUpdateError);
       }
 
-      return NextResponse.json({ success: true, is_active });
+      invalidateUsersCache();
+return NextResponse.json({ success: true, is_active });
     }
 
     const parsed = updateUserSchema.safeParse(body);
