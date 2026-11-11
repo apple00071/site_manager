@@ -302,7 +302,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
-        const errorMessage = error.message || 'Login failed. Please check your credentials and try again.';
+        let errorMessage = error.message || 'Login failed. Please check your credentials and try again.';
+        if (errorMessage.toLowerCase().includes('banned')) {
+          errorMessage = 'Your account has been deactivated. Please contact your administrator.';
+        }
 
         return {
           data: null,

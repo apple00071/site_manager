@@ -103,7 +103,11 @@ export default function AdminLogin() {
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      setLoginError(error.message || 'Failed to sign in. Please check your credentials.');
+      let errMessage = error.message || 'Failed to sign in. Please check your credentials.';
+      if (errMessage.toLowerCase().includes('banned')) {
+        errMessage = 'Your account has been deactivated. Please contact your administrator.';
+      }
+      setLoginError(errMessage);
     } finally {
       setIsLoading(false);
     }

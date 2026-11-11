@@ -39,7 +39,11 @@ export default function LoginPage() {
 
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        setServerError(payload?.error || 'Invalid credentials.');
+        let errMessage = payload?.error || 'Invalid credentials.';
+        if (errMessage.toLowerCase().includes('banned')) {
+          errMessage = 'Your account has been deactivated. Please contact your administrator.';
+        }
+        setServerError(errMessage);
         return;
       }
 

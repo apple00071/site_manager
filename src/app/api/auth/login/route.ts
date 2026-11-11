@@ -50,10 +50,36 @@ export async function POST(request: Request) {
 
     if (signInError) {
       console.error('Supabase sign-in error:', signInError);
+      const lower = (signInError.message || '').toLowerCase();
+      let friendlyError = signInError.message || 'Invalid credentials';
+      
+      if (lower.includes('banned') || lower.includes('disabled') || lower.includes('deactivated')) {
+        friendlyError = 'Your account has been deactivated. Please contact your administrator.';
+      } else if (lower.includes('invalid login credentials') || lower.includes('invalid credentials')) {
+        friendlyError = 'Invalid username/email or password. Please try again.';
+      }
+
       return NextResponse.json({ 
-        error: signInError.message || 'Invalid credentials',
+        error: friendlyError,
         details: signInError.status === 400 ? 'Please check your email and password' : signInError.message
       }, { status: 401 });
+    }
+
+    // Check if user is active in public.users
+    const userId = authResult?.user?.id;
+    if (userId) {
+      const { data: profile } = await supabaseAdmin
+        .from('users')
+        .select('is_active')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (profile && profile.is_active === false) {
+        await supabase.auth.signOut();
+        return NextResponse.json({ 
+          error: 'Your account has been deactivated. Please contact your administrator.' 
+        }, { status: 403 });
+      }
     }
 
     // Get the session to ensure cookies are properly set
