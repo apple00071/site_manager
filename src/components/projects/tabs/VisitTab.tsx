@@ -398,7 +398,7 @@ export const VisitTab: React.FC<VisitTabProps> = ({
           )}
         </div>
         <div className="w-full lg:w-80 flex-shrink-0">
-          <ProjectUsersPanel projectId={project.id} assignedEmployee={project.assigned_employee} siteSupervisorId={project.site_supervisor_id} createdBy={project.created_by} onProjectUpdated={onProjectUpdated} />
+          <ProjectUsersPanel projectId={project.id} branch={project.branch} assignedEmployee={project.assigned_employee} siteSupervisorId={project.site_supervisor_id} createdBy={project.created_by} onProjectUpdated={onProjectUpdated} />
         </div>
       </div>
     </div>

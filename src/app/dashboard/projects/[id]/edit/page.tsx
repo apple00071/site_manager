@@ -119,7 +119,10 @@ export default function EditProjectPage() {
         setProject(projectData);
 
         // Fetch all users (for designer selection) using API route
-        const response = await fetch('/api/admin/users');
+        const projBranch = projectData?.branch;
+        const branchParam = projBranch ? `?branch=${encodeURIComponent(projBranch)}` : '';
+        const branchHeaders: Record<string, string> = projBranch ? { 'x-branch': projBranch } : {};
+        const response = await fetch(`/api/admin/users${branchParam}`, { headers: branchHeaders });
         if (!response.ok) throw new Error('Failed to fetch employees');
         const employeesData = await response.json();
         setEmployees((employeesData || [])

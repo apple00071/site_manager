@@ -779,7 +779,10 @@ export default function TasksPage() {
       console.log('Checking users table...');
 
       // Fetch all users using admin API to bypass RLS
-      const response = await fetch('/api/admin/users');
+      const branchParam = currentBranch !== 'all' ? `?branch=${encodeURIComponent(currentBranch)}` : '';
+      const response = await fetch(`/api/admin/users${branchParam}`, {
+        headers: { 'x-branch': currentBranch }
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch users from API');
       }
@@ -915,7 +918,7 @@ export default function TasksPage() {
 
   useEffect(() => {
     fetchAssignees();
-  }, []);
+  }, [currentBranch]);
 
   const searchParams = useSearchParams();
   const taskIdParam = searchParams?.get('taskId');

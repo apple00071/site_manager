@@ -6,6 +6,7 @@ import { getAuthUser, createAuthenticatedClient, supabaseAdmin } from '@/lib/sup
 import { sendCustomWhatsAppNotification } from '@/lib/whatsapp';
 import { verifyPermission } from '@/lib/rbac';
 import { PERMISSION_NODES } from '@/lib/rbac-constants';
+import { getActiveBranch } from '@/lib/branch-helper';
 
 // Force dynamic rendering - never cache user data
 export const dynamic = 'force-dynamic';
@@ -123,7 +124,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
     }
 
-    const branchFilter = searchParams.get('branch');
+    const activeBranch = getActiveBranch(request, user);
     let mappedUsers = (users || []).map((u: any) => ({
       ...u,
       branch: u.branch || 'Kukatpally',
@@ -133,8 +134,8 @@ export async function GET(request: NextRequest) {
       address: u.address || u.user_metadata?.address || '',
     }));
 
-    if (branchFilter && branchFilter !== 'all') {
-      mappedUsers = mappedUsers.filter((u: any) => u.branch === branchFilter);
+    if (activeBranch !== 'all') {
+      mappedUsers = mappedUsers.filter((u: any) => u.branch === activeBranch);
     }
 
     return NextResponse.json(mappedUsers);
@@ -191,7 +192,7 @@ export async function POST(req: Request) {
           role,
           username,
       dob: dob || null,
-          branch: isAdmin ? (branch || 'Kukatpally') : 'Kukatpally',
+          branch: isAdmin ? (branch || 'Kukatpally') : (user.branch || 'Kukatpally'),
 
 
     
@@ -246,7 +247,7 @@ export async function POST(req: Request) {
 
   
 
-        branch: isAdmin ? (branch || 'Kukatpally') : 'Kukatpally',
+        branch: isAdmin ? (branch || 'Kukatpally') : (user.branch || 'Kukatpally'),
 
       };
       if (hasUsername) profile.username = username;

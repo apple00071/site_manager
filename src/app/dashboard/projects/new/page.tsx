@@ -181,7 +181,10 @@ export default function NewProjectPage() {
 
         // Fetch team members using API route (bypasses RLS)
         console.log('Fetching employees...');
-        const response = await fetch('/api/admin/users');
+        const branchParam = currentBranch !== 'all' ? `?branch=${encodeURIComponent(currentBranch)}` : '';
+        const response = await fetch(`/api/admin/users${branchParam}`, {
+          headers: { 'x-branch': currentBranch }
+        });
         if (!response.ok) {
           const errorMsg = await response.text();
           console.error('Error fetching employees:', errorMsg);
@@ -217,7 +220,7 @@ export default function NewProjectPage() {
     };
 
     fetchData();
-  }, [isAdmin, router, authLoading, isInitialized, user, hasPermission]);
+  }, [isAdmin, router, authLoading, isInitialized, user, hasPermission, currentBranch]);
 
   const handlePDFUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

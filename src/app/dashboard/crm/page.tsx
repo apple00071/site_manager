@@ -822,7 +822,10 @@ export default function CRMPage() {
 
     const fetchEmployees = async () => {
       try {
-        const response = await fetch('/api/admin/users');
+        const branchParam = currentBranch !== 'all' ? `?branch=${encodeURIComponent(currentBranch)}` : '';
+        const response = await fetch(`/api/admin/users${branchParam}`, {
+          headers: { 'x-branch': currentBranch }
+        });
         if (response.ok) {
           const data = await response.json();
           setEmployees((data || []).filter((u: any) => u.is_active !== false));
@@ -832,7 +835,7 @@ export default function CRMPage() {
       }
     };
     fetchEmployees();
-  }, []);
+  }, [currentBranch]);
 
   // Filtered Leads list
   const filteredLeads = useMemo(() => {

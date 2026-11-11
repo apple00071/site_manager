@@ -32,6 +32,7 @@ interface SystemUser {
 
 interface ProjectUsersPanelProps {
     projectId: string;
+    branch?: string | null;
     assignedEmployee?: {
         id: string;
         name: string;
@@ -43,7 +44,7 @@ interface ProjectUsersPanelProps {
     onProjectUpdated?: () => void;
 }
 
-export function ProjectUsersPanel({ projectId, assignedEmployee, siteSupervisorId, createdBy, onProjectUpdated }: ProjectUsersPanelProps) {
+export function ProjectUsersPanel({ projectId, branch, assignedEmployee, siteSupervisorId, createdBy, onProjectUpdated }: ProjectUsersPanelProps) {
     const [users, setUsers] = useState<ProjectUser[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -147,7 +148,9 @@ export function ProjectUsersPanel({ projectId, assignedEmployee, siteSupervisorI
     const fetchAvailableUsers = async () => {
         try {
             // Fetch all users from the system using the API route to bypass RLS
-            const response = await fetch('/api/admin/users');
+            const branchParam = branch ? `?branch=${encodeURIComponent(branch)}` : '';
+            const branchHeaders: Record<string, string> = branch ? { 'x-branch': branch } : {};
+            const response = await fetch(`/api/admin/users${branchParam}`, { headers: branchHeaders });
             if (!response.ok) {
                 console.error('Error fetching available users:', await response.text());
                 return;

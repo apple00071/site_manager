@@ -83,7 +83,10 @@ export default function CreateProjectFromLeadModal({
     const fetchUsers = async () => {
       try {
         setLoadingDesigners(true);
-        const res = await fetch('/api/admin/users');
+        const targetBranch = (lead as any)?.branch;
+        const branchParam = targetBranch ? `?branch=${encodeURIComponent(targetBranch)}` : '';
+        const branchHeaders: Record<string, string> = targetBranch ? { 'x-branch': targetBranch } : {};
+        const res = await fetch(`/api/admin/users${branchParam}`, { headers: branchHeaders });
         if (res.ok) {
           const data = await res.json();
           // Filter to active designers/employees
