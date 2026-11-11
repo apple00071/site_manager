@@ -297,7 +297,7 @@ export async function POST(request: NextRequest) {
             }
 
             const notificationMsg = `${billLabel}${itemsSummary}${extraCount} verified on site by ${userFullName}.${varianceDetails}${delivery_notes ? ` Notes: ${delivery_notes}` : ''}`;
-            const projectRoute = `/dashboard/projects/${project.id}?tab=boq`;
+            const projectRoute = `/dashboard/projects/${project.id}?stage=boq&tab=boq`;
 
             for (const [recipientId, recipientData] of recipientUserMap.entries()) {
                 // In-App Notification & Push Notification

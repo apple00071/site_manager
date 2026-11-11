@@ -80,7 +80,7 @@ export const VisitTab: React.FC<VisitTabProps> = ({
     <div className="p-2 sm:p-4 md:p-6 w-full">
       <div className="flex flex-col lg:flex-row gap-4 md:gap-6 max-w-7xl mx-auto">
         <div className="flex-1 min-w-0 space-y-4 md:space-y-6">
-          {activeSubTab === 'details' && (
+          {activeSubTab !== 'workers' && (
             <div key="details" className="space-y-4 md:space-y-6 animate-tab-enter">
               {/* Project Information */}
               <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">

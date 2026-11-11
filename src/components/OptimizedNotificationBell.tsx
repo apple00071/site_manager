@@ -73,15 +73,15 @@ const getNotificationUrl = (type: string, relatedId?: string | null, relatedType
     case 'boq_created':
     case 'material_ordered':
     case 'material_delivered':
-      return relatedId ? `${baseUrl}/projects/${relatedId}?tab=boq` : `${baseUrl}/projects`;
+      return relatedId ? `${baseUrl}/projects/${relatedId}?stage=boq&tab=boq` : `${baseUrl}/projects`;
     case 'general':
       if (relatedType === 'project' && relatedId) {
-        return `${baseUrl}/projects/${relatedId}?tab=boq`;
+        return `${baseUrl}/projects/${relatedId}?stage=boq&tab=boq`;
       }
       return undefined;
     default:
       if (relatedType === 'project' && relatedId) {
-        return `${baseUrl}/projects/${relatedId}?tab=boq`;
+        return `${baseUrl}/projects/${relatedId}?stage=boq&tab=boq`;
       }
       return undefined;
   }

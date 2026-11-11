@@ -113,6 +113,24 @@ interface ProjectDetailsClientProps {
   initialProject: Project;
 }
 
+// Helper to resolve stage if only tab parameter is provided (e.g. ?tab=boq from notifications)
+const getStageFromSubTab = (tab: string | null): StageId | null => {
+  if (!tab) return null;
+  for (const [stage, subTabs] of Object.entries(STAGE_SUB_TABS)) {
+    if (subTabs.some(st => st.id === tab)) {
+      return stage as StageId;
+    }
+  }
+  if (tab === 'boq' || tab === 'laminate' || tab === 'delivery_bills') return 'boq';
+  if (tab === 'quotation' || tab === 'notes') return 'requirement';
+  if (tab === 'files' || tab === 'task_history') return 'design';
+  if (tab === 'updates' || tab === 'dlogs' || tab === 'daily_logs') return 'work_progress';
+  if (tab === 'snag_list' || tab === 'snag') return 'snag';
+  if (tab === 'overview' || tab === 'payments' || tab === 'expenses') return 'finance';
+  if (tab === 'details' || tab === 'workers') return 'visit';
+  return null;
+};
+
 export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientProps) {
   const { id } = useParams();
   const router = useRouter();
@@ -123,9 +141,11 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
   const { hasPermission, isAdmin: permIsAdmin } = useUserPermissions();
   const canEditProject = hasPermission('projects.edit');
 
-  const initialStage = ((searchParams?.get('stage') as StageId) || 'visit');
+  const stageFromParam = (searchParams?.get('stage') as StageId);
+  const tabFromParam = searchParams?.get('tab');
+  const initialStage = stageFromParam || getStageFromSubTab(tabFromParam) || 'visit';
   const [activeStage, setActiveStage] = useState<StageId>(initialStage);
-  const [activeSubTab, setActiveSubTab] = useState<string>(searchParams?.get('tab') || getDefaultSubTab(initialStage));
+  const [activeSubTab, setActiveSubTab] = useState<string>(tabFromParam || getDefaultSubTab(initialStage));
   const [editSection, setEditSection] = useState<'info' | 'customer' | 'property' | 'workers' | null>(null);
   const [editingWorker, setEditingWorker] = useState<string | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
@@ -302,11 +322,12 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
   useEffect(() => {
     const stageParam = searchParams?.get('stage') as StageId;
     const tabParam = searchParams?.get('tab');
+    const targetStage = stageParam || getStageFromSubTab(tabParam);
 
-    if (stageParam && ['visit', 'requirement', 'design', 'boq', 'work_progress', 'snag', 'finance'].includes(stageParam)) {
-      if (stageParam !== activeStage) {
-        setActiveStage(stageParam);
-        setActiveSubTab(tabParam || getDefaultSubTab(stageParam));
+    if (targetStage && ['visit', 'requirement', 'design', 'boq', 'work_progress', 'snag', 'finance'].includes(targetStage)) {
+      if (targetStage !== activeStage) {
+        setActiveStage(targetStage);
+        setActiveSubTab(tabParam || getDefaultSubTab(targetStage));
       }
     }
     if (tabParam && tabParam !== activeSubTab) {
@@ -319,8 +340,9 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
       const sp = new URLSearchParams(window.location.search);
       const stageParam = sp.get('stage') as StageId;
       const tabParam = sp.get('tab');
-      if (stageParam && ['visit', 'requirement', 'design', 'boq', 'work_progress', 'snag', 'finance'].includes(stageParam)) {
-        setActiveStage(stageParam);
+      const targetStage = stageParam || getStageFromSubTab(tabParam);
+      if (targetStage && ['visit', 'requirement', 'design', 'boq', 'work_progress', 'snag', 'finance'].includes(targetStage)) {
+        setActiveStage(targetStage);
       }
       if (tabParam) {
         setActiveSubTab(tabParam);

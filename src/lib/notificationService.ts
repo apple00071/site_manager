@@ -124,7 +124,7 @@ export class NotificationService {
       case 'material_delivered':
       case 'boq_created':
       case 'material_ordered':
-        return relatedId ? `${baseUrl}/projects/${relatedId}?tab=boq` : `${baseUrl}/projects`;
+        return relatedId ? `${baseUrl}/projects/${relatedId}?stage=boq&tab=boq` : `${baseUrl}/projects`;
       case 'checklist_pending':
         return relatedId ? `${baseUrl}/projects/${relatedId}?stage=requirement` : `${baseUrl}/projects`;
       case 'general':
