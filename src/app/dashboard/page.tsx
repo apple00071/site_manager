@@ -494,12 +494,12 @@ export default function DashboardPage() {
         />
         <StatCard
           icon={<FiCheckCircle className="h-5 w-5" />}
-          label="All Tasks"
-          value={stats.totalTasks}
+          label="To Do Tasks"
+          value={stats.todoTasks}
           iconBg="#EFF6FF"
           iconColor="#3B82F6"
           href="/dashboard/tasks"
-          sub={`${stats.todoTasks} to do · ${stats.inProgressTasks} in progress`}
+          sub={`${stats.inProgressTasks} in progress · ${stats.totalTasks} total`}
         />
         <StatCard
           icon={<FiAlertCircle className="h-5 w-5" />}

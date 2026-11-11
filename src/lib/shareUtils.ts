@@ -403,25 +403,7 @@ export const shareOrDownloadPdfBlob = async (
     }
   }
 
-  // 3. Web Share API with File (Mobile Chrome / Safari on iOS / Android)
-  if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare) {
-    try {
-      const file = new File([blob], safeFilename, { type: 'application/pdf' });
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title,
-          text: `Here is your quotation: ${safeFilename}`
-        });
-        return true;
-      }
-    } catch (shareErr: any) {
-      if (shareErr?.name === 'AbortError') return true;
-      console.warn('Web Share failed, falling back to download:', shareErr);
-    }
-  }
-
-  // 4. Standard Browser Blob Download
+  // 3. Standard Browser Blob Download (direct file save to Downloads folder)
   try {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
