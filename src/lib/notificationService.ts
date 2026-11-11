@@ -131,6 +131,8 @@ export class NotificationService {
         if (relatedType === 'crm_quotation' || relatedType === 'crm') {
           return relatedId ? `${baseUrl}/crm?leadId=${relatedId}` : `${baseUrl}/crm`;
         }
+        if (relatedType === 'leave') return `${baseUrl}/attendance?tab=leaves`;
+        if (relatedType === 'attendance') return `${baseUrl}/attendance`;
         return undefined;
       default:
         return undefined;
@@ -518,6 +520,7 @@ export class NotificationService {
       title: 'New Leave Application',
       message: `Requester: ${requesterName}\nType: ${leaveType}\nDates: ${startDate}${startDate !== endDate ? ` to ${endDate}` : ''}${timeInfo}\n\nPlease review and take action on this leave request.`,
       type: 'leave_created',
+      relatedType: 'leave',
     });
   }
 
@@ -531,6 +534,7 @@ export class NotificationService {
       title: 'Leave Request Approved',
       message: `Your application for ${leaveType} on ${startDate}${startDate !== endDate ? ` to ${endDate}` : ''}${timeInfo} has been approved.`,
       type: 'leave_approved',
+      relatedType: 'leave',
     });
   }
 
@@ -544,6 +548,7 @@ export class NotificationService {
       title: 'Leave Request Update',
       message: `Your application for ${leaveType} on ${startDate}${startDate !== endDate ? ` to ${endDate}` : ''}${timeInfo} has not been approved. Please check the dashboard for details.`,
       type: 'leave_rejected',
+      relatedType: 'leave',
     });
   }
 
@@ -712,6 +717,7 @@ export class NotificationService {
       title: 'Attendance Appeal Submitted',
       message: `${employeeName} has submitted an attendance appeal for ${date}. Please review it in the dashboard.`,
       type: 'attendance_appealed',
+      relatedType: 'attendance',
       metadata: { date },
     });
   }
@@ -722,6 +728,7 @@ export class NotificationService {
       title: 'Attendance Approved',
       message: `Your attendance record for ${date} has been approved.`,
       type: 'attendance_approved',
+      relatedType: 'attendance',
       metadata: { date },
     });
   }
@@ -732,6 +739,7 @@ export class NotificationService {
       title: 'Attendance Rejected',
       message: `Your attendance record for ${date} has been rejected.${reason ? ` Reason: ${reason}` : ''}`,
       type: 'attendance_rejected',
+      relatedType: 'attendance',
       metadata: { date },
     });
   }

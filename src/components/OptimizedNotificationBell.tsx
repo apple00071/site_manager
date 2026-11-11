@@ -16,75 +16,109 @@ const debugLog = (...args: unknown[]) => {
   }
 };
 
-const getNotificationUrl = (type: string, relatedId?: string | null, relatedType?: string | null) => {
+const getNotificationUrl = (
+  type: string,
+  relatedId?: string | null,
+  relatedType?: string | null,
+  title?: string | null,
+  message?: string | null
+) => {
   const baseUrl = '/dashboard';
-  if (relatedType === 'crm_quotation' || relatedType === 'crm' || relatedType === 'quotation_lead') {
+  const t = (type || '').toLowerCase();
+  const rt = (relatedType || '').toLowerCase();
+  const ti = (title || '').toLowerCase();
+  const msg = (message || '').toLowerCase();
+
+  // 1. Leave & Attendance (by related_type, type, or title/message)
+  if (
+    rt === 'leave' ||
+    t === 'leave_created' ||
+    t === 'leave_approved' ||
+    t === 'leave_rejected' ||
+    ti.includes('leave') ||
+    msg.includes('leave application') ||
+    msg.includes('leave request')
+  ) {
+    return `${baseUrl}/attendance?tab=leaves`;
+  }
+
+  if (
+    rt === 'attendance' ||
+    t === 'attendance_appealed' ||
+    t === 'attendance_approved' ||
+    t === 'attendance_rejected' ||
+    ti.includes('attendance') ||
+    msg.includes('attendance')
+  ) {
+    return `${baseUrl}/attendance`;
+  }
+
+  // 2. CRM Quotation & Leads
+  if (
+    rt === 'crm_quotation' ||
+    rt === 'crm' ||
+    rt === 'quotation_lead' ||
+    ti.includes('quotation') ||
+    ti.includes('lead')
+  ) {
     return relatedId ? `${baseUrl}/crm?leadId=${relatedId}` : `${baseUrl}/crm`;
   }
-  switch (type) {
-    case 'task_assigned':
-      return relatedId ? `${baseUrl}/tasks?taskId=${relatedId}` : `${baseUrl}/tasks`;
-    case 'snag_created':
-    case 'snag_assigned':
-    case 'snag_resolved':
-    case 'snag_verified':
-      if (relatedType === 'project' && relatedId) {
-        return `${baseUrl}/projects/${relatedId}?stage=snag`;
-      }
-      return relatedId ? `${baseUrl}/snags?snagId=${relatedId}` : `${baseUrl}/snags`;
-    case 'design_approved':
-    case 'design_rejected':
-    case 'design_uploaded':
-    case 'comment_added':
-      return relatedId ? `${baseUrl}/projects/${relatedId}?stage=design` : undefined;
-    case 'project_update':
-    case 'mention':
-      if (relatedType === 'daily_status') return `${baseUrl}/daily-status`;
-      return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=updates` : undefined;
-    case 'inventory_added':
-    case 'bill_approved':
-    case 'bill_rejected':
-    case 'bill_resubmitted':
-      return relatedId ? `${baseUrl}/projects/${relatedId}?stage=finance&tab=expenses` : undefined;
-    case 'invoice_created':
-    case 'invoice_approved':
-    case 'invoice_rejected':
-    case 'proposal_sent':
-    case 'proposal_approved':
-    case 'proposal_rejected':
-    case 'payment_recorded':
-      return relatedId ? `${baseUrl}/projects/${relatedId}?stage=orders` : `${baseUrl}/tasks?category=proposals`;
-    case 'expense_created':
-    case 'expense_approved':
-    case 'expense_rejected':
-      return `${baseUrl}/office-expenses`;
-    case 'leave_created':
-    case 'leave_approved':
-    case 'leave_rejected':
-      return `${baseUrl}/attendance?tab=leaves`;
-    case 'attendance_appealed':
-    case 'attendance_approved':
-    case 'attendance_rejected':
-      return `${baseUrl}/attendance`;
-    case 'site_log_submitted':
-      return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=dlogs` : undefined;
-    case 'report_generated':
-      return relatedId ? `${baseUrl}/projects/${relatedId}?stage=reports` : undefined;
-    case 'boq_created':
-    case 'material_ordered':
-    case 'material_delivered':
-      return relatedId ? `${baseUrl}/projects/${relatedId}?stage=boq&tab=boq` : `${baseUrl}/projects`;
-    case 'general':
-      if (relatedType === 'project' && relatedId) {
-        return `${baseUrl}/projects/${relatedId}?stage=boq&tab=boq`;
-      }
-      return undefined;
-    default:
-      if (relatedType === 'project' && relatedId) {
-        return `${baseUrl}/projects/${relatedId}?stage=boq&tab=boq`;
-      }
-      return undefined;
+
+  // 3. Tasks
+  if (t === 'task_assigned' || ti.includes('task')) {
+    return relatedId ? `${baseUrl}/tasks?taskId=${relatedId}` : `${baseUrl}/tasks`;
   }
+
+  // 4. Snags
+  if (t.startsWith('snag') || ti.includes('snag')) {
+    if (rt === 'project' && relatedId) {
+      return `${baseUrl}/projects/${relatedId}?stage=snag`;
+    }
+    return relatedId ? `${baseUrl}/snags?snagId=${relatedId}` : `${baseUrl}/snags`;
+  }
+
+  // 5. Office Expenses
+  if (t.startsWith('expense') || ti.includes('expense')) {
+    return `${baseUrl}/office-expenses`;
+  }
+
+  // 6. BOQ & Delivery Bills / Material Orders
+  if (
+    t === 'boq_created' ||
+    t === 'material_ordered' ||
+    t === 'material_delivered' ||
+    ti.includes('order placed') ||
+    ti.includes('delivery bill') ||
+    ti.includes('boq')
+  ) {
+    return relatedId ? `${baseUrl}/projects/${relatedId}?stage=boq&tab=boq` : `${baseUrl}/projects`;
+  }
+
+  // 7. Design & Files
+  if (t.startsWith('design_') || ti.includes('design')) {
+    return relatedId ? `${baseUrl}/projects/${relatedId}?stage=design` : undefined;
+  }
+
+  // 8. Project Updates & Daily Status
+  if (t === 'project_update' || t === 'mention' || ti.includes('project update')) {
+    if (rt === 'daily_status' || ti.includes('daily status')) return `${baseUrl}/daily-status`;
+    return relatedId ? `${baseUrl}/projects/${relatedId}?stage=work_progress&tab=updates` : undefined;
+  }
+
+  // 9. Client Invoices & Proposals
+  if (t.startsWith('invoice_') || ti.includes('invoice')) {
+    return relatedId ? `${baseUrl}/projects/${relatedId}?stage=orders&tab=client_invoices` : `${baseUrl}/projects`;
+  }
+  if (t.startsWith('proposal_') || ti.includes('proposal')) {
+    return relatedId ? `${baseUrl}/projects/${relatedId}?stage=orders&tab=proposals` : `${baseUrl}/tasks?category=proposals`;
+  }
+
+  // 10. General with project fallback
+  if (rt === 'project' && relatedId) {
+    return `${baseUrl}/projects/${relatedId}`;
+  }
+
+  return undefined;
 };
 
 const getNotificationIcon = (type: string, title?: string) => {
@@ -447,7 +481,7 @@ export function OptimizedNotificationBell() {
       await markAsRead(notification.id);
     }
 
-    const url = getNotificationUrl(notification.type, notification.related_id, notification.related_type);
+    const url = getNotificationUrl(notification.type, notification.related_id, notification.related_type, notification.title, notification.message);
     if (url) {
       router.push(url);
     }
@@ -570,7 +604,7 @@ export function OptimizedNotificationBell() {
                     <div
                       key={notification.id}
                       onClick={() => handleNotificationClick(notification)}
-                      className={`px-4 py-3 hover:bg-gray-50 transition-colors pointer-cursor ${!notification.is_read ? 'bg-yellow-50' : ''}`}
+                      className={`px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer ${!notification.is_read ? 'bg-yellow-50' : ''}`}
                     >
                       <div className="flex items-start gap-3">
                         <span className="text-2xl flex-shrink-0">
@@ -603,7 +637,7 @@ export function OptimizedNotificationBell() {
                             <p className="text-xs text-gray-400">
                               {getRelativeTime(notification.created_at)}
                             </p>
-                            {getNotificationUrl(notification.type, notification.related_id, notification.related_type) && (
+                            {getNotificationUrl(notification.type, notification.related_id, notification.related_type, notification.title, notification.message) && (
                               <button
                                 type="button"
                                 onClick={(event) => {
@@ -612,7 +646,7 @@ export function OptimizedNotificationBell() {
                                 }}
                                 className="text-xs font-semibold text-yellow-800 bg-yellow-100 hover:bg-yellow-200 px-2 py-0.5 rounded transition-colors inline-flex items-center gap-1"
                               >
-                                {notification.related_type === 'crm_quotation' || notification.related_type === 'crm' ? 'Open Quotation' : 'View Details'} →
+                                {notification.related_type === 'crm_quotation' || notification.related_type === 'crm' ? 'Open Quotation' : (notification.type.includes('leave') || (notification.title && notification.title.toLowerCase().includes('leave')) ? 'Review Leave' : 'View Details')} →
                               </button>
                             )}
                           </div>
