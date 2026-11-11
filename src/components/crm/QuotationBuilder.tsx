@@ -168,8 +168,11 @@ export default function QuotationBuilder({ lead, onClose, onSaved }: Props) {
   useEffect(() => {
     async function load() {
       setLoading(true);
+      const leadBranch = (lead as any)?.branch || 'Kukatpally';
       const [rcRes, qRes] = await Promise.all([
-        fetch('/api/rate-card'),
+        fetch(`/api/rate-card?branch=${encodeURIComponent(leadBranch)}`, {
+          headers: { 'x-branch': leadBranch }
+        }),
         fetch(`/api/quotations?lead_id=${lead.id}`),
       ]);
       const rcData = await rcRes.json();

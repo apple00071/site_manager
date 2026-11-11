@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useBranch } from '@/contexts/BranchContext';
 import { FiPlus, FiTrash2, FiSave, FiAlertTriangle } from 'react-icons/fi';
 
 interface RateItem {
@@ -19,6 +20,9 @@ const UNITS = ['sqft', 'rft', 'nos', 'lumpsum'];
 
 export default function RateCardPage() {
   const { hasPermission } = useUserPermissions();
+  const { currentBranch, userBranch, isAdmin, setBranch, availableBranches } = useBranch();
+  const activeBranch = currentBranch !== 'all' ? currentBranch : userBranch;
+
   const [items, setItems] = useState<RateItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -26,11 +30,24 @@ export default function RateCardPage() {
 
   const canEdit = hasPermission('crm.manage');
 
+  const fetchRateCard = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/rate-card?branch=${encodeURIComponent(activeBranch)}`, {
+        headers: { 'x-branch': activeBranch }
+      });
+      const d = await res.json();
+      setItems(d.data || []);
+    } catch (err) {
+      console.error('Failed to load rate card:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetch('/api/rate-card')
-      .then(r => r.json())
-      .then(d => { setItems(d.data || []); setLoading(false); });
-  }, []);
+    fetchRateCard();
+  }, [activeBranch]);
 
   const sections = useMemo(() => ['all', ...Array.from(new Set(items.map(i => i.section)))], [items]);
   const filtered = sectionFilter === 'all' ? items : items.filter(i => i.section === sectionFilter);
@@ -44,7 +61,7 @@ export default function RateCardPage() {
     await fetch('/api/rate-card', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(item),
+      body: JSON.stringify({ ...item, branch: activeBranch }),
     });
     setSaving(null);
   };
@@ -60,7 +77,7 @@ export default function RateCardPage() {
     const res = await fetch('/api/rate-card', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ section, item_name: 'New Item', unit: 'sqft', default_rate: 0, is_lumpsum: false }),
+      body: JSON.stringify({ section, item_name: 'New Item', unit: 'sqft', default_rate: 0, is_lumpsum: false, branch: activeBranch }),
     });
     const data = await res.json();
     if (data.data) setItems(prev => [...prev, data.data]);
@@ -82,7 +99,7 @@ export default function RateCardPage() {
     const res = await fetch('/api/rate-card', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ section: trimmed, item_name: 'New Item', unit: 'sqft', default_rate: 0, is_lumpsum: false }),
+      body: JSON.stringify({ section: trimmed, item_name: 'New Item', unit: 'sqft', default_rate: 0, is_lumpsum: false, branch: activeBranch }),
     });
     const data = await res.json();
     if (data.data) {
@@ -104,9 +121,36 @@ export default function RateCardPage() {
     <div className="p-3 sm:p-6 w-full space-y-4">
       {/* Responsive Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-200">
-        <div>
-          <h1 className="text-lg sm:text-xl font-black text-gray-900">Rate Card Master</h1>
-          <p className="text-xs text-gray-500 mt-0.5">Master price list used in quotation builder</p>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+          <div>
+            <h1 className="text-lg sm:text-xl font-black text-gray-900">Rate Card Master</h1>
+            <p className="text-xs text-gray-500 mt-0.5">Master price list used in quotation builder</p>
+          </div>
+          {isAdmin ? (
+            <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-xl border border-gray-200">
+              <span className="text-[11px] font-bold text-gray-500 px-1.5 uppercase tracking-wider">Branch:</span>
+              {availableBranches.map((b) => (
+                <button
+                  key={b}
+                  type="button"
+                  onClick={() => setBranch(b)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    activeBranch === b
+                      ? 'bg-amber-500 text-white shadow-xs'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
+                  }`}
+                >
+                  {b}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                📍 {activeBranch} Branch
+              </span>
+            </div>
+          )}
         </div>
         {canEdit && (
           <div className="grid grid-cols-2 gap-2 w-full sm:w-auto">
