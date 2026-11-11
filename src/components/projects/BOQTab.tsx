@@ -407,6 +407,24 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
         }
     };
 
+    const handleDeleteBill = async (billNumber: string) => {
+        if (!confirm(`Are you sure you want to delete ${billNumber}? Any items in this bill will be returned to pending status.`)) {
+            return;
+        }
+        try {
+            const res = await fetch(`/api/boq/bills?project_id=${projectId}&bill_number=${encodeURIComponent(billNumber)}`, {
+                method: 'DELETE'
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Failed to delete bill');
+            }
+            await Promise.all([fetchItems(), fetchBills()]);
+        } catch (err: any) {
+            alert(err.message || 'Error deleting bill');
+        }
+    };
+
     const handleStatusChange = async (item: BOQItem, newStatus: string) => {
         if (newStatus === 'delivered') {
             openDeliveryModalForItems([item]);
@@ -1348,6 +1366,19 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
                                                         <FiClock className="w-4 h-4 text-amber-700" />
                                                         <span>Awaiting Site Delivery</span>
                                                     </span>
+                                                )}
+                                                {canEdit && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteBill(bill.bill_number);
+                                                        }}
+                                                        className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                                        title={`Delete ${bill.bill_number}`}
+                                                    >
+                                                        <FiTrash2 className="w-4 h-4" />
+                                                    </button>
                                                 )}
                                                 {isCollapsedCard
                                                     ? <FiChevronDown className="w-4 h-4 text-gray-400 shrink-0" />

@@ -160,11 +160,13 @@ export async function GET(request: NextRequest) {
             }
         });
 
-        // Convert map to sorted list
-        const bills = Array.from(billMap.values()).map(b => ({
-            ...b,
-            item_count: b.items.length
-        }));
+        // Convert map to sorted list, filtering out empty bills with 0 items
+        const bills = Array.from(billMap.values())
+            .filter(b => b.items.length > 0)
+            .map(b => ({
+                ...b,
+                item_count: b.items.length
+            }));
 
         // Sort: pending/ordered first, then delivered, then newest first
         bills.sort((a, b) => {
@@ -212,12 +214,13 @@ export async function POST(request: NextRequest) {
         }
 
         // Determine next Bill Number for this project
-        // Scan existing items to count existing bills
+        // Scan existing items to count existing bills and capture previous bills of selected items
         const { data: existingItems } = await supabaseAdmin
             .from('boq_items')
-            .select('bill_number, delivery_notes')
+            .select('id, bill_number, delivery_notes')
             .eq('project_id', project_id);
 
+        const previousBills = new Set<string>();
         let maxBillNum = 0;
         (existingItems || []).forEach((it: any) => {
             const billStr = it.bill_number || it.delivery_notes || '';
@@ -226,7 +229,25 @@ export async function POST(request: NextRequest) {
                 const num = parseInt(m[1], 10);
                 if (num > maxBillNum) maxBillNum = num;
             }
+            if (it.id && item_ids.includes(it.id) && it.bill_number) {
+                previousBills.add(it.bill_number);
+            }
         });
+
+        // Also check boq_bills table to ensure sequential uniqueness
+        try {
+            const { data: existingDbBills } = await supabaseAdmin
+                .from('boq_bills')
+                .select('bill_number')
+                .eq('project_id', project_id);
+            (existingDbBills || []).forEach((b: any) => {
+                const m = (b.bill_number || '').match(/Bill\s*#(\d+)/i);
+                if (m) {
+                    const num = parseInt(m[1], 10);
+                    if (num > maxBillNum) maxBillNum = num;
+                }
+            });
+        } catch (_) {}
 
         const newBillNumber = `Bill #${maxBillNum + 1}`;
         const cleanVendor = vendor_name?.trim() || null;
@@ -261,6 +282,25 @@ export async function POST(request: NextRequest) {
                         .eq('id', itemId);
                 }
             }
+        }
+
+        // Clean up any old bills that now have 0 items
+        for (const prevBill of previousBills) {
+            if (prevBill === newBillNumber) continue;
+            try {
+                const { count } = await supabaseAdmin
+                    .from('boq_items')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('project_id', project_id)
+                    .eq('bill_number', prevBill);
+                if (count === 0) {
+                    await supabaseAdmin
+                        .from('boq_bills')
+                        .delete()
+                        .eq('project_id', project_id)
+                        .eq('bill_number', prevBill);
+                }
+            } catch (_) {}
         }
 
         // 2. Try inserting record into boq_bills table if table exists
@@ -347,6 +387,58 @@ export async function POST(request: NextRequest) {
         });
     } catch (err: any) {
         console.error('Error creating bill:', err);
+        return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
+    }
+}
+
+/**
+ * DELETE /api/boq/bills?project_id=...&bill_number=...
+ * Deletes a delivery bill and resets its items back to 'pending' delivery status.
+ */
+export async function DELETE(request: NextRequest) {
+    try {
+        const { user, error: authError } = await getAuthUser();
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const { searchParams } = new URL(request.url);
+        const projectId = searchParams.get('project_id');
+        const billNumber = searchParams.get('bill_number');
+
+        if (!projectId || !billNumber) {
+            return NextResponse.json({ error: 'project_id and bill_number are required' }, { status: 400 });
+        }
+
+        const { checkPermission } = await import('@/lib/rbac');
+        const hasDelivery = await checkPermission(user.id, 'boq.delivery', projectId);
+        const hasEdit = await checkPermission(user.id, 'boq.edit', projectId);
+        if (!hasDelivery.allowed && !hasEdit.allowed) {
+            return NextResponse.json({ error: 'Permission denied: boq.delivery or boq.edit required' }, { status: 403 });
+        }
+
+        // Reset items with this bill_number back to pending
+        await supabaseAdmin
+            .from('boq_items')
+            .update({
+                order_status: 'pending',
+                bill_number: null,
+                delivery_notes: null,
+                updated_at: new Date().toISOString()
+            })
+            .eq('project_id', projectId)
+            .eq('bill_number', billNumber);
+
+        // Delete from boq_bills
+        await supabaseAdmin
+            .from('boq_bills')
+            .delete()
+            .eq('project_id', projectId)
+            .eq('bill_number', billNumber);
+
+        return NextResponse.json({ success: true, message: `Deleted ${billNumber}` });
+    } catch (err: any) {
+        console.error('Error deleting bill:', err);
         return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
     }
 }
