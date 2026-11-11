@@ -485,12 +485,12 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           icon={<FiBriefcase className="h-5 w-5" />}
-          label="Total Projects"
-          value={stats.totalProjects}
+          label="Active Projects"
+          value={stats.activeProjects}
           iconBg={BRAND_LIGHT}
           iconColor={BRAND}
           href="/dashboard/projects"
-          sub={`${stats.activeProjects} active · ${stats.completedProjects} completed`}
+          sub={`${stats.totalProjects} total · ${stats.completedProjects} completed`}
         />
         <StatCard
           icon={<FiCheckCircle className="h-5 w-5" />}
