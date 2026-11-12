@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { LOGO_BASE64 } from './logoBase64';
+import { getBranchDetails } from '@/lib/branch-constants';
 
 export interface RequirementPdfItem {
     id?: string;
@@ -23,6 +24,7 @@ export interface RequirementPdfOptions {
     materialSpecs?: Record<string, string> | null;
     notes?: string | null;
     fileName?: string;
+    branch?: string | null;
 }
 
 function formatDisplayDate(inputDate?: string | null): string {
@@ -50,8 +52,11 @@ export function generateRequirementPDF(options: RequirementPdfOptions): void {
         sections,
         materialSpecs,
         notes,
-        fileName
+        fileName,
+        branch
     } = options;
+
+    const branchDetails = getBranchDetails(branch);
 
     const formattedDate = formatDisplayDate(date);
 
@@ -98,9 +103,9 @@ export function generateRequirementPDF(options: RequirementPdfOptions): void {
     doc.setFontSize(7.5);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(210, 210, 210);
-    doc.text('Kukatpally, Hyderabad', pageWidth - margin - 3, 24, { align: 'right' });
-    doc.text('+91 9603 9603 37 · +91 91606 77899', pageWidth - margin - 3, 29, { align: 'right' });
-    doc.text('www.appleinteriors.in', pageWidth - margin - 3, 34, { align: 'right' });
+    doc.text(branchDetails.headerLocation, pageWidth - margin - 3, 24, { align: 'right' });
+    doc.text(branchDetails.phoneDisplay, pageWidth - margin - 3, 29, { align: 'right' });
+    doc.text(branchDetails.website, pageWidth - margin - 3, 34, { align: 'right' });
 
     // 3. DOCUMENT TITLE
     doc.setFontSize(11.5);

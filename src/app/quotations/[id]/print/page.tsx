@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Script from 'next/script';
 import { LOGO_BASE64 } from '@/lib/reports/logoBase64';
 import { shareOrDownloadPdfBlob } from '@/lib/shareUtils';
+import { getBranchDetails } from '@/lib/branch-constants';
 
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
@@ -60,6 +61,7 @@ export default function QuotationPrintPage() {
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
 
   const lead = quotation?.quotation_leads;
+  const branchDetails = getBranchDetails(lead?.branch || quotation?.branch);
 
   const pageRef = useRef<HTMLDivElement>(null);
 
@@ -611,9 +613,9 @@ export default function QuotationPrintPage() {
               />
             </div>
             <div className="header-contact">
-              <b>Kukatpally, Hyderabad</b><br />
-              +91 9603 9603 37 · +91 91606 77899<br />
-              www.appleinteriors.in
+              <b>{branchDetails.headerLocation}</b><br />
+              {branchDetails.phoneDisplay}<br />
+              {branchDetails.website}
             </div>
           </div>
 
@@ -813,7 +815,7 @@ export default function QuotationPrintPage() {
           </div>
 
           <div className="footer-bar">
-            <b>Apple Interiors</b> · Kukatpally, Hyderabad · +91 9603 9603 37 · +91 91606 77899 · www.appleinteriors.in
+            <b>Apple Interiors</b> · {branchDetails.headerLocation} · {branchDetails.phoneDisplay} · {branchDetails.website}
           </div>
         </div>
       </div>

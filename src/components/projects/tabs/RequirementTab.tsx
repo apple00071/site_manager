@@ -43,6 +43,7 @@ interface CRMQuotation {
     site_project: string;
     phone?: string;
     status: string;
+    branch?: string;
   };
   items: CRMQuotationItem[];
 }
@@ -227,6 +228,7 @@ export function RequirementTab({
       sections: groupedSections,
       materialSpecs: crmQuotation.material_specs,
       fileName: (projectInfo?.title || projectName || crmQuotation.lead.client_name || 'Project').replace(/\s+/g, '_'),
+      branch: projectInfo?.branch || crmQuotation.lead?.branch,
     });
   };
 

@@ -988,7 +988,8 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
             deliveryFloor: exportDeliveryFloor || 'Ground Floor',
             date: exportDate,
             vendorName: exportVendorName.trim() || null,
-            items: pdfItems
+            items: pdfItems,
+            branch: project?.branch
         });
 
         if (exportMarkOrdered) {
@@ -1120,7 +1121,8 @@ export const BOQTab = forwardRef<BOQTabHandle, BOQTabProps>(({ projectId, projec
             deliveryFloor: exportDeliveryFloor || 'Ground Floor',
             date: exportDate,
             vendorName: exportVendorName.trim() || null,
-            items: pdfItems
+            items: pdfItems,
+            branch: project?.branch
         });
 
         if (exportMarkOrdered) {

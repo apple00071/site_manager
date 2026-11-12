@@ -44,6 +44,7 @@ export default function FinalBillModal({
   const [saving, setSaving] = useState(false);
   const [leadId, setLeadId] = useState<string | null>(null);
   const [quotationId, setQuotationId] = useState<string | null>(null);
+  const [branch, setBranch] = useState<string | null>(null);
 
   // Bill items state
   const [items, setItems] = useState<FinalBillItem[]>([]);
@@ -77,6 +78,7 @@ export default function FinalBillModal({
 
       setLeadId(data.lead?.id || null);
       setQuotationId(data.quotation?.id || null);
+      setBranch(data.project?.branch || data.lead?.branch || null);
       setBaselineBudget(Number(data.financials?.budget) || 0);
       setTotalCollected(Number(data.financials?.collected) || 0);
 
@@ -237,6 +239,7 @@ export default function FinalBillModal({
     downloadFinalBillPDF({
       projectTitle,
       customerName,
+      branch,
       items,
       subtotal,
       discountType,

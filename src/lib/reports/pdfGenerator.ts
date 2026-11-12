@@ -1,8 +1,10 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { LOGO_BASE64 } from './logoBase64';
+import { getBranchDetails } from '@/lib/branch-constants';
 
 export async function generateQuotationPDF(quotation: any, lead: any): Promise<Buffer> {
+    const branchDetails = getBranchDetails(lead?.branch || quotation?.branch);
     const doc = new jsPDF() as any;
 
     // 0. TOP ACCENT BAR (#f5c518 Amber Gold)
@@ -37,13 +39,13 @@ export async function generateQuotationPDF(quotation: any, lead: any): Promise<B
     doc.setFontSize(9.5);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(245, 197, 24); // Amber Gold
-    doc.text('Kukatpally, Hyderabad', 190, 20, { align: 'right' });
+    doc.text(branchDetails.headerLocation, 190, 20, { align: 'right' });
     
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(190, 190, 190);
-    doc.text('+91 9603 9603 37 · +91 91606 77899', 190, 26, { align: 'right' });
-    doc.text('www.appleinteriors.in', 190, 32, { align: 'right' });
+    doc.text(branchDetails.phoneDisplay, 190, 26, { align: 'right' });
+    doc.text(branchDetails.website, 190, 32, { align: 'right' });
 
     // 2. MAIN TITLE
     doc.setFontSize(14);
@@ -406,7 +408,7 @@ export async function generateQuotationPDF(quotation: any, lead: any): Promise<B
     doc.text('APPLE INTERIORS', 18, currentY + 4.2);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(187, 187, 187);
-    doc.text('· Kukatpally, Hyderabad · +91 9603 9603 37 · +91 91606 77899 · www.appleinteriors.in', 46, currentY + 4.2);
+    doc.text(`· ${branchDetails.headerLocation} · ${branchDetails.phoneDisplay} · ${branchDetails.website}`, 46, currentY + 4.2);
 
     return Buffer.from(doc.output('arraybuffer'));
 }

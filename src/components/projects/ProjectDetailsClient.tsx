@@ -518,6 +518,7 @@ export function ProjectDetailsClient({ initialProject }: ProjectDetailsClientPro
                     projectBudget={project.project_budget}
                     projectTitle={project.title}
                     customerName={project.customer_name}
+                    branch={project.branch}
                     onBudgetUpdated={(newBudget) => setProject((prev: any) => ({ ...prev, project_budget: newBudget }))}
                   />
                 )}

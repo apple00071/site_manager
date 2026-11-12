@@ -1,6 +1,8 @@
 import { LOGO_BASE64 } from './logoBase64';
+import { getBranchDetails } from '@/lib/branch-constants';
 
 export function buildQuotationHtmlString(quotation: any, lead: any): string {
+  const branchDetails = getBranchDetails(lead?.branch || quotation?.branch);
   const items: any[] = (quotation?.quotation_items || quotation?.items || []).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
 
   const sections: Record<string, any[]> = {};
@@ -126,9 +128,9 @@ export function buildQuotationHtmlString(quotation: any, lead: any): string {
             <img src="${LOGO_BASE64}" alt="Apple Interiors" style="height: 62px; width: auto; object-fit: contain; display: block;" />
           </div>
           <div class="header-contact">
-            <b>Kukatpally, Hyderabad</b><br />
-            +91 9603 9603 37 · +91 91606 77899<br />
-            www.appleinteriors.in
+            <b>${branchDetails.headerLocation}</b><br />
+            ${branchDetails.phoneDisplay}<br />
+            ${branchDetails.website}
           </div>
         </div>
 
@@ -274,7 +276,7 @@ export function buildQuotationHtmlString(quotation: any, lead: any): string {
         </div>
 
         <div class="footer-bar">
-          <b>APPLE INTERIORS</b> · Interior Design & Execution · Kukatpally, Hyderabad · +91 9603 9603 37 · +91 91606 77899
+          <b>APPLE INTERIORS</b> · Interior Design & Execution · ${branchDetails.headerLocation} · ${branchDetails.phoneDisplay}
         </div>
       </div>
     </body>

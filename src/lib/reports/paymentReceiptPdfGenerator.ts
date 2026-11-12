@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { LOGO_BASE64 } from './logoBase64';
 import { formatDateIST } from '@/lib/dateUtils';
+import { getBranchDetails } from '@/lib/branch-constants';
 
 export interface PaymentReceiptData {
   id?: string;
@@ -18,6 +19,7 @@ export interface PaymentReceiptData {
   project?: {
     title?: string;
     customer_name?: string | null;
+    branch?: string | null;
     client?: {
       name?: string;
       phone?: string;
@@ -123,6 +125,7 @@ function splitPdfText(doc: any, text: string, maxWidth: number): string[] {
 }
 
 export function generatePaymentReceiptPDF(payment: PaymentReceiptData): jsPDF {
+  const branchDetails = getBranchDetails(payment.project?.branch);
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -172,9 +175,9 @@ export function generatePaymentReceiptPDF(payment: PaymentReceiptData): jsPDF {
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(210, 210, 210);
-  doc.text('Kukatpally, Hyderabad - 500072', 190, 25.5, { align: 'right' });
-  doc.text('+91 9603 9603 37 · +91 91606 77899', 190, 30.5, { align: 'right' });
-  doc.text('www.appleinteriors.in', 190, 35.5, { align: 'right' });
+  doc.text(`${branchDetails.headerLocation} - ${branchDetails.name === 'AS Rao Nagar' ? '500062' : '500072'}`, 190, 25.5, { align: 'right' });
+  doc.text(branchDetails.phoneDisplay, 190, 30.5, { align: 'right' });
+  doc.text(branchDetails.website, 190, 35.5, { align: 'right' });
 
   // 2. RECEIPT TITLE
   let y = 49;

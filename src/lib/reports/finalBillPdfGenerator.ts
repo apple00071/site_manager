@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { LOGO_BASE64 } from './logoBase64';
 import { formatDateIST } from '@/lib/dateUtils';
+import { getBranchDetails } from '@/lib/branch-constants';
 
 export interface FinalBillItem {
   id?: string;
@@ -20,6 +21,7 @@ export interface FinalBillData {
   projectTitle: string;
   customerName?: string | null;
   projectAddress?: string | null;
+  branch?: string | null;
   billNumber?: string;
   billDate?: string;
   items: FinalBillItem[];
@@ -46,6 +48,7 @@ export function generateFinalBillPDF(data: FinalBillData): jsPDF {
   const year = new Date().getFullYear();
   const billNo = data.billNumber || `AI/FB-${year}-${String(Math.floor(100 + Math.random() * 900))}`;
   const formattedDate = data.billDate ? formatDateIST(data.billDate) : formatDateIST(new Date().toISOString());
+  const branchDetails = getBranchDetails(data.branch);
 
   // 1. TOP GOLD ACCENT BAR
   doc.setFillColor(245, 197, 24); // #f5c518
@@ -68,10 +71,15 @@ export function generateFinalBillPDF(data: FinalBillData): jsPDF {
   doc.text('APPLE INTERIORS', 196, 13, { align: 'right' });
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(107, 114, 128);
-  doc.text('H.No 1-55/4, First Floor, Above SBI Bank,', 196, 17.5, { align: 'right' });
-  doc.text('Opp. Pillar No. C1730, Kukatpally, Hyderabad - 500072', 196, 21.5, { align: 'right' });
-  doc.text('+91 9603 9603 37 · +91 91606 77899', 196, 25.5, { align: 'right' });
-  doc.text('www.appleinteriors.in', 196, 29.5, { align: 'right' });
+  if (branchDetails.name === 'AS Rao Nagar') {
+    doc.text('LIG-B-219, Anupuram Colony,', 196, 17.5, { align: 'right' });
+    doc.text('AS Rao Nagar, Secunderabad - 500062', 196, 21.5, { align: 'right' });
+  } else {
+    doc.text('H.No 1-55/4, First Floor, Above SBI Bank,', 196, 17.5, { align: 'right' });
+    doc.text('Opp. Pillar No. C1730, Kukatpally, Hyderabad - 500072', 196, 21.5, { align: 'right' });
+  }
+  doc.text(branchDetails.phoneDisplay, 196, 25.5, { align: 'right' });
+  doc.text(branchDetails.website, 196, 29.5, { align: 'right' });
 
   // Title: FINAL BILL & SETTLEMENT
   let y = 38;

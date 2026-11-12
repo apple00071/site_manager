@@ -28,6 +28,7 @@ interface ProjectFinanceTabProps {
   projectBudget?: number | null;
   projectTitle?: string;
   customerName?: string | null;
+  branch?: string | null;
   onBudgetUpdated?: (newBudget: number) => void;
 }
 
@@ -36,6 +37,7 @@ export default function ProjectFinanceTab({
   projectBudget = null,
   projectTitle = '',
   customerName = null,
+  branch = null,
   onBudgetUpdated,
 }: ProjectFinanceTabProps) {
   const { user } = useAuth();
@@ -460,7 +462,7 @@ export default function ProjectFinanceTab({
                           type="button"
                           onClick={() => downloadPaymentReceiptPDF({
                             ...p,
-                            project: { title: projectTitle, customer_name: customerName }
+                            project: { title: projectTitle, customer_name: customerName, branch: branch || p.project?.branch }
                           })}
                           title="Download Official Receipt PDF"
                           className="inline-flex items-center justify-center text-center gap-1 h-7 px-2 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 transition-colors cursor-pointer"
